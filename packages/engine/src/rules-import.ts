@@ -36,9 +36,13 @@ export const IMPORT_RULES: readonly Rule<ImportCtx>[] = [
     when: (c) => !c.collected && c.daysUntilLfd !== null && c.daysUntilLfd <= c.ddCriticalDays,
     action: 'Prioritise collection',
     waitingOn: 'US',
-    reason: (c) => c.daysUntilLfd !== null && c.daysUntilLfd <= 0
-      ? `Last free day passed ${Math.abs(c.daysUntilLfd)} day(s) ago, container not collected`
-      : `Last free day in ${c.daysUntilLfd} day(s), container not collected`,
+    reason: (c) => {
+      const d = c.daysUntilLfd;
+      if (d === null) return 'Container not collected';
+      if (d === 0) return 'Last free day is today, container not collected';
+      if (d < 0) return `Last free day passed ${Math.abs(d)} day(s) ago, container not collected`;
+      return `Last free day in ${d} day(s), container not collected`;
+    },
   },
   {
     id: 'IMP_DETENTION_APPROACHING',

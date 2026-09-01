@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import vinext from "vinext";
 import { defineConfig } from "vite";
 import hostingConfig from "./.openai/hosting.json";
@@ -43,10 +44,21 @@ export default defineConfig(async () => {
   // Wrangler snapshots its log path while the Cloudflare plugin is imported.
   const { cloudflare } = await import("@cloudflare/vite-plugin");
 
+  // Workspace packages live above this app. In the target monorepo these
+  // resolve through npm workspaces and this alias block is deleted outright.
+  const pkg = (name: string) =>
+    fileURLToPath(new URL(`../packages/${name}/src/index.ts`, import.meta.url));
+
   return {
+    resolve: {
+      alias: {
+        "@greenlit/engine": pkg("engine"),
+        "@greenlit/core": pkg("core"),
+      },
+    },
     server: isCodexSeatbeltSandbox
-      ? { watch: { useFsEvents: false, usePolling: true } }
-      : undefined,
+      ? { watch: { useFsEvents: false, usePolling: true }, fs: { allow: [".", "../packages"] } }
+      : { fs: { allow: [".", "../packages"] } },
     plugins: [
       vinext(),
       sites(),
