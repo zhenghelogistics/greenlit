@@ -806,12 +806,12 @@ function WaitingPill({ owner }) {
     Carrier: "border-slate-200 bg-slate-100 text-slate-700",
     Nobody: "border-emerald-200 bg-emerald-50 text-emerald-800",
   };
-  return <span className={`inline-flex min-h-8 items-center rounded-full border px-3 py-1 text-base font-semibold ${tones[owner]}`}>{owner}</span>;
+  return <span className={`gl-pill ${tones[owner]}`}>{owner}</span>;
 }
 
 function StatusPill({ status, large = false, flash = false }) {
   return (
-    <span className={`inline-flex items-center rounded-full border font-semibold ${large ? "min-h-12 px-5 py-2 text-[18px]" : "min-h-9 px-3 py-1 text-base"} ${statusTone(status)} ${flash ? "greenlit-release-flash" : ""}`}>
+    <span className={`inline-flex items-center rounded-full border font-semibold ${large ? "min-h-12 px-5 py-2 text-[15px]" : "min-h-9 px-3 py-1 text-[15px]"} ${statusTone(status)} ${flash ? "greenlit-release-flash" : ""}`}>
       {status}
     </span>
   );
@@ -830,23 +830,27 @@ function Panel({ title, action, children, className = "" }) {
 }
 
 function CounterCard({ label, value, note, icon: Icon, tone = "navy", onClick }) {
-  const iconTone = tone === "red" ? "bg-rose-50 text-rose-700" : tone === "amber" ? "bg-amber-50 text-amber-700" : tone === "green" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-[#17418c]";
+  const iconTone = tone === "red" ? "bg-rose-50 text-rose-700"
+    : tone === "amber" ? "bg-amber-50 text-amber-700"
+    : tone === "green" ? "bg-emerald-50 text-emerald-700"
+    : "bg-slate-100 text-[color:var(--gl-brand)]";
   return (
-    <button type="button" onClick={onClick} className="group flex h-full min-h-20 w-full flex-col justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-left transition-[border-color,background-color] duration-200 hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 sm:min-h-28 sm:px-4 sm:py-4">
-      {/* Count and icon share one baseline row so the chip never floats free of
-          the numeral it belongs to. */}
+    <button
+      type="button"
+      onClick={onClick}
+      className="gl-panel flex h-[88px] w-full flex-col justify-between p-3 text-left transition-colors duration-150 hover:bg-slate-50"
+    >
+      {/* Count and icon share one baseline row. */}
       <div className="flex items-center justify-between gap-2">
-        <span className="greenlit-display text-2xl font-semibold tabular-nums tracking-[-0.02em] text-slate-950 sm:text-3xl">{value}</span>
-        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md sm:h-9 sm:w-9 ${iconTone}`}>
-          <Icon className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+        <span className="gl-metric">{value}</span>
+        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded ${iconTone}`}>
+          <Icon className="h-4 w-4" aria-hidden="true" />
         </span>
       </div>
-      {/* Label and note occupy reserved slots. Without this a three-line label
-          ("Waiting on customer") makes its card taller than its neighbours and
-          the row develops a ragged bottom edge. */}
-      <div className="mt-2">
-        <div className="flex min-h-[2.75rem] items-start text-base font-semibold leading-tight text-slate-700">{label}</div>
-        <div className="mt-1 hidden min-h-[1.5rem] text-base font-medium leading-snug text-slate-500 sm:block">{note ?? ""}</div>
+      {/* Reserved slots: a three-line label cannot bulge its neighbour. */}
+      <div>
+        <div className="gl-label flex min-h-[32px] items-end">{label}</div>
+        <div className="gl-caption min-h-[16px] truncate">{note ?? ""}</div>
       </div>
     </button>
   );
@@ -883,7 +887,7 @@ function ActionTable({ rows, onOpen, compact = false }) {
       <div className="flex min-h-44 flex-col items-center justify-center gap-3 p-6 text-center">
         <CheckCircle2 className="h-10 w-10 text-emerald-700" aria-hidden="true" />
         <p className="text-xl font-semibold text-slate-950">No jobs match this filter.</p>
-        <p className="text-[18px] text-slate-700">Choose another filter to continue.</p>
+        <p className="text-[15px] text-slate-700">Choose another filter to continue.</p>
       </div>
     );
   }
@@ -891,44 +895,35 @@ function ActionTable({ rows, onOpen, compact = false }) {
   return (
     <>
       <div className="hidden overflow-x-auto xl:block">
-        <table className="w-full min-w-[1180px] border-collapse text-left text-[18px]">
-          <thead className="bg-[#172a3a] text-white">
+        <table className="gl-table min-w-[1080px]">
+          <thead>
             <tr>
               {[
-                "Job",
-                "Container",
-                "Status",
-                "What is blocking it",
-                "Next action",
-                "Waiting on",
+                "Job", "Container", "Status", "Blocking", "Next action", "Waiting on",
                 ...(compact ? [] : ["Age", "Required by"]),
-                "",
               ].map((heading, index) => (
-                <th key={`${heading}-${index}`} className="border-r border-slate-600 px-4 py-4 text-base font-semibold last:border-r-0">{heading}</th>
+                <th key={`${heading}-${index}`}>{heading}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {jobs.map((job) => (
-              <tr key={job.id} className="border-b border-slate-200 align-top even:bg-slate-50/70 hover:bg-sky-50/70">
-                <td className="px-4 py-4">
-                  <button type="button" onClick={() => onOpen(job.id)} className="min-h-11 text-left font-semibold text-[#17418c] underline decoration-1 underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">
-                    {job.id}
-                  </button>
-                  <div className="mt-1 font-semibold text-slate-700">{job.type}</div>
+              /* The whole row is the target. MASTER v2 §4.2: a dense table must
+                 not carry a trailing chevron column. */
+              <tr key={job.id} onClick={() => job.openable !== false && onOpen(job.id)}>
+                <td>
+                  <span className="gl-data" style={{ color: "var(--gl-brand)" }}>{job.id}</span>
+                  <div className="gl-caption mt-0.5">{job.type}</div>
                 </td>
-                <td className="px-4 py-4 font-semibold text-slate-950">{job.container}</td>
-                <td className="px-4 py-4"><StatusPill status={job.status} /></td>
-                <td className="max-w-[270px] px-4 py-4 font-normal leading-snug text-slate-600">{job.blocking}</td>
-                <td className="max-w-[260px] px-4 py-4 font-semibold leading-snug text-slate-950">{job.nextAction}</td>
-                <td className="px-4 py-4"><WaitingPill owner={job.waitingOn} /></td>
-                {!compact ? <td className="px-4 py-4 font-semibold tabular-nums text-slate-950">{job.age}</td> : null}
-                {!compact ? <td className="px-4 py-4 font-semibold text-slate-950">{job.requiredBy}</td> : null}
-                <td className="px-4 py-4">
-                  <button type="button" onClick={() => onOpen(job.id)} aria-label={`Open ${job.id}`} className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-slate-300 text-[#17418c] hover:border-slate-400 hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">
-                    <ChevronRight className="h-5 w-5" aria-hidden="true" />
-                  </button>
-                </td>
+                <td><span className="gl-data">{job.container}</span></td>
+                <td><StatusPill status={job.status} /></td>
+                {/* Supporting copy: deliberately quieter than the action. */}
+                <td className="gl-body gl-muted max-w-[260px]">{job.blocking}</td>
+                {/* The one strong value in the row. */}
+                <td className="gl-body gl-strong max-w-[240px]" style={{ fontWeight: 500 }}>{job.nextAction}</td>
+                <td><WaitingPill owner={job.waitingOn} /></td>
+                {!compact ? <td><span className="gl-data">{job.age}</span></td> : null}
+                {!compact ? <td><span className="gl-data">{job.requiredBy}</span></td> : null}
               </tr>
             ))}
           </tbody>
@@ -940,7 +935,7 @@ function ActionTable({ rows, onOpen, compact = false }) {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="text-xl font-semibold text-[#17418c] underline decoration-1 underline-offset-4">{job.id}</div>
-                <div className="mt-1 font-semibold text-slate-700">{job.container} · {job.type}</div>
+                <div className="mt-1 font-normal text-slate-600">{job.container} · {job.type}</div>
               </div>
               <StatusPill status={job.status} />
             </div>
@@ -962,11 +957,11 @@ function ActionTable({ rows, onOpen, compact = false }) {
 function TripTable({ trips, flashTripId, onOpenTrip }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[1160px] border-collapse text-left text-[18px]">
+      <table className="w-full min-w-[1160px] border-collapse text-left text-[15px]">
         <thead className="bg-[#172a3a] text-white">
           <tr>
             {["Reference", "Container", "Route", "Type", "Status", "Planned date", "Collected", "Delivered", ""].map((heading, index) => (
-              <th key={`${heading}-${index}`} className="border-r border-slate-600 px-4 py-4 text-base font-semibold last:border-r-0">{heading}</th>
+              <th key={`${heading}-${index}`} className="border-r border-slate-600 px-4 py-4 text-[15px] font-semibold last:border-r-0">{heading}</th>
             ))}
           </tr>
         </thead>
@@ -978,14 +973,14 @@ function TripTable({ trips, flashTripId, onOpenTrip }) {
               <tr key={trip.id} className={`border-b border-slate-200 align-top ${pending ? "bg-slate-50" : "bg-white"} ${cancelled ? "line-through opacity-75" : ""} ${flashTripId === trip.id ? "greenlit-new-row" : ""}`}>
                 <td className="px-4 py-4 font-extrabold text-slate-950">
                   {trip.id}
-                  {trip.createdAutomatically ? <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-base font-semibold text-emerald-800"><CircleDot className="h-4 w-4" />Created automatically</div> : null}
+                  {trip.createdAutomatically ? <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[15px] font-semibold text-emerald-800"><CircleDot className="h-4 w-4" />Created automatically</div> : null}
                 </td>
-                <td className="px-4 py-4"><div className="font-semibold text-slate-950">{trip.containerRef || "—"}</div><div className="mt-1 break-all text-base font-medium text-slate-600">{trip.containerNumber || "Identity pending"}</div></td>
+                <td className="px-4 py-4"><div className="font-semibold text-slate-950">{trip.containerRef || "—"}</div><div className="mt-1 break-all text-[13px] font-normal text-slate-500">{trip.containerNumber || "Identity pending"}</div></td>
                 <td className="max-w-[260px] px-4 py-4 font-semibold text-slate-900">{trip.route}</td>
                 <td className="px-4 py-4 font-semibold text-slate-950">{trip.type}</td>
                 <td className="px-4 py-4">
                   <span className={`inline-flex min-h-9 items-center rounded-full border px-3 py-1 font-semibold ${tripStatusTone(trip)}`}>{trip.status}</span>
-                  {pending && !trip.plannedDate ? <div className="mt-2 font-semibold text-slate-700">Not yet scheduled</div> : null}
+                  {pending && !trip.plannedDate ? <div className="mt-2 font-normal text-slate-600">Not yet scheduled</div> : null}
                   {cancelled ? <div className="mt-2 font-semibold text-red-900">{trip.cancelledReason}</div> : null}
                 </td>
                 <td className="px-4 py-4 font-semibold text-slate-900">{trip.plannedDate ? new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "short", year: "numeric" }).format(parseDay(trip.plannedDate)) : "Not scheduled"}</td>
@@ -995,7 +990,7 @@ function TripTable({ trips, flashTripId, onOpenTrip }) {
               </tr>
             );
           }) : (
-            <tr><td colSpan="9" className="px-5 py-8 text-center text-[18px] font-semibold text-slate-700">No trips have been created for this job. Use “Add trip” to arrange the next movement.</td></tr>
+            <tr><td colSpan="9" className="px-5 py-8 text-center text-[15px] font-normal text-slate-600">No trips have been created for this job. Use “Add trip” to arrange the next movement.</td></tr>
           )}
         </tbody>
       </table>
@@ -1084,9 +1079,9 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4 sm:mb-6">
         <div>
           <h1 className="text-3xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-[2rem]">Today’s control tower</h1>
-          <p className="mt-2 max-w-[72ch] text-[18px] font-normal text-slate-600">Start with work waiting on us, then protect free time and carpark capacity.</p>
+          <p className="mt-2 max-w-[72ch] text-[15px] font-normal text-slate-600">Start with work waiting on us, then protect free time and carpark capacity.</p>
         </div>
-        <div className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-base font-medium text-slate-600">
+        <div className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-[13px] font-normal text-slate-500">
           <CalendarDays className="h-4 w-4 text-slate-500" aria-hidden="true" />
           Wednesday, 19 August 2026
         </div>
@@ -1118,12 +1113,12 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
                   <button key={job.id} type="button" onClick={() => onOpen(job.id)} className="grid min-h-32 w-full gap-4 px-5 py-5 text-left transition-colors duration-200 hover:bg-sky-50/70 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600 md:grid-cols-[1fr_auto]">
                     <div>
                       <div className="text-xl font-semibold text-[#17418c] underline decoration-1 underline-offset-4">{primaryContainer(job)}</div>
-                      <div className="mt-2 text-[18px] font-semibold text-slate-800">{job.id} · Chassis {job.chassis[0].unit}</div>
+                      <div className="mt-2 text-[15px] font-semibold text-slate-800">{job.id} · Chassis {job.chassis[0].unit}</div>
                       <div className="mt-2 font-semibold text-slate-950">Transhipment: {job.transhipment === "pending" ? "Pending" : "Available"}</div>
                     </div>
                     <div className={`flex min-h-20 min-w-32 flex-col items-center justify-center rounded-md border px-4 py-3 text-center ${tone}`}>
                       <div className="text-2xl font-semibold tabular-nums">Day {dwell}</div>
-                      <div className="text-base font-medium">at carpark</div>
+                      <div className="text-[15px] font-medium">at carpark</div>
                     </div>
                   </button>
                 );
@@ -1139,9 +1134,9 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
                   <button key={job.id} type="button" onClick={() => onOpen(job.id)} className="flex min-h-24 w-full flex-wrap items-center justify-between gap-4 px-5 py-4 text-left transition-colors duration-200 hover:bg-sky-50/70 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600">
                     <div>
                       <div className="text-xl font-semibold text-[#17418c] underline decoration-1 underline-offset-4">{primaryContainer(job)}</div>
-                      <div className="mt-1 text-[18px] font-semibold text-slate-800">{job.id} · {job.terminal}</div>
+                      <div className="mt-1 text-[15px] font-semibold text-slate-800">{job.id} · {job.terminal}</div>
                     </div>
-                    <span className={`inline-flex min-h-12 items-center rounded-md border px-4 py-2 text-[18px] font-semibold ${freeTimeTone(days)}`}>{freeTimeLabel(days)}</span>
+                    <span className={`inline-flex min-h-12 items-center rounded-md border px-4 py-2 text-[15px] font-semibold ${freeTimeTone(days)}`}>{freeTimeLabel(days)}</span>
                   </button>
                 );
               })}
@@ -1157,13 +1152,13 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
               return (
                 <div key={size} className={`flex min-h-40 items-center justify-between gap-5 p-6 ${index === 0 ? "border-b border-slate-200 md:border-b-0 md:border-r" : ""}`}>
                   <div>
-                    <div className="text-[18px] font-semibold text-slate-700">{size} available</div>
+                    <div className="text-[15px] font-normal text-slate-600">{size} available</div>
                     <div className="mt-1 text-5xl font-semibold tabular-nums tracking-[-0.03em] text-[#17418c]">{available}</div>
-                    <div className="mt-2 text-[18px] font-semibold text-slate-900">out of {CHASSIS_TOTALS[size]}</div>
+                    <div className="mt-2 text-[15px] font-semibold text-slate-900">out of {CHASSIS_TOTALS[size]}</div>
                   </div>
                   <div className={`rounded-md border px-5 py-4 text-center ${held ? "border-rose-200 bg-rose-50 text-rose-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
                     <div className="text-2xl font-semibold tabular-nums">{held}</div>
-                    <div className="max-w-36 text-base font-medium">held beyond 5 days</div>
+                    <div className="max-w-36 text-[15px] font-medium">held beyond 5 days</div>
                   </div>
                 </div>
               );
@@ -1205,19 +1200,19 @@ function ActionRequired({ jobs, filter, setFilter, dashboardFilter, clearDashboa
     <main id="main-content" className="mx-auto max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
       <div className="pb-2">
         <h1 className="text-3xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-[2rem]">Action Required</h1>
-        <p className="mt-2 text-[18px] font-normal text-slate-600">Work top to bottom. Doing the action removes the row.</p>
+        <p className="mt-2 text-[15px] font-normal text-slate-600">Work top to bottom. Doing the action removes the row.</p>
       </div>
 
       <div className="mt-5 flex flex-wrap gap-3" aria-label="Action filters">
         {FILTERS.map((item) => (
-          <button key={item.id} type="button" onClick={() => { setFilter(item.id); clearDashboardFilter(); }} aria-pressed={filter === item.id && !dashboardFilter} className={`min-h-12 rounded-md border px-5 py-2 text-[18px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${filter === item.id && !dashboardFilter ? "border-[#17418c] bg-[#17418c] text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"}`}>
+          <button key={item.id} type="button" onClick={() => { setFilter(item.id); clearDashboardFilter(); }} aria-pressed={filter === item.id && !dashboardFilter} className={`min-h-12 rounded-md border px-5 py-2 text-[15px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${filter === item.id && !dashboardFilter ? "border-[#17418c] bg-[#17418c] text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"}`}>
             {item.label}
           </button>
         ))}
       </div>
 
       {dashboardFilter ? (
-        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-[18px] font-medium text-sky-900">
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-[15px] font-medium text-sky-900">
           Dashboard filter: {dashboardLabels[dashboardFilter] || dashboardFilter}
           <button type="button" onClick={clearDashboardFilter} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-sky-300 bg-white px-3 font-semibold text-[#17418c] focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><X className="h-5 w-5" />Clear</button>
         </div>
@@ -1233,20 +1228,20 @@ function ActionRequired({ jobs, filter, setFilter, dashboardFilter, clearDashboa
 function DetailField({ label, value, flash = false }) {
   return (
     <div className={`min-h-24 border-b border-r border-slate-200 p-4 ${flash ? "greenlit-release-flash" : ""}`}>
-      <div className="text-base font-medium text-slate-500">{label}</div>
-      <div className="mt-2 break-words text-[18px] font-semibold text-slate-900">{value}</div>
+      <div className="gl-label">{label}</div>
+      <div className="mt-2 break-words text-[15px] font-semibold text-slate-900">{value}</div>
     </div>
   );
 }
 
-const drawerInputClass = "mt-2 min-h-12 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[18px] font-medium text-slate-950 outline-none focus:border-[#17418c] focus:outline focus:outline-4 focus:outline-offset-1 focus:outline-sky-600";
+const drawerInputClass = "mt-2 min-h-12 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[15px] font-medium text-slate-950 outline-none focus:border-[#17418c] focus:outline focus:outline-4 focus:outline-offset-1 focus:outline-sky-600";
 
 function DrawerField({ label, children, hint }) {
   return (
     <label className="block">
-      <span className="text-base font-semibold text-slate-700">{label}</span>
+      <span className="text-[13px] font-normal text-slate-500">{label}</span>
       {children}
-      {hint ? <span className="mt-2 block text-base font-medium text-slate-500">{hint}</span> : null}
+      {hint ? <span className="mt-2 block gl-label">{hint}</span> : null}
     </label>
   );
 }
@@ -1254,12 +1249,12 @@ function DrawerField({ label, children, hint }) {
 function ChoiceGroup({ label, value, options, onChange }) {
   return (
     <fieldset>
-      <legend className="text-base font-semibold text-slate-700">{label}</legend>
+      <legend className="text-[13px] font-normal text-slate-500">{label}</legend>
       <div className="mt-2 grid gap-3 sm:grid-cols-2">
         {options.map((option) => (
-          <button key={option.value} type="button" onClick={() => onChange(option.value)} aria-pressed={value === option.value} className={`min-h-14 rounded-md border px-4 py-3 text-left text-[18px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${value === option.value ? "border-[#17418c] bg-[#17418c] text-white" : "border-slate-300 bg-white text-slate-800 hover:border-[#17418c]"}`}>
+          <button key={option.value} type="button" onClick={() => onChange(option.value)} aria-pressed={value === option.value} className={`min-h-14 rounded-md border px-4 py-3 text-left text-[15px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${value === option.value ? "border-[#17418c] bg-[#17418c] text-white" : "border-slate-300 bg-white text-slate-800 hover:border-[#17418c]"}`}>
             <span className="block">{option.label}</span>
-            {option.note ? <span className={`mt-1 block text-base font-medium ${value === option.value ? "text-sky-100" : "text-slate-500"}`}>{option.note}</span> : null}
+            {option.note ? <span className={`mt-1 block text-[15px] font-medium ${value === option.value ? "text-sky-100" : "text-slate-500"}`}>{option.note}</span> : null}
           </button>
         ))}
       </div>
@@ -1402,8 +1397,8 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
         <div className="flex items-start justify-between gap-4 border-b border-slate-700 bg-[#172a3a] px-5 py-5 text-white">
           <div className="min-w-0">
             <h2 id="operations-drawer-title" className="text-2xl font-semibold tracking-[-0.02em]">{heading.title}</h2>
-            <p className="mt-2 text-base font-medium text-slate-200">{heading.note}</p>
-            {job ? <div className="mt-3 inline-flex min-h-8 items-center rounded-full border border-slate-500 bg-[#0f2333] px-3 text-base font-semibold text-slate-100">{job.id} · {job.customer}</div> : null}
+            <p className="mt-2 text-[15px] font-medium text-slate-200">{heading.note}</p>
+            {job ? <div className="mt-3 inline-flex min-h-8 items-center rounded-full border border-slate-500 bg-[#0f2333] px-3 text-[15px] font-semibold text-slate-100">{job.id} · {job.customer}</div> : null}
           </div>
           <button type="button" onClick={onClose} autoFocus aria-label="Close management panel" className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md border border-slate-500 text-slate-100 hover:bg-[#0f2333] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400"><X className="h-6 w-6" /></button>
         </div>
@@ -1430,7 +1425,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
 
             {panel.type === "container" && job?.type === "Export" ? (
               <div className="grid gap-5">
-                <div className="flex items-center justify-between gap-4 rounded-md border border-slate-200 bg-white px-4 py-3"><div><div className="text-base font-semibold text-slate-500">Container reference</div><div className="mt-1 text-xl font-semibold text-slate-950">{panel.mode === "new" ? `C${containerRecords.length + 1}` : selectedContainer?.ref || `C${(panel.index || 0) + 1}`}</div></div><div className="text-right text-base font-semibold text-slate-600">{containerRecords.length} / {MAX_CONTAINERS_PER_JOB} on job</div></div>
+                <div className="flex items-center justify-between gap-4 rounded-md border border-slate-200 bg-white px-4 py-3"><div><div className="gl-label">Container reference</div><div className="mt-1 text-xl font-semibold text-slate-950">{panel.mode === "new" ? `C${containerRecords.length + 1}` : selectedContainer?.ref || `C${(panel.index || 0) + 1}`}</div></div><div className="text-right text-[13px] font-medium text-slate-600">{containerRecords.length} / {MAX_CONTAINERS_PER_JOB} on job</div></div>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <DrawerField label="Container number" hint="May remain blank until the empty is collected."><input maxLength={11} pattern="[A-Za-z]{4}[0-9]{7}" value={draft.number || ""} onChange={(event) => update("number", event.target.value)} className={drawerInputClass} /></DrawerField>
                   <DrawerField label="Size / type"><input required value={draft.sizeType || ""} onChange={(event) => update("sizeType", event.target.value)} className={drawerInputClass} placeholder="40 HQ" /></DrawerField>
@@ -1441,7 +1436,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                 <DrawerField label="Stuffing location" hint="Each container may use a different customer site."><textarea required rows={2} value={draft.stuffingLocation || ""} onChange={(event) => update("stuffingLocation", event.target.value)} className={drawerInputClass} /></DrawerField>
                 <ChoiceGroup label="Details sent to customer" value={Boolean(draft.detailsSent)} onChange={(value) => update("detailsSent", value)} options={[{ value: true, label: "Sent", note: "This container may proceed to stuffing." }, { value: false, label: "Not sent", note: "Keep this container waiting on us." }]} />
                 <ChoiceGroup label="Customer confirms container ready" value={Boolean(draft.customerReady)} onChange={(value) => update("customerReady", value)} options={[{ value: true, label: "Ready", note: "Validate VGM before laden movement." }, { value: false, label: "Not ready", note: "Keep this container waiting on the customer." }]} />
-                {duplicateContainerNumber ? <div role="alert" className="rounded-md border border-rose-200 bg-rose-50 p-4 text-[18px] font-semibold text-rose-900">{draftContainerNumber} is already on this job. Every container number must be unique.</div> : null}
+                {duplicateContainerNumber ? <div role="alert" className="rounded-md border border-rose-200 bg-rose-50 p-4 text-[15px] font-semibold text-rose-900">{draftContainerNumber} is already on this job. Every container number must be unique.</div> : null}
               </div>
             ) : null}
 
@@ -1454,18 +1449,18 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                 </div>
                 <DrawerField label="Operational state"><select value={draft.state || ""} onChange={(event) => update("state", event.target.value)} className={drawerInputClass}>{["At terminal", "Awaiting permit", "Ready", "Collected", "Delivered"].map((state) => <option key={state}>{state}</option>)}</select></DrawerField>
                 <DrawerField label="Container last free day"><input required type="date" value={draft.lastFreeDay || ""} onChange={(event) => update("lastFreeDay", event.target.value)} className={drawerInputClass} /></DrawerField>
-                <div className="rounded-md border border-sky-200 bg-sky-50 p-4 text-[18px] font-medium text-sky-900">Marking a container collected or delivered also updates its linked delivery trip. Delivering every container creates the empty-return trip automatically.</div>
-                {duplicateContainerNumber ? <div role="alert" className="rounded-md border border-rose-200 bg-rose-50 p-4 text-[18px] font-semibold text-rose-900">{draftContainerNumber} is already on this job. Every container number must be unique.</div> : null}
+                <div className="rounded-md border border-sky-200 bg-sky-50 p-4 text-[15px] font-medium text-sky-900">Marking a container collected or delivered also updates its linked delivery trip. Delivering every container creates the empty-return trip automatically.</div>
+                {duplicateContainerNumber ? <div role="alert" className="rounded-md border border-rose-200 bg-rose-50 p-4 text-[15px] font-semibold text-rose-900">{draftContainerNumber} is already on this job. Every container number must be unique.</div> : null}
               </div>
             ) : null}
 
             {panel.type === "container" && panel.mode !== "new" && selectedContainerHasMovement && containerRecords.length > 1 ? (
-              <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-[18px] font-medium text-amber-950">This container has a linked movement, so it cannot be removed from the job. Cancel or resolve that movement first.</div>
+              <div className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-[15px] font-medium text-amber-950">This container has a linked movement, so it cannot be removed from the job. Cancel or resolve that movement first.</div>
             ) : null}
 
             {panel.type === "trip" && job ? (
               <div className="grid gap-5">
-                <div className="rounded-md border border-slate-200 bg-white px-4 py-3"><div className="text-base font-semibold text-slate-500">Trip reference</div><div className="mt-1 text-xl font-semibold text-slate-950">{draft.id || nextTripReference(job.trips)}</div></div>
+                <div className="rounded-md border border-slate-200 bg-white px-4 py-3"><div className="gl-label">Trip reference</div><div className="mt-1 text-xl font-semibold text-slate-950">{draft.id || nextTripReference(job.trips)}</div></div>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <DrawerField label="Trip type"><select value={draft.type || ""} onChange={(event) => update("type", event.target.value)} className={drawerInputClass}>{(job.type === "Import" ? ["Import Delivery", "Empty Return"] : ["Empty Collection", "Direct Laden to Port", "One-Way Loaded", "Carpark to Port"]).map((type) => <option key={type}>{type}</option>)}</select></DrawerField>
                   <DrawerField label="Status"><select value={draft.status || "Pending"} onChange={(event) => update("status", event.target.value)} className={drawerInputClass}>{["Pending", "Collected", "In Transit", "Delivered", "Completed", "Cancelled"].map((status) => <option key={status}>{status}</option>)}</select></DrawerField>
@@ -1479,10 +1474,10 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
 
             {panel.type === "chassis" ? (
               <div className="grid gap-5">
-                <div className="grid grid-cols-2 gap-4 rounded-md border border-slate-200 bg-white p-5"><div><div className="text-base font-semibold text-slate-500">Unit</div><div className="mt-1 text-3xl font-semibold text-slate-950">{panel.unit}</div></div><div><div className="text-base font-semibold text-slate-500">Size</div><div className="mt-1 text-xl font-semibold text-slate-950">{panel.size}</div></div></div>
+                <div className="grid grid-cols-2 gap-4 rounded-md border border-slate-200 bg-white p-5"><div><div className="gl-label">Unit</div><div className="mt-1 text-3xl font-semibold text-slate-950">{panel.unit}</div></div><div><div className="gl-label">Size</div><div className="mt-1 text-xl font-semibold text-slate-950">{panel.size}</div></div></div>
                 {panel.condition === "available" ? <DrawerField label="Assign to active job"><select required value={draft.jobId || ""} onChange={(event) => update("jobId", event.target.value)} className={drawerInputClass}><option value="">Choose a job</option>{activeJobs.map((item) => <option key={item.id} value={item.id}>{item.id} · {item.customer}</option>)}</select></DrawerField> : null}
                 {panel.condition === "assigned" ? <ChoiceGroup label="Chassis action" value={draft.action} onChange={(value) => update("action", value)} options={[{ value: "release", label: "Release to fleet", note: "Make the unit available immediately." }, { value: "keep", label: "Keep assigned", note: "Leave the current assignment unchanged." }]} /> : null}
-                {panel.condition === "maintenance" ? <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-[18px] font-medium text-amber-950">This simulates completing the inspection and returning the unit to the available register.</div> : null}
+                {panel.condition === "maintenance" ? <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-[15px] font-medium text-amber-950">This simulates completing the inspection and returning the unit to the available register.</div> : null}
               </div>
             ) : null}
 
@@ -1495,23 +1490,23 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
 
             {panel.type === "activity" ? (
               <div className="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 bg-white">
-                {(job?.activity || []).length ? job.activity.map((item) => <div key={item.id} className="p-5"><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-semibold text-slate-950">{item.text}</span><span className="text-base font-semibold text-slate-500">{item.at}</span></div><div className="mt-2 text-base font-medium text-slate-600">{item.actor}</div></div>) : <div className="p-6 text-center"><History className="mx-auto h-9 w-9 text-slate-400" /><div className="mt-3 text-xl font-semibold text-slate-950">No simulated changes yet</div><div className="mt-2 text-[18px] text-slate-600">Updates made from checkpoints, containers, trips, or chassis will appear here.</div></div>}
+                {(job?.activity || []).length ? job.activity.map((item) => <div key={item.id} className="p-5"><div className="flex flex-wrap items-center justify-between gap-2"><span className="font-semibold text-slate-950">{item.text}</span><span className="gl-label">{item.at}</span></div><div className="mt-2 text-[13px] font-normal text-slate-500">{item.actor}</div></div>) : <div className="p-6 text-center"><History className="mx-auto h-9 w-9 text-slate-400" /><div className="mt-3 text-xl font-semibold text-slate-950">No simulated changes yet</div><div className="mt-2 text-[15px] text-slate-600">Updates made from checkpoints, containers, trips, or chassis will appear here.</div></div>}
               </div>
             ) : null}
 
             {panel.type === "source" ? (
               <div className="grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-2">
-                {Object.entries(job?.sourceDocument?.values || { "Document type": job?.sourceDocument?.documentType, Carrier: job?.sourceDocument?.carrier, "Issue date": job?.sourceDocument?.issueDate, "Bill of lading": job?.billOfLading, "Vessel / voyage": [job?.vessel, job?.voyage].filter(Boolean).join(" / ") }).filter(([, value]) => value).map(([key, value]) => <div key={key} className="min-w-0 bg-white p-4"><div className="text-base font-semibold capitalize text-slate-500">{String(key).replace(/([A-Z])/g, " $1")}</div><div className="mt-2 break-words text-[18px] font-semibold text-slate-950">{String(value)}</div></div>)}
+                {Object.entries(job?.sourceDocument?.values || { "Document type": job?.sourceDocument?.documentType, Carrier: job?.sourceDocument?.carrier, "Issue date": job?.sourceDocument?.issueDate, "Bill of lading": job?.billOfLading, "Vessel / voyage": [job?.vessel, job?.voyage].filter(Boolean).join(" / ") }).filter(([, value]) => value).map(([key, value]) => <div key={key} className="min-w-0 bg-white p-4"><div className="text-[15px] font-semibold capitalize text-slate-500">{String(key).replace(/([A-Z])/g, " $1")}</div><div className="mt-2 break-words text-[15px] font-semibold text-slate-950">{String(value)}</div></div>)}
               </div>
             ) : null}
           </div>
 
           <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap gap-3">
-              <button type="button" onClick={onClose} className="min-h-12 rounded-md border border-slate-300 bg-white px-5 text-[18px] font-semibold text-slate-800 hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">{isReadOnly ? "Close" : "Cancel"}</button>
-              {canRemoveContainer ? <button type="button" onClick={() => onCommit(panel, { ...draft, _delete: true })} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-rose-300 bg-white px-4 text-[18px] font-semibold text-rose-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><Trash2 className="h-5 w-5" />Remove</button> : null}
+              <button type="button" onClick={onClose} className="min-h-12 rounded-md border border-slate-300 bg-white px-5 text-[15px] font-semibold text-slate-800 hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">{isReadOnly ? "Close" : "Cancel"}</button>
+              {canRemoveContainer ? <button type="button" onClick={() => onCommit(panel, { ...draft, _delete: true })} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-rose-300 bg-white px-4 text-[15px] font-semibold text-rose-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><Trash2 className="h-5 w-5" />Remove</button> : null}
             </div>
-            {!isReadOnly ? <button type="submit" disabled={Boolean(duplicateContainerNumber)} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-md bg-[#17418c] px-6 py-3 text-[18px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:bg-slate-400"><Save className="h-5 w-5" />{panel.type === "container" && panel.mode === "new" ? "Add container" : "Save and recalculate"}</button> : null}
+            {!isReadOnly ? <button type="submit" disabled={Boolean(duplicateContainerNumber)} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-md bg-[#17418c] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:bg-slate-400"><Save className="h-5 w-5" />{panel.type === "container" && panel.mode === "new" ? "Add container" : "Save and recalculate"}</button> : null}
           </div>
         </form>
       </aside>
@@ -1534,7 +1529,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
 
   return (
     <main id="main-content" className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
-      <button type="button" onClick={onBack} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[18px] font-semibold text-[#17418c] hover:bg-slate-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+      <button type="button" onClick={onBack} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[15px] font-semibold text-[#17418c] hover:bg-slate-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
         <ArrowLeft className="h-6 w-6" /> Back
       </button>
 
@@ -1543,21 +1538,21 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-3xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-[2rem]">{job.id}</h1>
-              <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-base font-semibold text-slate-700">{job.type}</span>
+              <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[13px] font-normal text-slate-500">{job.type}</span>
             </div>
             <p className="mt-2 text-xl font-medium text-slate-700">{job.customer}</p>
-            <p className="mt-2 flex items-center gap-2 text-[18px] font-normal text-slate-600"><MapPin className="h-5 w-5" /> {location(job)}</p>
+            <p className="mt-2 flex items-center gap-2 text-[15px] font-normal text-slate-600"><MapPin className="h-5 w-5" /> {location(job)}</p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-3">
             <StatusPill status={status} large flash={highlight === "status"} />
-            <button type="button" onClick={() => onManage("job")} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[18px] font-semibold text-[#17418c] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><PencilLine className="h-5 w-5" />Edit job</button>
-            <button type="button" onClick={() => onManage("activity")} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[18px] font-semibold text-[#17418c] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><History className="h-5 w-5" />Activity</button>
+            <button type="button" onClick={() => onManage("job")} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[15px] font-semibold text-[#17418c] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><PencilLine className="h-5 w-5" />Edit job</button>
+            <button type="button" onClick={() => onManage("activity")} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[15px] font-semibold text-[#17418c] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><History className="h-5 w-5" />Activity</button>
           </div>
         </div>
       </header>
 
       {(isMoment1 || isMoment2 || isMoment3a || isMoment3b) ? (
-        <div className="mt-5 flex items-start gap-3 rounded-lg border border-sky-200 bg-sky-50 px-5 py-4 text-[18px] font-medium text-sky-900">
+        <div className="mt-5 flex items-start gap-3 rounded-lg border border-sky-200 bg-sky-50 px-5 py-4 text-[15px] font-medium text-sky-900">
           <CircleDot className="mt-0.5 h-5 w-5 shrink-0 text-[#17418c]" />
           <span>
             {isMoment1 ? "Try this: record CMS completed and watch Greenlit create one empty-collection movement per container." : null}
@@ -1572,7 +1567,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
         <section className={`mt-5 overflow-hidden rounded-lg border border-emerald-200 bg-white ${highlight === "sourceDocument" ? "greenlit-release-flash" : ""}`} aria-labelledby="source-document-title">
           <div className="flex flex-col gap-3 bg-emerald-800 px-5 py-4 text-white sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3"><FileCheck2 className="h-6 w-6" aria-hidden="true" /><h2 id="source-document-title" className="text-xl font-semibold">Created from a verified arrival notice</h2></div>
-            <div className="flex flex-wrap items-center gap-3"><span className="inline-flex min-h-9 items-center rounded-full border border-emerald-500 bg-emerald-900/40 px-3 text-base font-semibold">Processed locally</span><button type="button" onClick={() => onManage("source")} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-emerald-300 bg-white px-4 font-semibold text-emerald-900 hover:bg-emerald-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400">View facts <ChevronRight className="h-5 w-5" /></button></div>
+            <div className="flex flex-wrap items-center gap-3"><span className="inline-flex min-h-9 items-center rounded-full border border-emerald-500 bg-emerald-900/40 px-3 text-[15px] font-semibold">Processed locally</span><button type="button" onClick={() => onManage("source")} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-emerald-300 bg-white px-4 font-semibold text-emerald-900 hover:bg-emerald-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400">View facts <ChevronRight className="h-5 w-5" /></button></div>
           </div>
           <div className="grid divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-4">
             <DetailField label="Source document" value={job.sourceDocument.fileName} />
@@ -1580,7 +1575,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
             <DetailField label="Vessel / voyage" value={[job.vessel, job.voyage].filter(Boolean).join(" / ") || "Not recorded"} />
             <DetailField label="Fields applied" value={`${job.sourceDocument.extractedCount} verified facts`} />
           </div>
-          <div className="border-t border-amber-200 bg-amber-50 px-5 py-3 text-base font-medium text-amber-950">Free-time dates are planning estimates from ETA until actual discharge and gate events are confirmed.</div>
+          <div className="border-t border-amber-200 bg-amber-50 px-5 py-3 text-[15px] font-medium text-amber-950">Free-time dates are planning estimates from ETA until actual discharge and gate events are confirmed.</div>
         </section>
       ) : null}
 
@@ -1592,7 +1587,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
                 <span className={`flex h-9 w-9 items-center justify-center rounded-md border ${row.ok ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
                   {row.ok ? <Check className="h-5 w-5" /> : <X className="h-5 w-5" />}
                 </span>
-                <span className="text-[18px] font-semibold text-slate-900">{row.label}</span>
+                <span className="text-[15px] font-semibold text-slate-900">{row.label}</span>
                 <span className={`font-semibold ${row.ok ? "text-emerald-800" : "text-rose-800"}`}>{row.value}</span>
                 <ChevronRight className="h-5 w-5 text-[#17418c]" aria-hidden="true" />
               </button>
@@ -1602,7 +1597,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
             {gate.ready ? <CheckCircle2 className="h-8 w-8 shrink-0" /> : <XCircle className="h-8 w-8 shrink-0" />}
             <div>
               <div className="text-xl font-semibold">{gate.ready ? "READY" : "BLOCKED"}</div>
-              <div className="mt-1 text-[18px] font-medium">{gate.reason}</div>
+              <div className="mt-1 text-[15px] font-medium">{gate.reason}</div>
             </div>
           </div>
         </Panel>
@@ -1612,20 +1607,20 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
           <p className={`mt-5 text-3xl font-semibold leading-tight tracking-[-0.02em] ${highlight === "nextAction" ? "greenlit-text-flash" : ""}`}>{nextAction(job)}</p>
           <div className="mt-6 border-t border-slate-600 pt-5">
             <div className="font-medium text-slate-300">Why</div>
-            <div className="mt-2 text-[18px] font-medium">{blockingReason(job)}</div>
+            <div className="mt-2 text-[15px] font-medium">{blockingReason(job)}</div>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <span className="font-medium text-slate-300">Waiting on</span>
             <WaitingPill owner={job.waitingOn} />
           </div>
-          <button type="button" onClick={onNextAction} className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-md bg-white px-6 py-3 text-[18px] font-semibold text-[#17418c] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
+          <button type="button" onClick={onNextAction} className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-md bg-white px-6 py-3 text-[15px] font-semibold text-[#17418c] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
             {status === "Completed" ? <History className="h-5 w-5" /> : <ListTodo className="h-5 w-5" />}{status === "Completed" ? "View activity" : "Do this now"}<ChevronRight className="h-5 w-5" />
           </button>
         </section>
       </div>
 
       {isMoment2 ? (
-        <div className="mt-6 rounded-lg border border-rose-200 bg-rose-50 px-5 py-5 text-[18px] font-medium leading-relaxed text-rose-900">
+        <div className="mt-6 rounded-lg border border-rose-200 bg-rose-50 px-5 py-5 text-[15px] font-medium leading-relaxed text-rose-900">
           “Without this rule the trip looks finished, the customer never learns the container number, and stuffing never starts.”
         </div>
       ) : null}
@@ -1633,8 +1628,8 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
       {(isMoment1 && !job.cmsCompleted) ? (
         <section className="mt-6 rounded-lg border border-sky-200 bg-sky-50 p-5">
           <h2 className="text-xl font-semibold text-slate-900">Release this checkpoint</h2>
-          <p className="mt-2 text-[18px] font-normal text-slate-700">This records the missing internal checkpoint and creates the permitted trip automatically.</p>
-          <button type="button" onClick={onRecordCms} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[#17418c] px-6 py-3 text-[18px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+          <p className="mt-2 text-[15px] font-normal text-slate-700">This records the missing internal checkpoint and creates the permitted trip automatically.</p>
+          <button type="button" onClick={onRecordCms} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[#17418c] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
             <PackageCheck className="h-6 w-6" /> Record CMS completed
           </button>
         </section>
@@ -1643,8 +1638,8 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
       {(isMoment2 && !containers[0]?.number) ? (
         <section className="mt-6 rounded-lg border border-rose-200 bg-rose-50 p-5">
           <h2 className="text-xl font-semibold text-rose-900">Open exception: {job.exception.text}</h2>
-          <p className="mt-2 text-[18px] font-normal text-rose-900">Delivered 26 hours ago. Container details must be recorded before this trip can complete.</p>
-          <button type="button" onClick={onRecordDetails} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[#17418c] px-6 py-3 text-[18px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+          <p className="mt-2 text-[15px] font-normal text-rose-900">Delivered 26 hours ago. Container details must be recorded before this trip can complete.</p>
+          <button type="button" onClick={onRecordDetails} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[#17418c] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
             <ContainerIcon className="h-6 w-6" /> Record container details
           </button>
         </section>
@@ -1653,12 +1648,12 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
       {isMoment3a ? (
         <section className="mt-6 rounded-lg border border-sky-200 bg-sky-50 p-5">
           <h2 className="text-xl font-semibold text-slate-900">Set transhipment</h2>
-          <p className="mt-2 text-[18px] font-normal text-slate-700">The answer determines whether the laden container goes directly to port or branches through the company carpark.</p>
+          <p className="mt-2 text-[15px] font-normal text-slate-700">The answer determines whether the laden container goes directly to port or branches through the company carpark.</p>
           <div className="mt-5 flex flex-wrap gap-3">
-            <button type="button" onClick={() => onSetTranshipment("available")} aria-pressed={job.transhipment === "available"} className={`min-h-14 rounded-md border px-6 py-3 text-[18px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${job.transhipment === "available" ? "border-emerald-700 bg-emerald-700 text-white" : "border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50"}`}>
+            <button type="button" onClick={() => onSetTranshipment("available")} aria-pressed={job.transhipment === "available"} className={`min-h-14 rounded-md border px-6 py-3 text-[15px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${job.transhipment === "available" ? "border-emerald-700 bg-emerald-700 text-white" : "border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50"}`}>
               Available
             </button>
-            <button type="button" onClick={() => onSetTranshipment("not_available")} aria-pressed={job.transhipment === "not_available"} className={`min-h-14 rounded-md border px-6 py-3 text-[18px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${job.transhipment === "not_available" ? "border-rose-700 bg-rose-700 text-white" : "border-rose-300 bg-white text-rose-800 hover:bg-rose-50"}`}>
+            <button type="button" onClick={() => onSetTranshipment("not_available")} aria-pressed={job.transhipment === "not_available"} className={`min-h-14 rounded-md border px-6 py-3 text-[15px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${job.transhipment === "not_available" ? "border-rose-700 bg-rose-700 text-white" : "border-rose-300 bg-white text-rose-800 hover:bg-rose-50"}`}>
               Not available
             </button>
           </div>
@@ -1666,8 +1661,8 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
             <div className="mt-5 rounded-md border border-slate-200 bg-white p-5">
               <div className="text-xl font-semibold text-slate-900">Customer requests carpark?</div>
               <div className="mt-4 flex flex-wrap gap-3">
-                <button type="button" onClick={() => onCarparkDecision(true)} className="min-h-12 rounded-md bg-[#17418c] px-6 py-2 text-[18px] font-semibold text-white focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">Yes — use carpark</button>
-                <button type="button" onClick={() => onCarparkDecision(false)} className="min-h-12 rounded-md border border-slate-300 bg-white px-6 py-2 text-[18px] font-semibold text-slate-800 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">No</button>
+                <button type="button" onClick={() => onCarparkDecision(true)} className="min-h-12 rounded-md bg-[#17418c] px-6 py-2 text-[15px] font-semibold text-white focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">Yes — use carpark</button>
+                <button type="button" onClick={() => onCarparkDecision(false)} className="min-h-12 rounded-md border border-slate-300 bg-white px-6 py-2 text-[15px] font-semibold text-slate-800 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">No</button>
               </div>
             </div>
           ) : null}
@@ -1677,8 +1672,8 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
       {isMoment3b && job.transhipment !== "available" ? (
         <section className="mt-6 rounded-lg border border-rose-200 bg-rose-50 p-5">
           <h2 className="text-xl font-semibold text-rose-900">Day 6 at carpark · chassis 4052 held 9 days</h2>
-          <p className="mt-2 text-[18px] font-normal text-rose-900">Transhipment is still pending, so the container cannot make its final port trip.</p>
-          <button type="button" onClick={onCarparkAvailable} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[#17418c] px-6 py-3 text-[18px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+          <p className="mt-2 text-[15px] font-normal text-rose-900">Transhipment is still pending, so the container cannot make its final port trip.</p>
+          <button type="button" onClick={onCarparkAvailable} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[#17418c] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
             <Anchor className="h-6 w-6" /> Transhipment now available
           </button>
         </section>
@@ -1686,13 +1681,13 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <Panel title="Containers" action={<button type="button" disabled={containers.length >= MAX_CONTAINERS_PER_JOB} onClick={() => onManage("container", { mode: "new" })} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[#17418c] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600 disabled:text-slate-400 disabled:no-underline"><Plus className="h-5 w-5" />{containers.length >= MAX_CONTAINERS_PER_JOB ? "20 container limit" : "Add container"}</button>}>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-base font-semibold text-slate-700" aria-live="polite"><span>{containers.length} / {MAX_CONTAINERS_PER_JOB} containers on this job</span><span>{completedContainers} complete</span></div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[13px] font-normal text-slate-500" aria-live="polite"><span>{containers.length} / {MAX_CONTAINERS_PER_JOB} containers on this job</span><span>{completedContainers} complete</span></div>
           <div className="divide-y divide-slate-200">
             {containers.map((container, index) => {
               const containerStatus = job.type === "Import" ? container.state : exportContainerStatus(job, container, index);
               return (
                 <button key={container.ref || container.number || index} type="button" onClick={() => onManage("container", { index })} className="grid min-h-24 w-full gap-3 px-5 py-4 text-left hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                  <span className="min-w-0"><span className="block text-base font-semibold text-slate-500">{container.ref || `C${index + 1}`}</span><span className="mt-1 block break-all text-[18px] font-semibold text-slate-950">{container.number || "Identity pending"}</span><span className="mt-1 block text-base font-medium text-slate-600">{job.type === "Import" ? [container.type, container.seal && `Seal ${container.seal}`].filter(Boolean).join(" · ") || "Type and seal not recorded" : [container.sizeType, container.stuffingLocation].filter(Boolean).join(" · ")}</span></span>
+                  <span className="min-w-0"><span className="block gl-label">{container.ref || `C${index + 1}`}</span><span className="mt-1 block break-all text-[15px] font-semibold text-slate-950">{container.number || "Identity pending"}</span><span className="mt-1 block text-[13px] font-normal text-slate-500">{job.type === "Import" ? [container.type, container.seal && `Seal ${container.seal}`].filter(Boolean).join(" · ") || "Type and seal not recorded" : [container.sizeType, container.stuffingLocation].filter(Boolean).join(" · ")}</span></span>
                   <span className="flex items-center justify-between gap-3 sm:justify-end"><span className={`rounded-md border px-3 py-2 font-semibold ${statusTone(containerStatus)}`}>{containerStatus}</span><ChevronRight className="h-5 w-5 text-[#17418c]" /></span>
                 </button>
               );
@@ -1705,14 +1700,14 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
             <div className="divide-y divide-slate-200">
               {chassis.map((item) => (
                 <button key={item.unit} type="button" onClick={() => onManage("chassis", { unit: item.unit, size: item.size, condition: "assigned" })} className="grid min-h-24 w-full grid-cols-[1fr_1fr_1fr_24px] items-center gap-4 px-5 py-4 text-left hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600">
-                  <div><div className="font-semibold text-slate-700">Unit</div><div className="mt-1 text-2xl font-black text-slate-950">{item.unit}</div></div>
-                  <div><div className="font-semibold text-slate-700">Size</div><div className="mt-1 text-[18px] font-extrabold text-slate-950">{item.size}</div></div>
-                  <div><div className="font-semibold text-slate-700">Held</div><div className={`mt-1 text-[18px] font-extrabold ${daysHeld(item.heldSince) > 5 ? "text-red-900" : "text-slate-950"}`}>{item.released ? "Released" : `${daysHeld(item.heldSince)} days`}</div></div>
+                  <div><div className="font-normal text-slate-600">Unit</div><div className="mt-1 text-2xl font-black text-slate-950">{item.unit}</div></div>
+                  <div><div className="font-normal text-slate-600">Size</div><div className="mt-1 text-[15px] font-extrabold text-slate-950">{item.size}</div></div>
+                  <div><div className="font-normal text-slate-600">Held</div><div className={`mt-1 text-[15px] font-extrabold ${daysHeld(item.heldSince) > 5 ? "text-red-900" : "text-slate-950"}`}>{item.released ? "Released" : `${daysHeld(item.heldSince)} days`}</div></div>
                   <ChevronRight className="h-5 w-5 text-[#17418c]" />
                 </button>
               ))}
             </div>
-          ) : <div className="px-5 py-8 text-[18px] font-semibold text-slate-700">No chassis assigned yet.</div>}
+          ) : <div className="px-5 py-8 text-[15px] font-normal text-slate-600">No chassis assigned yet.</div>}
         </Panel>
       </div>
 
@@ -1726,8 +1721,8 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
               const days = daysUntil(clock.date);
               return (
                 <div key={clock.label} className={`flex min-h-36 items-center justify-between gap-5 p-6 ${index === 0 ? "border-b border-slate-200 md:border-b-0 md:border-r" : ""}`}>
-                  <div><div className="text-xl font-extrabold text-slate-950">{clock.label}</div><div className="mt-2 font-semibold text-slate-700">Last free day: {new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "long", year: "numeric" }).format(parseDay(clock.date))}</div></div>
-                  <span className={`inline-flex min-h-14 items-center rounded-md border px-4 py-2 text-[18px] font-semibold ${freeTimeTone(days)}`}>{freeTimeLabel(days)}</span>
+                  <div><div className="text-xl font-extrabold text-slate-950">{clock.label}</div><div className="mt-2 font-normal text-slate-600">Last free day: {new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "long", year: "numeric" }).format(parseDay(clock.date))}</div></div>
+                  <span className={`inline-flex min-h-14 items-center rounded-md border px-4 py-2 text-[15px] font-semibold ${freeTimeTone(days)}`}>{freeTimeLabel(days)}</span>
                 </div>
               );
             })}
@@ -1742,12 +1737,12 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
       {(job.activity || []).length ? (
         <Panel title="Recent activity" className="mt-7" action={<button type="button" onClick={() => onManage("activity")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[#17418c] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><History className="h-5 w-5" />View full history</button>}>
           <div className="divide-y divide-slate-200">
-            {job.activity.slice(0, 3).map((item) => <div key={item.id} className="grid gap-2 px-5 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"><div className="font-semibold text-slate-950">{item.text}</div><div className="text-base font-semibold text-slate-500">{item.at} · {item.actor}</div></div>)}
+            {job.activity.slice(0, 3).map((item) => <div key={item.id} className="grid gap-2 px-5 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"><div className="font-semibold text-slate-950">{item.text}</div><div className="gl-label">{item.at} · {item.actor}</div></div>)}
           </div>
         </Panel>
       ) : null}
 
-      <div className="mt-7 rounded-lg border border-slate-200 bg-slate-50 px-5 py-4 text-[18px] font-medium text-slate-700">
+      <div className="mt-7 rounded-lg border border-slate-200 bg-slate-50 px-5 py-4 text-[15px] font-medium text-slate-700">
         One job number keeps every trip, container fact, checkpoint and chassis decision together: <span className="font-semibold text-[#17418c]">{job.id}</span>.
       </div>
     </main>
@@ -1778,7 +1773,7 @@ function DocumentField({ field, value, confidence, onChange }) {
   return (
     <label className={`block px-5 py-4 ${field.multiline ? "md:col-span-2" : ""}`}>
       <span className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-base font-semibold text-slate-700">{field.label}{field.required ? " *" : ""}</span>
+        <span className="text-[13px] font-normal text-slate-500">{field.label}{field.required ? " *" : ""}</span>
         <span className={`inline-flex min-h-7 items-center rounded-full border px-2 text-sm font-semibold ${documentConfidenceTone(confidence)}`}>{status}</span>
       </span>
       {field.multiline ? (
@@ -1787,7 +1782,7 @@ function DocumentField({ field, value, confidence, onChange }) {
           value={value || ""}
           onChange={(event) => onChange(field.key, event.target.value)}
           rows={3}
-          className="mt-2 min-h-12 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[18px] font-medium text-slate-950 outline-none placeholder:text-slate-500 focus:border-[#17418c] focus:outline focus:outline-4 focus:outline-offset-1 focus:outline-sky-600"
+          className="mt-2 min-h-12 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[15px] font-medium text-slate-950 outline-none placeholder:text-slate-500 focus:border-[#17418c] focus:outline focus:outline-4 focus:outline-offset-1 focus:outline-sky-600"
         />
       ) : (
         <input
@@ -1796,7 +1791,7 @@ function DocumentField({ field, value, confidence, onChange }) {
           inputMode={field.inputMode}
           value={value || ""}
           onChange={(event) => onChange(field.key, event.target.value)}
-          className="mt-2 min-h-12 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[18px] font-medium text-slate-950 outline-none placeholder:text-slate-500 focus:border-[#17418c] focus:outline focus:outline-4 focus:outline-offset-1 focus:outline-sky-600"
+          className="mt-2 min-h-12 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[15px] font-medium text-slate-950 outline-none placeholder:text-slate-500 focus:border-[#17418c] focus:outline focus:outline-4 focus:outline-offset-1 focus:outline-sky-600"
         />
       )}
     </label>
@@ -1837,24 +1832,24 @@ function DocumentContainersEditor({ containers, onChange }) {
 
   return (
     <fieldset>
-      <legend className="w-full bg-slate-100 px-5 py-3 text-[18px] font-semibold text-slate-950">Containers</legend>
+      <legend className="w-full bg-slate-100 px-5 py-3 text-[15px] font-semibold text-slate-950">Containers</legend>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-4">
-        <div><div className="text-[18px] font-semibold text-slate-950">{containers.length} container{containers.length === 1 ? "" : "s"} found</div><div className="mt-1 text-base font-medium text-slate-600">Review each unit independently. A job can contain up to {MAX_CONTAINERS_PER_JOB}.</div></div>
+        <div><div className="text-[15px] font-semibold text-slate-950">{containers.length} container{containers.length === 1 ? "" : "s"} found</div><div className="mt-1 text-[13px] font-normal text-slate-500">Review each unit independently. A job can contain up to {MAX_CONTAINERS_PER_JOB}.</div></div>
         <button type="button" onClick={add} disabled={containers.length >= MAX_CONTAINERS_PER_JOB} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 font-semibold text-[#17418c] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:border-sky-200 disabled:bg-sky-50 disabled:text-sky-800"><Plus className="h-5 w-5" />{containers.length >= MAX_CONTAINERS_PER_JOB ? "Limit reached" : "Add container"}</button>
       </div>
       <div className="divide-y divide-slate-200">
         {containers.map((container, index) => (
           <div key={container.id || `${container.ref}-${index}`} className="px-5 py-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3"><span className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-slate-100 px-3 font-semibold text-slate-800">C{index + 1}</span><span className="text-base font-semibold text-slate-600">{container.id?.startsWith("manual-") ? "Added for review" : "Extracted from PDF"}</span></div>
+              <div className="flex items-center gap-3"><span className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-slate-100 px-3 font-semibold text-slate-800">C{index + 1}</span><span className="text-[13px] font-medium text-slate-600">{container.id?.startsWith("manual-") ? "Added for review" : "Extracted from PDF"}</span></div>
               <button type="button" onClick={() => remove(index)} disabled={containers.length <= 1} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-rose-800 underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600 disabled:text-slate-400 disabled:no-underline"><Trash2 className="h-5 w-5" />Remove</button>
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-3">
-              <label><span className="text-base font-semibold text-slate-700">Container number *</span><input required maxLength={11} pattern="[A-Za-z]{4}[0-9]{7}" value={container.number || ""} onChange={(event) => update(index, "number", event.target.value)} className={drawerInputClass} /></label>
-              <label><span className="text-base font-semibold text-slate-700">Container type</span><input value={container.type || ""} onChange={(event) => update(index, "type", event.target.value)} className={drawerInputClass} /></label>
-              <label><span className="text-base font-semibold text-slate-700">Seal number</span><input value={container.seal || ""} onChange={(event) => update(index, "seal", event.target.value)} className={drawerInputClass} /></label>
+              <label><span className="text-[13px] font-normal text-slate-500">Container number *</span><input required maxLength={11} pattern="[A-Za-z]{4}[0-9]{7}" value={container.number || ""} onChange={(event) => update(index, "number", event.target.value)} className={drawerInputClass} /></label>
+              <label><span className="text-[13px] font-normal text-slate-500">Container type</span><input value={container.type || ""} onChange={(event) => update(index, "type", event.target.value)} className={drawerInputClass} /></label>
+              <label><span className="text-[13px] font-normal text-slate-500">Seal number</span><input value={container.seal || ""} onChange={(event) => update(index, "seal", event.target.value)} className={drawerInputClass} /></label>
             </div>
-            {issues[index] ? <div role="alert" className="mt-3 text-base font-semibold text-rose-800">{issues[index]}</div> : null}
+            {issues[index] ? <div role="alert" className="mt-3 text-[15px] font-semibold text-rose-800">{issues[index]}</div> : null}
           </div>
         ))}
       </div>
@@ -1945,9 +1940,9 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
       <div className="flex flex-col gap-4 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-[2rem]">Document intake</h1>
-          <p className="mt-2 max-w-[72ch] text-[18px] font-normal text-slate-600">Turn an arrival notice into verified job facts before anything enters the control tower.</p>
+          <p className="mt-2 max-w-[72ch] text-[15px] font-normal text-slate-600">Turn an arrival notice into verified job facts before anything enters the control tower.</p>
         </div>
-        <div className="inline-flex min-h-11 items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-4 text-base font-semibold text-emerald-800">
+        <div className="inline-flex min-h-11 items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-4 text-[15px] font-semibold text-emerald-800">
           <ShieldCheck className="h-5 w-5" aria-hidden="true" />
           Processed on this device
         </div>
@@ -1957,8 +1952,8 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
         <section className="mt-7 flex min-h-80 flex-col items-center justify-center rounded-lg border border-slate-200 bg-white px-6 py-12 text-center" aria-live="polite">
           <LoaderCircle className="h-12 w-12 animate-spin text-[#17418c]" aria-hidden="true" />
           <h2 className="mt-5 text-2xl font-semibold text-slate-950">Reading the arrival notice</h2>
-          <p className="mt-2 text-[18px] font-semibold text-[#17418c]">{progress || "Preparing the document"}</p>
-          <p className="mt-2 max-w-[58ch] text-[18px] text-slate-600">Greenlit is finding shipment, party, container, cargo and free-time facts. The file remains in this browser.</p>
+          <p className="mt-2 text-[15px] font-semibold text-[#17418c]">{progress || "Preparing the document"}</p>
+          <p className="mt-2 max-w-[58ch] text-[15px] text-slate-600">Greenlit is finding shipment, party, container, cargo and free-time facts. The file remains in this browser.</p>
         </section>
       ) : null}
 
@@ -1969,7 +1964,7 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
           </div>
           <div className="p-5 sm:p-8">
             {error ? (
-              <div role="alert" className="mb-5 flex items-start gap-3 rounded-md border border-rose-200 bg-rose-50 p-4 text-[18px] font-medium text-rose-900">
+              <div role="alert" className="mb-5 flex items-start gap-3 rounded-md border border-rose-200 bg-rose-50 p-4 text-[15px] font-medium text-rose-900">
                 <AlertCircle className="mt-0.5 h-6 w-6 shrink-0" aria-hidden="true" />
                 <div><div className="font-semibold">The PDF was not applied.</div><div className="mt-1">{error}</div></div>
               </div>
@@ -1994,11 +1989,11 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
             >
               <span className="flex h-14 w-14 items-center justify-center rounded-md bg-[#17418c] text-white"><Upload className="h-7 w-7" aria-hidden="true" /></span>
               <span className="mt-5 text-2xl font-semibold text-slate-950">Drop a PDF here</span>
-              <span className="mt-2 max-w-[58ch] text-[18px] font-normal text-slate-600">This proof of concept recognises Hapag-Lloyd-style arrival notices with selectable text and up to {MAX_CONTAINERS_PER_JOB} containers per job. Maximum file size: 15 MB.</span>
+              <span className="mt-2 max-w-[58ch] text-[15px] font-normal text-slate-600">This proof of concept recognises Hapag-Lloyd-style arrival notices with selectable text and up to {MAX_CONTAINERS_PER_JOB} containers per job. Maximum file size: 15 MB.</span>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="mt-5 inline-flex min-h-12 items-center justify-center rounded-md bg-[#17418c] px-6 text-[18px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+                className="mt-5 inline-flex min-h-12 items-center justify-center rounded-md bg-[#17418c] px-6 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
               >
                 Choose PDF
               </button>
@@ -2010,7 +2005,7 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
                 { icon: ListTodo, title: "Apply", text: "Create the job and recalculate the action queue." },
               ].map((item) => {
                 const Icon = item.icon;
-                return <div key={item.title} className="flex gap-3"><Icon className="mt-0.5 h-6 w-6 shrink-0 text-[#17418c]" aria-hidden="true" /><div><div className="font-semibold text-slate-950">{item.title}</div><div className="mt-1 text-base font-normal text-slate-600">{item.text}</div></div></div>;
+                return <div key={item.title} className="flex gap-3"><Icon className="mt-0.5 h-6 w-6 shrink-0 text-[#17418c]" aria-hidden="true" /><div><div className="font-semibold text-slate-950">{item.title}</div><div className="mt-1 text-[13px] font-normal text-slate-500">{item.text}</div></div></div>;
               })}
             </div>
           </div>
@@ -2023,12 +2018,12 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
             <div className="flex flex-col gap-4 border-b border-slate-200 bg-[#172a3a] px-5 py-5 text-white lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 id="document-review-title" className="flex items-center gap-3 text-xl font-semibold"><FileText className="h-6 w-6" aria-hidden="true" />Review extracted facts</h2>
-                <p className="mt-2 break-all text-base font-medium text-slate-300">{result.fileName} · {result.pages} pages · {(result.fileSize / 1024).toFixed(0)} KB</p>
+                <p className="mt-2 break-all text-[15px] font-medium text-slate-300">{result.fileName} · {result.pages} pages · {(result.fileSize / 1024).toFixed(0)} KB</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <span className="inline-flex min-h-9 items-center rounded-full border border-emerald-500/50 bg-emerald-950/40 px-3 text-base font-semibold text-emerald-100">{result.extractedCount} fields extracted</span>
-                <span className="inline-flex min-h-9 items-center rounded-full border border-sky-400/50 bg-sky-950/40 px-3 text-base font-semibold text-sky-100">{containerDrafts.length} container{containerDrafts.length === 1 ? "" : "s"}</span>
-                <span className="inline-flex min-h-9 items-center rounded-full border border-amber-400/60 bg-amber-950/30 px-3 text-base font-semibold text-amber-100">{reviewCount} need review</span>
+                <span className="inline-flex min-h-9 items-center rounded-full border border-emerald-500/50 bg-emerald-950/40 px-3 text-[15px] font-semibold text-emerald-100">{result.extractedCount} fields extracted</span>
+                <span className="inline-flex min-h-9 items-center rounded-full border border-sky-400/50 bg-sky-950/40 px-3 text-[15px] font-semibold text-sky-100">{containerDrafts.length} container{containerDrafts.length === 1 ? "" : "s"}</span>
+                <span className="inline-flex min-h-9 items-center rounded-full border border-amber-400/60 bg-amber-950/30 px-3 text-[15px] font-semibold text-amber-100">{reviewCount} need review</span>
               </div>
             </div>
 
@@ -2039,12 +2034,12 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
                   <a href={sourceUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center px-2 font-semibold text-[#17418c] underline underline-offset-4">Open separately</a>
                 </div>
                 <object data={sourceUrl} type="application/pdf" className="h-[680px] w-full rounded-md border border-slate-300 bg-white" aria-label={`Source PDF ${result.fileName}`}>
-                  <div className="p-5 text-[18px] text-slate-700">Your browser cannot show the PDF inline. Use “Open separately” while reviewing the extracted fields.</div>
+                  <div className="p-5 text-[15px] text-slate-700">Your browser cannot show the PDF inline. Use “Open separately” while reviewing the extracted fields.</div>
                 </object>
               </div>
 
               <form onSubmit={(event) => { event.preventDefault(); onApply({ ...result, values: effectiveDraft, containers: normalisedContainers, confidence, planning: { demurrageLastFreeDay: planningDemurrage, detentionLastFreeDay: planningDetention, provisional: true } }); }}>
-                <div className="flex items-start gap-3 border-b border-sky-200 bg-sky-50 px-5 py-4 text-[18px] font-medium text-sky-900">
+                <div className="flex items-start gap-3 border-b border-sky-200 bg-sky-50 px-5 py-4 text-[15px] font-medium text-sky-900">
                   <CircleDot className="mt-0.5 h-5 w-5 shrink-0 text-[#17418c]" aria-hidden="true" />
                   <span>Check fields marked <strong>Review</strong>. Greenlit will never overwrite a job until an operator applies the document.</span>
                 </div>
@@ -2052,7 +2047,7 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
                   {DOCUMENT_FIELD_GROUPS.map((group) => (
                     <React.Fragment key={group.title}>
                       <fieldset>
-                        <legend className="w-full bg-slate-100 px-5 py-3 text-[18px] font-semibold text-slate-950">{group.title}</legend>
+                        <legend className="w-full bg-slate-100 px-5 py-3 text-[15px] font-semibold text-slate-950">{group.title}</legend>
                         <div className="grid divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0">
                           {group.fields.map((field) => <DocumentField key={field.key} field={field} value={draft[field.key]} confidence={confidence[field.key]} onChange={updateField} />)}
                         </div>
@@ -2062,17 +2057,17 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
                   ))}
                 </div>
 
-                <div className="border-t border-amber-200 bg-amber-50 px-5 py-4 text-[18px] text-amber-950">
+                <div className="border-t border-amber-200 bg-amber-50 px-5 py-4 text-[15px] text-amber-950">
                   <div className="font-semibold">Planning dates require confirmation</div>
                   <div className="mt-1 font-medium">Greenlit estimates demurrage to {planningDemurrage || "—"} and detention to {planningDetention || "—"} from ETA and the stated free-time terms. Operations must replace them after actual discharge and gate events.</div>
                 </div>
 
                 <div className="flex flex-col-reverse gap-3 border-t border-slate-200 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
-                  <button type="button" onClick={resetIntake} className="min-h-12 rounded-md border border-slate-300 bg-white px-5 text-[18px] font-semibold text-slate-800 hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">Choose another PDF</button>
+                  <button type="button" onClick={resetIntake} className="min-h-12 rounded-md border border-slate-300 bg-white px-5 text-[15px] font-semibold text-slate-800 hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">Choose another PDF</button>
                   <div className="text-right">
-                    {requiredMissing.length ? <div className="mb-2 text-base font-semibold text-rose-800">Complete {requiredMissing.length} required field{requiredMissing.length === 1 ? "" : "s"} before applying.</div> : null}
-                    {containerIssues.some(Boolean) ? <div className="mb-2 text-base font-semibold text-rose-800">Correct the container list before applying.</div> : null}
-                    <button type="submit" disabled={requiredMissing.length > 0 || containerIssues.some(Boolean)} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-md bg-[#17418c] px-6 py-3 text-[18px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:bg-slate-400">
+                    {requiredMissing.length ? <div className="mb-2 text-[15px] font-semibold text-rose-800">Complete {requiredMissing.length} required field{requiredMissing.length === 1 ? "" : "s"} before applying.</div> : null}
+                    {containerIssues.some(Boolean) ? <div className="mb-2 text-[15px] font-semibold text-rose-800">Correct the container list before applying.</div> : null}
+                    <button type="submit" disabled={requiredMissing.length > 0 || containerIssues.some(Boolean)} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-md bg-[#17418c] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:bg-slate-400">
                       <FileCheck2 className="h-6 w-6" aria-hidden="true" />Apply to control tower
                     </button>
                   </div>
@@ -2089,7 +2084,7 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
           <div className="divide-y divide-slate-200">
             {documents.map((document) => (
               <button key={document.id} type="button" onClick={() => onOpenJob(document.jobId)} className="grid min-h-20 w-full gap-2 px-5 py-4 text-left hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                <div><div className="break-all text-[18px] font-semibold text-[#17418c] underline underline-offset-4">{document.fileName}</div><div className="mt-1 text-base font-medium text-slate-600">{document.carrier} · {document.documentType} · {document.containerCount || 1} container{document.containerCount === 1 ? "" : "s"} · {document.extractedCount} fields</div></div>
+                <div><div className="break-all text-[15px] font-semibold text-[#17418c] underline underline-offset-4">{document.fileName}</div><div className="mt-1 text-[13px] font-normal text-slate-500">{document.carrier} · {document.documentType} · {document.containerCount || 1} container{document.containerCount === 1 ? "" : "s"} · {document.extractedCount} fields</div></div>
                 <div className="font-semibold text-slate-900">Applied to {document.jobId}</div>
               </button>
             ))}
@@ -2109,17 +2104,17 @@ function ChassisFleet({ fleet, onOpen, onUnit }) {
     <main id="main-content" className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
       <div className="pb-2">
         <h1 className="text-3xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-[2rem]">Chassis Fleet</h1>
-        <p className="mt-2 text-[18px] font-normal text-slate-600">89 units · 47 twenty-foot · 42 forty-foot. A chassis stays under its container for the whole job.</p>
+        <p className="mt-2 text-[15px] font-normal text-slate-600">89 units · 47 twenty-foot · 42 forty-foot. A chassis stays under its container for the whole job.</p>
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-3">
-        {[{ id: "available", label: "Available", value: fleet.available.length, tone: "text-emerald-800" }, { id: "inUse", label: "Under containers", value: fleet.inUse.length, tone: "text-slate-950" }, { id: "maintenance", label: "Maintenance or inspection", value: fleet.maintenance.length, tone: "text-amber-800" }].map((item) => <button key={item.id} type="button" onClick={() => setView((current) => current === item.id ? "all" : item.id)} aria-pressed={view === item.id} className={`rounded-lg border bg-white p-5 text-left hover:border-[#17418c] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${view === item.id ? "border-[#17418c] shadow-[inset_0_-3px_0_#17418c]" : "border-slate-200"}`}><div className={`text-4xl font-semibold tabular-nums ${item.tone}`}>{item.value}</div><div className="mt-2 flex items-center justify-between gap-3 text-[18px] font-medium text-slate-600"><span>{item.label}</span><ChevronRight className="h-5 w-5 text-[#17418c]" /></div></button>)}
+        {[{ id: "available", label: "Available", value: fleet.available.length, tone: "text-emerald-800" }, { id: "inUse", label: "Under containers", value: fleet.inUse.length, tone: "text-slate-950" }, { id: "maintenance", label: "Maintenance or inspection", value: fleet.maintenance.length, tone: "text-amber-800" }].map((item) => <button key={item.id} type="button" onClick={() => setView((current) => current === item.id ? "all" : item.id)} aria-pressed={view === item.id} className={`rounded-lg border bg-white p-5 text-left hover:border-[#17418c] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${view === item.id ? "border-[#17418c] shadow-[inset_0_-3px_0_#17418c]" : "border-slate-200"}`}><div className={`text-4xl font-semibold tabular-nums ${item.tone}`}>{item.value}</div><div className="mt-2 flex items-center justify-between gap-3 text-[15px] font-medium text-slate-600"><span>{item.label}</span><ChevronRight className="h-5 w-5 text-[#17418c]" /></div></button>)}
       </div>
 
       {showInUse ? <Panel title="Units under containers" className="mt-7">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[850px] border-collapse text-left text-[18px]">
-            <thead className="bg-[#172a3a] text-white"><tr>{["Unit", "Size", "Job", "Customer", "Days held", ""].map((heading, index) => <th key={`${heading}-${index}`} className="px-4 py-4 text-base font-semibold">{heading}</th>)}</tr></thead>
+          <table className="w-full min-w-[850px] border-collapse text-left text-[15px]">
+            <thead className="bg-[#172a3a] text-white"><tr>{["Unit", "Size", "Job", "Customer", "Days held", ""].map((heading, index) => <th key={`${heading}-${index}`} className="px-4 py-4 text-[15px] font-semibold">{heading}</th>)}</tr></thead>
             <tbody>
               {[...fleet.inUse].sort((a, b) => b.days - a.days).map((item) => (
                 <tr key={item.unit} className="border-b border-slate-200 even:bg-slate-50/70">
@@ -2127,7 +2122,7 @@ function ChassisFleet({ fleet, onOpen, onUnit }) {
                   <td className="px-4 py-4 font-semibold text-slate-900">{item.size}</td>
                   <td className="px-4 py-4 font-semibold text-[#17418c]">{item.jobId}</td>
                   <td className="px-4 py-4 font-semibold text-slate-900">{item.customer}</td>
-                  <td className={`px-4 py-4 text-[18px] font-extrabold ${item.days > 5 ? "text-red-900" : "text-slate-950"}`}>{item.days} days {item.days > 5 ? "— ATTENTION" : ""}</td>
+                  <td className={`px-4 py-4 text-[15px] font-extrabold ${item.days > 5 ? "text-red-900" : "text-slate-950"}`}>{item.days} days {item.days > 5 ? "— ATTENTION" : ""}</td>
                   <td className="px-4 py-4"><button type="button" onClick={() => onOpen(item.jobId)} className="min-h-11 rounded-md border border-slate-300 px-4 font-semibold text-[#17418c] hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">Open job</button></td>
                 </tr>
               ))}
@@ -2146,7 +2141,7 @@ function ChassisFleet({ fleet, onOpen, onUnit }) {
       </div> : null}
 
       {showMaintenance ? <Panel title="Maintenance or inspection" className="mt-7">
-        <div className="flex flex-wrap gap-3 p-5">{fleet.maintenance.length ? fleet.maintenance.map((item) => <button type="button" onClick={() => onUnit({ ...item, condition: "maintenance" })} key={item.unit} className="inline-flex min-h-11 min-w-28 items-center justify-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 font-semibold text-amber-800 hover:border-amber-500 hover:bg-amber-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><Wrench className="h-5 w-5" />{item.unit} · {item.size}<ChevronRight className="h-4 w-4" /></button>) : <div className="p-5 text-[18px] font-semibold text-amber-950">All maintenance units have returned to service.</div>}</div>
+        <div className="flex flex-wrap gap-3 p-5">{fleet.maintenance.length ? fleet.maintenance.map((item) => <button type="button" onClick={() => onUnit({ ...item, condition: "maintenance" })} key={item.unit} className="inline-flex min-h-11 min-w-28 items-center justify-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 font-semibold text-amber-800 hover:border-amber-500 hover:bg-amber-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><Wrench className="h-5 w-5" />{item.unit} · {item.size}<ChevronRight className="h-4 w-4" /></button>) : <div className="p-5 text-[15px] font-semibold text-amber-950">All maintenance units have returned to service.</div>}</div>
       </Panel> : null}
     </main>
   );
@@ -2576,7 +2571,7 @@ export default function GreenlitControlTower() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f4f6f8] font-sans text-[18px] leading-normal text-slate-900">
+    <div className="min-h-screen bg-[#f4f6f8] font-sans text-[15px] leading-normal text-slate-900">
       <style>{`
         @font-face {
           font-family: "Greenlit Hyperlegible";
@@ -2587,8 +2582,8 @@ export default function GreenlitControlTower() {
         }
         :root { color-scheme: light; }
         html { scroll-behavior: smooth; }
-        h1, h2, .greenlit-display { font-family: "IBM Plex Sans", "Inter", ui-sans-serif, system-ui, sans-serif; }
-        /* MASTER.md caps hierarchy at weight 600. Markup no longer uses 700+; this stays as a guard. */
+        h1, h2, .greenlit-display { font-family: var(--gl-font-sans); }
+        /* MASTER v2 §2.3: only 400/500/600. Guard against 700+ creeping back. */
         .font-black, .font-extrabold, .font-bold { font-weight: 600 !important; }
         * { scrollbar-color: #64748b #e2e8f0; scrollbar-width: auto; }
         button, a { cursor: pointer; -webkit-tap-highlight-color: transparent; transition-duration: 180ms; transition-timing-function: cubic-bezier(.22,1,.36,1); }
@@ -2630,7 +2625,7 @@ export default function GreenlitControlTower() {
           <div className="flex min-h-16 items-center justify-between gap-4 border-b border-slate-700 px-4 py-3 pr-32 sm:px-6 sm:pr-40 lg:min-w-72 lg:border-b-0 lg:border-r lg:pr-6 xl:min-w-80">
             <div>
               <div className="greenlit-display text-lg font-semibold tracking-[0.04em]">PROJECT GREENLIT</div>
-              <div className="mt-1 text-base font-normal text-slate-300">Singapore transport control</div>
+              <div className="mt-1 text-[15px] font-normal text-slate-300">Singapore transport control</div>
             </div>
             <Anchor className="hidden h-6 w-6 text-slate-400 lg:block" aria-hidden="true" />
           </div>
@@ -2639,16 +2634,16 @@ export default function GreenlitControlTower() {
               const Icon = item.icon;
               const active = screen === item.id || (screen === "detail" && returnScreen === item.id);
               return (
-                <button key={item.id} type="button" onClick={() => goTo(item.id)} aria-current={active ? "page" : undefined} className={`flex min-h-20 min-w-0 flex-col items-center justify-center gap-1 border-r border-slate-700 px-1 py-2 text-base font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-400 sm:min-h-16 sm:flex-row sm:gap-3 sm:px-5 sm:py-3 lg:flex-1 ${active ? "bg-[#18364c] text-white shadow-[inset_0_-3px_0_#38bdf8]" : "text-slate-300 hover:bg-[#142e42] hover:text-white"}`}>
+                <button key={item.id} type="button" onClick={() => goTo(item.id)} aria-current={active ? "page" : undefined} className={`flex min-h-20 min-w-0 flex-col items-center justify-center gap-1 border-r border-slate-700 px-1 py-2 text-[15px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-400 sm:min-h-16 sm:flex-row sm:gap-3 sm:px-5 sm:py-3 lg:flex-1 ${active ? "bg-[#18364c] text-white shadow-[inset_0_-3px_0_#38bdf8]" : "text-slate-300 hover:bg-[#142e42] hover:text-white"}`}>
                   <Icon className="hidden h-5 w-5 shrink-0 sm:block" aria-hidden="true" />
                   <span className="text-center leading-tight">{item.label}</span>
-                  <span className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-full border border-slate-500 bg-[#0f2333] px-1 text-base tabular-nums text-slate-200">{item.count}</span>
+                  <span className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-full border border-slate-500 bg-[#0f2333] px-1 text-[15px] tabular-nums text-slate-200">{item.count}</span>
                 </button>
               );
             })}
           </nav>
           <div className="absolute right-3 top-2 flex min-h-12 items-center justify-end sm:right-5 lg:static lg:min-h-16 lg:px-6 lg:py-3 lg:border-l lg:border-slate-700">
-            <button type="button" onClick={resetDemo} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-500 bg-transparent px-3 text-base font-semibold text-slate-200 hover:border-slate-400 hover:bg-[#18364c] hover:text-white focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400 sm:px-4">
+            <button type="button" onClick={resetDemo} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-500 bg-transparent px-3 text-[15px] font-semibold text-slate-200 hover:border-slate-400 hover:bg-[#18364c] hover:text-white focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400 sm:px-4">
               <RotateCcw className="h-4 w-4" />
               <span className="sm:hidden">Reset</span>
               <span className="hidden sm:inline">Reset demo</span>
@@ -2679,7 +2674,7 @@ export default function GreenlitControlTower() {
       <OperationsDrawer panel={workPanel} jobs={jobs} onClose={() => setWorkPanel(null)} onCommit={commitOperationalPanel} />
 
       {toast ? (
-        <div role="status" aria-live="polite" className="fixed bottom-5 right-5 z-50 flex max-w-[560px] items-start gap-3 rounded-lg border border-emerald-300 bg-white p-5 text-[18px] font-semibold text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.2)]">
+        <div role="status" aria-live="polite" className="fixed bottom-5 right-5 z-50 flex max-w-[560px] items-start gap-3 rounded-lg border border-emerald-300 bg-white p-5 text-[15px] font-semibold text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.2)]">
           <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-700" />
           <span>{toast}</span>
           <button type="button" onClick={() => setToast("")} aria-label="Dismiss message" className="ml-auto flex min-h-11 min-w-11 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><X className="h-5 w-5" /></button>
