@@ -2216,7 +2216,7 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
             >
               <span className="flex h-14 w-14 items-center justify-center rounded-md bg-[var(--gl-brand)] text-white"><Upload className="h-7 w-7" aria-hidden="true" /></span>
               <span className="mt-5 text-2xl font-semibold text-slate-950">Drop a PDF here</span>
-              <span className="mt-2 max-w-[58ch] text-[15px] font-normal text-slate-600">This proof of concept recognises Hapag-Lloyd-style arrival notices with selectable text and up to {MAX_CONTAINERS_PER_JOB} containers per job. Maximum file size: 15 MB.</span>
+              <span className="mt-2 max-w-[58ch] text-[15px] font-normal text-slate-600">Intake recognises Hapag-Lloyd-style arrival notices with selectable text and up to {MAX_CONTAINERS_PER_JOB} containers per job. Maximum file size: 15 MB.</span>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
