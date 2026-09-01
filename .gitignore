@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build output
+.next/
+dist/
+build/
+.vinext/
+.wrangler/
+*.tsbuildinfo
+
+# Environment and secrets — never commit these
+.env
+.env.*
+!.env.example
+
+# Editor and OS
+.DS_Store
+*.swp
+
+# Local agent/tooling state
+.claude/settings.local.json
+.agents/
+.claude/skills/
+.impeccable/review/
+
+# Scratch
+tmp/
+.vite/

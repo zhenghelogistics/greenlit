@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-19T07:56:21Z",
+  "title": "Design System: Project Greenlit",
+  "extensions": {
+    "colorMeta": {
+      "shell-ink": { "role": "primary", "displayName": "Ink Navy", "canonical": "#0f2333", "tonalRamp": ["#07131c", "#0f2333", "#142e42", "#18364c", "#244b66", "#4d7088", "#a8bac7", "#edf3f6"] },
+      "shell-active": { "role": "primary", "displayName": "Shell Active", "canonical": "#18364c", "tonalRamp": ["#07131c", "#0f2333", "#142e42", "#18364c", "#244b66", "#4d7088", "#a8bac7", "#edf3f6"] },
+      "shell-hover": { "role": "primary", "displayName": "Shell Hover", "canonical": "#142e42", "tonalRamp": ["#07131c", "#0f2333", "#142e42", "#18364c", "#244b66", "#4d7088", "#a8bac7", "#edf3f6"] },
+      "work-header": { "role": "primary", "displayName": "Work Header", "canonical": "#172a3a", "tonalRamp": ["#07131c", "#0f2333", "#142e42", "#172a3a", "#244b66", "#4d7088", "#a8bac7", "#edf3f6"] },
+      "brand-action": { "role": "primary", "displayName": "Brand Action", "canonical": "#17418c", "tonalRamp": ["#071736", "#0d2b61", "#12366f", "#17418c", "#2459ad", "#5d84c4", "#b7c9e6", "#eef3fb"] },
+      "brand-action-hover": { "role": "primary", "displayName": "Brand Action Hover", "canonical": "#12366f", "tonalRamp": ["#071736", "#0d2b61", "#12366f", "#17418c", "#2459ad", "#5d84c4", "#b7c9e6", "#eef3fb"] },
+      "focus-sky": { "role": "secondary", "displayName": "Focus Sky", "canonical": "#0284c7", "tonalRamp": ["#082f49", "#075985", "#0284c7", "#0ea5e9", "#38bdf8", "#7dd3fc", "#bae6fd", "#f0f9ff"] },
+      "active-signal": { "role": "secondary", "displayName": "Active Signal", "canonical": "#38bdf8", "tonalRamp": ["#082f49", "#075985", "#0284c7", "#0ea5e9", "#38bdf8", "#7dd3fc", "#bae6fd", "#f0f9ff"] },
+      "canvas-ground": { "role": "neutral", "displayName": "Cool Canvas Ground", "canonical": "#f4f6f8", "tonalRamp": ["#111827", "#334155", "#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0", "#f4f6f8", "#ffffff"] },
+      "surface-white": { "role": "neutral", "displayName": "Surface White", "canonical": "#ffffff", "tonalRamp": ["#111827", "#334155", "#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0", "#f8fafc", "#ffffff"] },
+      "surface-quiet": { "role": "neutral", "displayName": "Quiet Surface", "canonical": "#f8fafc", "tonalRamp": ["#111827", "#334155", "#64748b", "#94a3b8", "#cbd5e1", "#e2e8f0", "#f8fafc", "#ffffff"] },
+      "slate-rule": { "role": "neutral", "displayName": "Slate Rule", "canonical": "#e2e8f0", "tonalRamp": ["#020617", "#0f172a", "#334155", "#475569", "#64748b", "#94a3b8", "#e2e8f0", "#f8fafc"] },
+      "slate-control": { "role": "neutral", "displayName": "Slate Control", "canonical": "#cbd5e1", "tonalRamp": ["#020617", "#0f172a", "#334155", "#475569", "#64748b", "#94a3b8", "#cbd5e1", "#f8fafc"] },
+      "slate-ink": { "role": "neutral", "displayName": "Slate Ink", "canonical": "#020617", "tonalRamp": ["#020617", "#0f172a", "#334155", "#475569", "#64748b", "#94a3b8", "#e2e8f0", "#f8fafc"] },
+      "slate-text": { "role": "neutral", "displayName": "Slate Text", "canonical": "#0f172a", "tonalRamp": ["#020617", "#0f172a", "#334155", "#475569", "#64748b", "#94a3b8", "#e2e8f0", "#f8fafc"] },
+      "slate-muted": { "role": "neutral", "displayName": "Slate Muted", "canonical": "#475569", "tonalRamp": ["#020617", "#0f172a", "#334155", "#475569", "#64748b", "#94a3b8", "#e2e8f0", "#f8fafc"] },
+      "slate-soft": { "role": "neutral", "displayName": "Slate Soft", "canonical": "#64748b", "tonalRamp": ["#020617", "#0f172a", "#334155", "#475569", "#64748b", "#94a3b8", "#e2e8f0", "#f8fafc"] },
+      "information-ground": { "role": "secondary", "displayName": "Information Ground", "canonical": "#f0f9ff", "tonalRamp": ["#082f49", "#075985", "#0284c7", "#0ea5e9", "#38bdf8", "#7dd3fc", "#bae6fd", "#f0f9ff"] },
+      "information-rule": { "role": "secondary", "displayName": "Information Rule", "canonical": "#bae6fd", "tonalRamp": ["#082f49", "#075985", "#0284c7", "#0ea5e9", "#38bdf8", "#7dd3fc", "#bae6fd", "#f0f9ff"] },
+      "information-ink": { "role": "secondary", "displayName": "Information Ink", "canonical": "#0c4a6e", "tonalRamp": ["#082f49", "#0c4a6e", "#075985", "#0284c7", "#0ea5e9", "#7dd3fc", "#bae6fd", "#f0f9ff"] },
+      "success-ground": { "role": "secondary", "displayName": "Success Ground", "canonical": "#ecfdf5", "tonalRamp": ["#022c22", "#064e3b", "#065f46", "#047857", "#10b981", "#6ee7b7", "#a7f3d0", "#ecfdf5"] },
+      "success-rule": { "role": "secondary", "displayName": "Success Rule", "canonical": "#a7f3d0", "tonalRamp": ["#022c22", "#064e3b", "#065f46", "#047857", "#10b981", "#6ee7b7", "#a7f3d0", "#ecfdf5"] },
+      "success-solid": { "role": "secondary", "displayName": "Success Solid", "canonical": "#047857", "tonalRamp": ["#022c22", "#064e3b", "#065f46", "#047857", "#10b981", "#6ee7b7", "#a7f3d0", "#ecfdf5"] },
+      "success-ink": { "role": "secondary", "displayName": "Success Ink", "canonical": "#065f46", "tonalRamp": ["#022c22", "#064e3b", "#065f46", "#047857", "#10b981", "#6ee7b7", "#a7f3d0", "#ecfdf5"] },
+      "warning-ground": { "role": "tertiary", "displayName": "Warning Ground", "canonical": "#fffbeb", "tonalRamp": ["#451a03", "#78350f", "#92400e", "#b45309", "#f59e0b", "#fcd34d", "#fde68a", "#fffbeb"] },
+      "warning-rule": { "role": "tertiary", "displayName": "Warning Rule", "canonical": "#fde68a", "tonalRamp": ["#451a03", "#78350f", "#92400e", "#b45309", "#f59e0b", "#fcd34d", "#fde68a", "#fffbeb"] },
+      "warning-solid": { "role": "tertiary", "displayName": "Warning Solid", "canonical": "#b45309", "tonalRamp": ["#451a03", "#78350f", "#92400e", "#b45309", "#f59e0b", "#fcd34d", "#fde68a", "#fffbeb"] },
+      "warning-ink": { "role": "tertiary", "displayName": "Warning Ink", "canonical": "#92400e", "tonalRamp": ["#451a03", "#78350f", "#92400e", "#b45309", "#f59e0b", "#fcd34d", "#fde68a", "#fffbeb"] },
+      "exception-ground": { "role": "tertiary", "displayName": "Exception Ground", "canonical": "#fff1f2", "tonalRamp": ["#4c0519", "#881337", "#9f1239", "#be123c", "#e11d48", "#fb7185", "#fecdd3", "#fff1f2"] },
+      "exception-rule": { "role": "tertiary", "displayName": "Exception Rule", "canonical": "#fecdd3", "tonalRamp": ["#4c0519", "#881337", "#9f1239", "#be123c", "#e11d48", "#fb7185", "#fecdd3", "#fff1f2"] },
+      "exception-solid": { "role": "tertiary", "displayName": "Exception Solid", "canonical": "#be123c", "tonalRamp": ["#4c0519", "#881337", "#9f1239", "#be123c", "#e11d48", "#fb7185", "#fecdd3", "#fff1f2"] },
+      "exception-ink": { "role": "tertiary", "displayName": "Exception Ink", "canonical": "#9f1239", "tonalRamp": ["#4c0519", "#881337", "#9f1239", "#be123c", "#e11d48", "#fb7185", "#fecdd3", "#fff1f2"] }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Page Headline", "purpose": "32px page headings from 640px upward." },
+      "headline-compact": { "displayName": "Compact Page Headline", "purpose": "30px page headings below 640px." },
+      "title": { "displayName": "Operational Title", "purpose": "20px panel headers and prominent identifiers." },
+      "metric": { "displayName": "Operating Metric", "purpose": "24–30px indicator counts with tabular numerals." },
+      "body": { "displayName": "Operational Body", "purpose": "18px plain-language explanations and supporting facts." },
+      "body-strong": { "displayName": "Operational Emphasis", "purpose": "18px actions, register facts, and decisive labels at the 600 weight ceiling." },
+      "compact": { "displayName": "Compact Minimum", "purpose": "16px navigation, table headings, indicator labels, and secondary notes." }
+    },
+    "shadows": [
+      { "name": "sticky-command", "value": "0 6px 20px rgba(15,23,42,0.14)", "purpose": "Separates the persistent command bar from the scrolling canvas." },
+      { "name": "confirmation-toast", "value": "0 12px 32px rgba(15,23,42,0.20)", "purpose": "Keeps live confirmation readable above dense operational content." },
+      { "name": "release-flash-transient", "value": "inset 0 0 0 999px rgba(16,185,129,0.14), 0 8px 24px rgba(15,35,51,0.12)", "purpose": "Temporary checkpoint consequence feedback that settles fully to flat." }
+    ],
+    "motion": [
+      { "name": "release-flash", "value": "1.1s cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Highlights the readiness fact, verdict, or status that just changed." },
+      { "name": "new-trip-row", "value": "1.35s cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Wipes the automatically created trip into its existing job record." },
+      { "name": "next-action-text", "value": "1.1s cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Closes the causal sequence on the newly derived next action." },
+      { "name": "cms-consequence-sequence", "value": "0ms, 650ms, 1300ms, 1950ms, 2600ms", "purpose": "Readiness, verdict, status, created trip, then next action." },
+      { "name": "branch-consequence-step", "value": "700ms", "purpose": "Step interval for container-detail and transhipment branch consequences." },
+      { "name": "toast-hold", "value": "5200ms", "purpose": "Keeps the operational confirmation readable before dismissal." },
+      { "name": "reduced-motion", "value": "0.01ms, 1 iteration", "purpose": "Preserves the final state and message without perceptible authored animation." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ],
+    "rasterProvenance": [
+      {
+        "path": ".impeccable/review/desktop.png",
+        "role": "Approved desktop finish-review reference",
+        "origin": "Rendered from GreenlitControlTower.jsx during the independent finish review; supplied as source of truth for documentation finalization.",
+        "pixelWidth": 1425,
+        "pixelHeight": 990,
+        "capturedAt": "2026-08-19T15:45:09+08:00",
+        "sha256": "361afbce844d4bc8dbf0d6bb862b3a2c8c84de7f93b8cc74967444bc115fb095"
+      },
+      {
+        "path": ".impeccable/review/mobile.png",
+        "role": "Approved mobile finish-review reference",
+        "origin": "Rendered from GreenlitControlTower.jsx during the independent finish review; supplied as source of truth for documentation finalization.",
+        "pixelWidth": 390,
+        "pixelHeight": 813,
+        "capturedAt": "2026-08-19T15:45:09+08:00",
+        "sha256": "35466c144d091470ee07973b98349fc350176f27c17ad8248133646281f9fff1"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Sticky Command Navigation",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "Persistent deep-ink operating frame with three always-visible destinations and an origin-aware active state.",
+      "html": "<header class=\"ds-command\"><div class=\"ds-command-brand\"><div><strong>PROJECT GREENLIT</strong><small>Singapore transport control</small></div><button>Reset demo</button></div><nav aria-label=\"Main navigation\"><button class=\"ds-command-active\" aria-current=\"page\">Dashboard <span>12</span></button><button>Action Required <span>12</span></button><button>Chassis Fleet <span>68</span></button></nav></header>",
+      "css": ".ds-command{display:flex;position:sticky;top:0;flex-direction:column;background:#0f2333;color:#fff;box-shadow:0 6px 20px rgba(15,23,42,.14);font-family:ui-sans-serif,system-ui,sans-serif}.ds-command-brand{display:flex;min-height:64px;align-items:center;justify-content:space-between;gap:16px;padding:12px 16px;border-bottom:1px solid #334155}.ds-command-brand strong{display:block;font:600 18px/1.25 \"IBM Plex Sans\",Inter,ui-sans-serif,system-ui,sans-serif;letter-spacing:.04em}.ds-command-brand small{display:block;margin-top:4px;color:#cbd5e1;font-size:16px}.ds-command-brand button{min-height:44px;padding:0 12px;border:1px solid #64748b;border-radius:6px;background:transparent;color:#e2e8f0;font-size:16px;font-weight:600}.ds-command nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.ds-command nav button{display:flex;min-width:0;min-height:80px;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 4px;border:0;border-right:1px solid #334155;background:#0f2333;color:#cbd5e1;font-size:16px;font-weight:600}.ds-command nav span{display:inline-flex;min-width:28px;min-height:28px;align-items:center;justify-content:center;padding:0 4px;border:1px solid #64748b;border-radius:9999px;background:#0f2333;color:#e2e8f0}.ds-command nav button:hover{background:#142e42;color:#fff}.ds-command nav button:focus-visible,.ds-command-brand button:focus-visible{outline:4px solid #38bdf8;outline-offset:-4px}.ds-command nav .ds-command-active{background:#18364c;color:#fff;box-shadow:inset 0 -3px 0 #38bdf8}@media(min-width:640px){.ds-command-brand{padding-inline:24px}.ds-command nav button{min-height:64px;flex-direction:row;gap:12px;padding:12px 20px}}@media(min-width:1024px){.ds-command{flex-direction:row}.ds-command-brand{min-width:288px;border-right:1px solid #334155;border-bottom:0}.ds-command nav{display:flex;flex:1}.ds-command nav button{flex:1}}"
+    },
+    {
+      "name": "Primary Operational Action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The decisive Brand Action control used to record a checkpoint or required fact.",
+      "html": "<button class=\"ds-btn-primary\"><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"m9 12 2 2 4-4\"/><path d=\"M21 12c.552 0 1-.449.95-.998A10 10 0 1 0 13 21.95\"/></svg>Record CMS completed</button>",
+      "css": ".ds-btn-primary{display:inline-flex;min-height:56px;align-items:center;gap:12px;padding:12px 24px;border:0;border-radius:6px;background:#17418c;color:#fff;font-family:ui-sans-serif,system-ui,sans-serif;font-size:18px;font-weight:600;transition:background-color 180ms cubic-bezier(.22,1,.36,1)}.ds-btn-primary:hover{background:#12366f}.ds-btn-primary:focus-visible{outline:4px solid #0284c7;outline-offset:2px}.ds-btn-primary:active{background:#0d2b61}"
+    },
+    {
+      "name": "Action Filter",
+      "kind": "button",
+      "refersTo": "filter-active",
+      "description": "Compact pressed-state control used above the urgency register.",
+      "html": "<div class=\"ds-filter-group\" aria-label=\"Action filters\"><button class=\"ds-filter ds-filter-active\" aria-pressed=\"true\">All</button><button class=\"ds-filter\" aria-pressed=\"false\">Waiting on us</button></div>",
+      "css": ".ds-filter-group{display:flex;flex-wrap:wrap;gap:12px;font-family:ui-sans-serif,system-ui,sans-serif}.ds-filter{min-height:48px;padding:8px 20px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#334155;font-size:18px;font-weight:600}.ds-filter:hover{background:#f1f5f9}.ds-filter:focus-visible{outline:4px solid #0284c7;outline-offset:2px}.ds-filter-active{border-color:#17418c;background:#17418c;color:#fff}.ds-filter-active:hover,.ds-filter-active:active{background:#12366f}"
+    },
+    {
+      "name": "Operational Indicator",
+      "kind": "card",
+      "refersTo": "counter-card",
+      "description": "Compact count card that prioritizes value, plain-language label, and a small semantic icon field.",
+      "html": "<button class=\"ds-counter\"><span><strong>7</strong><b>Waiting on us</b><small>Needs company action</small></span><i><svg viewBox=\"0 0 24 24\" width=\"18\" height=\"18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z\"/><line x1=\"12\" x2=\"12\" y1=\"9\" y2=\"13\"/><line x1=\"12\" x2=\"12.01\" y1=\"17\" y2=\"17\"/></svg></i></button>",
+      "css": ".ds-counter{display:flex;min-height:80px;width:100%;align-items:flex-start;justify-content:space-between;gap:12px;padding:8px 12px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#020617;text-align:left;transition:border-color 180ms cubic-bezier(.22,1,.36,1),background-color 180ms cubic-bezier(.22,1,.36,1)}.ds-counter strong{display:block;font:600 24px/1.2 \"IBM Plex Sans\",Inter,ui-sans-serif,system-ui,sans-serif;letter-spacing:-.02em;font-variant-numeric:tabular-nums}.ds-counter b{display:block;margin-top:4px;color:#334155;font:600 16px/1.2 ui-sans-serif,system-ui,sans-serif}.ds-counter small{display:none;margin-top:8px;color:#64748b;font:500 16px/1.35 ui-sans-serif,system-ui,sans-serif}.ds-counter i{display:flex;width:32px;height:32px;flex:none;align-items:center;justify-content:center;border-radius:6px;background:#fff1f2;color:#be123c;font-style:normal}.ds-counter:hover{border-color:#cbd5e1;background:#f8fafc}.ds-counter:focus-visible{outline:4px solid #0284c7;outline-offset:2px}@media(min-width:640px){.ds-counter{min-height:112px;padding:16px}.ds-counter strong{font-size:30px}.ds-counter small{display:block}}"
+    },
+    {
+      "name": "Operational Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Default white container with subtle 8px corners and joined rows separated by quiet slate rules.",
+      "html": "<section class=\"ds-panel\"><header><h2>Chassis availability</h2><a href=\"#\">Open fleet register</a></header><div class=\"ds-panel-row\"><strong>40ft available</strong><b>31</b></div><div class=\"ds-panel-row\"><strong>Held beyond 5 days</strong><b>2</b></div></section>",
+      "css": ".ds-panel{overflow:hidden;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#0f172a;font-family:ui-sans-serif,system-ui,sans-serif}.ds-panel header{display:flex;min-height:64px;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;border-bottom:1px solid #e2e8f0;background:#fff}.ds-panel h2{margin:0;font:600 20px/28px \"IBM Plex Sans\",Inter,ui-sans-serif,system-ui,sans-serif;letter-spacing:-.01em}.ds-panel a{display:inline-flex;min-height:44px;align-items:center;padding:0 8px;color:#17418c;font-size:18px;font-weight:600;text-decoration:underline;text-underline-offset:4px}.ds-panel a:hover{background:#f0f9ff}.ds-panel a:focus-visible{outline:4px solid #0284c7}.ds-panel-row{display:flex;min-height:80px;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;border-bottom:1px solid #e2e8f0;font-size:18px}.ds-panel-row:last-child{border-bottom:0}.ds-panel-row strong,.ds-panel-row b{font-weight:600}.ds-panel-row b{font-size:30px;font-variant-numeric:tabular-nums}"
+    },
+    {
+      "name": "Urgency Register Row",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "Representative action row that keeps blocking fact, next action, and responsibility explicit.",
+      "html": "<article class=\"ds-action-row\"><div class=\"ds-action-id\"><a href=\"#\">EXP-260819-001</a><span>Export</span></div><div><b>Blocking</b><p>CMS has not been completed.</p></div><div><b>Next</b><p>Record CMS completed</p></div><span class=\"ds-action-owner\">Us</span><button aria-label=\"Open EXP-260819-001\"><svg viewBox=\"0 0 24 24\" width=\"20\" height=\"20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"m9 18 6-6-6-6\"/></svg></button></article>",
+      "css": ".ds-action-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(220px,1.4fr) minmax(220px,1.3fr) auto auto;align-items:start;gap:16px;padding:16px;border-bottom:1px solid #e2e8f0;background:#fff;color:#020617;font-family:ui-sans-serif,system-ui,sans-serif;font-size:18px}.ds-action-row:hover{background:#f0f9ff}.ds-action-id{display:flex;flex-direction:column;gap:4px}.ds-action-id a{display:inline-flex;min-height:44px;align-items:center;color:#17418c;font-weight:600;text-decoration:underline;text-underline-offset:4px}.ds-action-id a:focus-visible,.ds-action-row button:focus-visible{outline:4px solid #0284c7}.ds-action-row b{color:#475569;font-weight:600}.ds-action-row p{margin:6px 0 0;font-weight:600;line-height:1.375}.ds-action-owner{display:inline-flex;min-height:32px;align-items:center;padding:4px 12px;border:1px solid #fecdd3;border-radius:9999px;background:#fff1f2;color:#9f1239;font-size:16px;font-weight:600}.ds-action-row button{display:flex;min-width:44px;min-height:44px;align-items:center;justify-content:center;border:1px solid #cbd5e1;border-radius:6px;background:#fff;color:#17418c}.ds-action-row button:hover{background:#f1f5f9}@media(max-width:1279px){.ds-action-row{grid-template-columns:1fr 1fr}.ds-action-id{grid-column:1/-1}.ds-action-owner{justify-self:start}.ds-action-row button{justify-self:end}}@media(max-width:767px){.ds-action-row{grid-template-columns:1fr}.ds-action-id{grid-column:auto}.ds-action-row button{justify-self:start}}"
+    },
+    {
+      "name": "Responsibility Pill",
+      "kind": "chip",
+      "refersTo": "status-exception",
+      "description": "Short bounded state token whose wording carries meaning and rose only reinforces company ownership.",
+      "html": "<span class=\"ds-owner-pill\">Us</span>",
+      "css": ".ds-owner-pill{display:inline-flex;min-height:32px;align-items:center;padding:4px 12px;border:1px solid #fecdd3;border-radius:9999px;background:#fff1f2;color:#9f1239;font-family:ui-sans-serif,system-ui,sans-serif;font-size:16px;font-weight:600}"
+    },
+    {
+      "name": "Readiness Checkpoint",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "Ruled facts ending in an explicit full-width READY or BLOCKED verdict.",
+      "html": "<section class=\"ds-checkpoint\"><header>Readiness checkpoint</header><div class=\"ds-checkpoint-row\"><span class=\"ds-checkpoint-mark\">✓</span><b>CMS completed</b><strong>Completed</strong></div><div class=\"ds-checkpoint-verdict\"><svg viewBox=\"0 0 24 24\" width=\"32\" height=\"32\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M22 11.08V12a10 10 0 1 1-5.93-9.14\"/><path d=\"m9 11 3 3L22 4\"/></svg><div><b>READY</b><span>Empty collection can be arranged.</span></div></div></section>",
+      "css": ".ds-checkpoint{overflow:hidden;border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#0f172a;font-family:ui-sans-serif,system-ui,sans-serif}.ds-checkpoint header{min-height:64px;padding:16px 20px;border-bottom:1px solid #e2e8f0;font:600 20px/28px \"IBM Plex Sans\",Inter,ui-sans-serif,system-ui,sans-serif}.ds-checkpoint-row{display:grid;min-height:64px;grid-template-columns:44px minmax(0,1fr) minmax(130px,.8fr);align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid #e2e8f0;font-size:18px}.ds-checkpoint-mark{display:flex;width:36px;height:36px;align-items:center;justify-content:center;border:1px solid #a7f3d0;border-radius:6px;background:#ecfdf5;color:#047857;font-size:22px;font-weight:600}.ds-checkpoint-row b,.ds-checkpoint-row strong{font-weight:600}.ds-checkpoint-row strong{color:#065f46}.ds-checkpoint-verdict{display:flex;min-height:96px;align-items:center;gap:16px;padding:20px;background:#047857;color:#fff}.ds-checkpoint-verdict div{display:flex;flex-direction:column;gap:4px}.ds-checkpoint-verdict b{font-size:20px;font-weight:600}.ds-checkpoint-verdict span{font-size:18px;font-weight:500}"
+    },
+    {
+      "name": "Automatically Created Trip Row",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "Signature consequence state: a new trip wipes into the existing job record and settles to white.",
+      "html": "<table class=\"ds-trip-table\"><thead><tr><th>Reference</th><th>Route</th><th>Status</th></tr></thead><tbody><tr class=\"ds-new-trip\"><td><b>MOV-001</b><span>Created automatically</span></td><td>Cogent Jurong Depot → Sunrise Foods</td><td><em>Pending</em></td></tr></tbody></table>",
+      "css": ".ds-trip-table{width:100%;min-width:700px;border-collapse:collapse;text-align:left;color:#0f172a;font-family:ui-sans-serif,system-ui,sans-serif;font-size:18px}.ds-trip-table thead{background:#172a3a;color:#fff}.ds-trip-table th,.ds-trip-table td{padding:16px;border-right:1px solid #475569}.ds-trip-table th{font-size:16px;font-weight:600}.ds-trip-table th:last-child,.ds-trip-table td:last-child{border-right:0}.ds-new-trip{border-bottom:1px solid #e2e8f0;background:#fff;vertical-align:top;animation:ds-greenlit-row 1.35s cubic-bezier(.16,1,.3,1)}.ds-new-trip td:first-child{display:flex;flex-direction:column;gap:8px}.ds-new-trip b{font-weight:600}.ds-new-trip span{display:inline-flex;align-self:flex-start;padding:4px 8px;border:1px solid #a7f3d0;border-radius:6px;background:#ecfdf5;color:#065f46;font-size:16px;font-weight:600}.ds-new-trip em{display:inline-flex;min-height:36px;align-items:center;padding:4px 12px;border:1px solid #e2e8f0;border-radius:9999px;background:#f1f5f9;color:#334155;font-style:normal;font-weight:600}@keyframes ds-greenlit-row{0%{background:#d1fae5;clip-path:inset(0 100% 0 0)}45%{background:#d1fae5;clip-path:inset(0 0 0 0)}100%{background:#fff;clip-path:inset(0 0 0 0)}}@media(prefers-reduced-motion:reduce){.ds-new-trip{animation-duration:.01ms;animation-iteration-count:1}}"
+    },
+    {
+      "name": "Operational Confirmation Toast",
+      "kind": "custom",
+      "refersTo": "panel",
+      "description": "Polite live confirmation with the strongest elevation in the working canvas.",
+      "html": "<div class=\"ds-toast\" role=\"status\" aria-live=\"polite\"><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M22 11.08V12a10 10 0 1 1-5.93-9.14\"/><path d=\"m9 11 3 3L22 4\"/></svg><span>Trip MOV-001 created automatically. Empty collection can now be arranged.</span><button aria-label=\"Dismiss message\">×</button></div>",
+      "css": ".ds-toast{display:flex;max-width:560px;align-items:flex-start;gap:12px;padding:20px;border:1px solid #6ee7b7;border-radius:8px;background:#fff;color:#0f172a;box-shadow:0 12px 32px rgba(15,23,42,.20);font-family:ui-sans-serif,system-ui,sans-serif;font-size:18px;font-weight:600}.ds-toast>svg{flex:none;color:#047857}.ds-toast button{display:flex;min-width:44px;min-height:44px;margin-left:auto;align-items:center;justify-content:center;border:0;border-radius:6px;background:transparent;color:#475569;font-size:28px}.ds-toast button:hover{background:#f1f5f9}.ds-toast button:focus-visible{outline:4px solid #0284c7}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Calm Maritime Console",
+    "overview": "Project Greenlit is a quiet, shift-ready operations console. A deep ink-navy command shell anchors the experience while cool neutral ground and white work surfaces keep dense operational information calm and legible. The interface feels precise and maritime without turning ports, containers, or anchors into decoration.\n\nThe system prioritizes responsibility, readiness, and consequence over dashboard spectacle. Common hierarchy tops out at medium-bold weight, compact containers use restrained corners, and colored states always explain a real operational fact in words. No gradient, glass, illustration, or ornamental motion competes with the work.\n\nIts signature is causal feedback: when a checkpoint changes, the effect carries through the readiness verdict, job status, automatically created trip, and next action. Everything else stays visually steady.",
+    "keyCharacteristics": [
+      "A persistent deep ink command bar at every width.",
+      "Cool neutral ground with white, lightly ruled work surfaces.",
+      "18px operational copy, 16px compact labels, and a restrained 600-weight ceiling for common hierarchy.",
+      "Rose, amber, and emerald used only for named operational states.",
+      "Compact 2×4 mobile indicators that become one row of eight at extra-large widths."
+    ],
+    "rules": [
+      { "name": "The Ink-Shell Rule", "body": "Ink Navy frames navigation and operational context; Brand Action remains the primary interaction color and is not replaced by semantic color.", "section": "colors" },
+      { "name": "The State-Means-Something Rule", "body": "Rose, amber, and emerald must always accompany an explicit label, number, icon, or explanation of the condition.", "section": "colors" },
+      { "name": "The No-Gradient Rule", "body": "All surfaces use solid color, borders, and restrained tonal contrast.", "section": "colors" },
+      { "name": "The Operational Type Rule", "body": "Use 18px for operational reading and controls; 16px is the compact minimum, never a way to compress core work.", "section": "typography" },
+      { "name": "The Weight Ceiling Rule", "body": "Common hierarchy stops at 600. Stronger meaning comes from position, color, and spacing instead of 700–900 weight escalation.", "section": "typography" },
+      { "name": "The First-Viewport Rule", "body": "On phone screens, preserve command → title/date → 2×4 indicators → visible Action Required header within the first 844px.", "section": "layout" },
+      { "name": "The Origin Rule", "body": "Opening a job must never erase where the operator came from; Back and active navigation both preserve that context.", "section": "layout" },
+      { "name": "The Flat-at-Rest Rule", "body": "Ordinary panels, indicators, filters, tables, and controls use borders and tonal separation, not resting shadows.", "section": "elevation" },
+      { "name": "The Restrained-Corner Rule", "body": "Radius may soften an operational surface but must not make the console bubbly; never turn every label or action into a pill.", "section": "shapes" },
+      { "name": "The Consequence-Carry Rule", "body": "Authored motion must connect a changed checkpoint to a downstream operational result; never animate static decoration.", "section": "components" }
+    ],
+    "dos": [
+      "**Do** preserve the first-view order of command, context, eight indicators, then Action Required.",
+      "**Do** keep the command bar sticky and all three destinations visible at every width.",
+      "**Do** preserve the 2×4 phone indicator grid and one-row eight-indicator layout from 1280px.",
+      "**Do** use 18px operational copy, a 16px compact minimum, 44px targets, and visible focus outlines.",
+      "**Do** state status and responsibility in words before reinforcing them with semantic color.",
+      "**Do** return job detail to the destination from which the job was opened."
+    ],
+    "donts": [
+      "**Don't** introduce gradients, glass, decorative maritime imagery, or ornamental motion.",
+      "**Don't** replace Brand Action with rose, amber, or emerald for ordinary interaction.",
+      "**Don't** exceed the restrained 4–8px corner language for ordinary controls and containers.",
+      "**Don't** compress the eight indicators into horizontal scrolling or hide Action Required below the first phone viewport.",
+      "**Don't** allow page-level horizontal overflow at 375, 768, 1024, or 1440px.",
+      "**Don't** add hover-only explanations, icon-only primary actions, or resting shadows to ordinary cards."
+    ]
+  }
+}

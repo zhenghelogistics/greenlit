@@ -1,0 +1,122 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/NgMax/.caveman/bin/caveman-proxy' native-hook claude --adapter '/usr/local/lib/node_modules/@caveman-ai/cli/dist/native-hook-fast.js'"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/NgMax/.caveman/bin/caveman-proxy' native-hook claude --adapter '/usr/local/lib/node_modules/@caveman-ai/cli/dist/native-hook-fast.js'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/NgMax/.caveman/bin/caveman-proxy' native-hook claude --adapter '/usr/local/lib/node_modules/@caveman-ai/cli/dist/native-hook-fast.js'"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/NgMax/.caveman/bin/caveman-proxy' native-hook claude --adapter '/usr/local/lib/node_modules/@caveman-ai/cli/dist/native-hook-fast.js'"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/usr/local/bin/caveman' shrink-hook"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/NgMax/.caveman/bin/caveman-proxy' native-hook claude --adapter '/usr/local/lib/node_modules/@caveman-ai/cli/dist/native-hook-fast.js'"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/NgMax/.caveman/bin/caveman-proxy' native-hook claude --adapter '/usr/local/lib/node_modules/@caveman-ai/cli/dist/native-hook-fast.js'"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/NgMax/.caveman/bin/caveman-proxy' native-hook claude --adapter '/usr/local/lib/node_modules/@caveman-ai/cli/dist/native-hook-fast.js'"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/NgMax/.caveman/bin/caveman-proxy' native-hook claude --adapter '/usr/local/lib/node_modules/@caveman-ai/cli/dist/native-hook-fast.js'"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/NgMax/.caveman/bin/caveman-proxy' native-hook claude --adapter '/usr/local/lib/node_modules/@caveman-ai/cli/dist/native-hook-fast.js'"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/NgMax/.caveman/bin/caveman-proxy' native-hook claude --adapter '/usr/local/lib/node_modules/@caveman-ai/cli/dist/native-hook-fast.js'"
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/NgMax/.caveman/bin/caveman-proxy' native-hook claude --adapter '/usr/local/lib/node_modules/@caveman-ai/cli/dist/native-hook-fast.js'"
+          }
+        ]
+      }
+    ]
+  }
+}
