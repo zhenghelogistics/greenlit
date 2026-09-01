@@ -5,11 +5,17 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present && node_modules/.bin/tsc --noEmit -p greenlit-site/tsconfig.json",
+    "test:packages": "npm run test --workspaces --if-present",
+    "test:app": "npm --prefix greenlit-site test",
+    "test": "npm run test:packages && npm run test:app",
+    "lint": "npm --prefix greenlit-site run lint",
+    "design": "node scripts/check-design-system.mjs",
+    "verify": "npm run typecheck && npm run lint && npm run design && npm run test",
+    "dev": "npm --prefix greenlit-site run dev"
   },
   "devDependencies": {
-    "@types/node": "^22.20.1",
-    "typescript": "^5.9.3"
+    "@types/node": "^22",
+    "typescript": "^5"
   }
 }

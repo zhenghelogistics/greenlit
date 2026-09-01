@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same branch supersedes an in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install workspace
+        run: npm ci --no-audit --no-fund
+
+      - name: Install app
+        working-directory: greenlit-site
+        run: npm ci --no-audit --no-fund
+
+      # Every check below runs even if an earlier one failed, so a single run
+      # reports every problem instead of only the first. The gate step at the
+      # end decides the outcome.
+      - name: Typecheck — engine
+        id: tc_engine
+        continue-on-error: true
+        working-directory: packages/engine
+        run: ../../node_modules/.bin/tsc --noEmit -p tsconfig.json
+
+      - name: Typecheck — core
+        id: tc_core
+        continue-on-error: true
+        working-directory: packages/core
+        run: ../../node_modules/.bin/tsc --noEmit -p tsconfig.json
+
+      - name: Typecheck — app
+        id: tc_app
+        continue-on-error: true
+        run: node_modules/.bin/tsc --noEmit -p greenlit-site/tsconfig.json
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        working-directory: greenlit-site
+        run: npm run lint
+
+      - name: Design system gate
+        id: design
+        continue-on-error: true
+        run: node scripts/check-design-system.mjs
+
+      - name: Tests — engine
+        id: test_engine
+        continue-on-error: true
+        working-directory: packages/engine
+        run: node --test --test-reporter=spec tests/*.test.ts
+
+      - name: Tests — core
+        id: test_core
+        continue-on-error: true
+        working-directory: packages/core
+        run: node --test --test-reporter=spec tests/*.test.ts
+
+      - name: Tests — app
+        id: test_app
+        continue-on-error: true
+        working-directory: greenlit-site
+        run: npm test
+
+      - name: Build
+        id: build
+        continue-on-error: true
+        working-directory: greenlit-site
+        run: npm run build
+
+      - name: Report
+        if: always()
+        run: |
+          {
+            echo "## CI result"
+            echo ""
+            echo "| Check | Result |"
+            echo "|---|---|"
+            printf "| Typecheck engine | %s |\n" "${{ steps.tc_engine.outcome }}"
+            printf "| Typecheck core | %s |\n" "${{ steps.tc_core.outcome }}"
+            printf "| Typecheck app | %s |\n" "${{ steps.tc_app.outcome }}"
+            printf "| Lint | %s |\n" "${{ steps.lint.outcome }}"
+            printf "| Design system gate | %s |\n" "${{ steps.design.outcome }}"
+            printf "| Tests engine | %s |\n" "${{ steps.test_engine.outcome }}"
+            printf "| Tests core | %s |\n" "${{ steps.test_core.outcome }}"
+            printf "| Tests app | %s |\n" "${{ steps.test_app.outcome }}"
+            printf "| Build | %s |\n" "${{ steps.build.outcome }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Gate
+        if: always()
+        run: |
+          fail=0
+          for r in "${{ steps.tc_engine.outcome }}" "${{ steps.tc_core.outcome }}" \
+                   "${{ steps.tc_app.outcome }}" "${{ steps.lint.outcome }}" \
+                   "${{ steps.design.outcome }}" "${{ steps.test_engine.outcome }}" \
+                   "${{ steps.test_core.outcome }}" "${{ steps.test_app.outcome }}" \
+                   "${{ steps.build.outcome }}"; do
+            [ "$r" = "failure" ] && fail=1
+          done
+          if [ "$fail" = "1" ]; then
+            echo "::error::One or more checks failed. See the job summary."
+            exit 1
+          fi
+          echo "All checks passed."

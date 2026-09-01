@@ -25,31 +25,37 @@ export const EXPORT_MANDATORY: MandatoryFieldSet = {
  * against the in-memory fixtures today and against Supabase later, unchanged.
  */
 export class JobService {
-  constructor(
-    private readonly repo: Repository,
-    private readonly now: () => string = () => new Date().toISOString(),
-  ) {}
+  // Explicit fields rather than TypeScript parameter properties: Node's
+  // strip-only type execution cannot compile parameter properties, and these
+  // packages are deliberately runnable with no build step.
+  readonly #repo: Repository;
+  readonly #now: () => string;
+
+  constructor(repo: Repository, now: () => string = () => new Date().toISOString()) {
+    this.#repo = repo;
+    this.#now = now;
+  }
 
   async getJob(jobId: string): Promise<DerivedJobView | null> {
-    const now = this.now();
-    const thresholds = await this.repo.getThresholds();
+    const now = this.#now();
+    const thresholds = await this.#repo.getThresholds();
 
-    const importJob = await this.repo.getImportJob(jobId);
+    const importJob = await this.#repo.getImportJob(jobId);
     if (importJob) {
       const [containers, movements, exceptions] = await Promise.all([
-        this.repo.listContainersForImportJob(jobId),
-        this.repo.listMovementsForJob(jobId),
-        this.repo.listOpenExceptionsForJob(jobId),
+        this.#repo.listContainersForImportJob(jobId),
+        this.#repo.listMovementsForJob(jobId),
+        this.#repo.listOpenExceptionsForJob(jobId),
       ]);
       return deriveImportJob(importJob, containers, movements, exceptions, IMPORT_MANDATORY, thresholds, now);
     }
 
-    const exportJob = await this.repo.getExportJob(jobId);
+    const exportJob = await this.#repo.getExportJob(jobId);
     if (exportJob) {
       const [containers, movements, exceptions] = await Promise.all([
-        this.repo.listContainersForExportJob(jobId),
-        this.repo.listMovementsForJob(jobId),
-        this.repo.listOpenExceptionsForJob(jobId),
+        this.#repo.listContainersForExportJob(jobId),
+        this.#repo.listMovementsForJob(jobId),
+        this.#repo.listOpenExceptionsForJob(jobId),
       ]);
       return deriveExportJob(exportJob, containers, movements, exceptions, EXPORT_MANDATORY, thresholds, now);
     }
@@ -60,7 +66,7 @@ export class JobService {
   /** Every active job, both domains, each carrying its derived values. */
   async listJobs(): Promise<DerivedJobView[]> {
     const [importJobs, exportJobs] = await Promise.all([
-      this.repo.listImportJobs(), this.repo.listExportJobs(),
+      this.#repo.listImportJobs(), this.#repo.listExportJobs(),
     ]);
     const ids = [...importJobs.map((j) => j.jobId), ...exportJobs.map((j) => j.exportJobId)];
     const views = await Promise.all(ids.map((id) => this.getJob(id)));
