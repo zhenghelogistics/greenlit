@@ -20,6 +20,17 @@ export interface DerivedContainerView {
 }
 
 export interface DerivedJobView {
+  /**
+   * The stored record, verbatim.
+   *
+   * Screens need operational facts the derivation does not produce — vessel,
+   * booking reference, yard, dates, chassis. Returning them alongside the
+   * derived values, under a separate key, keeps the distinction the whole
+   * design rests on: everything under `record` was typed by someone, and
+   * everything outside it was computed. §56.
+   */
+  record: ImportJob | ExportJob;
+  storedContainers: (ImportContainer | ExportContainer)[];
   jobId: string;
   jobNumber: string;
   domain: 'IMPORT' | 'EXPORT';
@@ -179,6 +190,8 @@ export function deriveImportJob(
     : { nextActionRequired: 'Complete job information', blockingReason: 'No containers on job', waitingOn: 'US' as WaitingOn };
 
   return {
+    record: job,
+    storedContainers: [...containers],
     jobId: job.jobId,
     jobNumber: job.jobNumber,
     domain: 'IMPORT',
@@ -229,6 +242,8 @@ export function deriveExportJob(
     : { nextActionRequired: 'Complete job information', blockingReason: 'No containers on job', waitingOn: 'US' as WaitingOn };
 
   return {
+    record: job,
+    storedContainers: [...containers],
     jobId: job.exportJobId,
     jobNumber: job.jobNumber,
     domain: 'EXPORT',

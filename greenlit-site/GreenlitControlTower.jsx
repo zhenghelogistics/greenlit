@@ -51,7 +51,16 @@ import { readPdfText } from "./lib/read-pdf.mjs";
 // Seed data — fixed at 19 August 2026 so the demo is repeatable.
 // -----------------------------------------------------------------------------
 
-const DEMO_TODAY = "2026-08-19";
+/**
+ * Operational today, in the local timezone (§14.5 displays Asia/Singapore).
+ *
+ * This was a frozen constant while the screens ran on seed fixtures, which
+ * meant nothing aged, nothing became overdue and no deadline ever arrived.
+ * The engine computes against real time, so the interface must too.
+ */
+function operationalToday() {
+  return new Date().toISOString().slice(0, 10);
+}
 const CARPARK = "ZHL Carpark, Pioneer Road";
 const CHASSIS_TOTALS = { "20ft": 47, "40ft": 42 };
 const MAINTENANCE_UNITS = {
@@ -477,11 +486,11 @@ function dayDifference(from, to) {
 }
 
 function daysUntil(value) {
-  return dayDifference(DEMO_TODAY, value);
+  return dayDifference(operationalToday(), value);
 }
 
 function daysHeld(value) {
-  return dayDifference(value, DEMO_TODAY);
+  return dayDifference(value, operationalToday());
 }
 
 function activeTrips(job) {
@@ -554,6 +563,7 @@ function importStatus(job) {
 }
 
 export function jobStatus(job) {
+  if (job.derived) return job.derived.status;
   return job.type === "Export" ? exportStatus(job) : importStatus(job);
 }
 
@@ -605,10 +615,12 @@ function externalBlocker(job) {
 }
 
 export function blockingReason(job) {
+  if (job.derived) return job.derived.blocking;
   return deadlineRisk(job)?.text || (overdueTrip(job) ? "A planned trip is overdue." : null) || internalBlocker(job) || externalBlocker(job) || "No blocking issue.";
 }
 
 export function waitingOn(job) {
+  if (job.derived) return job.derived.waitingOn;
   if (deadlineRisk(job) || overdueTrip(job) || internalBlocker(job)) return "Us";
   const status = jobStatus(job);
   if (job.type === "Export" && ["Partially Collected", "Partially Delivered"].includes(status)) return "Us";
@@ -618,6 +630,7 @@ export function waitingOn(job) {
 }
 
 export function nextAction(job) {
+  if (job.derived) return job.derived.nextAction;
   const risk = deadlineRisk(job);
   if (risk) return risk.remaining < 0 ? "Collect immediately and escalate charges" : "Collect today before free time ends";
   if (overdueTrip(job)) return "Contact the transport desk about the overdue trip";
@@ -654,6 +667,7 @@ export function nextAction(job) {
 }
 
 export function location(job) {
+  if (job.derived) return job.derived.location;
   if (jobContainers(job).length > 1) return "Multiple locations";
   const trips = activeTrips(job);
   const latest = [...trips].reverse().find((trip) => ["Collected", "In Transit", "Delivered", "Completed"].includes(trip.status));
@@ -854,6 +868,78 @@ function CounterCard({ label, value, note, icon: Icon, tone = "navy", onClick })
       </div>
     </button>
   );
+}
+
+const WAITING_LABEL_API = { US: "Us", CUSTOMER: "Customer", CARRIER: "Carrier", NOBODY: "Nobody" };
+
+/**
+ * Maps a DerivedJobView from the API into the shape these screens consume.
+ *
+ * Two halves, deliberately kept apart:
+ *   - stored facts come from `record` and `storedContainers`
+ *   - `derived` carries the engine's answers, which the accessors above prefer
+ *
+ * Nothing here recomputes a status. If a value is derived, it was derived on
+ * the server (§56).
+ */
+function jobFromApi(view) {
+  const r = view.record ?? {};
+  const stored = view.storedContainers ?? [];
+  const first = stored[0] ?? {};
+  const isImport = view.domain === "IMPORT";
+
+  return {
+    id: view.jobNumber,
+    type: isImport ? "Import" : "Export",
+    customer: view.customer,
+    createdDate: (r.createdAt ?? "").slice(0, 10),
+    booking: r.bookingReference ?? r.blNumber ?? "",
+    vessel: [r.vesselName, r.voyageNumber].filter(Boolean).join(" / "),
+    infoComplete: view.mandatoryComplete,
+    missingInformation: view.missingInformation ?? [],
+    cmsCompleted: r.cmsStatus === "COMPLETED" || r.cmsStatus === "NOT_REQUIRED",
+    emptyYard: r.emptyCollectionYard ?? "",
+    deliveryAddress: r.deliveryAddress ?? first.stuffingLocation ?? "",
+    terminal: first.portTerminal ?? "",
+    containerQuantity: r.containerQuantity ?? stored.length,
+    containerSizeType: r.containerSizeType ?? first.sizeType ?? "",
+    container: view.containers?.[0]?.containerNumber ?? "",
+    detailsSent: Boolean(first.containerDetailsSent),
+    customerReady: Boolean(first.containerReady),
+    transhipment: r.transhipmentStatus ?? "",
+    permitReceived: Boolean(r.permitReceived),
+    portnetReleased: Boolean(r.portnetReleased),
+    demurrageLastFreeDay: first.demurrageLfd ?? first.combinedLfd ?? null,
+    detentionLastFreeDay: first.detentionLfd ?? null,
+    atCarparkSince: first.carparkArrivedAt ?? null,
+    readyConfirmedAt: first.containerReadyAt ?? null,
+    chassis: first.chassisId ?? null,
+    exception: null,
+    containers: stored.map((c, i) => ({
+      ref: c.containerRef ?? `C${i + 1}`,
+      number: c.containerNumber ?? "",
+      seal: c.sealNumber ?? "",
+      tare: c.tareWeightKg ?? null,
+      status: view.containers?.[i]?.status ?? "",
+    })),
+    trips: (view.movements ?? []).map((m) => ({
+      id: m.movementRef,
+      type: m.movementType,
+      status: m.movementStatus,
+      origin: m.origin,
+      destination: m.destination,
+      plannedDate: m.plannedDate,
+      autoCreated: m.autoCreated,
+    })),
+    // The engine's answers. The accessors above read these and never recompute.
+    derived: {
+      status: view.jobStatus,
+      location: view.location,
+      nextAction: view.nextActionRequired,
+      blocking: view.blockingReason ?? "",
+      waitingOn: WAITING_LABEL_API[view.waitingOn] ?? "Nobody",
+    },
+  };
 }
 
 /**
@@ -2289,7 +2375,7 @@ function ChassisFleet({ fleet, onOpen, onUnit }) {
 }
 
 function nextDocumentJobId(jobs) {
-  const prefix = `JOB-${DEMO_TODAY.slice(2).replaceAll("-", "")}-`;
+  const prefix = `JOB-${operationalToday().slice(2).replaceAll("-", "")}-`;
   const nextNumber = jobs.reduce((highest, job) => {
     if (!job.id.startsWith(prefix)) return highest;
     return Math.max(highest, Number(job.id.slice(prefix.length)) || 0);
@@ -2327,7 +2413,7 @@ function buildImportJobFromDocument(result, jobs, existingJob = null) {
     id: jobId,
     type: "Import",
     customer: partyName(fields.consignee),
-    createdDate: existingJob?.createdDate || DEMO_TODAY,
+    createdDate: existingJob?.createdDate || operationalToday(),
     infoComplete: REQUIRED_JOB_FIELDS.every((key) => Boolean(String(fields[key] || "").trim())),
     permitReceived: existingJob?.permitReceived || false,
     portnetReleased: existingJob?.portnetReleased || false,
@@ -2366,6 +2452,23 @@ function buildImportJobFromDocument(result, jobs, existingJob = null) {
 
 export default function GreenlitControlTower() {
   const [jobs, setJobs] = useState(cloneSeedJobs);
+  // Source of record. Seed data is the offline fallback only; when the API
+  // answers, every screen below reads engine-derived values (§56).
+  const [source, setSource] = useState("loading");
+
+  const loadJobs = React.useCallback(() => {
+    setSource("loading");
+    return fetch("/api/jobs")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((data) => {
+        const mapped = (data.jobs ?? []).map(jobFromApi);
+        if (mapped.length) { setJobs(mapped); setSource("engine"); }
+        else setSource("empty");
+      })
+      .catch(() => setSource("offline"));
+  }, []);
+
+  useEffect(() => { loadJobs(); }, [loadJobs]);
   const [documents, setDocuments] = useState([]);
   const [clearedMaintenanceUnits, setClearedMaintenanceUnits] = useState([]);
   const [workPanel, setWorkPanel] = useState(null);
@@ -2691,7 +2794,7 @@ export default function GreenlitControlTower() {
   }
 
   function resetDemo() {
-    setJobs(cloneSeedJobs());
+    loadJobs();
     setDocuments([]);
     setClearedMaintenanceUnits([]);
     setWorkPanel(null);
@@ -2785,7 +2888,7 @@ export default function GreenlitControlTower() {
             <button type="button" onClick={resetDemo} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-500 bg-transparent px-3 text-[15px] font-semibold text-slate-200 hover:border-slate-400 hover:bg-[#18364c] hover:text-white focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400 sm:px-4">
               <RotateCcw className="h-4 w-4" />
               <span className="sm:hidden">Reset</span>
-              <span className="hidden sm:inline">Reset demo</span>
+              <span className="hidden sm:inline">Reload</span>
             </button>
           </div>
         </div>

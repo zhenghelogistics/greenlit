@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Project Greenlit — Control Tower Demo",
+  title: "Project Greenlit — Control Tower",
   description:
-    "An operable maritime control-tower proof of concept with browser-local arrival-notice intake and linked job, container, trip, chassis, readiness, and free-time management.",
+    "A maritime transportation control tower with browser-local arrival-notice intake and linked job, container, trip, chassis, readiness, and free-time management.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

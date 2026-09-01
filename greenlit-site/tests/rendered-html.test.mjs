@@ -30,7 +30,7 @@ test("server-renders the Greenlit control tower", async () => {
 
   const html = await response.text();
   assert.match(html, /<html lang="en-SG">/);
-  assert.match(html, /<title>Project Greenlit — Control Tower Demo<\/title>/);
+  assert.match(html, /<title>Project Greenlit — Control Tower<\/title>/);
   assert.match(html, /PROJECT GREENLIT/);
   assert.match(html, /Action Required/);
   assert.match(html, /Document Intake/);
