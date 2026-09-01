@@ -1,0 +1,17 @@
+{
+  "name": "@greenlit/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Application services: the repository port, the derivation service, and an in-memory adapter. Storage-agnostic by design.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "node --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@greenlit/engine": "*"
+  }
+}

@@ -1,0 +1,1611 @@
+/*
+THESIS: A calm maritime operations console turns readiness facts into visible work without visual noise.
+OWN-WORLD: Ink-navy structure, precise typography, quiet neutral surfaces, and status color used only when it carries meaning.
+STORY: Controllers see today's queue, understand one blocking fact, clear it, and watch the next trip enter the same job record.
+FIRST VIEWPORT: A compact ink command bar, eight quiet operating indicators, then the urgency-ranked action register with responsibility shown in words.
+FORM: Maritime operations console — restrained, data-led, and shift-ready. Signature interaction: a checkpoint release flash carries into a newly created trip row.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+*/
+
+import React, { useState } from "react";
+import {
+  AlertTriangle,
+  Anchor,
+  ArrowLeft,
+  CalendarDays,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  CircleDot,
+  Clock3,
+  Container as ContainerIcon,
+  LayoutDashboard,
+  ListTodo,
+  MapPin,
+  PackageCheck,
+  RotateCcw,
+  ShieldCheck,
+  Truck,
+  Warehouse,
+  Wrench,
+  X,
+  XCircle,
+} from "lucide-react";
+
+// -----------------------------------------------------------------------------
+// Seed data — fixed at 19 August 2026 so the demo is repeatable.
+// -----------------------------------------------------------------------------
+
+const DEMO_TODAY = "2026-08-19";
+const CARPARK = "ZHL Carpark, Pioneer Road";
+const CHASSIS_TOTALS = { "20ft": 47, "40ft": 42 };
+const MAINTENANCE_UNITS = {
+  "20ft": [2040, 2043, 2055, 2066, 2072, 2080],
+  "40ft": [4031, 4036, 4045, 4058, 4065, 4488],
+};
+
+export const SEED_JOBS = [
+  {
+    id: "EXP-260819-001",
+    type: "Export",
+    customer: "Sunrise Foods Pte Ltd",
+    createdDate: "2026-08-19",
+    booking: "BK-88213",
+    vessel: "Ever Lambent 044E",
+    infoComplete: true,
+    cmsCompleted: false,
+    emptyYard: "Cogent Jurong Depot",
+    deliveryAddress: "Sunrise Foods, Tuas South",
+    container: { number: "", seal: "", tareKg: null, vgmKg: null },
+    detailsSent: false,
+    customerReady: false,
+    transhipment: null,
+    trips: [],
+    exception: null,
+  },
+  {
+    id: "EXP-260819-002",
+    type: "Export",
+    customer: "Meridian Trading",
+    createdDate: "2026-08-18",
+    booking: "BK-77104",
+    vessel: "CMA CGM Tigris 198W",
+    infoComplete: true,
+    cmsCompleted: true,
+    emptyYard: "YCH Tuas Depot",
+    deliveryAddress: "Meridian Trading, Penjuru",
+    container: { number: "", seal: "", tareKg: null, vgmKg: null },
+    detailsSent: false,
+    customerReady: false,
+    transhipment: null,
+    chassis: [{ unit: 4033, size: "40ft", heldSince: "2026-08-17" }],
+    trips: [
+      {
+        id: "MOV-001",
+        route: "YCH Tuas Depot → Meridian Trading",
+        type: "Empty Collection",
+        status: "Delivered",
+        plannedDate: "2026-08-18",
+        collectedTime: "18 Aug 2026, 09:10",
+        deliveredTime: "18 Aug 2026, 14:20",
+      },
+    ],
+    exception: {
+      open: true,
+      text: "Empty delivered without container details",
+      openedAt: "18 Aug 2026, 15:20",
+    },
+  },
+  {
+    id: "EXP-260818-003",
+    type: "Export",
+    customer: "Anchor Chemicals",
+    createdDate: "2026-08-15",
+    booking: "BK-66489",
+    vessel: "ONE Integrity 062E",
+    infoComplete: true,
+    cmsCompleted: true,
+    emptyYard: "Sembawang Container Yard",
+    deliveryAddress: "Anchor Chemicals, Jurong Island",
+    container: { number: "TGHU7719045", seal: "551902", tareKg: 3780, vgmKg: null },
+    detailsSent: true,
+    customerReady: true,
+    readyConfirmedAt: "2026-08-15",
+    transhipment: "pending",
+    chassis: [{ unit: 4041, size: "40ft", heldSince: "2026-08-15" }],
+    trips: [
+      {
+        id: "MOV-001",
+        route: "Sembawang Container Yard → Anchor Chemicals",
+        type: "Empty Collection",
+        status: "Completed",
+        plannedDate: "2026-08-15",
+        collectedTime: "15 Aug 2026, 08:25",
+        deliveredTime: "15 Aug 2026, 12:40",
+      },
+    ],
+    exception: null,
+  },
+  {
+    id: "EXP-260815-004",
+    type: "Export",
+    customer: "Pacific Rim Textiles",
+    createdDate: "2026-08-10",
+    booking: "BK-55312",
+    vessel: "Maersk Lima 231W",
+    infoComplete: true,
+    cmsCompleted: true,
+    emptyYard: "Cogent Jurong Depot",
+    deliveryAddress: "Pacific Rim Textiles, Kallang",
+    container: { number: "ABCU9963012", seal: "772410", tareKg: 4010, vgmKg: 23780 },
+    detailsSent: true,
+    customerReady: true,
+    transhipment: "pending",
+    atCarparkSince: "2026-08-13",
+    chassis: [{ unit: 4052, size: "40ft", heldSince: "2026-08-10" }],
+    trips: [
+      {
+        id: "MOV-001",
+        route: "Cogent Jurong Depot → Pacific Rim Textiles",
+        type: "Empty Collection",
+        status: "Completed",
+        plannedDate: "2026-08-10",
+        collectedTime: "10 Aug 2026, 07:40",
+        deliveredTime: "10 Aug 2026, 11:35",
+      },
+      {
+        id: "MOV-002",
+        route: `Pacific Rim Textiles → ${CARPARK}`,
+        type: "One-Way Loaded",
+        status: "Completed",
+        plannedDate: "2026-08-13",
+        collectedTime: "13 Aug 2026, 16:10",
+        deliveredTime: "13 Aug 2026, 18:05",
+      },
+    ],
+    exception: null,
+  },
+  {
+    id: "EXP-260819-005",
+    type: "Export",
+    customer: "Golden Harvest Foods",
+    createdDate: "2026-08-17",
+    booking: "BK-90551",
+    vessel: "Ever Basis 110E",
+    infoComplete: true,
+    cmsCompleted: true,
+    emptyYard: "YCH Tuas Depot",
+    deliveryAddress: "Golden Harvest Foods, Woodlands",
+    container: { number: "TGHU2288471", seal: "994021", tareKg: 3920, vgmKg: 24480 },
+    detailsSent: true,
+    customerReady: true,
+    transhipment: "pending",
+    chassis: [{ unit: 4029, size: "40ft", heldSince: "2026-08-17" }],
+    trips: [
+      {
+        id: "MOV-001",
+        route: "YCH Tuas Depot → Golden Harvest Foods",
+        type: "Empty Collection",
+        status: "Completed",
+        plannedDate: "2026-08-17",
+        collectedTime: "17 Aug 2026, 08:00",
+        deliveredTime: "17 Aug 2026, 12:15",
+      },
+    ],
+    exception: null,
+  },
+  {
+    id: "EXP-260817-006",
+    type: "Export",
+    customer: "Sunrise Foods Pte Ltd",
+    createdDate: "2026-08-14",
+    booking: "BK-61304",
+    vessel: "OOCL Belgium 090W",
+    infoComplete: true,
+    cmsCompleted: true,
+    emptyYard: "Cogent Jurong Depot",
+    deliveryAddress: "Sunrise Foods, Tuas South",
+    container: { number: "OOLU3309128", seal: "410625", tareKg: 3670, vgmKg: 22110 },
+    detailsSent: true,
+    customerReady: true,
+    transhipment: "available",
+    chassis: [{ unit: 4060, size: "40ft", heldSince: "2026-08-14", released: true }],
+    trips: [
+      {
+        id: "MOV-001",
+        route: "Cogent Jurong Depot → Sunrise Foods",
+        type: "Empty Collection",
+        status: "Completed",
+        plannedDate: "2026-08-14",
+        collectedTime: "14 Aug 2026, 07:55",
+        deliveredTime: "14 Aug 2026, 11:20",
+      },
+      {
+        id: "MOV-002",
+        route: "Sunrise Foods → PSA Tuas",
+        type: "Direct Laden to Port",
+        status: "Delivered",
+        plannedDate: "2026-08-17",
+        collectedTime: "17 Aug 2026, 13:10",
+        deliveredTime: "17 Aug 2026, 17:25",
+      },
+    ],
+    exception: null,
+  },
+  {
+    id: "EXP-260819-007",
+    type: "Export",
+    customer: "Keppel Marine Supplies",
+    createdDate: "2026-08-19",
+    booking: "BK-11820",
+    vessel: "Wan Hai 503 076E",
+    infoComplete: false,
+    missingInformation: ["Empty delivery address", "Export clearance reference"],
+    cmsCompleted: false,
+    emptyYard: "Sembawang Container Yard",
+    deliveryAddress: "",
+    container: { number: "", seal: "", tareKg: null, vgmKg: null },
+    detailsSent: false,
+    customerReady: false,
+    transhipment: null,
+    trips: [],
+    exception: null,
+  },
+  {
+    id: "JOB-260819-001",
+    type: "Import",
+    customer: "Wellmark Industrial",
+    createdDate: "2026-08-19",
+    infoComplete: true,
+    permitReceived: false,
+    portnetReleased: true,
+    terminal: "PSA Pasir Panjang",
+    deliveryAddress: "Wellmark Industrial, Tuas",
+    containers: [{ number: "MSKU3320981", state: "At terminal", lastFreeDay: "2026-08-22" }],
+    trips: [],
+    demurrageLastFreeDay: "2026-08-22",
+    detentionLastFreeDay: "2026-08-27",
+    exception: null,
+  },
+  {
+    id: "JOB-260818-002",
+    type: "Import",
+    customer: "Kimtex Manufacturing",
+    createdDate: "2026-08-18",
+    infoComplete: true,
+    permitReceived: true,
+    portnetReleased: true,
+    terminal: "PSA Brani",
+    deliveryAddress: "Kimtex Manufacturing, Senoko",
+    containers: [{ number: "OOLU8841250", state: "Ready", lastFreeDay: "2026-08-19" }],
+    chassis: [{ unit: 2044, size: "20ft", heldSince: "2026-08-18" }],
+    trips: [],
+    demurrageLastFreeDay: "2026-08-19",
+    detentionLastFreeDay: "2026-08-24",
+    exception: null,
+  },
+  {
+    id: "JOB-260817-003",
+    type: "Import",
+    customer: "Orient Steel Trading",
+    createdDate: "2026-08-17",
+    infoComplete: true,
+    permitReceived: false,
+    portnetReleased: true,
+    terminal: "PSA Tuas",
+    deliveryAddress: "Orient Steel Trading, Pioneer",
+    containers: [
+      { number: "TCNU5590183", state: "Delivered", lastFreeDay: "2026-08-21" },
+      { number: "TCNU5590191", state: "Ready", lastFreeDay: "2026-08-21" },
+      { number: "TCNU6620447", state: "Awaiting permit", lastFreeDay: "2026-08-21" },
+    ],
+    chassis: [
+      { unit: 2051, size: "20ft", heldSince: "2026-08-17" },
+      { unit: 2052, size: "20ft", heldSince: "2026-08-17" },
+      { unit: 4038, size: "40ft", heldSince: "2026-08-17" },
+    ],
+    trips: [
+      {
+        id: "MOV-001",
+        route: "PSA Tuas → Orient Steel Trading",
+        type: "Import Delivery",
+        status: "Completed",
+        plannedDate: "2026-08-17",
+        collectedTime: "17 Aug 2026, 08:40",
+        deliveredTime: "17 Aug 2026, 12:55",
+      },
+      {
+        id: "MOV-002",
+        route: "PSA Tuas → Orient Steel Trading",
+        type: "Import Delivery",
+        status: "Pending",
+        plannedDate: "2026-08-19",
+        collectedTime: "",
+        deliveredTime: "",
+      },
+    ],
+    demurrageLastFreeDay: "2026-08-21",
+    detentionLastFreeDay: "2026-08-26",
+    exception: null,
+  },
+  {
+    id: "JOB-260816-004",
+    type: "Import",
+    customer: "Wellmark Industrial",
+    createdDate: "2026-08-16",
+    infoComplete: true,
+    permitReceived: true,
+    portnetReleased: true,
+    terminal: "PSA Keppel",
+    emptyYard: "YCH Tuas Depot",
+    deliveryAddress: "Wellmark Industrial, Tuas",
+    containers: [{ number: "CSNU7213366", state: "Delivered", lastFreeDay: "2026-08-17" }],
+    chassis: [{ unit: 2038, size: "20ft", heldSince: "2026-08-16" }],
+    trips: [
+      {
+        id: "MOV-001",
+        route: "PSA Keppel → Wellmark Industrial",
+        type: "Import Delivery",
+        status: "Completed",
+        plannedDate: "2026-08-16",
+        collectedTime: "16 Aug 2026, 09:05",
+        deliveredTime: "16 Aug 2026, 13:30",
+      },
+      {
+        id: "MOV-002",
+        route: "Wellmark Industrial → YCH Tuas Depot",
+        type: "Empty Return",
+        status: "Pending",
+        plannedDate: null,
+        collectedTime: "",
+        deliveredTime: "",
+      },
+    ],
+    demurrageLastFreeDay: "2026-08-17",
+    detentionLastFreeDay: "2026-08-21",
+    exception: null,
+  },
+  {
+    id: "JOB-260819-005",
+    type: "Import",
+    customer: "Nexus Polymers",
+    createdDate: "2026-08-19",
+    infoComplete: false,
+    missingInformation: ["Delivery address", "Gross weight"],
+    permitReceived: false,
+    portnetReleased: false,
+    terminal: "PSA Pasir Panjang",
+    deliveryAddress: "",
+    containers: [{ number: "SEGU4402819", state: "At terminal", lastFreeDay: "2026-08-24" }],
+    trips: [],
+    demurrageLastFreeDay: "2026-08-24",
+    detentionLastFreeDay: "2026-08-29",
+    exception: null,
+  },
+];
+
+// -----------------------------------------------------------------------------
+// Derived operational logic — no displayed state is stored separately.
+// -----------------------------------------------------------------------------
+
+function parseDay(value) {
+  return new Date(`${value}T12:00:00+08:00`);
+}
+
+function dayDifference(from, to) {
+  return Math.round((parseDay(to) - parseDay(from)) / 86400000);
+}
+
+function daysUntil(value) {
+  return dayDifference(DEMO_TODAY, value);
+}
+
+function daysHeld(value) {
+  return dayDifference(value, DEMO_TODAY);
+}
+
+function activeTrips(job) {
+  return job.trips.filter((trip) => trip.status !== "Cancelled");
+}
+
+function tripOfType(job, names) {
+  return activeTrips(job).find((trip) => names.includes(trip.type));
+}
+
+function exportStatus(job) {
+  const finalPort = tripOfType(job, ["Direct Laden to Port", "Carpark to Port"]);
+  const oneWay = tripOfType(job, ["One-Way Loaded"]);
+  const ladenTrip = tripOfType(job, ["Direct Laden to Port", "One-Way Loaded", "Carpark to Port"]);
+  const emptyTrip = tripOfType(job, ["Empty Collection"]);
+
+  if (finalPort?.status === "Completed") return "Completed";
+  if (finalPort?.status === "Delivered") return "Delivered to Port";
+  if (job.atCarparkSince && job.transhipment === "available") return "Ready for Port Delivery";
+  if (oneWay?.status === "Completed" && job.transhipment === "pending") return "Awaiting T/T";
+  if (oneWay?.status === "Completed") return "At Carpark";
+  if (ladenTrip && ["Collected", "In Transit"].includes(ladenTrip.status)) return "Laden Collected";
+  if (job.container.vgmKg && job.transhipment === "pending") return "Awaiting T/T";
+  if (job.customerReady && !job.container.vgmKg) return "Awaiting VGM";
+  if (job.carparkRequested && oneWay?.status === "Pending") return "Ready for One-Way Loaded Trip";
+  if (finalPort?.type === "Direct Laden to Port" && finalPort.status === "Pending") return "Ready for Direct Laden Trip";
+  if (job.transhipment === "not_available" && job.carparkRequested == null) return "Carpark Decision Needed";
+  if (job.transhipment === "not_available" && job.carparkRequested === false) return "Delivery Path Needed";
+  if (job.detailsSent && !job.customerReady) return "Awaiting Customer Stuffing";
+  if (job.container.number && !job.detailsSent) return "Awaiting Container Details Notification";
+  if (["Delivered", "Completed"].includes(emptyTrip?.status) && !job.container.number) return "Empty Delivered";
+  if (["Collected", "In Transit"].includes(emptyTrip?.status)) return "Empty Collected";
+  if (emptyTrip?.plannedDate) return "Empty Collection Scheduled";
+  if (job.infoComplete && job.cmsCompleted) return "Ready for Empty Collection";
+  if (job.infoComplete && !job.cmsCompleted) return "Awaiting CMS";
+  return "Incomplete";
+}
+
+function importStatus(job) {
+  const trips = activeTrips(job);
+  const allTripsDone = trips.length > 0 && trips.every((trip) => trip.status === "Completed");
+  const emptyReturn = tripOfType(job, ["Empty Return"]);
+  const states = job.containers.map((container) => container.state);
+  const deliveredCount = states.filter((state) => state === "Delivered").length;
+  const collectedCount = states.filter((state) => state === "Collected").length;
+
+  if (allTripsDone && emptyReturn?.status === "Completed") return "Completed";
+  if (deliveredCount > 0 && emptyReturn && emptyReturn.status !== "Completed") return "Empty Return Pending";
+  if (deliveredCount === job.containers.length) return "Delivered";
+  if (deliveredCount > 0 && deliveredCount < job.containers.length) return "Partially Delivered";
+  if (collectedCount === job.containers.length && deliveredCount === 0) return "Collected";
+  if (trips.some((trip) => trip.plannedDate && !trip.collectedTime)) return "Transport Assigned";
+  if (job.infoComplete && job.permitReceived && job.portnetReleased) return "Ready for Collection";
+  if (job.infoComplete && job.permitReceived && !job.portnetReleased) return "Awaiting Portnet";
+  if (job.infoComplete && !job.permitReceived) return "Awaiting Permit";
+  return "Incomplete";
+}
+
+export function jobStatus(job) {
+  return job.type === "Export" ? exportStatus(job) : importStatus(job);
+}
+
+function deadlineRisk(job) {
+  if (job.type !== "Import" || ["Completed", "Delivered"].includes(jobStatus(job))) return null;
+  const emptyReturnPending = jobStatus(job) === "Empty Return Pending";
+  const remaining = daysUntil(emptyReturnPending ? job.detentionLastFreeDay : job.demurrageLastFreeDay);
+  const clockName = emptyReturnPending ? "Detention free time" : "Last free day";
+  if (remaining < 0) return { remaining, text: `${clockName} passed ${Math.abs(remaining)} day${Math.abs(remaining) === 1 ? "" : "s"} ago.` };
+  if (remaining === 0) return { remaining, text: `${clockName} ends today.` };
+  return null;
+}
+
+function overdueTrip(job) {
+  return activeTrips(job).find(
+    (trip) => trip.plannedDate && daysUntil(trip.plannedDate) < 0 && !trip.collectedTime && trip.status !== "Completed",
+  );
+}
+
+function internalBlocker(job) {
+  const status = jobStatus(job);
+  if (!job.infoComplete) return `Job information is incomplete: ${(job.missingInformation || []).join(" and ")}.`;
+  if (status === "Awaiting CMS") return "CMS has not been completed.";
+  if (status === "Empty Delivered") return "The empty was delivered but its container details were not recorded.";
+  if (status === "Awaiting Container Details Notification") return "Container details have not been sent to the customer.";
+  if (status === "Carpark Decision Needed") return "The customer has not been asked whether to use the company carpark.";
+  if (status === "Delivery Path Needed") return "The company carpark was declined and no laden delivery path has been agreed.";
+  if (status === "Ready for Empty Collection") return "The empty collection has not been arranged.";
+  if (status === "Ready for One-Way Loaded Trip") return "The one-way loaded trip has not been arranged.";
+  if (status === "Ready for Direct Laden Trip") return "The direct laden trip has not been arranged.";
+  if (status === "Ready for Port Delivery") return "The carpark-to-port trip has not been arranged.";
+  if (status === "Delivered to Port") return "The delivered job has not been closed and its chassis released.";
+  if (status === "Empty Return Pending") return "The empty return has not been arranged.";
+  if (status === "Ready for Collection") return "The import collection has not been arranged.";
+  if (status === "Transport Assigned" && overdueTrip(job)) return "A planned trip is overdue and has not been collected.";
+  return null;
+}
+
+function externalBlocker(job) {
+  const status = jobStatus(job);
+  if (status === "Awaiting Permit") return "The customer has not provided the permit.";
+  if (status === "Awaiting Portnet") return "Portnet release has not been confirmed by the carrier.";
+  if (status === "Awaiting VGM") return "The customer has not provided the VGM.";
+  if (status === "Awaiting Customer Stuffing") return "The customer has not confirmed that stuffing is complete.";
+  if (status === "Awaiting T/T") return "The carrier has not confirmed transhipment space.";
+  if (status === "Partially Delivered" && !job.permitReceived) return "One container is still waiting for the customer permit.";
+  return null;
+}
+
+export function blockingReason(job) {
+  return deadlineRisk(job)?.text || (overdueTrip(job) ? "A planned trip is overdue." : null) || internalBlocker(job) || externalBlocker(job) || "No blocking issue.";
+}
+
+export function waitingOn(job) {
+  if (deadlineRisk(job) || overdueTrip(job) || internalBlocker(job)) return "Us";
+  const status = jobStatus(job);
+  if (["Awaiting Permit", "Awaiting VGM", "Awaiting Customer Stuffing", "Partially Delivered"].includes(status)) return "Customer";
+  if (["Awaiting Portnet", "Awaiting T/T"].includes(status)) return "Carrier";
+  return "Nobody";
+}
+
+export function nextAction(job) {
+  const risk = deadlineRisk(job);
+  if (risk) return risk.remaining < 0 ? "Collect immediately and escalate charges" : "Collect today before free time ends";
+  if (overdueTrip(job)) return "Contact the transport desk about the overdue trip";
+
+  const status = jobStatus(job);
+  const actions = {
+    Incomplete: "Complete the missing job information",
+    "Awaiting CMS": "Record CMS completed",
+    "Empty Delivered": "Record container details",
+    "Awaiting Container Details Notification": "Send container details to customer",
+    "Empty Collected": "Track the empty delivery",
+    "Empty Collection Scheduled": "Dispatch the empty collection",
+    "Ready for Empty Collection": "Arrange empty collection",
+    "Awaiting Customer Stuffing": "Ask the customer to confirm stuffing is complete",
+    "Awaiting VGM": "Ask the customer for VGM",
+    "Awaiting T/T": "Confirm transhipment space with the carrier",
+    "Carpark Decision Needed": "Ask whether the customer wants the company carpark",
+    "Delivery Path Needed": "Agree another laden delivery path with the customer",
+    "Ready for One-Way Loaded Trip": "Arrange the one-way loaded trip",
+    "Ready for Direct Laden Trip": "Arrange the direct laden-to-port trip",
+    "Ready for Port Delivery": "Arrange the carpark-to-port trip",
+    "Delivered to Port": "Close the job and release the chassis",
+    "Awaiting Permit": "Ask the customer for the permit",
+    "Awaiting Portnet": "Follow up on Portnet release",
+    "Ready for Collection": "Arrange import collection",
+    "Transport Assigned": "Monitor the planned collection",
+    "Partially Delivered": "Clear the remaining container for delivery",
+    "Empty Return Pending": "Arrange empty return before detention ends",
+    Delivered: "Arrange the empty return",
+    Completed: "No action required",
+  };
+  return actions[status] || "Review this job";
+}
+
+export function location(job) {
+  if (job.type === "Import" && job.containers.length > 1) return "Multiple locations";
+  const trips = activeTrips(job);
+  const latest = [...trips].reverse().find((trip) => ["Collected", "In Transit", "Delivered", "Completed"].includes(trip.status));
+  if (latest?.status === "Collected" || latest?.status === "In Transit") return "On the road";
+  if (latest && ["Delivered", "Completed"].includes(latest.status)) return latest.route.split("→").at(-1).trim();
+  return job.type === "Import" ? job.terminal : job.emptyYard || "Not yet collected";
+}
+
+function primaryContainer(job) {
+  if (job.type === "Export") return job.container.number || "Not yet known";
+  if (job.containers.length === 1) return job.containers[0].number;
+  return `${job.containers.length} containers`;
+}
+
+function ageInDays(job) {
+  return daysHeld(job.createdDate);
+}
+
+function ageLabel(job) {
+  const days = ageInDays(job);
+  return `${days} day${days === 1 ? "" : "s"}`;
+}
+
+function requiredBy(job) {
+  if (job.type === "Import") {
+    const deadline = jobStatus(job) === "Empty Return Pending" ? job.detentionLastFreeDay : job.demurrageLastFreeDay;
+    const days = daysUntil(deadline);
+    if (days < 0) return `${Math.abs(days)}d overdue`;
+    if (days === 0) return "Today";
+    return `${days} days`;
+  }
+  if (waitingOn(job) === "Us") return "Today";
+  if (waitingOn(job) === "Customer") return "Customer reply";
+  if (waitingOn(job) === "Carrier") return "Carrier reply";
+  return "—";
+}
+
+function urgency(job) {
+  const risk = deadlineRisk(job);
+  if (risk) return 10000 - risk.remaining * 50;
+  if (overdueTrip(job)) return 9000;
+  const owner = waitingOn(job);
+  let score = owner === "Us" ? 7000 : owner === "Customer" ? 5000 : owner === "Carrier" ? 4000 : 1000;
+  if (job.exception?.open) score += 800;
+  if (job.atCarparkSince) score += 600 + daysHeld(job.atCarparkSince) * 10;
+  score += ageInDays(job);
+  return score;
+}
+
+function isActionRequired(job) {
+  const status = jobStatus(job);
+  if (status === "Completed") return false;
+  if (["Ready for Empty Collection", "Ready for Direct Laden Trip", "Ready for One-Way Loaded Trip", "Ready for Port Delivery"].includes(status)) {
+    return Boolean(deadlineRisk(job) || overdueTrip(job));
+  }
+  return waitingOn(job) !== "Nobody" || status === "Delivered to Port";
+}
+
+function readiness(job) {
+  if (job.type === "Import") {
+    const rows = [
+      { label: "Job information", ok: job.infoComplete, value: job.infoComplete ? "Complete" : "Missing information" },
+      { label: "Permit received", ok: job.permitReceived, value: job.permitReceived ? "Received" : "Not received" },
+      { label: "Portnet released", ok: job.portnetReleased, value: job.portnetReleased ? "Released" : "Not released" },
+    ];
+    return { rows, ready: rows.every((row) => row.ok), reason: rows.find((row) => !row.ok)?.label || "All collection checkpoints passed" };
+  }
+
+  const emptyTrip = tripOfType(job, ["Empty Collection"]);
+  const emptyDelivered = ["Delivered", "Completed"].includes(emptyTrip?.status);
+  if (!emptyDelivered && !job.container.number) {
+    const rows = [
+      { label: "Job information", ok: job.infoComplete, value: job.infoComplete ? "Complete" : "Missing information" },
+      { label: "CMS completed", ok: job.cmsCompleted, value: job.cmsCompleted ? "Completed" : "Pending" },
+    ];
+    return { rows, ready: rows.every((row) => row.ok), reason: !job.infoComplete ? "Job information is incomplete." : !job.cmsCompleted ? "CMS has not been completed." : "Empty collection can be arranged." };
+  }
+
+  if (emptyDelivered && !job.container.number) {
+    const rows = [
+      { label: "Empty delivered", ok: true, value: "Delivered" },
+      { label: "Container details", ok: false, value: "Not recorded" },
+    ];
+    return { rows, ready: false, reason: "Container number, seal and tare have not been recorded." };
+  }
+
+  if (job.container.number && !job.detailsSent) {
+    const rows = [
+      { label: "Container details", ok: true, value: "Recorded" },
+      { label: "Details sent to customer", ok: false, value: "Not sent" },
+    ];
+    return { rows, ready: false, reason: "Container details have not been sent to the customer." };
+  }
+
+  const rows = [
+    { label: "Container number", ok: Boolean(job.container.number), value: job.container.number || "Not recorded" },
+    { label: "Customer ready", ok: job.customerReady, value: job.customerReady ? "Confirmed" : "Not confirmed" },
+    { label: "VGM received", ok: Boolean(job.container.vgmKg), value: job.container.vgmKg ? `${job.container.vgmKg.toLocaleString()} kg` : "Not received" },
+    { label: "Transhipment answered", ok: job.transhipment && job.transhipment !== "pending", value: job.transhipment === "available" ? "Available" : job.transhipment === "not_available" ? "Not available" : "Pending" },
+    { label: "Delivery path agreed", ok: job.transhipment !== "not_available" || job.carparkRequested === true, value: job.transhipment === "not_available" ? (job.carparkRequested ? "Company carpark" : "Not agreed") : "Direct to port" },
+  ];
+  return { rows, ready: rows.every((row) => row.ok), reason: rows.find((row) => !row.ok)?.label || "Laden movement checkpoints passed." };
+}
+
+function cloneSeedJobs() {
+  return JSON.parse(JSON.stringify(SEED_JOBS));
+}
+
+function statusTone(status) {
+  if (["Completed", "Delivered", "Delivered to Port", "Ready for Collection", "Ready for Empty Collection", "Ready for Port Delivery", "Ready for Direct Laden Trip", "Ready for One-Way Loaded Trip"].includes(status)) {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  }
+  if (["Incomplete", "Empty Delivered", "Carpark Decision Needed", "Delivery Path Needed"].includes(status)) return "border-rose-200 bg-rose-50 text-rose-800";
+  if (["Awaiting VGM", "Awaiting Permit", "Awaiting Customer Stuffing", "Partially Delivered"].includes(status)) return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-slate-200 bg-slate-100 text-slate-700";
+}
+
+function tripStatusTone(trip) {
+  if (trip.status === "Pending") return "border-slate-200 bg-slate-100 text-slate-700";
+  if (trip.status === "Cancelled") return "border-rose-200 bg-rose-50 text-rose-800";
+  return "border-emerald-200 bg-emerald-50 text-emerald-800";
+}
+
+function dwellTone(days) {
+  if (days > 5) return "border-rose-200 bg-rose-50 text-rose-800";
+  if (days > 3) return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function WaitingPill({ owner }) {
+  const tones = {
+    Us: "border-rose-200 bg-rose-50 text-rose-800",
+    Customer: "border-amber-200 bg-amber-50 text-amber-800",
+    Carrier: "border-slate-200 bg-slate-100 text-slate-700",
+    Nobody: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  };
+  return <span className={`inline-flex min-h-8 items-center rounded-full border px-3 py-1 text-base font-semibold ${tones[owner]}`}>{owner}</span>;
+}
+
+function StatusPill({ status, large = false, flash = false }) {
+  return (
+    <span className={`inline-flex items-center rounded-full border font-semibold ${large ? "min-h-12 px-5 py-2 text-[18px]" : "min-h-9 px-3 py-1 text-base"} ${statusTone(status)} ${flash ? "greenlit-release-flash" : ""}`}>
+      {status}
+    </span>
+  );
+}
+
+function Panel({ title, action, children, className = "" }) {
+  return (
+    <section className={`overflow-hidden rounded-lg border border-slate-200 bg-white ${className}`}>
+      <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-3">
+        <h2 className="text-xl font-semibold tracking-[-0.01em] text-slate-900">{title}</h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function CounterCard({ label, value, note, icon: Icon, tone = "navy", onClick }) {
+  const iconTone = tone === "red" ? "bg-rose-50 text-rose-700" : tone === "amber" ? "bg-amber-50 text-amber-700" : tone === "green" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-[#17418c]";
+  return (
+    <button type="button" onClick={onClick} className="group min-h-20 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-left transition-[border-color,background-color] duration-200 hover:border-slate-300 hover:bg-slate-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 sm:min-h-28 sm:px-4 sm:py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="greenlit-display text-2xl font-semibold tabular-nums tracking-[-0.02em] text-slate-950 sm:text-3xl">{value}</div>
+          <div className="mt-1 text-base font-semibold leading-tight text-slate-700">{label}</div>
+          {note ? <div className="mt-2 hidden text-base font-medium leading-snug text-slate-500 sm:block">{note}</div> : null}
+        </div>
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md sm:h-9 sm:w-9 ${iconTone}`}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function ActionTable({ jobs, onOpen, compact = false }) {
+  if (!jobs.length) {
+    return (
+      <div className="flex min-h-44 flex-col items-center justify-center gap-3 p-6 text-center">
+        <CheckCircle2 className="h-10 w-10 text-emerald-700" aria-hidden="true" />
+        <p className="text-xl font-bold text-slate-950">No jobs match this filter.</p>
+        <p className="text-[18px] text-slate-700">Choose another filter to continue.</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="hidden overflow-x-auto xl:block">
+        <table className="w-full min-w-[1180px] border-collapse text-left text-[18px]">
+          <thead className="bg-[#172a3a] text-white">
+            <tr>
+              {[
+                "Job",
+                "Container",
+                "Status",
+                "What is blocking it",
+                "Next action",
+                "Waiting on",
+                ...(compact ? [] : ["Age", "Required by"]),
+                "",
+              ].map((heading, index) => (
+                <th key={`${heading}-${index}`} className="border-r border-slate-600 px-4 py-4 text-base font-semibold last:border-r-0">{heading}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {jobs.map((job) => (
+              <tr key={job.id} className="border-b border-slate-200 align-top even:bg-slate-50/70 hover:bg-sky-50/70">
+                <td className="px-4 py-4">
+                  <button type="button" onClick={() => onOpen(job.id)} className="min-h-11 text-left font-semibold text-[#17418c] underline decoration-1 underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">
+                    {job.id}
+                  </button>
+                  <div className="mt-1 font-semibold text-slate-700">{job.type}</div>
+                </td>
+                <td className="px-4 py-4 font-bold text-slate-950">{primaryContainer(job)}</td>
+                <td className="px-4 py-4"><StatusPill status={jobStatus(job)} /></td>
+                <td className="max-w-[270px] px-4 py-4 font-semibold leading-snug text-slate-900">{blockingReason(job)}</td>
+                <td className="max-w-[260px] px-4 py-4 font-bold leading-snug text-slate-950">{nextAction(job)}</td>
+                <td className="px-4 py-4"><WaitingPill owner={waitingOn(job)} /></td>
+                {!compact ? <td className="px-4 py-4 font-bold tabular-nums text-slate-950">{ageLabel(job)}</td> : null}
+                {!compact ? <td className="px-4 py-4 font-bold text-slate-950">{requiredBy(job)}</td> : null}
+                <td className="px-4 py-4">
+                  <button type="button" onClick={() => onOpen(job.id)} aria-label={`Open ${job.id}`} className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-slate-300 text-[#17418c] hover:border-slate-400 hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">
+                    <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="divide-y divide-slate-200 xl:hidden">
+        {jobs.map((job) => (
+          <button key={job.id} type="button" onClick={() => onOpen(job.id)} className="block min-h-44 w-full px-5 py-5 text-left transition-colors duration-200 hover:bg-sky-50/70 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="text-xl font-semibold text-[#17418c] underline decoration-1 underline-offset-4">{job.id}</div>
+                <div className="mt-1 font-semibold text-slate-700">{primaryContainer(job)} · {job.type}</div>
+              </div>
+              <StatusPill status={jobStatus(job)} />
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div><span className="font-bold text-slate-700">Blocking: </span><span className="font-semibold text-slate-950">{blockingReason(job)}</span></div>
+              <div><span className="font-bold text-slate-700">Next: </span><span className="font-bold text-slate-950">{nextAction(job)}</span></div>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <WaitingPill owner={waitingOn(job)} />
+              {!compact ? <span className="font-bold text-slate-800">Age {ageLabel(job)} · Required {requiredBy(job)}</span> : null}
+            </div>
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function TripTable({ trips, flashTripId }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[1060px] border-collapse text-left text-[18px]">
+        <thead className="bg-[#172a3a] text-white">
+          <tr>
+            {["Reference", "Route", "Type", "Status", "Planned date", "Collected", "Delivered"].map((heading) => (
+              <th key={heading} className="border-r border-slate-600 px-4 py-4 text-base font-semibold last:border-r-0">{heading}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {trips.length ? trips.map((trip) => {
+            const pending = trip.status === "Pending";
+            const cancelled = trip.status === "Cancelled";
+            return (
+              <tr key={trip.id} className={`border-b border-slate-200 align-top ${pending ? "bg-slate-50" : "bg-white"} ${cancelled ? "line-through opacity-75" : ""} ${flashTripId === trip.id ? "greenlit-new-row" : ""}`}>
+                <td className="px-4 py-4 font-extrabold text-slate-950">
+                  {trip.id}
+                  {trip.createdAutomatically ? <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-base font-semibold text-emerald-800"><CircleDot className="h-4 w-4" />Created automatically</div> : null}
+                </td>
+                <td className="max-w-[260px] px-4 py-4 font-semibold text-slate-900">{trip.route}</td>
+                <td className="px-4 py-4 font-bold text-slate-950">{trip.type}</td>
+                <td className="px-4 py-4">
+                  <span className={`inline-flex min-h-9 items-center rounded-full border px-3 py-1 font-bold ${tripStatusTone(trip)}`}>{trip.status}</span>
+                  {pending && !trip.plannedDate ? <div className="mt-2 font-semibold text-slate-700">Not yet scheduled</div> : null}
+                  {cancelled ? <div className="mt-2 font-semibold text-red-900">{trip.cancelledReason}</div> : null}
+                </td>
+                <td className="px-4 py-4 font-semibold text-slate-900">{trip.plannedDate ? new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "short", year: "numeric" }).format(parseDay(trip.plannedDate)) : "Not scheduled"}</td>
+                <td className="px-4 py-4 font-semibold text-slate-900">{trip.collectedTime || "—"}</td>
+                <td className="px-4 py-4 font-semibold text-slate-900">{trip.deliveredTime || "—"}</td>
+              </tr>
+            );
+          }) : (
+            <tr><td colSpan="7" className="px-5 py-8 text-center text-[18px] font-semibold text-slate-700">No trips have been created for this job.</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function formatKg(value) {
+  return value ? `${value.toLocaleString()} kg` : "Not yet known";
+}
+
+function freeTimeTone(days) {
+  if (days < 0) return "border-rose-800 bg-rose-800 text-white";
+  if (days <= 1) return "border-rose-200 bg-rose-50 text-rose-800";
+  if (days <= 3) return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-emerald-200 bg-emerald-50 text-emerald-800";
+}
+
+function freeTimeLabel(days) {
+  if (days < 0) return `${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} past`;
+  if (days === 0) return "Today — 0 days left";
+  return `${days} day${days === 1 ? "" : "s"} left`;
+}
+
+function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFleet }) {
+  const activeJobs = jobs.filter((job) => jobStatus(job) !== "Completed");
+  const blockedJobs = activeJobs.filter((job) => !readiness(job).ready);
+  const waitingUs = actionJobs.filter((job) => waitingOn(job) === "Us");
+  const waitingCustomer = actionJobs.filter((job) => waitingOn(job) === "Customer");
+  const exceptions = jobs.filter((job) => job.exception?.open);
+  const atCarpark = jobs.filter((job) => location(job) === CARPARK);
+  const freeRisk = jobs.filter((job) => job.type === "Import" && !["Delivered", "Empty Return Pending", "Completed"].includes(jobStatus(job)) && daysUntil(job.demurrageLastFreeDay) <= 3);
+  const heldBeyondFive = chassis.inUse.filter((item) => item.days > 5).length;
+
+  const cards = [
+    { label: "Waiting on us", value: waitingUs.length, icon: AlertTriangle, tone: waitingUs.length ? "red" : "green", filter: "us" },
+    { label: "Free time at risk", value: freeRisk.length, icon: CalendarDays, tone: freeRisk.length ? "red" : "green", filter: "freeTime" },
+    { label: "Blocked jobs", value: blockedJobs.length, icon: ShieldCheck, tone: blockedJobs.length ? "red" : "green", filter: "blocked" },
+    { label: "Waiting on customer", value: waitingCustomer.length, icon: Clock3, tone: waitingCustomer.length ? "amber" : "green", filter: "customer" },
+    { label: "Exceptions open", value: exceptions.length, icon: XCircle, tone: exceptions.length ? "red" : "green", filter: "exceptions" },
+    { label: "At our carpark", value: atCarpark.length, icon: Warehouse, tone: atCarpark.length ? "amber" : "green", filter: "carpark" },
+    { label: "Active jobs", value: activeJobs.length, icon: ListTodo, filter: "active" },
+    { label: "Chassis available", value: chassis.available.length, note: `${heldBeyondFive} held >5 days`, icon: Truck, tone: "green", fleet: true },
+  ];
+
+  return (
+    <main id="main-content" className="mx-auto max-w-[1800px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4 sm:mb-6">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-[2rem]">Today’s control tower</h1>
+          <p className="mt-2 max-w-[72ch] text-[18px] font-normal text-slate-600">Start with work waiting on us, then protect free time and carpark capacity.</p>
+        </div>
+        <div className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-base font-medium text-slate-600">
+          <CalendarDays className="h-4 w-4 text-slate-500" aria-hidden="true" />
+          Wednesday, 19 August 2026
+        </div>
+      </div>
+
+      <section aria-label="Live operation counts" className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4 xl:grid-cols-8">
+        {cards.map((card) => (
+          <div key={card.label}>
+            <CounterCard {...card} onClick={() => card.fleet ? onShowFleet() : onShowActions(card.filter)} />
+          </div>
+        ))}
+      </section>
+
+      <div className="mt-5 grid gap-6 sm:mt-6">
+        <Panel
+          title="Action Required"
+          action={<button type="button" onClick={() => onShowActions("all")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[#17418c] underline decoration-1 underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">View full list <ChevronRight className="h-5 w-5" /></button>}
+        >
+          <ActionTable jobs={actionJobs.slice(0, 6)} onOpen={onOpen} compact />
+        </Panel>
+
+        <div className="grid gap-6 xl:grid-cols-2">
+          <Panel title="Containers at our carpark">
+            <div className="divide-y divide-slate-200">
+              {atCarpark.map((job) => {
+                const dwell = daysHeld(job.atCarparkSince);
+                const tone = dwellTone(dwell);
+                return (
+                  <button key={job.id} type="button" onClick={() => onOpen(job.id)} className="grid min-h-32 w-full gap-4 px-5 py-5 text-left transition-colors duration-200 hover:bg-sky-50/70 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600 md:grid-cols-[1fr_auto]">
+                    <div>
+                      <div className="text-xl font-semibold text-[#17418c] underline decoration-1 underline-offset-4">{job.container.number}</div>
+                      <div className="mt-2 text-[18px] font-semibold text-slate-800">{job.id} · Chassis {job.chassis[0].unit}</div>
+                      <div className="mt-2 font-bold text-slate-950">Transhipment: {job.transhipment === "pending" ? "Pending" : "Available"}</div>
+                    </div>
+                    <div className={`flex min-h-20 min-w-32 flex-col items-center justify-center rounded-md border px-4 py-3 text-center ${tone}`}>
+                      <div className="text-2xl font-semibold tabular-nums">Day {dwell}</div>
+                      <div className="text-base font-medium">at carpark</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </Panel>
+
+          <Panel title="Import free time">
+            <div className="divide-y divide-slate-200">
+              {jobs.filter((job) => job.type === "Import" && !["Delivered", "Empty Return Pending", "Completed"].includes(jobStatus(job))).sort((a, b) => daysUntil(a.demurrageLastFreeDay) - daysUntil(b.demurrageLastFreeDay)).map((job) => {
+                const days = daysUntil(job.demurrageLastFreeDay);
+                return (
+                  <button key={job.id} type="button" onClick={() => onOpen(job.id)} className="flex min-h-24 w-full flex-wrap items-center justify-between gap-4 px-5 py-4 text-left transition-colors duration-200 hover:bg-sky-50/70 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600">
+                    <div>
+                      <div className="text-xl font-semibold text-[#17418c] underline decoration-1 underline-offset-4">{primaryContainer(job)}</div>
+                      <div className="mt-1 text-[18px] font-semibold text-slate-800">{job.id} · {job.terminal}</div>
+                    </div>
+                    <span className={`inline-flex min-h-12 items-center rounded-md border px-4 py-2 text-[18px] font-semibold ${freeTimeTone(days)}`}>{freeTimeLabel(days)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </Panel>
+        </div>
+
+        <Panel title="Chassis availability" action={<button type="button" onClick={onShowFleet} className="min-h-11 px-2 font-semibold text-[#17418c] underline decoration-1 underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">Open fleet register</button>}>
+          <div className="grid md:grid-cols-2">
+            {["20ft", "40ft"].map((size, index) => {
+              const available = chassis.available.filter((item) => item.size === size).length;
+              const held = chassis.inUse.filter((item) => item.size === size && item.days > 5).length;
+              return (
+                <div key={size} className={`flex min-h-40 items-center justify-between gap-5 p-6 ${index === 0 ? "border-b border-slate-200 md:border-b-0 md:border-r" : ""}`}>
+                  <div>
+                    <div className="text-[18px] font-bold text-slate-700">{size} available</div>
+                    <div className="mt-1 text-5xl font-semibold tabular-nums tracking-[-0.03em] text-[#17418c]">{available}</div>
+                    <div className="mt-2 text-[18px] font-bold text-slate-900">out of {CHASSIS_TOTALS[size]}</div>
+                  </div>
+                  <div className={`rounded-md border px-5 py-4 text-center ${held ? "border-rose-200 bg-rose-50 text-rose-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
+                    <div className="text-2xl font-semibold tabular-nums">{held}</div>
+                    <div className="max-w-36 text-base font-medium">held beyond 5 days</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+      </div>
+    </main>
+  );
+}
+
+const FILTERS = [
+  { id: "all", label: "All" },
+  { id: "us", label: "Waiting on us" },
+  { id: "customer", label: "Waiting on customer" },
+  { id: "carrier", label: "Waiting on carrier" },
+  { id: "import", label: "Import" },
+  { id: "export", label: "Export" },
+];
+
+function ActionRequired({ jobs, filter, setFilter, dashboardFilter, clearDashboardFilter, onOpen }) {
+  const filtered = jobs.filter((job) => {
+    if (dashboardFilter === "active" && jobStatus(job) === "Completed") return false;
+    if (dashboardFilter === "blocked" && readiness(job).ready) return false;
+    if (dashboardFilter === "exceptions" && !job.exception?.open) return false;
+    if (dashboardFilter === "carpark" && location(job) !== CARPARK) return false;
+    if (dashboardFilter === "freeTime" && !(job.type === "Import" && !["Delivered", "Empty Return Pending", "Completed"].includes(jobStatus(job)) && daysUntil(job.demurrageLastFreeDay) <= 3)) return false;
+    if (filter === "us") return waitingOn(job) === "Us";
+    if (filter === "customer") return waitingOn(job) === "Customer";
+    if (filter === "carrier") return waitingOn(job) === "Carrier";
+    if (filter === "import") return job.type === "Import";
+    if (filter === "export") return job.type === "Export";
+    return true;
+  });
+
+  const dashboardLabels = { active: "Active jobs", blocked: "Blocked jobs", exceptions: "Exceptions open", carpark: "At our carpark", freeTime: "Free time at risk" };
+
+  return (
+    <main id="main-content" className="mx-auto max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="pb-2">
+        <h1 className="text-3xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-[2rem]">Action Required</h1>
+        <p className="mt-2 text-[18px] font-normal text-slate-600">Work top to bottom. Doing the action removes the row.</p>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-3" aria-label="Action filters">
+        {FILTERS.map((item) => (
+          <button key={item.id} type="button" onClick={() => { setFilter(item.id); clearDashboardFilter(); }} aria-pressed={filter === item.id && !dashboardFilter} className={`min-h-12 rounded-md border px-5 py-2 text-[18px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${filter === item.id && !dashboardFilter ? "border-[#17418c] bg-[#17418c] text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"}`}>
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {dashboardFilter ? (
+        <div className="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-[18px] font-medium text-sky-900">
+          Dashboard filter: {dashboardLabels[dashboardFilter] || dashboardFilter}
+          <button type="button" onClick={clearDashboardFilter} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-sky-300 bg-white px-3 font-semibold text-[#17418c] focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><X className="h-5 w-5" />Clear</button>
+        </div>
+      ) : null}
+
+      <section className="mt-5 overflow-hidden rounded-lg border border-slate-200 bg-white" aria-label="Urgency-ranked action list">
+        <ActionTable jobs={filtered} onOpen={onOpen} />
+      </section>
+    </main>
+  );
+}
+
+function DetailField({ label, value, flash = false }) {
+  return (
+    <div className={`min-h-24 border-b border-r border-slate-200 p-4 ${flash ? "greenlit-release-flash" : ""}`}>
+      <div className="text-base font-medium text-slate-500">{label}</div>
+      <div className="mt-2 break-words text-[18px] font-semibold text-slate-900">{value}</div>
+    </div>
+  );
+}
+
+function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipment, onCarparkDecision, onCarparkAvailable, highlight }) {
+  const gate = readiness(job);
+  const status = jobStatus(job);
+  const isMoment1 = job.id === "EXP-260819-001";
+  const isMoment2 = job.id === "EXP-260819-002";
+  const isMoment3a = job.id === "EXP-260819-005";
+  const isMoment3b = job.id === "EXP-260815-004";
+  const chassis = job.chassis || [];
+
+  return (
+    <main id="main-content" className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+      <button type="button" onClick={onBack} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[18px] font-semibold text-[#17418c] hover:bg-slate-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+        <ArrowLeft className="h-6 w-6" /> Back
+      </button>
+
+      <header className="mt-5 pb-3">
+        <div className="flex flex-wrap items-start justify-between gap-5">
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-[2rem]">{job.id}</h1>
+              <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-base font-semibold text-slate-700">{job.type}</span>
+            </div>
+            <p className="mt-2 text-xl font-medium text-slate-700">{job.customer}</p>
+            <p className="mt-2 flex items-center gap-2 text-[18px] font-normal text-slate-600"><MapPin className="h-5 w-5" /> {location(job)}</p>
+          </div>
+          <StatusPill status={status} large flash={highlight === "status"} />
+        </div>
+      </header>
+
+      {(isMoment1 || isMoment2 || isMoment3a || isMoment3b) ? (
+        <div className="mt-5 flex items-start gap-3 rounded-lg border border-sky-200 bg-sky-50 px-5 py-4 text-[18px] font-medium text-sky-900">
+          <CircleDot className="mt-0.5 h-5 w-5 shrink-0 text-[#17418c]" />
+          <span>
+            {isMoment1 ? "Try this: record CMS completed and watch the checkpoint release create MOV-001." : null}
+            {isMoment2 ? "Try this: record the missing container details and watch the exception close." : null}
+            {isMoment3a ? "Try this: answer transhipment and watch the correct second trip appear under this job." : null}
+            {isMoment3b ? "Try this: make transhipment available and watch the third trip appear under this job." : null}
+          </span>
+        </div>
+      ) : null}
+
+      <div className="mt-6 grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
+        <Panel title="Readiness checkpoint" className={highlight === "readiness" ? "greenlit-release-flash" : ""}>
+          <div className="divide-y divide-slate-200">
+            {gate.rows.map((row) => (
+              <div key={row.label} className="grid min-h-16 grid-cols-[44px_minmax(0,1fr)_minmax(130px,0.8fr)] items-center gap-3 px-5 py-3">
+                <span className={`flex h-9 w-9 items-center justify-center rounded-md border ${row.ok ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
+                  {row.ok ? <Check className="h-5 w-5" /> : <X className="h-5 w-5" />}
+                </span>
+                <span className="text-[18px] font-semibold text-slate-900">{row.label}</span>
+                <span className={`font-semibold ${row.ok ? "text-emerald-800" : "text-rose-800"}`}>{row.value}</span>
+              </div>
+            ))}
+          </div>
+          <div className={`flex min-h-24 items-center gap-4 px-5 py-5 text-white ${gate.ready ? "bg-emerald-700" : "bg-rose-700"} ${highlight === "verdict" ? "greenlit-release-flash" : ""}`}>
+            {gate.ready ? <CheckCircle2 className="h-8 w-8 shrink-0" /> : <XCircle className="h-8 w-8 shrink-0" />}
+            <div>
+              <div className="text-xl font-semibold">{gate.ready ? "READY" : "BLOCKED"}</div>
+              <div className="mt-1 text-[18px] font-medium">{gate.reason}</div>
+            </div>
+          </div>
+        </Panel>
+
+        <section className="rounded-lg bg-[#172a3a] p-6 text-white" aria-label="Next action">
+          <div className="flex items-center gap-3 text-slate-200"><ListTodo className="h-6 w-6" /><h2 className="text-xl font-semibold">Next action</h2></div>
+          <p className={`mt-5 text-3xl font-semibold leading-tight tracking-[-0.02em] ${highlight === "nextAction" ? "greenlit-text-flash" : ""}`}>{nextAction(job)}</p>
+          <div className="mt-6 border-t border-slate-600 pt-5">
+            <div className="font-medium text-slate-300">Why</div>
+            <div className="mt-2 text-[18px] font-medium">{blockingReason(job)}</div>
+          </div>
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <span className="font-medium text-slate-300">Waiting on</span>
+            <WaitingPill owner={waitingOn(job)} />
+          </div>
+        </section>
+      </div>
+
+      {isMoment2 ? (
+        <div className="mt-6 rounded-lg border border-rose-200 bg-rose-50 px-5 py-5 text-[18px] font-medium leading-relaxed text-rose-900">
+          “Without this rule the trip looks finished, the customer never learns the container number, and stuffing never starts.”
+        </div>
+      ) : null}
+
+      {(isMoment1 && !job.cmsCompleted) ? (
+        <section className="mt-6 rounded-lg border border-sky-200 bg-sky-50 p-5">
+          <h2 className="text-xl font-semibold text-slate-900">Release this checkpoint</h2>
+          <p className="mt-2 text-[18px] font-normal text-slate-700">This records the missing internal checkpoint and creates the permitted trip automatically.</p>
+          <button type="button" onClick={onRecordCms} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[#17418c] px-6 py-3 text-[18px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+            <PackageCheck className="h-6 w-6" /> Record CMS completed
+          </button>
+        </section>
+      ) : null}
+
+      {(isMoment2 && !job.container.number) ? (
+        <section className="mt-6 rounded-lg border border-rose-200 bg-rose-50 p-5">
+          <h2 className="text-xl font-semibold text-rose-900">Open exception: {job.exception.text}</h2>
+          <p className="mt-2 text-[18px] font-normal text-rose-900">Delivered 26 hours ago. Container details must be recorded before this trip can complete.</p>
+          <button type="button" onClick={onRecordDetails} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[#17418c] px-6 py-3 text-[18px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+            <ContainerIcon className="h-6 w-6" /> Record container details
+          </button>
+        </section>
+      ) : null}
+
+      {isMoment3a ? (
+        <section className="mt-6 rounded-lg border border-sky-200 bg-sky-50 p-5">
+          <h2 className="text-xl font-semibold text-slate-900">Set transhipment</h2>
+          <p className="mt-2 text-[18px] font-normal text-slate-700">The answer determines whether the laden container goes directly to port or branches through the company carpark.</p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button type="button" onClick={() => onSetTranshipment("available")} aria-pressed={job.transhipment === "available"} className={`min-h-14 rounded-md border px-6 py-3 text-[18px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${job.transhipment === "available" ? "border-emerald-700 bg-emerald-700 text-white" : "border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50"}`}>
+              Available
+            </button>
+            <button type="button" onClick={() => onSetTranshipment("not_available")} aria-pressed={job.transhipment === "not_available"} className={`min-h-14 rounded-md border px-6 py-3 text-[18px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${job.transhipment === "not_available" ? "border-rose-700 bg-rose-700 text-white" : "border-rose-300 bg-white text-rose-800 hover:bg-rose-50"}`}>
+              Not available
+            </button>
+          </div>
+          {job.transhipment === "not_available" && job.carparkRequested == null ? (
+            <div className="mt-5 rounded-md border border-slate-200 bg-white p-5">
+              <div className="text-xl font-semibold text-slate-900">Customer requests carpark?</div>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button type="button" onClick={() => onCarparkDecision(true)} className="min-h-12 rounded-md bg-[#17418c] px-6 py-2 text-[18px] font-semibold text-white focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">Yes — use carpark</button>
+                <button type="button" onClick={() => onCarparkDecision(false)} className="min-h-12 rounded-md border border-slate-300 bg-white px-6 py-2 text-[18px] font-semibold text-slate-800 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">No</button>
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {isMoment3b && job.transhipment !== "available" ? (
+        <section className="mt-6 rounded-lg border border-rose-200 bg-rose-50 p-5">
+          <h2 className="text-xl font-semibold text-rose-900">Day 6 at carpark · chassis 4052 held 9 days</h2>
+          <p className="mt-2 text-[18px] font-normal text-rose-900">Transhipment is still pending, so the container cannot make its final port trip.</p>
+          <button type="button" onClick={onCarparkAvailable} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[#17418c] px-6 py-3 text-[18px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+            <Anchor className="h-6 w-6" /> Transhipment now available
+          </button>
+        </section>
+      ) : null}
+
+      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+        <Panel title="Container">
+          {job.type === "Export" ? (
+            <div className="grid grid-cols-2">
+              <DetailField label="Container number" value={job.container.number || "Not yet known"} flash={highlight === "container"} />
+              <DetailField label="Seal" value={job.container.seal || "Not yet known"} flash={highlight === "container"} />
+              <DetailField label="Tare" value={formatKg(job.container.tareKg)} flash={highlight === "container"} />
+              <DetailField label="VGM" value={formatKg(job.container.vgmKg)} />
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-200">
+              {job.containers.map((container) => (
+                <div key={container.number} className="flex min-h-20 flex-wrap items-center justify-between gap-3 px-5 py-4">
+                  <span className="text-[18px] font-extrabold text-slate-950">{container.number}</span>
+                  <span className="rounded-md border border-slate-200 bg-slate-100 px-3 py-2 font-semibold text-slate-700">{container.state}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Panel>
+
+        <Panel title="Chassis">
+          {chassis.length ? (
+            <div className="divide-y divide-slate-200">
+              {chassis.map((item) => (
+                <div key={item.unit} className="grid min-h-24 grid-cols-3 items-center gap-4 px-5 py-4">
+                  <div><div className="font-bold text-slate-700">Unit</div><div className="mt-1 text-2xl font-black text-slate-950">{item.unit}</div></div>
+                  <div><div className="font-bold text-slate-700">Size</div><div className="mt-1 text-[18px] font-extrabold text-slate-950">{item.size}</div></div>
+                  <div><div className="font-bold text-slate-700">Held</div><div className={`mt-1 text-[18px] font-extrabold ${daysHeld(item.heldSince) > 5 ? "text-red-900" : "text-slate-950"}`}>{item.released ? "Released" : `${daysHeld(item.heldSince)} days`}</div></div>
+                </div>
+              ))}
+            </div>
+          ) : <div className="px-5 py-8 text-[18px] font-semibold text-slate-700">No chassis assigned yet.</div>}
+        </Panel>
+      </div>
+
+      {job.type === "Import" ? (
+        <Panel title="Free time" className="mt-7">
+          <div className="grid md:grid-cols-2">
+            {[
+              { label: "Demurrage", date: job.demurrageLastFreeDay },
+              { label: "Detention", date: job.detentionLastFreeDay },
+            ].map((clock, index) => {
+              const days = daysUntil(clock.date);
+              return (
+                <div key={clock.label} className={`flex min-h-36 items-center justify-between gap-5 p-6 ${index === 0 ? "border-b border-slate-200 md:border-b-0 md:border-r" : ""}`}>
+                  <div><div className="text-xl font-extrabold text-slate-950">{clock.label}</div><div className="mt-2 font-bold text-slate-700">Last free day: {new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "long", year: "numeric" }).format(parseDay(clock.date))}</div></div>
+                  <span className={`inline-flex min-h-14 items-center rounded-md border px-4 py-2 text-[18px] font-semibold ${freeTimeTone(days)}`}>{freeTimeLabel(days)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </Panel>
+      ) : null}
+
+      <Panel title={`Trip history · ${job.trips.length} trip${job.trips.length === 1 ? "" : "s"} under ${job.id}`} className="mt-7">
+        <TripTable trips={job.trips} flashTripId={highlight?.startsWith("trip:") ? highlight.split(":")[1] : ""} />
+      </Panel>
+
+      <div className="mt-7 rounded-lg border border-slate-200 bg-slate-50 px-5 py-4 text-[18px] font-medium text-slate-700">
+        One job number keeps every trip, container fact, checkpoint and chassis decision together: <span className="font-semibold text-[#17418c]">{job.id}</span>.
+      </div>
+    </main>
+  );
+}
+
+function buildFleet(jobs) {
+  const inUse = jobs.flatMap((job) => (job.chassis || []).filter((item) => !item.released).map((item) => ({ ...item, jobId: job.id, customer: job.customer, days: daysHeld(item.heldSince) })));
+  const inUseUnits = new Set(inUse.map((item) => item.unit));
+  const maintenanceUnits = new Set([...MAINTENANCE_UNITS["20ft"], ...MAINTENANCE_UNITS["40ft"]]);
+  const all20 = Array.from({ length: 47 }, (_, index) => ({ unit: 2038 + index, size: "20ft" }));
+  const all40 = [...Array.from({ length: 41 }, (_, index) => ({ unit: 4029 + index, size: "40ft" })), { unit: 4488, size: "40ft" }];
+  const available = [...all20, ...all40].filter((item) => !inUseUnits.has(item.unit) && !maintenanceUnits.has(item.unit));
+  const maintenance = [...all20, ...all40].filter((item) => maintenanceUnits.has(item.unit));
+  return { inUse, available, maintenance };
+}
+
+function ChassisFleet({ fleet, onOpen }) {
+  return (
+    <main id="main-content" className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="pb-2">
+        <h1 className="text-3xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-[2rem]">Chassis Fleet</h1>
+        <p className="mt-2 text-[18px] font-normal text-slate-600">89 units · 47 twenty-foot · 42 forty-foot. A chassis stays under its container for the whole job.</p>
+      </div>
+
+      <div className="mt-6 grid gap-4 md:grid-cols-3">
+        <div className="rounded-lg border border-slate-200 bg-white p-5"><div className="text-4xl font-semibold tabular-nums text-slate-950">{fleet.available.length}</div><div className="mt-2 text-[18px] font-medium text-slate-600">Available</div></div>
+        <div className="rounded-lg border border-slate-200 bg-white p-5"><div className="text-4xl font-semibold tabular-nums text-slate-950">{fleet.inUse.length}</div><div className="mt-2 text-[18px] font-medium text-slate-600">Under containers</div></div>
+        <div className="rounded-lg border border-slate-200 bg-white p-5"><div className="text-4xl font-semibold tabular-nums text-amber-800">{fleet.maintenance.length}</div><div className="mt-2 text-[18px] font-medium text-slate-600">Maintenance or inspection</div></div>
+      </div>
+
+      <Panel title="Units under containers" className="mt-7">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[850px] border-collapse text-left text-[18px]">
+            <thead className="bg-[#172a3a] text-white"><tr>{["Unit", "Size", "Job", "Customer", "Days held", ""].map((heading, index) => <th key={`${heading}-${index}`} className="px-4 py-4 text-base font-semibold">{heading}</th>)}</tr></thead>
+            <tbody>
+              {[...fleet.inUse].sort((a, b) => b.days - a.days).map((item) => (
+                <tr key={item.unit} className="border-b border-slate-200 even:bg-slate-50/70">
+                  <td className="px-4 py-4 text-xl font-semibold text-slate-950">{item.unit}</td>
+                  <td className="px-4 py-4 font-bold text-slate-900">{item.size}</td>
+                  <td className="px-4 py-4 font-semibold text-[#17418c]">{item.jobId}</td>
+                  <td className="px-4 py-4 font-semibold text-slate-900">{item.customer}</td>
+                  <td className={`px-4 py-4 text-[18px] font-extrabold ${item.days > 5 ? "text-red-900" : "text-slate-950"}`}>{item.days} days {item.days > 5 ? "— ATTENTION" : ""}</td>
+                  <td className="px-4 py-4"><button type="button" onClick={() => onOpen(item.jobId)} className="min-h-11 rounded-md border border-slate-300 px-4 font-semibold text-[#17418c] hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">Open job</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+
+      <div className="mt-7 grid gap-7 xl:grid-cols-2">
+        <Panel title="20ft available">
+          <div className="flex flex-wrap gap-3 p-5">{fleet.available.filter((item) => item.size === "20ft").map((item) => <span key={item.unit} className="inline-flex min-h-11 min-w-20 items-center justify-center rounded-md border border-slate-200 bg-slate-50 px-3 font-semibold text-slate-700">{item.unit}</span>)}</div>
+        </Panel>
+        <Panel title="40ft available">
+          <div className="flex flex-wrap gap-3 p-5">{fleet.available.filter((item) => item.size === "40ft").map((item) => <span key={item.unit} className="inline-flex min-h-11 min-w-20 items-center justify-center rounded-md border border-slate-200 bg-slate-50 px-3 font-semibold text-slate-700">{item.unit}</span>)}</div>
+        </Panel>
+      </div>
+
+      <Panel title="Maintenance or inspection" className="mt-7">
+        <div className="flex flex-wrap gap-3 p-5">{fleet.maintenance.map((item) => <span key={item.unit} className="inline-flex min-h-11 min-w-28 items-center justify-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 font-semibold text-amber-800"><Wrench className="h-5 w-5" />{item.unit} · {item.size}</span>)}</div>
+      </Panel>
+    </main>
+  );
+}
+
+export default function GreenlitControlTower() {
+  const [jobs, setJobs] = useState(cloneSeedJobs);
+  const [screen, setScreen] = useState("dashboard");
+  const [returnScreen, setReturnScreen] = useState("actions");
+  const [selectedJobId, setSelectedJobId] = useState(null);
+  const [actionFilter, setActionFilter] = useState("all");
+  const [dashboardFilter, setDashboardFilter] = useState(null);
+  const [toast, setToast] = useState("");
+  const [highlight, setHighlight] = useState("");
+  const [toastTimer, setToastTimer] = useState(null);
+  const [highlightTimer, setHighlightTimer] = useState(null);
+
+  const actionJobs = jobs.filter(isActionRequired).sort((a, b) => urgency(b) - urgency(a));
+  const fleet = buildFleet(jobs);
+  const selectedJob = jobs.find((job) => job.id === selectedJobId);
+
+  function showToast(message) {
+    setToast(message);
+    window.clearTimeout(toastTimer);
+    setToastTimer(window.setTimeout(() => setToast(""), 5200));
+  }
+
+  function flashSequence(sequence) {
+    window.clearTimeout(highlightTimer);
+    sequence.forEach(({ value, delay }) => window.setTimeout(() => setHighlight(value), delay));
+    setHighlightTimer(window.setTimeout(() => setHighlight(""), Math.max(...sequence.map((item) => item.delay)) + 1300));
+  }
+
+  function openJob(id) {
+    setReturnScreen(screen === "detail" ? "actions" : screen);
+    setSelectedJobId(id);
+    setScreen("detail");
+    setHighlight("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function goTo(nextScreen) {
+    setScreen(nextScreen);
+    setSelectedJobId(null);
+    setHighlight("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function showActions(filter = "all") {
+    const standard = ["us", "customer", "carrier"].includes(filter) ? filter : "all";
+    setActionFilter(standard);
+    setDashboardFilter(["active", "blocked", "exceptions", "carpark", "freeTime"].includes(filter) ? filter : null);
+    goTo("actions");
+  }
+
+  function updateJob(id, updater) {
+    setJobs((current) => current.map((job) => job.id === id ? updater(job) : job));
+  }
+
+  function recordCms() {
+    updateJob("EXP-260819-001", (job) => ({
+      ...job,
+      cmsCompleted: true,
+      trips: job.trips.some((trip) => trip.id === "MOV-001") ? job.trips : [...job.trips, {
+        id: "MOV-001",
+        route: "Cogent Jurong Depot → Sunrise Foods",
+        type: "Empty Collection",
+        status: "Pending",
+        plannedDate: null,
+        collectedTime: "",
+        deliveredTime: "",
+        createdAutomatically: true,
+      }],
+    }));
+    flashSequence([
+      { value: "readiness", delay: 0 },
+      { value: "verdict", delay: 650 },
+      { value: "status", delay: 1300 },
+      { value: "trip:MOV-001", delay: 1950 },
+      { value: "nextAction", delay: 2600 },
+    ]);
+    showToast("Trip MOV-001 created automatically. Empty collection can now be arranged.");
+  }
+
+  function recordDetails() {
+    updateJob("EXP-260819-002", (job) => ({
+      ...job,
+      container: { number: "ABCU4471902", seal: "887341", tareKg: 3850, vgmKg: null },
+      exception: { ...job.exception, open: false },
+      trips: job.trips.map((trip) => trip.id === "MOV-001" ? { ...trip, status: "Completed" } : trip),
+    }));
+    flashSequence([
+      { value: "container", delay: 0 },
+      { value: "readiness", delay: 700 },
+      { value: "trip:MOV-001", delay: 1400 },
+      { value: "status", delay: 2100 },
+      { value: "nextAction", delay: 2700 },
+    ]);
+    showToast("Container details recorded. MOV-001 completed and the exception was closed.");
+  }
+
+  function setTranshipment(answer) {
+    updateJob("EXP-260819-005", (job) => {
+      const withoutBranch = job.trips.filter((trip) => !["Direct Laden to Port", "One-Way Loaded"].includes(trip.type));
+      if (answer === "available") {
+        return {
+          ...job,
+          transhipment: "available",
+          carparkRequested: false,
+          trips: [...withoutBranch, {
+            id: "MOV-002",
+            route: "Golden Harvest Foods → PSA Tuas",
+            type: "Direct Laden to Port",
+            status: "Pending",
+            plannedDate: null,
+            collectedTime: "",
+            deliveredTime: "",
+            createdAutomatically: true,
+          }],
+        };
+      }
+      return { ...job, transhipment: "not_available", carparkRequested: null, trips: withoutBranch };
+    });
+    if (answer === "available") {
+      flashSequence([{ value: "readiness", delay: 0 }, { value: "trip:MOV-002", delay: 700 }, { value: "status", delay: 1400 }]);
+      showToast("MOV-002 Direct Laden to Port created. Both trips remain under EXP-260819-005.");
+    } else {
+      setHighlight("readiness");
+      window.setTimeout(() => setHighlight(""), 1200);
+      showToast("Transhipment marked not available. Confirm whether the customer wants the company carpark.");
+    }
+  }
+
+  function carparkDecision(useCarpark) {
+    updateJob("EXP-260819-005", (job) => ({
+      ...job,
+      carparkRequested: useCarpark,
+      trips: useCarpark ? [...job.trips, {
+        id: "MOV-002",
+        route: `Golden Harvest Foods → ${CARPARK}`,
+        type: "One-Way Loaded",
+        status: "Pending",
+        plannedDate: null,
+        collectedTime: "",
+        deliveredTime: "",
+        createdAutomatically: true,
+      }] : job.trips,
+    }));
+    if (useCarpark) {
+      flashSequence([{ value: "trip:MOV-002", delay: 0 }, { value: "status", delay: 700 }, { value: "nextAction", delay: 1400 }]);
+      showToast("MOV-002 One-Way Loaded created. The carpark path remains under EXP-260819-005.");
+    } else {
+      showToast("Carpark declined. The job remains blocked until a delivery path is agreed.");
+    }
+  }
+
+  function carparkAvailable() {
+    updateJob("EXP-260815-004", (job) => ({
+      ...job,
+      transhipment: "available",
+      trips: job.trips.some((trip) => trip.id === "MOV-003") ? job.trips : [...job.trips, {
+        id: "MOV-003",
+        route: `${CARPARK} → PSA Tuas`,
+        type: "Carpark to Port",
+        status: "Pending",
+        plannedDate: null,
+        collectedTime: "",
+        deliveredTime: "",
+        createdAutomatically: true,
+      }],
+    }));
+    flashSequence([{ value: "readiness", delay: 0 }, { value: "trip:MOV-003", delay: 700 }, { value: "status", delay: 1400 }, { value: "nextAction", delay: 2100 }]);
+    showToast("Trip MOV-003 Carpark to Port created. Three trips remain under EXP-260815-004.");
+  }
+
+  function resetDemo() {
+    setJobs(cloneSeedJobs());
+    setScreen("dashboard");
+    setReturnScreen("actions");
+    setSelectedJobId(null);
+    setActionFilter("all");
+    setDashboardFilter(null);
+    setHighlight("");
+    showToast("Demo reset to 19 August 2026 seed data.");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  const navItems = [
+    { id: "dashboard", label: "Dashboard", count: jobs.filter((job) => jobStatus(job) !== "Completed").length, icon: LayoutDashboard },
+    { id: "actions", label: "Action Required", count: actionJobs.length, icon: ListTodo },
+    { id: "fleet", label: "Chassis Fleet", count: fleet.available.length, icon: Truck },
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#f4f6f8] font-sans text-[18px] leading-normal text-slate-900 selection:bg-sky-200 selection:text-sky-950">
+      <style>{`
+        @font-face {
+          font-family: "Greenlit Hyperlegible";
+          src: url("data:font/woff2;base64,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") format("woff2");
+          font-style: normal;
+          font-weight: 700;
+          font-display: swap;
+        }
+        :root { color-scheme: light; }
+        html { scroll-behavior: smooth; }
+        h1, h2, .greenlit-display { font-family: "IBM Plex Sans", "Inter", ui-sans-serif, system-ui, sans-serif; }
+        .font-black, .font-extrabold, .font-bold { font-weight: 600 !important; }
+        * { scrollbar-color: #64748b #e2e8f0; scrollbar-width: auto; }
+        button, a { cursor: pointer; -webkit-tap-highlight-color: transparent; transition-duration: 180ms; transition-timing-function: cubic-bezier(.22,1,.36,1); }
+        button:disabled { cursor: not-allowed; opacity: .55; }
+        :focus-visible { outline-color: #0284c7 !important; }
+        .greenlit-release-flash { animation: greenlitRelease 1.1s cubic-bezier(.16,1,.3,1); }
+        .greenlit-new-row { animation: greenlitRow 1.35s cubic-bezier(.16,1,.3,1); }
+        .greenlit-text-flash { animation: greenlitText 1.1s cubic-bezier(.16,1,.3,1); }
+        @keyframes greenlitRelease {
+          0% { box-shadow: inset 0 0 0 999px rgba(16,185,129,.14), 0 8px 24px rgba(15,35,51,.12); }
+          100% { box-shadow: inset 0 0 0 0 rgba(16,185,129,0), 0 0 0 rgba(15,35,51,0); }
+        }
+        @keyframes greenlitRow {
+          0% { background: #d1fae5; clip-path: inset(0 100% 0 0); }
+          45% { background: #d1fae5; clip-path: inset(0 0 0 0); }
+          100% { background: #ffffff; clip-path: inset(0 0 0 0); }
+        }
+        @keyframes greenlitText {
+          0% { color: #bae6fd; text-shadow: 0 6px 18px rgba(0,0,0,.16); }
+          100% { color: white; text-shadow: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          html { scroll-behavior: auto; }
+          .greenlit-release-flash, .greenlit-new-row, .greenlit-text-flash { animation-duration: .01ms; animation-iteration-count: 1; }
+        }
+      `}</style>
+
+      <a href="#main-content" className="fixed left-3 top-3 z-[100] -translate-y-24 rounded-md bg-white px-5 py-3 font-semibold text-[#17418c] shadow-lg focus:translate-y-0 focus:outline focus:outline-4 focus:outline-sky-600">Skip to main content</a>
+
+      <header className="sticky top-0 z-40 border-b border-slate-700 bg-[#0f2333] text-white shadow-[0_6px_20px_rgba(15,23,42,0.14)]">
+        <div className="mx-auto flex max-w-[1900px] flex-col lg:flex-row lg:items-stretch">
+          <div className="flex min-h-16 items-center justify-between gap-4 border-b border-slate-700 px-4 py-3 pr-32 sm:px-6 sm:pr-40 lg:min-w-72 lg:border-b-0 lg:border-r lg:pr-6 xl:min-w-80">
+            <div>
+              <div className="greenlit-display text-lg font-semibold tracking-[0.04em]">PROJECT GREENLIT</div>
+              <div className="mt-1 text-base font-normal text-slate-300">Singapore transport control</div>
+            </div>
+            <Anchor className="hidden h-6 w-6 text-slate-400 lg:block" aria-hidden="true" />
+          </div>
+          <nav aria-label="Main navigation" className="grid flex-1 grid-cols-3 lg:flex">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = screen === item.id || (screen === "detail" && returnScreen === item.id);
+              return (
+                <button key={item.id} type="button" onClick={() => goTo(item.id)} aria-current={active ? "page" : undefined} className={`flex min-h-20 min-w-0 flex-col items-center justify-center gap-1 border-r border-slate-700 px-1 py-2 text-base font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-400 sm:min-h-16 sm:flex-row sm:gap-3 sm:px-5 sm:py-3 lg:flex-1 ${active ? "bg-[#18364c] text-white shadow-[inset_0_-3px_0_#38bdf8]" : "text-slate-300 hover:bg-[#142e42] hover:text-white"}`}>
+                  <Icon className="hidden h-5 w-5 shrink-0 sm:block" aria-hidden="true" />
+                  <span className="text-center leading-tight">{item.label}</span>
+                  <span className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-full border border-slate-500 bg-[#0f2333] px-1 text-base tabular-nums text-slate-200">{item.count}</span>
+                </button>
+              );
+            })}
+          </nav>
+          <div className="absolute right-3 top-2 flex min-h-12 items-center justify-end sm:right-5 lg:static lg:min-h-16 lg:px-6 lg:py-3 lg:border-l lg:border-slate-700">
+            <button type="button" onClick={resetDemo} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-500 bg-transparent px-3 text-base font-semibold text-slate-200 hover:border-slate-400 hover:bg-[#18364c] hover:text-white focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400 sm:px-4">
+              <RotateCcw className="h-4 w-4" />
+              <span className="sm:hidden">Reset</span>
+              <span className="hidden sm:inline">Reset demo</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {screen === "dashboard" ? <Dashboard jobs={jobs} actionJobs={actionJobs} chassis={fleet} onOpen={openJob} onShowActions={showActions} onShowFleet={() => goTo("fleet")} /> : null}
+      {screen === "actions" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}
+      {screen === "fleet" ? <ChassisFleet fleet={fleet} onOpen={openJob} /> : null}
+      {screen === "detail" && selectedJob ? (
+        <JobDetail
+          job={selectedJob}
+          onBack={() => goTo(returnScreen)}
+          onRecordCms={recordCms}
+          onRecordDetails={recordDetails}
+          onSetTranshipment={setTranshipment}
+          onCarparkDecision={carparkDecision}
+          onCarparkAvailable={carparkAvailable}
+          highlight={highlight}
+        />
+      ) : null}
+
+      {toast ? (
+        <div role="status" aria-live="polite" className="fixed bottom-5 right-5 z-50 flex max-w-[560px] items-start gap-3 rounded-lg border border-emerald-300 bg-white p-5 text-[18px] font-semibold text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.2)]">
+          <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-700" />
+          <span>{toast}</span>
+          <button type="button" onClick={() => setToast("")} aria-label="Dismiss message" className="ml-auto flex min-h-11 min-w-11 items-center justify-center rounded-md text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><X className="h-5 w-5" /></button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
