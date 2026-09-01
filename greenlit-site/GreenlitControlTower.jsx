@@ -852,7 +852,32 @@ function CounterCard({ label, value, note, icon: Icon, tone = "navy", onClick })
   );
 }
 
-function ActionTable({ jobs, onOpen, compact = false }) {
+/**
+ * Maps a seed job to the neutral row shape by running the in-component
+ * derivation. The live path maps from the API instead — see rowsFromApi.
+ */
+function rowFromSeedJob(job) {
+  return {
+    id: job.id,
+    type: job.type,
+    container: primaryContainer(job),
+    status: jobStatus(job),
+    blocking: blockingReason(job),
+    nextAction: nextAction(job),
+    waitingOn: waitingOn(job),
+    age: ageLabel(job),
+    requiredBy: requiredBy(job),
+    openable: true,
+  };
+}
+
+/**
+ * Presentational only. It renders whatever derived values it is handed and
+ * computes none of its own, so the same table can show seed data or values
+ * computed server-side by @greenlit/engine.
+ */
+function ActionTable({ rows, onOpen, compact = false }) {
+  const jobs = rows;
   if (!jobs.length) {
     return (
       <div className="flex min-h-44 flex-col items-center justify-center gap-3 p-6 text-center">
@@ -892,13 +917,13 @@ function ActionTable({ jobs, onOpen, compact = false }) {
                   </button>
                   <div className="mt-1 font-semibold text-slate-700">{job.type}</div>
                 </td>
-                <td className="px-4 py-4 font-semibold text-slate-950">{primaryContainer(job)}</td>
-                <td className="px-4 py-4"><StatusPill status={jobStatus(job)} /></td>
-                <td className="max-w-[270px] px-4 py-4 font-normal leading-snug text-slate-600">{blockingReason(job)}</td>
-                <td className="max-w-[260px] px-4 py-4 font-semibold leading-snug text-slate-950">{nextAction(job)}</td>
-                <td className="px-4 py-4"><WaitingPill owner={waitingOn(job)} /></td>
-                {!compact ? <td className="px-4 py-4 font-semibold tabular-nums text-slate-950">{ageLabel(job)}</td> : null}
-                {!compact ? <td className="px-4 py-4 font-semibold text-slate-950">{requiredBy(job)}</td> : null}
+                <td className="px-4 py-4 font-semibold text-slate-950">{job.container}</td>
+                <td className="px-4 py-4"><StatusPill status={job.status} /></td>
+                <td className="max-w-[270px] px-4 py-4 font-normal leading-snug text-slate-600">{job.blocking}</td>
+                <td className="max-w-[260px] px-4 py-4 font-semibold leading-snug text-slate-950">{job.nextAction}</td>
+                <td className="px-4 py-4"><WaitingPill owner={job.waitingOn} /></td>
+                {!compact ? <td className="px-4 py-4 font-semibold tabular-nums text-slate-950">{job.age}</td> : null}
+                {!compact ? <td className="px-4 py-4 font-semibold text-slate-950">{job.requiredBy}</td> : null}
                 <td className="px-4 py-4">
                   <button type="button" onClick={() => onOpen(job.id)} aria-label={`Open ${job.id}`} className="flex min-h-11 min-w-11 items-center justify-center rounded-md border border-slate-300 text-[#17418c] hover:border-slate-400 hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">
                     <ChevronRight className="h-5 w-5" aria-hidden="true" />
@@ -915,17 +940,17 @@ function ActionTable({ jobs, onOpen, compact = false }) {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <div className="text-xl font-semibold text-[#17418c] underline decoration-1 underline-offset-4">{job.id}</div>
-                <div className="mt-1 font-semibold text-slate-700">{primaryContainer(job)} · {job.type}</div>
+                <div className="mt-1 font-semibold text-slate-700">{job.container} · {job.type}</div>
               </div>
-              <StatusPill status={jobStatus(job)} />
+              <StatusPill status={job.status} />
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div><span className="font-semibold text-slate-500">Blocking: </span><span className="font-normal text-slate-600">{blockingReason(job)}</span></div>
-              <div><span className="font-semibold text-slate-500">Next: </span><span className="font-semibold text-slate-950">{nextAction(job)}</span></div>
+              <div><span className="font-semibold text-slate-500">Blocking: </span><span className="font-normal text-slate-600">{job.blocking}</span></div>
+              <div><span className="font-semibold text-slate-500">Next: </span><span className="font-semibold text-slate-950">{job.nextAction}</span></div>
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <WaitingPill owner={waitingOn(job)} />
-              {!compact ? <span className="font-semibold text-slate-800">Age {ageLabel(job)} · Required {requiredBy(job)}</span> : null}
+              <WaitingPill owner={job.waitingOn} />
+              {!compact ? <span className="font-semibold text-slate-800">Age {job.age} · Required {job.requiredBy}</span> : null}
             </div>
           </button>
         ))}
@@ -995,7 +1020,45 @@ function freeTimeLabel(days) {
   return `${days} day${days === 1 ? "" : "s"} left`;
 }
 
+
+const WAITING_LABEL = { US: "Us", CUSTOMER: "Customer", CARRIER: "Carrier", NOBODY: "Nobody" };
+
+/** Maps a DerivedJobView from /api into the neutral row shape. */
+function rowsFromApi(jobs) {
+  return jobs.map((j) => ({
+    id: j.jobNumber,
+    type: j.domain === "IMPORT" ? "Import" : "Export",
+    container: j.containers?.[0]?.containerNumber ?? "Not yet known",
+    status: j.jobStatus,
+    blocking: j.blockingReason ?? "—",
+    nextAction: j.nextActionRequired,
+    waitingOn: WAITING_LABEL[j.waitingOn] ?? "Nobody",
+    age: "—",
+    requiredBy: "—",
+    openable: false,
+  }));
+}
+
+/**
+ * Reads the Action Required queue from the server, where @greenlit/engine
+ * computes it. Returns null while loading or if the API is unavailable, and
+ * the caller falls back to seed derivation so the screen never breaks.
+ */
+function useLiveActionRows() {
+  const [rows, setRows] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/queues/action-required")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((data) => { if (!cancelled) setRows(rowsFromApi(data.jobs ?? [])); })
+      .catch(() => { if (!cancelled) setRows(null); });
+    return () => { cancelled = true; };
+  }, []);
+  return rows;
+}
+
 function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFleet }) {
+  const liveRows = useLiveActionRows();
   const activeJobs = jobs.filter((job) => jobStatus(job) !== "Completed");
   const blockedJobs = activeJobs.filter((job) => !readiness(job).ready);
   const waitingUs = actionJobs.filter((job) => waitingOn(job) === "Us");
@@ -1042,7 +1105,7 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
           title="Action Required"
           action={<button type="button" onClick={() => onShowActions("all")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[#17418c] underline decoration-1 underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">View full list <ChevronRight className="h-5 w-5" /></button>}
         >
-          <ActionTable jobs={actionJobs.slice(0, 6)} onOpen={onOpen} compact />
+          <ActionTable rows={(liveRows ?? actionJobs.map(rowFromSeedJob)).slice(0, 6)} onOpen={onOpen} compact />
         </Panel>
 
         <div className="grid gap-6 xl:grid-cols-2">
@@ -1161,7 +1224,7 @@ function ActionRequired({ jobs, filter, setFilter, dashboardFilter, clearDashboa
       ) : null}
 
       <section className="mt-5 overflow-hidden rounded-lg border border-slate-200 bg-white" aria-label="Urgency-ranked action list">
-        <ActionTable jobs={filtered} onOpen={onOpen} />
+        <ActionTable rows={filtered.map(rowFromSeedJob)} onOpen={onOpen} />
       </section>
     </main>
   );
@@ -1553,7 +1616,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <span className="font-medium text-slate-300">Waiting on</span>
-            <WaitingPill owner={waitingOn(job)} />
+            <WaitingPill owner={job.waitingOn} />
           </div>
           <button type="button" onClick={onNextAction} className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-md bg-white px-6 py-3 text-[18px] font-semibold text-[#17418c] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
             {status === "Completed" ? <History className="h-5 w-5" /> : <ListTodo className="h-5 w-5" />}{status === "Completed" ? "View activity" : "Do this now"}<ChevronRight className="h-5 w-5" />
