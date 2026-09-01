@@ -63,6 +63,16 @@ jobs:
         continue-on-error: true
         run: node scripts/check-design-system.mjs
 
+      - name: Spec coverage
+        id: spec
+        continue-on-error: true
+        run: node scripts/spec-coverage.mjs --min 80
+
+      - name: Coverage ratchet
+        id: coverage
+        continue-on-error: true
+        run: npm run coverage
+
       - name: Tests — engine
         id: test_engine
         continue-on-error: true
@@ -100,6 +110,8 @@ jobs:
             printf "| Typecheck app | %s |\n" "${{ steps.tc_app.outcome }}"
             printf "| Lint | %s |\n" "${{ steps.lint.outcome }}"
             printf "| Design system gate | %s |\n" "${{ steps.design.outcome }}"
+            printf "| Spec coverage | %s |\n" "${{ steps.spec.outcome }}"
+            printf "| Coverage ratchet | %s |\n" "${{ steps.coverage.outcome }}"
             printf "| Tests engine | %s |\n" "${{ steps.test_engine.outcome }}"
             printf "| Tests core | %s |\n" "${{ steps.test_core.outcome }}"
             printf "| Tests app | %s |\n" "${{ steps.test_app.outcome }}"
@@ -112,7 +124,8 @@ jobs:
           fail=0
           for r in "${{ steps.tc_engine.outcome }}" "${{ steps.tc_core.outcome }}" \
                    "${{ steps.tc_app.outcome }}" "${{ steps.lint.outcome }}" \
-                   "${{ steps.design.outcome }}" "${{ steps.test_engine.outcome }}" \
+                   "${{ steps.design.outcome }}" "${{ steps.spec.outcome }}" \
+                   "${{ steps.coverage.outcome }}" "${{ steps.test_engine.outcome }}" \
                    "${{ steps.test_core.outcome }}" "${{ steps.test_app.outcome }}" \
                    "${{ steps.build.outcome }}"; do
             [ "$r" = "failure" ] && fail=1

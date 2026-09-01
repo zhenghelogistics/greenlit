@@ -11,8 +11,10 @@
     "test": "npm run test:packages && npm run test:app",
     "lint": "npm --prefix greenlit-site run lint",
     "design": "node scripts/check-design-system.mjs",
-    "verify": "npm run typecheck && npm run lint && npm run design && npm run test",
-    "dev": "npm --prefix greenlit-site run dev"
+    "verify": "npm run typecheck && npm run lint && npm run design && npm run spec && npm run test",
+    "dev": "npm --prefix greenlit-site run dev",
+    "spec": "node scripts/spec-coverage.mjs --min 80",
+    "coverage": "npm run test:coverage --workspaces --if-present"
   },
   "devDependencies": {
     "@types/node": "^22",
