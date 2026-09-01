@@ -76,13 +76,26 @@ body {
 /* ---- Density: compact tier for operational tables ---- */
 .gl-table { width: 100%; border-collapse: collapse; }
 .gl-table thead th {
+  position: sticky; top: 0; z-index: 2;
   background: var(--gl-work-header); color: #fff;
   font: 500 12px/16px var(--gl-font-sans);
   letter-spacing: .04em; text-transform: uppercase; text-align: left;
   padding: 10px 12px; white-space: nowrap;
 }
 .gl-table tbody td { padding: 8px 12px; vertical-align: top; }
-.gl-table tbody tr { min-height: 36px; border-bottom: 1px solid var(--gl-rule); }
+.gl-table tbody tr { border-bottom: 1px solid var(--gl-rule); }
+.gl-table tbody td { height: 40px; }
+
+/* Keyboard focus within the register. Roving focus: one row tabbable at a
+   time, so Tab leaves the table instead of walking every row. */
+.gl-table tbody tr[data-active="true"] {
+  background: #e0f2fe;
+  box-shadow: inset 3px 0 0 0 var(--gl-brand);
+}
+.gl-table tbody tr:focus { outline: none; }
+.gl-table tbody tr:focus-visible {
+  outline: 3px solid var(--gl-focus); outline-offset: -3px;
+}
 .gl-table tbody tr:nth-child(even) { background: var(--gl-surface-quiet); }
 .gl-table tbody tr:hover { background: #eff6ff; cursor: pointer; }
 

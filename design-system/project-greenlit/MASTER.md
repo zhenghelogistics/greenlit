@@ -172,12 +172,38 @@ Field text          15px
 Action Required, trackers, container lists, transport schedule.
 
 ```
-Row height          36px minimum, 44px where a row wraps to two lines
-Cell padding        8px 12px
+Row height          40px compact, 48px default, 56px comfortable
+Cell padding        8px 12px compact
 Row text            14px data / 15px prose
-Header              12px label, uppercase
+Header              12px label, uppercase, sticky on scroll
 Row target          the whole row is clickable; no separate chevron column
 ```
+
+**Density is a user control, not a fixed choice.** Offer compact / default /
+comfortable and remember the selection. Published guidance puts compact tables
+at 40–44px and standard at 48–56px; 36px was tighter than the evidence
+supports and is corrected here.
+
+**Table headers stick.** A controller scanning forty rows must not lose which
+column is "waiting on" halfway down.
+
+### 4.3 Keyboard
+
+The register is worked from the keyboard. PRD §61.3 describes the target
+workflow as opening the queue, filtering to waiting on us, and working the list
+top to bottom — that is a keyboard task, not a mouse task.
+
+```
+Down / j        next row
+Up / k          previous row
+Enter / o       open the focused row
+Home / End      first / last row
+Escape          clear focus
+```
+
+The focused row carries a visible ring and `aria-selected`, and scrolls into
+view. Focus is roving: one row is tabbable at a time, so Tab still moves past
+the table rather than through every row.
 
 **A dense table must not carry a trailing chevron column.** The row is the
 target. That column is 60px of every row spent on no information.
@@ -356,7 +382,9 @@ preserving the final state and any announced message.
 - [ ] All identifiers, weights, dates and counts set in the mono data token.
 - [ ] Exactly one `ink-strong` value per table row.
 - [ ] Indicator cards are equal height with reserved label and note slots.
-- [ ] Table rows 36px+, whole row clickable, no chevron column.
+- [ ] Table rows 40px+, whole row clickable, no chevron column.
+- [ ] Table header sticks on scroll.
+- [ ] Register is fully keyboard-operable per §4.3.
 - [ ] Panel horizontal padding is 16px everywhere.
 - [ ] Three elevation levels used correctly; panels flat.
 - [ ] Focus visible at 3px on every interactive element.

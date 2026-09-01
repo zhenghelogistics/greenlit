@@ -857,6 +857,55 @@ function CounterCard({ label, value, note, icon: Icon, tone = "navy", onClick })
 }
 
 /**
+ * Keyboard operation for the action register.
+ *
+ * PRD §61.3 describes the target workflow as opening the queue, filtering to
+ * waiting on us, and working the list top to bottom. That is a keyboard task.
+ * Roving focus: exactly one row is tabbable, so Tab leaves the table rather
+ * than walking every row.
+ */
+function useRegisterKeyboard(count, onActivate) {
+  const [active, setActive] = useState(-1);
+  const rowsRef = useRef([]);
+
+  const focusRow = (index) => {
+    setActive(index);
+    const node = rowsRef.current[index];
+    if (node) {
+      node.focus({ preventScroll: true });
+      node.scrollIntoView({ block: "nearest" });
+    }
+  };
+
+  const onKeyDown = (event) => {
+    // Never hijack keys while someone is typing.
+    const tag = event.target?.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || event.target?.isContentEditable) return;
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    if (!count) return;
+
+    const key = event.key;
+    if (key === "Enter" || key === "o") {
+      if (active >= 0) { event.preventDefault(); onActivate(active); }
+      return;
+    }
+    if (key === "Escape") { setActive(-1); event.currentTarget.blur?.(); return; }
+
+    let next = null;
+    if (key === "ArrowDown" || key === "j") next = active < 0 ? 0 : Math.min(count - 1, active + 1);
+    else if (key === "ArrowUp" || key === "k") next = active < 0 ? 0 : Math.max(0, active - 1);
+    else if (key === "Home") next = 0;
+    else if (key === "End") next = count - 1;
+    if (next === null) return;
+
+    event.preventDefault();
+    focusRow(next);
+  };
+
+  return { active, setActive, rowsRef, onKeyDown };
+}
+
+/**
  * Maps a seed job to the neutral row shape by running the in-component
  * derivation. The live path maps from the API instead — see rowsFromApi.
  */
@@ -882,6 +931,10 @@ function rowFromSeedJob(job) {
  */
 function ActionTable({ rows, onOpen, compact = false }) {
   const jobs = rows;
+  const { active, setActive, rowsRef, onKeyDown } = useRegisterKeyboard(
+    jobs.length,
+    (index) => { const row = jobs[index]; if (row && row.openable !== false) onOpen(row.id); },
+  );
   if (!jobs.length) {
     return (
       <div className="flex min-h-44 flex-col items-center justify-center gap-3 p-6 text-center">
@@ -894,7 +947,13 @@ function ActionTable({ rows, onOpen, compact = false }) {
 
   return (
     <>
-      <div className="hidden overflow-x-auto xl:block">
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
+      <div
+        className="hidden max-h-[70vh] overflow-auto xl:block"
+        onKeyDown={onKeyDown}
+        role="region"
+        aria-label="Action required register. Use arrow keys or J and K to move, Enter to open."
+      >
         <table className="gl-table min-w-[1080px]">
           <thead>
             <tr>
@@ -907,10 +966,18 @@ function ActionTable({ rows, onOpen, compact = false }) {
             </tr>
           </thead>
           <tbody>
-            {jobs.map((job) => (
+            {jobs.map((job, index) => (
               /* The whole row is the target. MASTER v2 §4.2: a dense table must
                  not carry a trailing chevron column. */
-              <tr key={job.id} onClick={() => job.openable !== false && onOpen(job.id)}>
+              <tr
+                key={job.id}
+                ref={(node) => { rowsRef.current[index] = node; }}
+                tabIndex={active === index || (active < 0 && index === 0) ? 0 : -1}
+                data-active={active === index ? "true" : undefined}
+                aria-selected={active === index}
+                onFocus={() => setActive(index)}
+                onClick={() => job.openable !== false && onOpen(job.id)}
+              >
                 <td>
                   <span className="gl-data" style={{ color: "var(--gl-brand)" }}>{job.id}</span>
                   <div className="gl-caption mt-0.5">{job.type}</div>
@@ -928,6 +995,23 @@ function ActionTable({ rows, onOpen, compact = false }) {
             ))}
           </tbody>
         </table>
+      </div>
+      {/* A shortcut nobody can discover is a shortcut nobody uses. */}
+      <div className="hidden items-center gap-3 border-t border-slate-200 px-4 py-2 xl:flex">
+        <span className="gl-caption">
+          <kbd className="gl-data rounded border border-slate-300 bg-slate-50 px-1">J</kbd>
+          <span className="mx-1">/</span>
+          <kbd className="gl-data rounded border border-slate-300 bg-slate-50 px-1">K</kbd>
+          <span className="ml-2">move</span>
+        </span>
+        <span className="gl-caption">
+          <kbd className="gl-data rounded border border-slate-300 bg-slate-50 px-1">Enter</kbd>
+          <span className="ml-2">open</span>
+        </span>
+        <span className="gl-caption">
+          <kbd className="gl-data rounded border border-slate-300 bg-slate-50 px-1">Esc</kbd>
+          <span className="ml-2">clear</span>
+        </span>
       </div>
       <div className="divide-y divide-slate-200 xl:hidden">
         {jobs.map((job) => (
@@ -1035,25 +1119,76 @@ function rowsFromApi(jobs) {
 }
 
 /**
+ * Keeps a piece of view state in the URL.
+ *
+ * Enterprise table guidance says filter and sort should survive a reload with
+ * a way back to the default. Browser-side storage APIs are deliberately NOT
+ * used here: this component carries the browser-local document-intake
+ * contract — it tells the user "Processed on this device", and
+ * tests/rendered-html.test.mjs asserts that no such API appears in this file.
+ * The URL gives the same persistence and makes a filtered queue shareable,
+ * which is more useful to a controller anyway.
+ */
+function useUrlState(key, initial) {
+  const [value, setValue] = useState(() => {
+    try {
+      const params = new URLSearchParams(globalThis.location?.search ?? "");
+      return params.get(key) ?? initial;
+    } catch { return initial; }
+  });
+
+  useEffect(() => {
+    try {
+      const url = new URL(globalThis.location.href);
+      if (value === initial) url.searchParams.delete(key);
+      else url.searchParams.set(key, value);
+      globalThis.history?.replaceState(null, "", url);
+    } catch { /* non-fatal: the view still works, it just will not survive a reload */ }
+  }, [key, value, initial]);
+
+  return [value, setValue];
+}
+
+/**
  * Reads the Action Required queue from the server, where @greenlit/engine
- * computes it. Returns null while loading or if the API is unavailable, and
- * the caller falls back to seed derivation so the screen never breaks.
+ * computes it.
+ *
+ * Reports its state rather than collapsing to null, so the caller can show a
+ * skeleton while loading instead of rendering seed values and then swapping
+ * them — a visible content jump.
  */
 function useLiveActionRows() {
-  const [rows, setRows] = useState(null);
+  const [state, setState] = useState({ status: "loading", rows: null });
   useEffect(() => {
     let cancelled = false;
     fetch("/api/queues/action-required")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((data) => { if (!cancelled) setRows(rowsFromApi(data.jobs ?? [])); })
-      .catch(() => { if (!cancelled) setRows(null); });
+      .then((data) => { if (!cancelled) setState({ status: "ready", rows: rowsFromApi(data.jobs ?? []) }); })
+      .catch(() => { if (!cancelled) setState({ status: "error", rows: null }); });
     return () => { cancelled = true; };
   }, []);
-  return rows;
+  return state;
+}
+
+/** Reserves the row's space while loading so nothing jumps when data lands. */
+function RegisterSkeleton({ rows = 6 }) {
+  return (
+    <div className="divide-y divide-slate-200" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading the action register</span>
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="flex h-10 items-center gap-4 px-4">
+          <div className="h-3 w-28 animate-pulse rounded bg-slate-200" />
+          <div className="h-3 w-32 animate-pulse rounded bg-slate-100" />
+          <div className="h-3 w-40 animate-pulse rounded bg-slate-100" />
+          <div className="h-3 w-24 animate-pulse rounded bg-slate-100" />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFleet }) {
-  const liveRows = useLiveActionRows();
+  const live = useLiveActionRows();
   const activeJobs = jobs.filter((job) => jobStatus(job) !== "Completed");
   const blockedJobs = activeJobs.filter((job) => !readiness(job).ready);
   const waitingUs = actionJobs.filter((job) => waitingOn(job) === "Us");
@@ -1100,7 +1235,13 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
           title="Action Required"
           action={<button type="button" onClick={() => onShowActions("all")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-brand)] underline decoration-1 underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">View full list <ChevronRight className="h-5 w-5" /></button>}
         >
-          <ActionTable rows={(liveRows ?? actionJobs.map(rowFromSeedJob)).slice(0, 6)} onOpen={onOpen} compact />
+          {live.status === "loading"
+            ? <RegisterSkeleton />
+            : <ActionTable
+                rows={(live.rows ?? actionJobs.map(rowFromSeedJob)).slice(0, 6)}
+                onOpen={onOpen}
+                compact
+              />}
         </Panel>
 
         <div className="grid gap-6 xl:grid-cols-2">
@@ -2231,7 +2372,8 @@ export default function GreenlitControlTower() {
   const [screen, setScreen] = useState("dashboard");
   const [returnScreen, setReturnScreen] = useState("actions");
   const [selectedJobId, setSelectedJobId] = useState(null);
-  const [actionFilter, setActionFilter] = useState("all");
+  // Held in the URL, so a reload keeps the filter and the view is shareable.
+  const [actionFilter, setActionFilter] = useUrlState("filter", "all");
   const [dashboardFilter, setDashboardFilter] = useState(null);
   const [toast, setToast] = useState("");
   const [highlight, setHighlight] = useState("");
