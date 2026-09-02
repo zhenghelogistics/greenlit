@@ -8,6 +8,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 */
 
 import React, { useEffect, useRef, useState } from "react";
+import { jobFromApi } from "./lib/job-adapter.mjs";
 import {
   AlertCircle,
   AlertTriangle,
@@ -870,78 +871,6 @@ function CounterCard({ label, value, note, icon: Icon, tone = "navy", onClick })
   );
 }
 
-const WAITING_LABEL_API = { US: "Us", CUSTOMER: "Customer", CARRIER: "Carrier", NOBODY: "Nobody" };
-
-/**
- * Maps a DerivedJobView from the API into the shape these screens consume.
- *
- * Two halves, deliberately kept apart:
- *   - stored facts come from `record` and `storedContainers`
- *   - `derived` carries the engine's answers, which the accessors above prefer
- *
- * Nothing here recomputes a status. If a value is derived, it was derived on
- * the server (§56).
- */
-function jobFromApi(view) {
-  const r = view.record ?? {};
-  const stored = view.storedContainers ?? [];
-  const first = stored[0] ?? {};
-  const isImport = view.domain === "IMPORT";
-
-  return {
-    id: view.jobNumber,
-    type: isImport ? "Import" : "Export",
-    customer: view.customer,
-    createdDate: (r.createdAt ?? "").slice(0, 10),
-    booking: r.bookingReference ?? r.blNumber ?? "",
-    vessel: [r.vesselName, r.voyageNumber].filter(Boolean).join(" / "),
-    infoComplete: view.mandatoryComplete,
-    missingInformation: view.missingInformation ?? [],
-    cmsCompleted: r.cmsStatus === "COMPLETED" || r.cmsStatus === "NOT_REQUIRED",
-    emptyYard: r.emptyCollectionYard ?? "",
-    deliveryAddress: r.deliveryAddress ?? first.stuffingLocation ?? "",
-    terminal: first.portTerminal ?? "",
-    containerQuantity: r.containerQuantity ?? stored.length,
-    containerSizeType: r.containerSizeType ?? first.sizeType ?? "",
-    container: view.containers?.[0]?.containerNumber ?? "",
-    detailsSent: Boolean(first.containerDetailsSent),
-    customerReady: Boolean(first.containerReady),
-    transhipment: r.transhipmentStatus ?? "",
-    permitReceived: Boolean(r.permitReceived),
-    portnetReleased: Boolean(r.portnetReleased),
-    demurrageLastFreeDay: first.demurrageLfd ?? first.combinedLfd ?? null,
-    detentionLastFreeDay: first.detentionLfd ?? null,
-    atCarparkSince: first.carparkArrivedAt ?? null,
-    readyConfirmedAt: first.containerReadyAt ?? null,
-    chassis: first.chassisId ?? null,
-    exception: null,
-    containers: stored.map((c, i) => ({
-      ref: c.containerRef ?? `C${i + 1}`,
-      number: c.containerNumber ?? "",
-      seal: c.sealNumber ?? "",
-      tare: c.tareWeightKg ?? null,
-      status: view.containers?.[i]?.status ?? "",
-    })),
-    trips: (view.movements ?? []).map((m) => ({
-      id: m.movementRef,
-      type: m.movementType,
-      status: m.movementStatus,
-      origin: m.origin,
-      destination: m.destination,
-      plannedDate: m.plannedDate,
-      autoCreated: m.autoCreated,
-    })),
-    // The engine's answers. The accessors above read these and never recompute.
-    derived: {
-      status: view.jobStatus,
-      location: view.location,
-      nextAction: view.nextActionRequired,
-      blocking: view.blockingReason ?? "",
-      waitingOn: WAITING_LABEL_API[view.waitingOn] ?? "Nobody",
-    },
-  };
-}
-
 /**
  * Keyboard operation for the action register.
  *
@@ -1340,7 +1269,7 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
                   <button key={job.id} type="button" onClick={() => onOpen(job.id)} className="grid min-h-32 w-full gap-4 px-5 py-5 text-left transition-colors duration-200 hover:bg-sky-50/70 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600 md:grid-cols-[1fr_auto]">
                     <div>
                       <div className="text-xl font-semibold text-[var(--gl-brand)] underline decoration-1 underline-offset-4">{primaryContainer(job)}</div>
-                      <div className="mt-2 text-[15px] font-semibold text-slate-800">{job.id} · Chassis {job.chassis[0].unit}</div>
+                      <div className="mt-2 text-[15px] font-semibold text-slate-800">{job.id}{job.chassis?.[0] ? ` · Chassis ${job.chassis[0].unit}` : ""}</div>
                       <div className="mt-2 font-semibold text-slate-950">Transhipment: {job.transhipment === "pending" ? "Pending" : "Available"}</div>
                     </div>
                     <div className={`flex min-h-20 min-w-32 flex-col items-center justify-center rounded-md border px-4 py-3 text-center ${tone}`}>
