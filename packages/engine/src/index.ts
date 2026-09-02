@@ -17,5 +17,6 @@ export * from './next-action.ts';
 export * from './movements.ts';
 export * from './auto-create.ts';
 export * from './exceptions.ts';
+export * from './extraction.ts';
 export { IMPORT_RULES, type ImportCtx } from './rules-import.ts';
 export { EXPORT_RULES, type ExportCtx } from './rules-export.ts';

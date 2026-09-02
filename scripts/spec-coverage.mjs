@@ -86,10 +86,16 @@ const rows = [];
 for (const [id, title] of all) {
   if (id.includes(".")) continue; // report at top-level section granularity
   const scope = NARRATIVE.has(id) ? "narrative" : DEFERRED.has(id) ? "deferred" : "mvp";
+  const inCode = covers(cited.code, id);
+  const inTest = covers(cited.test, id);
   rows.push({
     id: Number(id), title, scope,
-    code: covers(cited.code, id),
-    test: covers(cited.test, id),
+    // A section is claimed if code addresses it OR a test asserts it. Some
+    // sections are cross-cutting checklists (§57) with no source file of their
+    // own; a suite that enforces them is a real claim, not an absence.
+    code: inCode || inTest,
+    test: inTest,
+    sourceOnly: inCode && !inTest,
   });
 }
 rows.sort((a, b) => a.id - b.id);

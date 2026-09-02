@@ -5,7 +5,8 @@ import {
   canEnterStandby, canStartLaden, canTransition, exportContainerStatus,
   importJobStatus, isVgmPlausible, nextMovementRef, planExportMovements,
   planImportMovements, detectImportExceptions, MOVEMENT_TYPE, USER_SETTABLE_STATUS,
-  NEVER_AUTO_CREATED,
+  NEVER_AUTO_CREATED, reconcileExtraction, reconcileVgm, idempotencyKey,
+  isAlreadyProcessed, field, CRITICAL_FIELDS,
 } from '../src/index.ts';
 import type { ExportContainer, ExportJob, ImportContainer, ImportJob, Movement, Thresholds } from '../src/types.ts';
 
@@ -120,8 +121,14 @@ const RULES: Rule[] = [
       assert.equal(canStartLaden(exportJob(), exportContainer(), false).passed, false,
         'stuffing incomplete must fail the gate');
     } },
-  { id: '2.1-6a', text: 'A container with an outstanding stuffing transfer cannot hold a VGM',
-    gap: 'the discrepancy path for an early VGM is specified but not implemented; the gate rejects it, nothing raises the discrepancy' },
+  { id: '2.1-6a', text: 'A container with an outstanding stuffing transfer cannot hold a VGM; one arriving early raises a discrepancy',
+    verify: () => {
+      const at = '2026-09-01T00:00:00Z';
+      const early = reconcileVgm(null, field(24500, 'email', 0.99, at), 3850, false);
+      assert.equal(early.accepted, false, 'not stored');
+      assert.ok(early.discrepancy, 'a discrepancy is raised instead');
+      assert.equal(reconcileVgm(null, field(24500, 'email', 0.99, at), 3850, true).accepted, true);
+    } },
   { id: '2.1-7', text: 'Laden imports may be held at the carpark; the reason is recorded',
     verify: () => {
       assert.ok(MOVEMENT_TYPE.includes('IMPORT_TO_CARPARK'));
@@ -224,9 +231,22 @@ const RULES: Rule[] = [
     } },
   { id: 'P-4', text: 'Every gate override requires user, timestamp, reason and audit event, and raises a Medium exception',
     gap: 'gate overrides (§27.4) are not implemented at all' },
-  { id: 'P-5', text: 'Extracted values never silently overwrite critical fields',
-    gap: 'extraction and the discrepancy path (§12) are not implemented' },
-  { id: 'P-6', text: 'Email processing is idempotent', gap: 'email ingestion (§11) is not implemented' },
+  { id: 'P-5', text: 'Extracted values never silently overwrite critical fields; conflicts raise a discrepancy',
+    verify: () => {
+      const at = '2026-09-01T00:00:00Z';
+      const r = reconcileExtraction({ eta: '2026-08-17' },
+        { eta: field('2026-08-18', 'NOA.pdf', 0.99, at) });
+      assert.deepEqual(r.updates, {}, 'the stored value is untouched');
+      assert.equal(r.discrepancies.length, 1);
+      assert.ok(CRITICAL_FIELDS.includes('eta'));
+    } },
+  { id: 'P-6', text: 'Email processing is idempotent',
+    verify: () => {
+      const a = idempotencyKey('<msg-1>', ['sha-b', 'sha-a']);
+      const b = idempotencyKey('<msg-1>', ['sha-a', 'sha-b']);
+      assert.equal(a, b, 'attachment order must not make a redelivery look new');
+      assert.equal(isAlreadyProcessed(a, new Set([b])), true);
+    } },
   { id: 'P-7', text: 'Hard deletion of operational records is prohibited',
     verify: () => {
       // The port exposes no delete of an operational record.
