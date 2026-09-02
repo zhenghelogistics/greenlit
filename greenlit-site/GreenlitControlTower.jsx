@@ -45,6 +45,21 @@ import {
   XCircle,
 } from "lucide-react";
 import { addIsoDays, MAX_CONTAINERS_PER_JOB, parseArrivalNoticeText, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
+import { reconcileExtraction, toExtractedFields } from "@greenlit/engine";
+
+/**
+ * §12 critical fields, in the arrival-notice parser's vocabulary.
+ *
+ * The engine's CRITICAL_FIELDS list uses the domain names (blNumber,
+ * deliveryAddress); the parser emits its own (billOfLading, consignee).
+ * reconcileExtraction takes the list as an option for exactly this reason,
+ * rather than either side renaming to match the other.
+ */
+const INTAKE_CRITICAL_FIELDS = [
+  "containerNumber", "billOfLading", "eta", "carrier", "terminal",
+  "portOfDischarge", "consignee", "vessel", "demurrageFreeDays",
+  "detentionFreeDays",
+];
 import { addContainerRecord, applyCheckpoint, applyContainerUpdate, applyFreeTime, applyJobFacts, applyTripUpdate, assignChassis, nextTripReference, releaseChassis, removeContainerRecord } from "./lib/operations-actions.mjs";
 import { readPdfText } from "./lib/read-pdf.mjs";
 
@@ -1670,7 +1685,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
   );
 }
 
-function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipment, onCarparkDecision, onCarparkAvailable, onManage, onNextAction, highlight }) {
+function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipment, onCarparkDecision, onCarparkAvailable, onManage, onNextAction, onResolveDiscrepancy, highlight }) {
   const gate = readiness(job);
   const status = jobStatus(job);
   const isMoment1 = job.id === "EXP-260819-001";
@@ -1688,6 +1703,9 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
       <button type="button" onClick={onBack} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[15px] font-semibold text-[var(--gl-brand)] hover:bg-slate-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
         <ArrowLeft className="h-6 w-6" /> Back
       </button>
+      {/* Placed directly under the header: a conflict blocks trusting anything
+          below it, so it must be seen before the job's own facts. */}
+      <DiscrepancyReview job={job} onResolve={onResolveDiscrepancy} />
 
       <header className="mt-5 pb-3">
         <div className="flex flex-wrap items-start justify-between gap-5">
@@ -2010,6 +2028,66 @@ function DocumentContainersEditor({ containers, onChange }) {
         ))}
       </div>
     </fieldset>
+  );
+}
+
+
+/**
+ * §12 discrepancy review.
+ *
+ * "The controller decides which value becomes current, and that decision is
+ * audited." Until one is chosen, the stored value stays in place — so this
+ * panel is the only route by which an extracted value reaches a critical field
+ * that already had one.
+ */
+function DiscrepancyReview({ job, onResolve }) {
+  const open = (job.discrepancies || []).filter((d) => !d.resolvedAt);
+  if (!open.length) return null;
+
+  return (
+    <section className="gl-panel mt-6 border-amber-300">
+      <div className="gl-panel__header bg-amber-50">
+        <h2 className="gl-title text-amber-900">
+          {open.length} document {open.length === 1 ? "conflict" : "conflicts"} need a decision
+        </h2>
+        <span className="gl-caption">Stored values are unchanged until you choose</span>
+      </div>
+      <div className="divide-y divide-slate-200">
+        {open.map((d) => (
+          <div key={`${d.field}-${d.detectedAt}`} className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+            <div>
+              <div className="gl-label">{d.field}</div>
+              <div className="mt-1 flex flex-wrap items-center gap-3">
+                <span className="gl-data gl-strong">{String(d.storedValue ?? "—")}</span>
+                <span className="gl-caption">currently stored</span>
+                <span className="gl-caption">vs</span>
+                <span className="gl-data">{String(d.extractedValue ?? "—")}</span>
+                <span className="gl-caption">
+                  from {d.source}{typeof d.confidence === "number" ? ` · ${Math.round(d.confidence * 100)}% confidence` : ""}
+                </span>
+              </div>
+              <p className="gl-body gl-muted mt-1">{d.reason}</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => onResolve(d, "stored")}
+                className="h-10 rounded border border-slate-300 bg-white px-3 text-[15px] font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Keep stored
+              </button>
+              <button
+                type="button"
+                onClick={() => onResolve(d, "extracted")}
+                className="h-10 rounded border-0 bg-[color:var(--gl-brand)] px-3 text-[15px] font-medium text-white hover:bg-[color:var(--gl-brand-hover)]"
+              >
+                Use extracted
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -2693,6 +2771,27 @@ export default function GreenlitControlTower() {
     showToast("Trip MOV-003 Carpark to Port created. Three trips remain under EXP-260815-004.");
   }
 
+  /**
+   * §12: the controller decides which value becomes current, and the decision
+   * is recorded. Choosing the extracted value writes it; choosing stored
+   * leaves it. Either way the discrepancy is closed with who and when.
+   */
+  function resolveDiscrepancy(discrepancy, choice) {
+    setJobs((current) => current.map((job) => {
+      if (!(job.discrepancies || []).some((d) => d === discrepancy)) return job;
+      const resolvedAt = new Date().toISOString();
+      return {
+        ...job,
+        documentFields: choice === "extracted"
+          ? { ...(job.documentFields || {}), [discrepancy.field]: discrepancy.extractedValue }
+          : job.documentFields,
+        discrepancies: job.discrepancies.map((d) => d === discrepancy
+          ? { ...d, resolvedAt, resolution: choice }
+          : d),
+      };
+    }));
+  }
+
   function applyDocument(result) {
     const fields = result.values;
     const incomingNumbers = new Set((result.containers || []).map((container) => container.number));
@@ -2700,7 +2799,36 @@ export default function GreenlitControlTower() {
       job.billOfLading === fields.billOfLading
       || job.containers?.some((container) => incomingNumbers.has(container.number))
     ));
+    // §12: an extraction may never silently overwrite a critical field on a
+    // job that already exists. A new job has nothing to contradict, so it is
+    // applied whole.
+    let discrepancies = [];
+    if (existingJob) {
+      const extracted = toExtractedFields(
+        fields,
+        result.confidence || {},
+        result.fileName || "document",
+        new Date().toISOString(),
+      );
+      const reconciled = reconcileExtraction(existingJob.documentFields || {}, extracted, {
+        criticalFields: INTAKE_CRITICAL_FIELDS,
+      });
+      discrepancies = reconciled.discrepancies;
+    }
+
     const appliedJob = buildImportJobFromDocument(result, jobs, existingJob);
+    // Conflicting critical values are held for review; the stored values stay.
+    for (const d of discrepancies) {
+      if (existingJob?.documentFields && d.field in existingJob.documentFields) {
+        appliedJob.documentFields = {
+          ...appliedJob.documentFields,
+          [d.field]: existingJob.documentFields[d.field],
+        };
+      }
+    }
+    appliedJob.discrepancies = [...(existingJob?.discrepancies || []), ...discrepancies];
+    appliedJob.documentFields = { ...(appliedJob.documentFields || {}), ...fields };
+
     setJobs((current) => existingJob
       ? current.map((job) => job.id === existingJob.id ? appliedJob : job)
       : [...current, appliedJob]);
@@ -2838,6 +2966,7 @@ export default function GreenlitControlTower() {
           onCarparkAvailable={carparkAvailable}
           onManage={(type, details) => manageJob(selectedJob.id, type, details)}
           onNextAction={() => manageNextAction(selectedJob.id)}
+          onResolveDiscrepancy={resolveDiscrepancy}
           highlight={highlight}
         />
       ) : null}

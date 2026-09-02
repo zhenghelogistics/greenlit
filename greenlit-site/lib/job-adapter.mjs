@@ -62,6 +62,12 @@ export function jobFromApi(view) {
     sourceDocument: null,
     // §27.1 exceptions are records; none are surfaced through the API yet.
     exception: null,
+    // §12 discrepancies raised by document intake, awaiting a controller's
+    // decision. Empty for API-loaded jobs until intake runs against them.
+    discrepancies: [],
+    // The last extracted field set, kept so a later document can be reconciled
+    // against what a previous one established.
+    documentFields: {},
     containers: stored.map((c, i) => ({
       ref: c.containerRef ?? `C${i + 1}`,
       number: c.containerNumber ?? "",
