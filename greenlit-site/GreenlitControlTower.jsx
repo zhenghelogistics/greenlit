@@ -1726,10 +1726,10 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
             <div className="flex flex-wrap items-center gap-3"><span className="inline-flex min-h-9 items-center rounded-full border border-emerald-500 bg-emerald-900/40 px-3 text-[15px] font-semibold">Processed locally</span><button type="button" onClick={() => onManage("source")} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-emerald-300 bg-white px-4 font-semibold text-emerald-900 hover:bg-emerald-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400">View facts <ChevronRight className="h-5 w-5" /></button></div>
           </div>
           <div className="grid divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-4">
-            <DetailField label="Source document" value={job.sourceDocument.fileName} />
+            <DetailField label="Source document" value={job.sourceDocument?.fileName} />
             <DetailField label="Bill of lading" value={job.billOfLading || "Not recorded"} />
             <DetailField label="Vessel / voyage" value={[job.vessel, job.voyage].filter(Boolean).join(" / ") || "Not recorded"} />
-            <DetailField label="Fields applied" value={`${job.sourceDocument.extractedCount} verified facts`} />
+            <DetailField label="Fields applied" value={`${job.sourceDocument?.extractedCount} verified facts`} />
           </div>
           <div className="border-t border-amber-200 bg-amber-50 px-5 py-3 text-[15px] font-medium text-amber-950">Free-time dates are planning estimates from ETA until actual discharge and gate events are confirmed.</div>
         </section>
@@ -1793,7 +1793,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
 
       {(isMoment2 && !containers[0]?.number) ? (
         <section className="mt-6 rounded-lg border border-rose-200 bg-rose-50 p-5">
-          <h2 className="text-xl font-semibold text-rose-900">Open exception: {job.exception.text}</h2>
+          <h2 className="text-xl font-semibold text-rose-900">Open exception: {job.exception?.text ?? "Exception"}</h2>
           <p className="mt-2 text-[15px] font-normal text-rose-900">Delivered 26 hours ago. Container details must be recorded before this trip can complete.</p>
           <button type="button" onClick={onRecordDetails} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[var(--gl-brand)] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
             <ContainerIcon className="h-6 w-6" /> Record container details

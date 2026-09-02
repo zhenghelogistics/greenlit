@@ -54,6 +54,13 @@ export function jobFromApi(view) {
         heldSince: (c.chassisMountedAt ?? "").slice(0, 10) || null,
         released: Boolean(c.chassisReleasedAt),
       })),
+    // §13 activity timeline. The API does not expose audit events yet, so an
+    // empty history is the honest value — not a missing field the screens
+    // would crash on.
+    activity: [],
+    // Present only for jobs created through document intake.
+    sourceDocument: null,
+    // §27.1 exceptions are records; none are surfaced through the API yet.
     exception: null,
     containers: stored.map((c, i) => ({
       ref: c.containerRef ?? `C${i + 1}`,
