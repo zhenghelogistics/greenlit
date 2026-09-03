@@ -1,4 +1,4 @@
-import { userEvent, type AuditEvent, type Discrepancy } from '@greenlit/engine';
+import { userEvent, type AuditEvent, type Chassis, type ChassisHolding, type Discrepancy } from '@greenlit/engine';
 import type {
   ExceptionRecord, ExportContainer, ExportJob, ImportContainer, ImportJob,
   Movement, Thresholds,
@@ -22,6 +22,44 @@ export const DEFAULT_THRESHOLDS: Thresholds = {
   portnetNotProcessedDays: 1,
   ddCriticalDays: 1,
 };
+
+
+/**
+ * §9.1. The chassis fleet, as at the current register: 89 units, 47 twenty-foot
+ * and 42 forty-foot. Numbers and plates are unique across the fleet.
+ *
+ * §9.1 also records two data-quality items to resolve before a real load: max
+ * gross weight is filled for only 12 of 47 twenty-foot units and entered
+ * inconsistently, and inspection dates cluster heavily — 22 units due in a
+ * single month. Both are represented here rather than smoothed over, so the
+ * capacity view shows the real shape.
+ */
+const INSPECTION_CLUSTER_MONTH = '2026-09';
+
+function buildFleetRegister(): Chassis[] {
+  const units: Chassis[] = [];
+  const push = (chassisNo: number, size: '20FT' | '40FT', index: number) => {
+    // The clustering §9.1 warns about: roughly a quarter of the fleet falls due
+    // in one month.
+    const clustered = index % 4 === 0;
+    units.push({
+      chassisId: `CH-${chassisNo}`,
+      chassisNo: String(chassisNo),
+      plateNo: `TRA${1000 + chassisNo}Y`,
+      size,
+      unladenWeightKg: size === '20FT' ? 3200 : 4200,
+      // Deliberately sparse, per §9.1.
+      maxGrossWeightKg: size === '40FT' || index < 12 ? (size === '20FT' ? 30000 : 41000) : null,
+      inspectionDueDate: clustered ? `${INSPECTION_CLUSTER_MONTH}-15` : null,
+      manualStatus: index % 17 === 0 ? 'MAINTENANCE' : null,
+      active: true,
+    });
+  };
+  for (let i = 0; i < 47; i += 1) push(2038 + i, '20FT', i);
+  for (let i = 0; i < 41; i += 1) push(4029 + i, '40FT', i);
+  push(4488, '40FT', 41);
+  return units;
+}
 
 const mv = (o: Partial<Movement> & Pick<Movement, 'movementId' | 'movementRef' | 'jobId' | 'jobDomain' | 'jobNumber' | 'movementType' | 'movementStatus'>): Movement => ({
   containerId: null, containerNumber: null, secondaryContainerId: null,
@@ -133,7 +171,8 @@ const ec = (o: Partial<ExportContainer> & Pick<ExportContainer, 'exportContainer
   stuffingLocation: 'Customer site A', containerDetailsSent: false,
   containerDetailsSentAt: null, containerReady: false, containerReadyAt: null,
   vgm: null, vgmReceivedAt: null, portnetProcessed: 'PENDING',
-  chassisId: null, carparkArrivedAt: null, cancelled: false, onHold: false, ...o,
+  chassisId: null, chassisMountedAt: null, chassisReleasedAt: null,
+  carparkArrivedAt: null, cancelled: false, onHold: false, ...o,
 });
 
 const EXPORT_CONTAINERS: Record<string, ExportContainer[]> = {
@@ -213,6 +252,7 @@ export function createMemoryRepository(): Repository {
   const movements = clone(MOVEMENTS);
   const exceptions = clone(EXCEPTIONS);
   const discrepancies: Record<string, StoredDiscrepancy[]> = {};
+  const fleet = buildFleetRegister();
 
   const findExportContainer = (id: string) =>
     Object.values(exportContainers).flat().find((c) => c.exportContainerId === id);
@@ -252,6 +292,38 @@ export function createMemoryRepository(): Repository {
       return clone((exceptions[id] ?? []).filter((e) => e.resolvedAt === null));
     },
     async getThresholds() { return { ...DEFAULT_THRESHOLDS }; },
+
+    async listChassis() { return clone(fleet); },
+
+    /**
+     * §35.2. Holdings are derived from the containers themselves: a chassis is
+     * assigned at job level and held until released, so there is no separate
+     * holdings table to drift out of step with the jobs.
+     */
+    async listChassisHoldings() {
+      const holdings: ChassisHolding[] = [];
+      for (const [jobId, list] of Object.entries(importContainers)) {
+        for (const c of list) {
+          if (!c.chassisId) continue;
+          holdings.push({
+            chassisId: c.chassisId, containerId: c.containerId, jobId,
+            mountedAt: c.chassisMountedAt, releasedAt: c.chassisReleasedAt,
+            doubleMountedWith: null,
+          });
+        }
+      }
+      for (const [jobId, list] of Object.entries(exportContainers)) {
+        for (const c of list) {
+          if (!c.chassisId) continue;
+          holdings.push({
+            chassisId: c.chassisId, containerId: c.exportContainerId, jobId,
+            mountedAt: c.chassisMountedAt, releasedAt: c.chassisReleasedAt,
+            doubleMountedWith: null,
+          });
+        }
+      }
+      return holdings;
+    },
 
     async recordCms(jobId, status, actor, reason) {
       const job = exportJobs.find((j) => j.exportJobId === jobId);

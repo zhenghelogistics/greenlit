@@ -87,7 +87,8 @@ const exportContainer = (o: Partial<ExportContainer> = {}): ExportContainer => (
   isReefer: false, temperatureMode: null, temperatureSetpointC: null,
   stuffingLocation: 'Site A', containerDetailsSent: true, containerDetailsSentAt: null,
   containerReady: true, containerReadyAt: null, vgm: 24500, vgmReceivedAt: null,
-  portnetProcessed: 'PROCESSED', chassisId: null, carparkArrivedAt: null,
+  portnetProcessed: 'PROCESSED', chassisId: null,
+  chassisMountedAt: null, chassisReleasedAt: null, carparkArrivedAt: null,
   cancelled: false, onHold: false, ...o,
 });
 

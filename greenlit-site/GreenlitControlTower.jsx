@@ -1931,17 +1931,53 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
   );
 }
 
-function buildFleet(jobs, clearedMaintenanceUnits = []) {
-  const inUse = jobs.flatMap((job) => (job.chassis || []).filter((item) => !item.released).map((item) => ({ ...item, jobId: job.id, customer: job.customer, days: daysHeld(item.heldSince) })));
-  const inUseUnits = new Set(inUse.map((item) => item.unit));
-  const cleared = new Set(clearedMaintenanceUnits);
-  const maintenanceUnits = new Set([...MAINTENANCE_UNITS["20ft"], ...MAINTENANCE_UNITS["40ft"]].filter((unit) => !cleared.has(unit)));
-  const all20 = Array.from({ length: 47 }, (_, index) => ({ unit: 2038 + index, size: "20ft" }));
-  const all40 = [...Array.from({ length: 41 }, (_, index) => ({ unit: 4029 + index, size: "40ft" })), { unit: 4488, size: "40ft" }];
-  const available = [...all20, ...all40].filter((item) => !inUseUnits.has(item.unit) && !maintenanceUnits.has(item.unit));
-  const maintenance = [...all20, ...all40].filter((item) => maintenanceUnits.has(item.unit));
-  return { inUse, available, maintenance };
+/**
+ * Maps the server's fleet view into the shape the fleet screen consumes.
+ *
+ * Every status here was derived by @greenlit/engine from job records (§35.3),
+ * not typed and not invented locally — which is why this function only
+ * reshapes and never decides anything.
+ */
+function fleetFromApi(view) {
+  const rows = (view?.units ?? []).map((u) => ({
+    unit: u.chassisNo,
+    size: u.size === '20FT' ? '20ft' : '40ft',
+    status: u.status,
+    plate: u.plateNo,
+    jobId: u.jobNumber,
+    customer: u.customer,
+    heldSince: u.heldSince,
+    days: u.daysHeld,
+    inspectionDue: u.inspectionDueDate,
+  }));
+  return {
+    inUse: rows.filter((r) => r.status === 'IN_USE'),
+    available: rows.filter((r) => r.status === 'AVAILABLE'),
+    maintenance: rows.filter((r) => r.status === 'MAINTENANCE' || r.status === 'INSPECTION'),
+    availability: view?.availability ?? null,
+    averageJobDays: view?.averageJobDays ?? null,
+    monthlyCapacity20ft: view?.monthlyCapacity20ft ?? null,
+    monthlyCapacity40ft: view?.monthlyCapacity40ft ?? null,
+  };
 }
+
+const EMPTY_FLEET = { inUse: [], available: [], maintenance: [], availability: null,
+  averageJobDays: null, monthlyCapacity20ft: null, monthlyCapacity40ft: null };
+
+/** §35. Reads the fleet from the server, where its status is derived. */
+function useFleet() {
+  const [fleet, setFleet] = useState(EMPTY_FLEET);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/fleet")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((data) => { if (!cancelled) setFleet(fleetFromApi(data.fleet)); })
+      .catch(() => { if (!cancelled) setFleet(EMPTY_FLEET); });
+    return () => { cancelled = true; };
+  }, []);
+  return fleet;
+}
+
 
 function documentConfidenceTone(level) {
   if (level === "high") return "border-emerald-200 bg-emerald-50 text-emerald-800";
@@ -2499,7 +2535,7 @@ export default function GreenlitControlTower() {
   const [highlightTimer, setHighlightTimer] = useState(null);
 
   const actionJobs = jobs.filter(isActionRequired).sort((a, b) => urgency(b) - urgency(a));
-  const fleet = buildFleet(jobs, clearedMaintenanceUnits);
+  const fleet = useFleet();
   const selectedJob = jobs.find((job) => job.id === selectedJobId);
 
   function showToast(message) {

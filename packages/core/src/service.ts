@@ -1,6 +1,9 @@
 import type { MandatoryFieldSet } from '@greenlit/engine';
 import type { Repository } from './repository.ts';
-import { asNarrative, describe } from '@greenlit/engine';
+import {
+  asNarrative, chassisDays, chassisStatus, describe, fleetAvailability,
+  monthlyCapacity, type ChassisStatus, type FleetAvailability,
+} from '@greenlit/engine';
 import { deriveExportJob, deriveImportJob, type AuditEventView, type DerivedJobView } from './derive.ts';
 
 /**
@@ -108,8 +111,86 @@ export class JobService {
     }));
   }
 
+  /**
+   * §35. The fleet view.
+   *
+   * Every status here is derived from job records — §35.3 is explicit that a
+   * stored availability flag drifts the moment someone forgets to clear it, so
+   * nothing in this result was typed by anyone.
+   */
+  async fleet(): Promise<FleetView> {
+    const now = this.#now();
+    const today = now.slice(0, 10);
+    const [units, holdings, importJobs, exportJobs] = await Promise.all([
+      this.#repo.listChassis(),
+      this.#repo.listChassisHoldings(),
+      this.#repo.listImportJobs(),
+      this.#repo.listExportJobs(),
+    ]);
+
+    const jobNumber = new Map<string, { jobNumber: string; customer: string }>();
+    for (const j of importJobs) jobNumber.set(j.jobId, { jobNumber: j.jobNumber, customer: j.customer });
+    for (const j of exportJobs) jobNumber.set(j.exportJobId, { jobNumber: j.jobNumber, customer: j.customer });
+
+    const rows: FleetUnitView[] = units.map((unit) => {
+      const open = holdings.find((h) => h.chassisId === unit.chassisId && h.releasedAt === null);
+      const job = open ? jobNumber.get(open.jobId) : undefined;
+      return {
+        chassisId: unit.chassisId,
+        chassisNo: unit.chassisNo,
+        plateNo: unit.plateNo,
+        size: unit.size,
+        status: chassisStatus(unit, holdings, today),
+        inspectionDueDate: unit.inspectionDueDate,
+        jobNumber: job?.jobNumber ?? null,
+        customer: job?.customer ?? null,
+        heldSince: open?.mountedAt?.slice(0, 10) ?? null,
+        daysHeld: open ? chassisDays(open, now) : 0,
+      };
+    });
+
+    const availability = fleetAvailability(units, holdings, today);
+    const held = rows.filter((r) => r.status === 'IN_USE');
+    const averageJobDays = held.length
+      ? Math.max(1, Math.round(held.reduce((sum, r) => sum + r.daysHeld, 0) / held.length))
+      : 6;
+
+    return {
+      units: rows,
+      availability,
+      averageJobDays,
+      // §35.6. Occupancy equals job duration, so fleet size sets the ceiling.
+      monthlyCapacity20ft: monthlyCapacity(
+        units.filter((u) => u.size === '20FT').length, averageJobDays),
+      monthlyCapacity40ft: monthlyCapacity(
+        units.filter((u) => u.size === '40FT').length, averageJobDays),
+    };
+  }
+
   /** §26.1. Populated automatically by the mandatory field engine. */
   async incomplete(): Promise<DerivedJobView[]> {
     return (await this.listJobs()).filter((j) => !j.mandatoryComplete);
   }
+}
+
+/** §35. One chassis, with everything the fleet screen shows. */
+export interface FleetUnitView {
+  chassisId: string;
+  chassisNo: string;
+  plateNo: string;
+  size: '20FT' | '40FT';
+  status: ChassisStatus;
+  inspectionDueDate: string | null;
+  jobNumber: string | null;
+  customer: string | null;
+  heldSince: string | null;
+  daysHeld: number;
+}
+
+export interface FleetView {
+  units: FleetUnitView[];
+  availability: FleetAvailability;
+  averageJobDays: number;
+  monthlyCapacity20ft: number;
+  monthlyCapacity40ft: number;
 }

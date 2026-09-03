@@ -40,6 +40,8 @@ test('§35.3: status is derived from job records, never typed', () => {
 test('§35.3: inspection and manual states take precedence', () => {
   assert.equal(chassisStatus(unit({ inspectionDueDate: '2026-08-01' }), [], TODAY), 'INSPECTION');
   assert.equal(chassisStatus(unit({ manualStatus: 'MAINTENANCE' }), [], TODAY), 'MAINTENANCE');
+  assert.equal(chassisStatus(unit({ manualStatus: 'MAINTENANCE' }), [hold()], TODAY), 'IN_USE',
+    '§35.8: a container on a unit withdrawn for maintenance is an exception, not a hidden container');
   assert.equal(chassisStatus(unit({ active: false }), [], TODAY), 'RETIRED');
   assert.equal(chassisStatus(unit({ inspectionDueDate: '2026-08-01' }), [hold()], TODAY),
     'IN_USE', 'a unit under a container is in use whatever else is true');
@@ -132,4 +134,15 @@ test('§35.7: inspection due inside the warning window is flagged', () => {
     today: TODAY, customerLimitDays: 30, fleetFloor: 0, inspectionWarningDays: 14,
   });
   assert.ok(found.some((e) => e.exceptionType === 'Chassis inspection due'));
+});
+
+
+test('§35.8: maintenance while a container is mounted raises an exception', () => {
+  const found = detectChassisExceptions({
+    unit: unit({ manualStatus: 'MAINTENANCE' }), holdings: [hold()],
+    availability: fleetAvailability([unit()], [hold()], TODAY),
+    today: TODAY, customerLimitDays: 30, fleetFloor: 0, inspectionWarningDays: 0,
+  });
+  const exc = found.find((e) => e.exceptionType === 'Chassis maintenance mid-job');
+  assert.equal(exc?.severity, 'HIGH', 'the only case that forces a dismount');
 });

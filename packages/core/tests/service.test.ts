@@ -178,3 +178,36 @@ test('§13: one job’s history never leaks into another', async () => {
   await repo.recordCms('ej3', 'COMPLETED', 'Sarah');
   assert.deepEqual((await service.getJob('ij1'))?.activity, []);
 });
+
+test('§35: the fleet reports 89 units with derived status', async () => {
+  const view = await svc().fleet();
+  assert.equal(view.units.length, 89, '§9.1: 47 twenty-foot and 42 forty-foot');
+  assert.equal(view.units.filter((u) => u.size === '20FT').length, 47);
+  assert.equal(view.units.filter((u) => u.size === '40FT').length, 42);
+  for (const u of view.units) {
+    assert.ok(['AVAILABLE', 'IN_USE', 'MAINTENANCE', 'INSPECTION', 'RETIRED'].includes(u.status));
+  }
+});
+
+test('§35.3: a unit under a container reports IN_USE with its job', async () => {
+  const view = await svc().fleet();
+  const held = view.units.filter((u) => u.status === 'IN_USE');
+  assert.ok(held.length > 0, 'the fixtures mount chassis on containers');
+  for (const u of held) {
+    assert.ok(u.jobNumber, 'an in-use unit names the job holding it');
+    assert.ok(u.daysHeld >= 0);
+  }
+});
+
+test('§35.4: availability is reported per size and adds up', async () => {
+  const view = await svc().fleet();
+  const a = view.availability;
+  assert.equal(a.available20ft + a.inUse20ft + a.unavailable20ft, 47);
+  assert.equal(a.available40ft + a.inUse40ft + a.unavailable40ft, 42);
+});
+
+test('§35.6: capacity follows from average job duration', async () => {
+  const view = await svc().fleet();
+  assert.ok(view.monthlyCapacity20ft > 0);
+  assert.ok(view.averageJobDays >= 1);
+});

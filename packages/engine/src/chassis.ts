@@ -85,12 +85,16 @@ export function chassisStatus(
   today: string,
 ): ChassisStatus {
   if (!unit.active || unit.manualStatus === 'RETIRED') return 'RETIRED';
-  if (unit.manualStatus === 'MAINTENANCE') return 'MAINTENANCE';
 
+  // A unit under a container IS in use, whatever else is planned for it.
+  // §35.3 lists IN_USE first, and §35.8 makes a maintenance withdrawal mid-job
+  // an exception precisely because the two states conflict — reporting the
+  // unit as MAINTENANCE while a container sits on it would hide the container.
   const held = holdings.some((h) => h.chassisId === unit.chassisId && h.releasedAt === null);
   if (held) return 'IN_USE';
 
   if (unit.inspectionDueDate && unit.inspectionDueDate <= today) return 'INSPECTION';
+  if (unit.manualStatus === 'MAINTENANCE') return 'MAINTENANCE';
   return 'AVAILABLE';
 }
 
@@ -243,10 +247,12 @@ export function detectChassisExceptions(input: ChassisExceptionInput): {
     }
   }
 
-  // §35.7. Marked in use with no open holding is unaccounted equipment.
-  if (unit.manualStatus === null && status === 'AVAILABLE' && open.length > 0) {
-    out.push({ exceptionType: 'Chassis unaccounted', severity: 'CRITICAL',
-      description: `${unit.chassisNo} is held but reports available` });
+  // §35.8. A unit withdrawn for maintenance while a container sits on it is
+  // the one case that forces a dismount. It is an exception, not a workflow:
+  // the system records what was decided rather than deciding it.
+  if (unit.manualStatus === 'MAINTENANCE' && open.length > 0) {
+    out.push({ exceptionType: 'Chassis maintenance mid-job', severity: 'HIGH',
+      description: `${unit.chassisNo} is marked for maintenance while still under a container` });
   }
 
   const size = unit.size === '20FT' ? availability.available20ft : availability.available40ft;

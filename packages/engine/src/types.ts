@@ -136,6 +136,9 @@ export interface ExportContainer {
   /** §44.2.1. Warns, never blocks the laden gate. */
   portnetProcessed: PortnetProcessed;
   chassisId: string | null;
+  /** §38.2, §35.2. Occupancy runs from mount to release, for the whole job. */
+  chassisMountedAt: IsoInstant | null;
+  chassisReleasedAt: IsoInstant | null;
   carparkArrivedAt: IsoInstant | null;
   cancelled: boolean;
   onHold: boolean;

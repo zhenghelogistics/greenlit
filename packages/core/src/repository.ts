@@ -1,6 +1,6 @@
 import type {
-  AuditEvent, Discrepancy, ExceptionRecord, ExportContainer, ExportJob,
-  ImportContainer, ImportJob, Movement, Thresholds,
+  AuditEvent, Chassis, ChassisHolding, Discrepancy, ExceptionRecord,
+  ExportContainer, ExportJob, ImportContainer, ImportJob, Movement, Thresholds,
 } from '@greenlit/engine';
 
 /**
@@ -32,6 +32,14 @@ export interface Repository {
   listOpenExceptionsForJob(jobId: string): Promise<ExceptionRecord[]>;
 
   getThresholds(customerId?: string): Promise<Thresholds>;
+
+  /**
+   * §9.1. The chassis fleet is master data: fixed in size, every unit
+   * registered. §35.3 derives status from these plus the holdings, so neither
+   * carries a status field of its own.
+   */
+  listChassis(): Promise<Chassis[]>;
+  listChassisHoldings(): Promise<ChassisHolding[]>;
 
   /**
    * Commands. Deliberately narrow: only the milestones that move a gate.
