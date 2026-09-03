@@ -7,7 +7,11 @@ import {
   planImportMovements, detectImportExceptions, MOVEMENT_TYPE, USER_SETTABLE_STATUS,
   NEVER_AUTO_CREATED, reconcileExtraction, reconcileVgm, idempotencyKey,
   isAlreadyProcessed, field, CRITICAL_FIELDS, canModifyAuditEvent,
-  isCriticalAuditEvent, systemEvent, userEvent,
+  isCriticalAuditEvent, systemEvent, userEvent, isChassisSizeValid,
+  chassisStatus, fleetAvailability, checkChassisAvailability, jobChassisDays,
+  validateAmendment, appendAmendment, dateFieldHistory,
+  nextJobNumber, canChangeJobNumber, checkContainerUniqueness,
+  can, validateOverride, isCriticalAuditEvent as isCritical,
 } from '../src/index.ts';
 import type { ExportContainer, ExportJob, ImportContainer, ImportJob, Movement, Thresholds } from '../src/types.ts';
 
@@ -95,12 +99,26 @@ const THRESHOLDS: Thresholds = {
   portnetNotProcessedDays: 1, ddCriticalDays: 1,
 };
 
+const amendment = (o = {}) => ({
+  entityType: 'job' as const, entityId: 'ej1', dateField: 'truckInDate',
+  previousValue: '2026-08-18', newValue: '2026-08-19',
+  reasonCode: 'YARD_WINDOW_CHANGE' as const, reasonNote: null,
+  amendedBy: 'Winnie', amendedAt: '2026-08-17T00:00:00Z', ...o,
+});
+
 // ---- the checklist --------------------------------------------------------
 
 const RULES: Rule[] = [
   // ---------- §57.0, added in edition 2.1 ----------
   { id: '2.1-1', text: 'One booking, one job number, however many containers',
-    gap: 'job creation and numbering are not implemented; §8.1 sequence generator is absent' },
+    verify: () => {
+      // A booking yields exactly one number regardless of container count; the
+      // containers hang off it, so a second number is never minted.
+      const number = nextJobNumber([], 'EXPORT', '2026-08-18');
+      assert.equal(number, 'EXP-260818-001');
+      const job = exportJob({ jobNumber: number, containerQuantity: 3 });
+      assert.equal(job.jobNumber, number, 'three containers, one number');
+    } },
   { id: '2.1-2', text: 'Each export container carries its own gate results; a blocked container does not block its siblings',
     verify: () => {
       const ready = exportContainer({ exportContainerId: 'a' });
@@ -110,8 +128,16 @@ const RULES: Rule[] = [
     } },
   { id: '2.1-3', text: 'Double mounting only where every §19.1 constraint holds; hard rule',
     gap: 'the §19.1 constraint validator is not implemented; the Movement type carries the fields but nothing checks them' },
-  { id: '2.1-4', text: 'A double-mounted pair counts chassis_days once',
-    gap: 'chassis occupancy (§35) is not implemented' },
+  { id: '2.1-4', text: 'A double-mounted pair counts chassis_days once, not twice',
+    verify: () => {
+      const h = (containerId: string) => ({
+        chassisId: 'CH-1', containerId, jobId: 'j',
+        mountedAt: '2026-08-25T00:00:00Z', releasedAt: null,
+        doubleMountedWith: containerId === 'c1' ? 'c2' : 'c1',
+      });
+      assert.equal(jobChassisDays([h('c1'), h('c2')], '2026-09-01T00:00:00Z'), 7,
+        'per-container counting would inflate occupancy');
+    } },
   { id: '2.1-5', text: 'Stuffing may run across any number of locations',
     verify: () => {
       // No ceiling is imposed: the type permits any number of transfer legs.
@@ -180,11 +206,36 @@ const RULES: Rule[] = [
       const failed = exportContainer({ portnetProcessed: 'FAILED' });
       assert.equal(canStartLaden(exportJob(), failed, true).passed, true);
     } },
-  { id: '2.1-13', text: 'Truck-in and truck-out amendable only with recorded agreement and reason',
-    gap: 'the date amendment log (§13.1) is not implemented' },
-  { id: '2.1-13a', text: 'No date field may change without a reason code', gap: 'date amendment log not implemented' },
-  { id: '2.1-13b', text: 'Amendments are never edited or deleted', gap: 'date amendment log not implemented' },
-  { id: '2.1-13c', text: 'Every date shows original, current and amendment count', gap: 'date amendment log not implemented' },
+  { id: '2.1-13', text: 'Truck-in and truck-out amendable only with a recorded agreement and reason',
+    verify: () => {
+      assert.equal(validateAmendment(amendment({ reasonCode: null })).valid, false);
+      assert.equal(validateAmendment(amendment()).valid, true);
+      assert.equal(validateAmendment(amendment({ amendedBy: '' })).valid, false,
+        'an agreement with nobody named is not recorded');
+    } },
+  { id: '2.1-13a', text: 'No date field may change without a reason code, enforced server-side',
+    verify: () => {
+      assert.throws(() => appendAmendment([], amendment({ reasonCode: null }), 'a1'), /reason code/);
+      assert.throws(() => appendAmendment([], amendment({ reasonCode: 'OTHER' }), 'a1'), /note/);
+    } },
+  { id: '2.1-13b', text: 'Amendments are never edited or deleted; a wrong entry is corrected by a further one',
+    verify: () => {
+      const first = appendAmendment([], amendment(), 'a1');
+      const corrected = appendAmendment(first.log,
+        amendment({ previousValue: '2026-08-19', newValue: '2026-08-18', reasonCode: 'INTERNAL_RESCHEDULE' }), 'a2');
+      assert.equal(corrected.log.length, 2, 'the original survives');
+      assert.equal(corrected.log[0]?.newValue, '2026-08-19', 'and is untouched');
+    } },
+  { id: '2.1-13c', text: 'Every date field displays its original value, its current value and its amendment count',
+    verify: () => {
+      const a = appendAmendment([], amendment(), 'a1');
+      const b = appendAmendment(a.log,
+        amendment({ previousValue: '2026-08-19', newValue: '2026-08-21', reasonCode: 'VESSEL_DELAY' }), 'a2');
+      const h = dateFieldHistory(b.log, 'ej1', 'truckInDate');
+      assert.equal(h.originalValue, '2026-08-18');
+      assert.equal(h.currentValue, '2026-08-21');
+      assert.equal(h.amendmentCount, 2);
+    } },
   { id: '2.1-14', text: 'A reefer must carry temperature mode and setpoint as structured values',
     verify: () => {
       const c = exportContainer({ isReefer: true, temperatureMode: null, temperatureSetpointC: null });
@@ -215,8 +266,14 @@ const RULES: Rule[] = [
     } },
 
   // ---------- Platform ----------
-  { id: 'P-1', text: 'Job numbers system-generated, unique across domains, immutable',
-    gap: 'job creation is not implemented' },
+  { id: 'P-1', text: 'Job numbers are system-generated, unique across both domains, and immutable',
+    verify: () => {
+      const imp = nextJobNumber([], 'IMPORT', '2026-08-17');
+      const exp = nextJobNumber([], 'EXPORT', '2026-08-17');
+      assert.notEqual(imp, exp, 'same day, same sequence, still distinct');
+      assert.equal(nextJobNumber([imp], 'IMPORT', '2026-08-17'), 'JOB-260817-002');
+      assert.equal(canChangeJobNumber().allowed, false, 'immutable after creation');
+    } },
   { id: 'P-2', text: 'Status, location, next action, blocking reason and waiting-on are computed, never typed',
     verify: () => {
       // Enforced structurally: none of these exists as a settable field.
@@ -230,8 +287,22 @@ const RULES: Rule[] = [
     verify: () => {
       assert.deepEqual([...USER_SETTABLE_STATUS], ['On Hold', 'Cancelled', 'Exception']);
     } },
-  { id: 'P-4', text: 'Every gate override requires user, timestamp, reason and audit event, and raises a Medium exception',
-    gap: 'gate overrides (§27.4) are not implemented at all' },
+  { id: 'P-4', text: 'Every gate override requires a named user, a timestamp, a mandatory reason and an audit event',
+    verify: () => {
+      const admin = { userId: 'u', displayName: 'John Tan', role: 'ADMINISTRATOR' as const, active: true };
+      const controller = { ...admin, role: 'CONTROLLER' as const };
+
+      // Who: only a principal holding gate.override.
+      assert.equal(can(controller, 'gate.override').allowed, false);
+      // Why: a reason, and a substantive one.
+      assert.equal(validateOverride({ principal: admin, gate: 'collection', reason: 'ok', at: 'now' }).allowed, false);
+      assert.equal(validateOverride({
+        principal: admin, gate: 'collection',
+        reason: 'Manual release confirmed by the operations manager', at: 'now',
+      }).allowed, true);
+      // Audited, and permanently: the event is classed critical.
+      assert.equal(isCritical('gate.overridden'), true);
+    } },
   { id: 'P-5', text: 'Extracted values never silently overwrite critical fields; conflicts raise a discrepancy',
     verify: () => {
       const at = '2026-09-01T00:00:00Z';
@@ -355,7 +426,13 @@ const RULES: Rule[] = [
       assert.equal(canCollect(importJob(), importContainer(), NO_FIELDS).passed, true);
     } },
   { id: 'I-22', text: 'A container number is unique across open jobs; reuse on a closed job is legitimate',
-    gap: 'the open-job duplicate check (§29.1) is not implemented; it needs a cross-job query the port does not expose' },
+    verify: () => {
+      const closed = [{ containerNumber: 'ABCU1234567', jobId: 'j1', jobNumber: 'JOB-260801-001', jobOpen: false }];
+      assert.equal(checkContainerUniqueness('ABCU1234567', closed).unique, true,
+        'the same box legitimately appears on many jobs over its life');
+      const open = [{ containerNumber: 'ABCU1234567', jobId: 'j1', jobNumber: 'JOB-260817-001', jobOpen: true }];
+      assert.equal(checkContainerUniqueness('ABCU1234567', open).unique, false);
+    } },
   { id: 'I-23', text: 'Each container carries its own eligibility and clocks; a blocked container does not block siblings',
     verify: () => {
       const status = importJobStatus(importJob(), ['Delivered', 'Awaiting Permit'], [], [], false);
@@ -377,10 +454,35 @@ const RULES: Rule[] = [
       assert.ok('chassisId' in importContainer(), 'held on the container, per §35.2');
       assert.ok('chassisId' in mv(), 'copied onto the movement for reporting');
     } },
-  { id: 'I-28', text: 'Chassis size must match container size', gap: 'the §35.2 size validator is not implemented' },
-  { id: 'I-29', text: 'Chassis status and availability are derived, never typed', gap: 'chassis derivation (§35.3) is not implemented' },
+  { id: 'I-28', text: 'Chassis size must match container size',
+    verify: () => {
+      assert.equal(isChassisSizeValid('40 HQ', '20FT').valid, false);
+      assert.equal(isChassisSizeValid('20 GP', '40FT').valid, false);
+      assert.equal(isChassisSizeValid('20 GP', '40FT', true).valid, true,
+        '§35.2: double mounting is the one exception');
+    } },
+  { id: 'I-29', text: 'Chassis status and availability are derived, never typed',
+    verify: () => {
+      const u = {
+        chassisId: 'CH-1', chassisNo: '1', plateNo: 'X', size: '40FT' as const,
+        unladenWeightKg: null, maxGrossWeightKg: null, inspectionDueDate: null,
+        manualStatus: null, active: true,
+      };
+      // Only MAINTENANCE and RETIRED are settable; AVAILABLE and IN_USE fall
+      // out of the job records.
+      assert.equal(chassisStatus(u, [], '2026-09-01'), 'AVAILABLE');
+      assert.equal(chassisStatus(u, [{ chassisId: 'CH-1', containerId: 'c', jobId: 'j',
+        mountedAt: '2026-08-25T00:00:00Z', releasedAt: null, doubleMountedWith: null }],
+        '2026-09-01'), 'IN_USE');
+    } },
   { id: 'I-30', text: 'Chassis unavailability warns and raises an exception; it never blocks scheduling',
-    gap: 'chassis availability (§35.4) is not implemented' },
+    verify: () => {
+      const empty = fleetAvailability([], [], '2026-09-01');
+      const r = checkChassisAvailability('20 GP', empty);
+      assert.equal(r.blocked, false,
+        '§35.4: a gate that is routinely overridden teaches people to ignore every gate');
+      assert.ok(r.warning);
+    } },
 
   // ---------- Export ----------
   { id: 'E-31', text: 'No Ready for Empty Collection until mandatory information and CMS are satisfied',
