@@ -15,7 +15,9 @@
   --gl-ink-strong: #0d0e10;
   --gl-ink: #26282d;
   --gl-ink-muted: #6b6f76;
-  --gl-ink-faint: #9ca0a8;
+  /* 4.57:1 on white. #9ca0a8 measured 2.62 and failed even the large-text
+     threshold, while carrying captions, labels and navigation counts. */
+  --gl-ink-faint: #71767f;
 
   /* Lines. Used sparingly — between sections, rarely around them. */
   --gl-line: #eceef1;
@@ -30,7 +32,7 @@
   --gl-state-blocked: #d4351c;
   --gl-state-warn: #b45309;
   --gl-state-ready: #15803d;
-  --gl-state-idle: #9ca0a8;
+  --gl-state-idle: #a1a5ad;
 
   --gl-font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --gl-font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;

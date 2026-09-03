@@ -63,6 +63,22 @@ const RULES = [
     message: "v3 has no dark chrome. The shell is white.",
   },
   {
+    id: "white-on-light",
+    clause: "§3",
+    level: "error",
+    applies: (f) => UI_EXT.has(extname(f)),
+    /**
+     * White text on a light ground, in the same class string.
+     *
+     * This shipped: v3 flipped the shell from dark navy to white, and every
+     * `text-white` that had been legible on the old bar became invisible.
+     * Conditional classes are excluded — a ternary branch may legitimately
+     * pair white text with a dark ground.
+     */
+    pattern: /class(?:Name)?="[^"$]*(?:bg-white|gl-bg-subtle|bg-transparent|bg-slate-[12]00|bg-\[#f[0-9a-f]{5}\])[^"$]*text-white[^"$]*"|class(?:Name)?="[^"$]*text-white[^"$]*(?:bg-white|gl-bg-subtle|bg-transparent|bg-slate-[12]00)[^"$]*"/g,
+    message: "White text on a light ground is invisible. Use an ink token.",
+  },
+  {
     id: "uppercase-label",
     clause: "§2",
     level: "warn",

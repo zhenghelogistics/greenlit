@@ -118,7 +118,7 @@ function ActingUser({ onChange }) {
           CURRENT_USER = event.target.value;
           onChange?.(event.target.value);
         }}
-        className="h-9 rounded border border-white/20 bg-transparent px-2 text-[13px] text-white"
+        className="h-9 rounded border border-[color:var(--gl-line-strong)] bg-white px-2 text-[13px] text-[color:var(--gl-ink)]"
       >
         {users.map((u) => (
           <option key={u.userId} value={u.userId} className="text-slate-900">
@@ -1427,7 +1427,7 @@ function TripTable({ trips, flashTripId, onOpenTrip }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[1160px] border-collapse text-left text-[15px]">
-        <thead className="bg-[var(--gl-bg-subtle)] text-white">
+        <thead className="bg-[var(--gl-bg-subtle)] text-[color:var(--gl-ink)]">
           <tr>
             {["Reference", "Container", "Route", "Type", "Status", "Planned date", "Collected", "Delivered", ""].map((heading, index) => (
               <th key={`${heading}-${index}`} className="border-r border-slate-600 px-4 py-4 text-[15px] font-semibold last:border-r-0">{heading}</th>
@@ -1902,7 +1902,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
   return (
     <div className="fixed inset-0 z-[80] flex justify-end bg-[color:var(--gl-ink-strong)]/25" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <aside role="dialog" aria-modal="true" aria-labelledby="operations-drawer-title" className="greenlit-drawer flex h-full w-full max-w-[680px] flex-col overflow-hidden border-l border-slate-300 bg-[#f4f6f8] shadow-[-20px_0_50px_rgba(15,35,51,0.22)]">
-        <div className="flex items-start justify-between gap-4 border-b border-[color:var(--gl-line)] bg-[var(--gl-bg-subtle)] px-5 py-5 text-white">
+        <div className="flex items-start justify-between gap-4 border-b border-[color:var(--gl-line)] bg-[var(--gl-bg-subtle)] px-5 py-5 text-[color:var(--gl-ink)]">
           <div className="min-w-0">
             <h2 id="operations-drawer-title" className="text-2xl font-semibold tracking-[-0.02em]">{heading.title}</h2>
             <p className="mt-2 text-[15px] font-medium text-[color:var(--gl-ink-muted)]">{heading.note}</p>
@@ -2113,7 +2113,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
           </div>
         </Panel>
 
-        <section className="rounded-lg bg-[var(--gl-bg-subtle)] p-6 text-white" aria-label="Next action">
+        <section className="rounded-lg bg-[var(--gl-bg-subtle)] p-6 text-[color:var(--gl-ink)]" aria-label="Next action">
           <div className="flex items-center gap-3 text-[color:var(--gl-ink-muted)]"><ListTodo className="h-6 w-6" /><h2 className="text-xl font-semibold">Next action</h2></div>
           <p className={`mt-5 text-3xl font-semibold leading-tight tracking-[-0.02em] ${highlight === "nextAction" ? "greenlit-text-flash" : ""}`}>{nextAction(job)}</p>
           <div className="mt-6 border-t border-slate-600 pt-5">
@@ -2566,7 +2566,7 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
 
       {(stage === "idle" || stage === "error") ? (
         <section className="mt-7 overflow-hidden rounded-lg border border-slate-200 bg-white" aria-labelledby="upload-document-title">
-          <div className="border-b border-slate-200 bg-[var(--gl-bg-subtle)] px-5 py-4 text-white">
+          <div className="border-b border-slate-200 bg-[var(--gl-bg-subtle)] px-5 py-4 text-[color:var(--gl-ink)]">
             <h2 id="upload-document-title" className="text-xl font-semibold">Upload an arrival notice</h2>
           </div>
           <div className="p-5 sm:p-8">
@@ -2622,7 +2622,7 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
       {stage === "review" && result ? (
         <div className="mt-7">
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white" aria-labelledby="document-review-title">
-            <div className="flex flex-col gap-4 border-b border-slate-200 bg-[var(--gl-bg-subtle)] px-5 py-5 text-white lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-4 border-b border-slate-200 bg-[var(--gl-bg-subtle)] px-5 py-5 text-[color:var(--gl-ink)] lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 id="document-review-title" className="flex items-center gap-3 text-xl font-semibold"><FileText className="h-6 w-6" aria-hidden="true" />Review extracted facts</h2>
                 <p className="mt-2 break-all text-[15px] font-medium text-[color:var(--gl-ink-faint)]">{result.fileName} · {result.pages} pages · {(result.fileSize / 1024).toFixed(0)} KB</p>
@@ -2721,7 +2721,7 @@ function ChassisFleet({ fleet, onOpen, onUnit }) {
       {showInUse ? <Panel title="Units under containers" className="mt-7">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[850px] border-collapse text-left text-[15px]">
-            <thead className="bg-[var(--gl-bg-subtle)] text-white"><tr>{["Unit", "Size", "Job", "Customer", "Days held", ""].map((heading, index) => <th key={`${heading}-${index}`} className="px-4 py-4 text-[15px] font-semibold">{heading}</th>)}</tr></thead>
+            <thead className="bg-[var(--gl-bg-subtle)] text-[color:var(--gl-ink)]"><tr>{["Unit", "Size", "Job", "Customer", "Days held", ""].map((heading, index) => <th key={`${heading}-${index}`} className="px-4 py-4 text-[15px] font-semibold">{heading}</th>)}</tr></thead>
             <tbody>
               {[...fleet.inUse].sort((a, b) => b.days - a.days).map((item) => (
                 <tr key={item.unit} className="border-b border-slate-200 even:bg-slate-50/70">
@@ -3323,7 +3323,7 @@ export default function GreenlitControlTower() {
             })}
           </nav>
           <div className="absolute right-3 top-2 flex min-h-12 items-center justify-end sm:right-5 lg:static lg:min-h-16 lg:px-6 lg:py-3 lg:border-l lg:border-[color:var(--gl-line)]">
-            <button type="button" onClick={resetDemo} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[color:var(--gl-line-strong)] bg-transparent px-3 text-[15px] font-semibold text-[color:var(--gl-ink-muted)] hover:border-slate-400 hover:bg-[var(--gl-bg-selected)] hover:text-white focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400 sm:px-4">
+            <button type="button" onClick={resetDemo} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[color:var(--gl-line-strong)] bg-transparent px-3 text-[15px] font-semibold text-[color:var(--gl-ink-muted)] hover:border-slate-400 hover:bg-[var(--gl-bg-selected)] hover:text-[color:var(--gl-ink)] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400 sm:px-4">
               <RotateCcw className="h-4 w-4" />
               <span className="sm:hidden">Reset</span>
               <span className="hidden sm:inline">Reload</span>

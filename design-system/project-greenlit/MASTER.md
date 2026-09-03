@@ -66,7 +66,7 @@ information.
 | `ink-strong` | `#0d0e10` | The decisive value in a row |
 | `ink` | `#26282d` | Ordinary text |
 | `ink-muted` | `#6b6f76` | Supporting copy |
-| `ink-faint` | `#9ca0a8` | Labels, counts in navigation |
+| `ink-faint` | `#71767f` | Labels, counts in navigation. 4.57:1 on white — the floor |
 
 ### Ground
 
@@ -137,3 +137,5 @@ box.**
 - [ ] Focus is visible at 2px on every interactive element.
 - [ ] No page-level horizontal overflow at 375, 768, 1024, 1440px.
 - [ ] `prefers-reduced-motion` honoured.
+- [ ] Every ink token measures at least 4.5:1 on white; no white text on a
+      light ground.
