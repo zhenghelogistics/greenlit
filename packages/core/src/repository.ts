@@ -1,5 +1,5 @@
 import type {
-  AuditEvent, Chassis, ChassisHolding, Discrepancy, ExceptionRecord,
+  AuditEvent, Chassis, ChassisHolding, Discrepancy, ExceptionRecord, Principal,
   ExportContainer, ExportJob, ImportContainer, ImportJob, Movement, Thresholds,
 } from '@greenlit/engine';
 
@@ -38,6 +38,14 @@ export interface Repository {
    * registered. §35.3 derives status from these plus the holdings, so neither
    * carries a status field of its own.
    */
+  /**
+   * §7. The user directory. Permissions are answered server-side (§14.1), so
+   * a command resolves its principal here rather than trusting anything the
+   * caller asserts about itself.
+   */
+  getPrincipal(userId: string): Promise<Principal | null>;
+  listPrincipals(): Promise<Principal[]>;
+
   listChassis(): Promise<Chassis[]>;
   listChassisHoldings(): Promise<ChassisHolding[]>;
 

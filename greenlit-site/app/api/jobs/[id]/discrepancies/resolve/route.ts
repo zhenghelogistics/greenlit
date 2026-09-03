@@ -1,4 +1,4 @@
-import { badRequest, readJson, runCommand } from "../../../../../../lib/command";
+import { authorize, badRequest, readJson, runCommand } from "../../../../../../lib/command";
 
 /**
  * §12. "The controller decides which value becomes current, and that decision
@@ -13,11 +13,13 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   const body = await readJson<{ field?: string; choice?: string; actor?: string }>(request);
 
   if (!body?.actor) return badRequest("actor is required; §13 forbids anonymous decisions");
+  const auth = await authorize(body.actor, "discrepancy.resolve");
+  if (!auth.ok) return auth.response;
   if (!body.field?.trim()) return badRequest("field is required");
   if (body.choice !== "stored" && body.choice !== "extracted") {
     return badRequest("choice must be stored or extracted");
   }
 
   return runCommand(id, (repo) =>
-    repo.resolveDiscrepancy(id, body.field!, body.choice as "stored" | "extracted", body.actor!));
+    repo.resolveDiscrepancy(id, body.field!, body.choice as "stored" | "extracted", auth.displayName));
 }

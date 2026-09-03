@@ -1,4 +1,4 @@
-import { badRequest, readJson, runCommand } from "../../../../../../../lib/command";
+import { authorize, badRequest, readJson, runCommand } from "../../../../../../../lib/command";
 import { getRepository } from "../../../../../../../lib/greenlit";
 import { isVgmPlausible } from "@greenlit/engine";
 
@@ -10,6 +10,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   const { id, containerId } = await ctx.params;
   const body = await readJson<{ vgm?: number; actor?: string }>(request);
   if (!body?.actor) return badRequest("actor is required");
+  const auth = await authorize(body.actor, "vgm.record");
+  if (!auth.ok) return auth.response;
   if (typeof body.vgm !== "number" || body.vgm <= 0) return badRequest("vgm must be a positive number");
 
   const container = (await getRepository().listContainersForExportJob(id))
@@ -23,5 +25,5 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     }, { status: 422 });
   }
 
-  return runCommand(id, (repo) => repo.recordVgm(containerId, body.vgm!, body.actor!));
+  return runCommand(id, (repo) => repo.recordVgm(containerId, body.vgm!, auth.displayName));
 }

@@ -78,12 +78,14 @@ function operationalToday() {
   return new Date().toISOString().slice(0, 10);
 }
 /**
- * §13 requires a named actor on every change, and §7 user roles are not built
- * yet, so there is nobody to name. This placeholder is deliberately explicit:
- * an audit trail attributing decisions to "Controller" is honest about what it
- * does not know, where a plausible-looking name would not be.
+ * The acting user, until sign-in exists.
+ *
+ * §7 roles are enforced server-side against the user directory, so naming a
+ * user here does not grant anything — the server checks what this person may
+ * actually do. What is still missing is proof that the person at the keyboard
+ * IS this user, which is what authentication adds.
  */
-const CURRENT_USER = "Controller (unauthenticated)";
+const CURRENT_USER = "winnie";
 
 const CARPARK = "ZHL Carpark, Pioneer Road";
 const CHASSIS_TOTALS = { "20ft": 47, "40ft": 42 };

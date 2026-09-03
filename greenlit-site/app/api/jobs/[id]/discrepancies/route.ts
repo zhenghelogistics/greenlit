@@ -1,4 +1,4 @@
-import { badRequest, readJson, runCommand } from "../../../../../lib/command";
+import { authorize, badRequest, readJson, runCommand } from "../../../../../lib/command";
 import { getJobService, jsonError } from "../../../../../lib/greenlit";
 
 /** §12. Conflicts awaiting a decision on this job. */
@@ -27,6 +27,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   }>(request);
 
   if (!body?.actor) return badRequest("actor is required");
+  const auth = await authorize(body.actor, "extraction.review");
+  if (!auth.ok) return auth.response;
   if (!body.field?.trim()) return badRequest("field is required");
   if (!body.source?.trim()) return badRequest("source is required; §11.1 requires provenance");
 
@@ -38,5 +40,5 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     confidence: typeof body.confidence === "number" ? body.confidence : 0,
     detectedAt: new Date().toISOString(),
     reason: body.reason ?? `Extracted ${body.field} conflicts with the stored value`,
-  }, body.actor!));
+  }, auth.displayName));
 }

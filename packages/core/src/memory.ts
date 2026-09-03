@@ -1,4 +1,4 @@
-import { userEvent, type AuditEvent, type Chassis, type ChassisHolding, type Discrepancy } from '@greenlit/engine';
+import { userEvent, type AuditEvent, type Chassis, type ChassisHolding, type Discrepancy, type Principal } from '@greenlit/engine';
 import type {
   ExceptionRecord, ExportContainer, ExportJob, ImportContainer, ImportJob,
   Movement, Thresholds,
@@ -35,6 +35,26 @@ export const DEFAULT_THRESHOLDS: Thresholds = {
  * capacity view shows the real shape.
  */
 const INSPECTION_CLUSTER_MONTH = '2026-09';
+
+/**
+ * §7. A seeded user directory.
+ *
+ * Not authentication: nobody proves who they are yet. It is the authorisation
+ * half — given a user, what may they do — so commands can be refused
+ * server-side today and the audit trail can name a real person instead of a
+ * placeholder. Sign-in replaces the lookup, not the rules.
+ */
+const USERS: Principal[] = [
+  { userId: 'sarah', displayName: 'Sarah Lim', role: 'CONTROLLER', active: true },
+  { userId: 'winnie', displayName: 'Winnie Ong', role: 'CONTROLLER', active: true },
+  { userId: 'brandon', displayName: 'Brandon Lee', role: 'CONTROLLER', active: true },
+  { userId: 'john', displayName: 'John Tan', role: 'ADMINISTRATOR', active: true },
+  { userId: 'mei', displayName: 'Mei Chen', role: 'MANAGER', active: true },
+  // §7.3: override is grantable to a manager as a narrow extra permission.
+  { userId: 'raymond', displayName: 'Raymond Koh', role: 'MANAGER', active: true,
+    extraPermissions: ['gate.override'] },
+  { userId: 'former', displayName: 'Former Staff', role: 'CONTROLLER', active: false },
+];
 
 function buildFleetRegister(): Chassis[] {
   const units: Chassis[] = [];
@@ -292,6 +312,9 @@ export function createMemoryRepository(): Repository {
       return clone((exceptions[id] ?? []).filter((e) => e.resolvedAt === null));
     },
     async getThresholds() { return { ...DEFAULT_THRESHOLDS }; },
+
+    async getPrincipal(userId) { return clone(USERS.find((u) => u.userId === userId) ?? null); },
+    async listPrincipals() { return clone(USERS); },
 
     async listChassis() { return clone(fleet); },
 

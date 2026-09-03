@@ -1,4 +1,4 @@
-import { badRequest, readJson, runCommand } from "../../../../../../../lib/command";
+import { authorize, badRequest, readJson, runCommand } from "../../../../../../../lib/command";
 
 /**
  * §39. Container number, seal and tare are captured together after the empty
@@ -10,6 +10,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   const { id, containerId } = await ctx.params;
   const body = await readJson<{ containerNumber?: string; sealNumber?: string; tareWeightKg?: number; actor?: string }>(request);
   if (!body?.actor) return badRequest("actor is required");
+  const auth = await authorize(body.actor, "container.capture");
+  if (!auth.ok) return auth.response;
 
   const containerNumber = body.containerNumber?.toUpperCase().replace(/\s+/g, "") ?? "";
   if (!CONTAINER_NUMBER.test(containerNumber)) {
@@ -24,5 +26,5 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     containerNumber,
     sealNumber: body.sealNumber!.trim(),
     tareWeightKg: body.tareWeightKg!,
-  }, body.actor!));
+  }, auth.displayName));
 }
