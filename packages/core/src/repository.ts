@@ -1,6 +1,6 @@
 import type {
-  AuditEvent, Chassis, ChassisHolding, Customer, CustomerDraft, Discrepancy,
-  ExceptionRecord, Principal,
+  AuditEvent, Chassis, ChassisChange, ChassisChangeRequest, ChassisHolding,
+  Customer, CustomerDraft, DateAmendment, Discrepancy, ExceptionRecord, Principal,
   ExportContainer, ExportJob, ImportContainer, ImportJob, Movement, Thresholds,
 } from '@greenlit/engine';
 
@@ -75,6 +75,20 @@ export interface Repository {
 
   listChassis(): Promise<Chassis[]>;
   listChassisHoldings(): Promise<ChassisHolding[]>;
+  /**
+   * §35.8. A mid-job chassis change is an exception, not a workflow: the
+   * system records what was decided rather than deciding it.
+   */
+  recordChassisChange(request: ChassisChangeRequest, actor: string): Promise<ChassisChange>;
+  listChassisChanges(): Promise<ChassisChange[]>;
+
+  /**
+   * §13.1. The date amendment log. Separate from the audit stream because the
+   * audit stream has nowhere to record WHY a date moved, and why is the whole
+   * content of the conversation a controller has when the customer calls.
+   */
+  listDateAmendments(entityId: string): Promise<DateAmendment[]>;
+  amendDate(request: DateAmendmentInput, actor: string): Promise<DateAmendment>;
 
   /**
    * Commands. Deliberately narrow: only the milestones that move a gate.
@@ -118,6 +132,15 @@ export interface Repository {
   resolveDiscrepancy(
     jobId: string, field: string, choice: 'stored' | 'extracted', actor: string,
   ): Promise<void>;
+}
+
+export interface DateAmendmentInput {
+  entityType: 'job' | 'container' | 'movement';
+  entityId: string;
+  dateField: string;
+  newValue: string | null;
+  reasonCode: string;
+  reasonNote?: string | null;
 }
 
 export interface ImportJobDraft {

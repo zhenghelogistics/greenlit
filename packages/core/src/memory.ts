@@ -1,13 +1,17 @@
 import {
-  nextJobReference, userEvent, validateCustomerDraft,
+  appendAmendment, applyChassisChange, nextJobReference, recordChassisChange,
+  userEvent, validateCustomerDraft,
   type AuditEvent, type Chassis, type ChassisHolding, type Customer,
-  type CustomerDraft, type Discrepancy, type Principal,
+  type ChassisChange, type CustomerDraft, type DateAmendment, type Discrepancy,
+  type Principal,
 } from '@greenlit/engine';
 import type {
   ExceptionRecord, ExportContainer, ExportJob, ImportContainer, ImportJob,
   Movement, Thresholds,
 } from '@greenlit/engine';
-import type { ExportJobDraft, ImportJobDraft, Repository, StoredDiscrepancy } from './repository.ts';
+import type {
+  DateAmendmentInput, ExportJobDraft, ImportJobDraft, Repository, StoredDiscrepancy,
+} from './repository.ts';
 
 /**
  * §27 / §56: thresholds are configurable and must not be hard-coded. These are
@@ -301,6 +305,52 @@ export function createMemoryRepository(): Repository {
   const discrepancies: Record<string, StoredDiscrepancy[]> = {};
   const fleet = buildFleetRegister();
   const customers = clone(CUSTOMERS);
+  const chassisChanges: ChassisChange[] = [];
+  const amendments: DateAmendment[] = [];
+  /** Holdings after any §35.8 changes have been applied. */
+  let derivedHoldings: ChassisHolding[] | null = null;
+
+  /** Materialises holdings on first use so a swap can split occupancy. */
+  const holdingsNow = (): ChassisHolding[] => {
+    if (!derivedHoldings) {
+      const holdings: ChassisHolding[] = [];
+      for (const [jobId, list] of Object.entries(importContainers)) {
+        for (const c of list) {
+          if (!c.chassisId) continue;
+          holdings.push({ chassisId: c.chassisId, containerId: c.containerId, jobId,
+            mountedAt: c.chassisMountedAt, releasedAt: c.chassisReleasedAt, doubleMountedWith: null });
+        }
+      }
+      for (const [jobId, list] of Object.entries(exportContainers)) {
+        for (const c of list) {
+          if (!c.chassisId) continue;
+          holdings.push({ chassisId: c.chassisId, containerId: c.exportContainerId, jobId,
+            mountedAt: c.chassisMountedAt, releasedAt: c.chassisReleasedAt, doubleMountedWith: null });
+        }
+      }
+      derivedHoldings = holdings;
+    }
+    return derivedHoldings;
+  };
+
+  /** Reads the current value of an amendable date field. */
+  const dateFieldValue = (entityId: string, field: string): string | null => {
+    const exp = exportJobs.find((j) => j.exportJobId === entityId);
+    if (exp) return (exp as unknown as Record<string, string | null>)[field] ?? null;
+    const imp = importJobs.find((j) => j.jobId === entityId);
+    if (imp) return (imp as unknown as Record<string, string | null>)[field] ?? null;
+    const movement = Object.values(movements).flat().find((m) => m.movementId === entityId);
+    return movement ? ((movement as unknown as Record<string, string | null>)[field] ?? null) : null;
+  };
+
+  const applyDateValue = (entityId: string, field: string, value: string | null) => {
+    const exp = exportJobs.find((j) => j.exportJobId === entityId);
+    if (exp) { (exp as unknown as Record<string, unknown>)[field] = value; return; }
+    const imp = importJobs.find((j) => j.jobId === entityId);
+    if (imp) { (imp as unknown as Record<string, unknown>)[field] = value; return; }
+    const movement = Object.values(movements).flat().find((m) => m.movementId === entityId);
+    if (movement) (movement as unknown as Record<string, unknown>)[field] = value;
+  };
 
   const findExportContainer = (id: string) =>
     Object.values(exportContainers).flat().find((c) => c.exportContainerId === id);
@@ -455,12 +505,58 @@ export function createMemoryRepository(): Repository {
 
     async listChassis() { return clone(fleet); },
 
+    async recordChassisChange(request, actor) {
+      const change = recordChassisChange(
+        { ...request, changedBy: actor, changedAt: new Date().toISOString() },
+        `CHG-${chassisChanges.length + 1}`);
+      // §35.8: occupancy splits across both units, so neither record is
+      // falsified. Applying the change is what performs the split.
+      derivedHoldings = applyChassisChange(holdingsNow(), change);
+      chassisChanges.push(change);
+      record(change.jobId, 'movement.cancelled', actor, {
+        field: 'chassis',
+        from: change.chassisIdPrevious,
+        to: change.chassisIdNew ?? 'grounded',
+      });
+      return clone(change);
+    },
+    async listChassisChanges() { return clone(chassisChanges); },
+
+    async listDateAmendments(entityId) {
+      return clone(amendments.filter((a) => a.entityId === entityId));
+    },
+
+    async amendDate(request: DateAmendmentInput, actor) {
+      const current = dateFieldValue(request.entityId, request.dateField);
+      const { amendment, log } = appendAmendment(amendments, {
+        entityType: request.entityType,
+        entityId: request.entityId,
+        dateField: request.dateField,
+        previousValue: current,
+        newValue: request.newValue,
+        reasonCode: request.reasonCode as DateAmendment['reasonCode'],
+        reasonNote: request.reasonNote ?? null,
+        amendedBy: actor,
+        amendedAt: new Date().toISOString(),
+      }, `AMD-${amendments.length + 1}`);
+      amendments.length = 0;
+      amendments.push(...log);
+      applyDateValue(request.entityId, request.dateField, request.newValue);
+      // §13.1 rule 5: both are written. The audit stream is the legal record,
+      // the amendment log is the operational one.
+      record(request.entityId, 'job.mandatoryFieldChanged', actor, {
+        field: request.dateField, from: current, to: request.newValue,
+      });
+      return clone(amendment);
+    },
+
     /**
      * §35.2. Holdings are derived from the containers themselves: a chassis is
      * assigned at job level and held until released, so there is no separate
      * holdings table to drift out of step with the jobs.
      */
     async listChassisHoldings() {
+      if (derivedHoldings) return clone(derivedHoldings);
       const holdings: ChassisHolding[] = [];
       for (const [jobId, list] of Object.entries(importContainers)) {
         for (const c of list) {
@@ -482,7 +578,8 @@ export function createMemoryRepository(): Repository {
           });
         }
       }
-      return holdings;
+      derivedHoldings = holdings;
+      return clone(holdings);
     },
 
     async recordCms(jobId, status, actor, reason) {

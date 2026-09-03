@@ -1569,115 +1569,97 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
   const freeRisk = jobs.filter((job) => job.type === "Import" && !["Delivered", "Empty Return Pending", "Completed"].includes(jobStatus(job)) && daysUntil(job.demurrageLastFreeDay) <= 3);
   const heldBeyondFive = chassis.inUse.filter((item) => item.days > 5).length;
 
-  const cards = [
-    { label: "Waiting on us", value: waitingUs.length, icon: AlertTriangle, tone: waitingUs.length ? "red" : "green", filter: "us" },
-    { label: "Free time at risk", value: freeRisk.length, icon: CalendarDays, tone: freeRisk.length ? "red" : "green", filter: "freeTime" },
-    { label: "Blocked jobs", value: blockedJobs.length, icon: ShieldCheck, tone: blockedJobs.length ? "red" : "green", filter: "blocked" },
-    { label: "Waiting on customer", value: waitingCustomer.length, icon: Clock3, tone: waitingCustomer.length ? "amber" : "green", filter: "customer" },
-    { label: "Exceptions open", value: exceptions.length, icon: XCircle, tone: exceptions.length ? "red" : "green", filter: "exceptions" },
-    { label: "At our carpark", value: atCarpark.length, icon: Warehouse, tone: atCarpark.length ? "amber" : "green", filter: "carpark" },
-    { label: "Active jobs", value: activeJobs.length, icon: ListTodo, filter: "active" },
-    { label: "Chassis available", value: chassis.available.length, note: `${heldBeyondFive} held >5 days`, icon: Truck, tone: "green", fleet: true },
+  /**
+   * §48: "The dashboard answers one question: what requires attention right
+   * now?" Eight equal counters answered eight questions at once and left the
+   * controller to prioritise — which is the job the engine exists to do.
+   *
+   * Three counters, and only ones that mean ACT. Situational awareness —
+   * active jobs, chassis available, carpark occupancy — has its own screens
+   * and is linked below rather than competing here.
+   */
+  const attention = [
+    { label: "Waiting on us", value: waitingUs.length, icon: AlertTriangle,
+      tone: waitingUs.length ? "red" : "green", filter: "us",
+      note: waitingUs.length ? "work these first" : "nothing outstanding" },
+    { label: "At deadline risk", value: freeRisk.length, icon: CalendarDays,
+      tone: freeRisk.length ? "red" : "green", filter: "freeTime",
+      note: freeRisk.length ? "free time running out" : "all inside free time" },
+    { label: "Exceptions open", value: exceptions.length, icon: XCircle,
+      tone: exceptions.length ? "red" : "green", filter: "exceptions",
+      note: exceptions.length ? "need a person" : "none open" },
   ];
+
+  /** Context, not attention. One line, not eight cards. */
+  const elsewhere = [
+    { label: "Active jobs", value: activeJobs.length, filter: "active" },
+    { label: "Blocked", value: blockedJobs.length, filter: "blocked" },
+    { label: "Waiting on customer", value: waitingCustomer.length, filter: "customer" },
+    { label: "At the carpark", value: atCarpark.length, filter: "carpark" },
+  ];
+
 
   return (
     <main id="main-content" className="mx-auto max-w-[1800px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-4 sm:mb-6">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-[2rem]">Today’s control tower</h1>
-          <p className="mt-2 max-w-[72ch] text-[15px] font-normal text-slate-600">Start with work waiting on us, then protect free time and carpark capacity.</p>
+          <h1 className="gl-display">Today</h1>
+          <p className="gl-body gl-muted mt-1">
+            {waitingUs.length
+              ? `${waitingUs.length} ${waitingUs.length === 1 ? "job needs" : "jobs need"} something from us.`
+              : "Nothing is waiting on us."}
+          </p>
         </div>
-        <div className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-[13px] font-normal text-slate-500">
-          <CalendarDays className="h-4 w-4 text-slate-500" aria-hidden="true" />
-          Wednesday, 19 August 2026
+        <div className="gl-data gl-muted inline-flex min-h-9 items-center gap-2">
+          <CalendarDays className="h-4 w-4" aria-hidden="true" />
+          {new Intl.DateTimeFormat("en-SG", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+            .format(new Date())}
         </div>
       </div>
 
-      <section aria-label="Live operation counts" className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4 xl:grid-cols-8">
-        {cards.map((card) => (
-          <div key={card.label}>
-            <CounterCard {...card} onClick={() => card.fleet ? onShowFleet() : onShowActions(card.filter)} />
-          </div>
+      {/* PRIMARY. §61.3 defines done as working this list top to bottom, so it
+          is the first thing on the screen rather than the fourth. */}
+      <section className="gl-panel overflow-hidden" aria-label="Action required">
+        <div className="gl-panel__header">
+          <h2 className="gl-title">Action required</h2>
+          <button type="button" onClick={() => onShowActions("us")}
+            className="gl-body min-h-9 px-2 font-medium text-[color:var(--gl-brand)] underline decoration-1 underline-offset-4">
+            View full list
+          </button>
+        </div>
+        {live.status === "loading"
+          ? <RegisterSkeleton />
+          : <ActionTable
+              rows={(live.rows ?? actionJobs.map(rowFromSeedJob)).slice(0, 8)}
+              onOpen={onOpen}
+              compact
+            />}
+      </section>
+
+      {/* SECONDARY. Three counters that mean ACT, not eight that mean look. */}
+      <section aria-label="Attention" className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {attention.map((card) => (
+          <CounterCard key={card.label} {...card} onClick={() => onShowActions(card.filter)} />
         ))}
       </section>
 
-      <div className="mt-5 grid gap-6 sm:mt-6">
-        <Panel
-          title="Action Required"
-          action={<button type="button" onClick={() => onShowActions("all")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-brand)] underline decoration-1 underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">View full list <ChevronRight className="h-5 w-5" /></button>}
-        >
-          {live.status === "loading"
-            ? <RegisterSkeleton />
-            : <ActionTable
-                rows={(live.rows ?? actionJobs.map(rowFromSeedJob)).slice(0, 6)}
-                onOpen={onOpen}
-                compact
-              />}
-        </Panel>
+      {/* TERTIARY. Context lives on its own screens; this is a way in, not a
+          competing display. */}
+      <section aria-label="Elsewhere" className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2">
+        {elsewhere.map((item) => (
+          <button key={item.label} type="button" onClick={() => onShowActions(item.filter)}
+            className="gl-body min-h-9 text-slate-600 hover:text-[color:var(--gl-brand)]">
+            <span className="gl-data gl-strong">{item.value}</span>
+            <span className="ml-2">{item.label}</span>
+          </button>
+        ))}
+        <button type="button" onClick={onShowFleet}
+          className="gl-body min-h-9 text-slate-600 hover:text-[color:var(--gl-brand)]">
+          <span className="gl-data gl-strong">{chassis.available.length}</span>
+          <span className="ml-2">chassis available</span>
+        </button>
+      </section>
 
-        <div className="grid gap-6 xl:grid-cols-2">
-          <Panel title="Containers at our carpark">
-            <div className="divide-y divide-slate-200">
-              {atCarpark.map((job) => {
-                const dwell = daysHeld(job.atCarparkSince);
-                const tone = dwellTone(dwell);
-                return (
-                  <button key={job.id} type="button" onClick={() => onOpen(job.id)} className="grid min-h-32 w-full gap-4 px-5 py-5 text-left transition-colors duration-200 hover:bg-sky-50/70 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600 md:grid-cols-[1fr_auto]">
-                    <div>
-                      <div className="text-xl font-semibold text-[var(--gl-brand)] underline decoration-1 underline-offset-4">{primaryContainer(job)}</div>
-                      <div className="mt-2 text-[15px] font-semibold text-slate-800">{job.id}{job.chassis?.[0] ? ` · Chassis ${job.chassis[0].unit}` : ""}</div>
-                      <div className="mt-2 font-semibold text-slate-950">Transhipment: {job.transhipment === "pending" ? "Pending" : "Available"}</div>
-                    </div>
-                    <div className={`flex min-h-20 min-w-32 flex-col items-center justify-center rounded-md border px-4 py-3 text-center ${tone}`}>
-                      <div className="text-2xl font-semibold tabular-nums">Day {dwell}</div>
-                      <div className="text-[15px] font-medium">at carpark</div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </Panel>
-
-          <Panel title="Import free time">
-            <div className="divide-y divide-slate-200">
-              {jobs.filter((job) => job.type === "Import" && !["Delivered", "Empty Return Pending", "Completed"].includes(jobStatus(job))).sort((a, b) => daysUntil(a.demurrageLastFreeDay) - daysUntil(b.demurrageLastFreeDay)).map((job) => {
-                const days = daysUntil(job.demurrageLastFreeDay);
-                return (
-                  <button key={job.id} type="button" onClick={() => onOpen(job.id)} className="flex min-h-24 w-full flex-wrap items-center justify-between gap-4 px-5 py-4 text-left transition-colors duration-200 hover:bg-sky-50/70 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600">
-                    <div>
-                      <div className="text-xl font-semibold text-[var(--gl-brand)] underline decoration-1 underline-offset-4">{primaryContainer(job)}</div>
-                      <div className="mt-1 text-[15px] font-semibold text-slate-800">{job.id} · {job.terminal}</div>
-                    </div>
-                    <span className={`inline-flex min-h-12 items-center rounded-md border px-4 py-2 text-[15px] font-semibold ${freeTimeTone(days)}`}>{freeTimeLabel(days)}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </Panel>
-        </div>
-
-        <Panel title="Chassis availability" action={<button type="button" onClick={onShowFleet} className="min-h-11 px-2 font-semibold text-[var(--gl-brand)] underline decoration-1 underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">Open fleet register</button>}>
-          <div className="grid md:grid-cols-2">
-            {["20ft", "40ft"].map((size, index) => {
-              const available = chassis.available.filter((item) => item.size === size).length;
-              const held = chassis.inUse.filter((item) => item.size === size && item.days > 5).length;
-              return (
-                <div key={size} className={`flex min-h-40 items-center justify-between gap-5 p-6 ${index === 0 ? "border-b border-slate-200 md:border-b-0 md:border-r" : ""}`}>
-                  <div>
-                    <div className="text-[15px] font-normal text-slate-600">{size} available</div>
-                    <div className="mt-1 text-5xl font-semibold tabular-nums tracking-[-0.03em] text-[var(--gl-brand)]">{available}</div>
-                    <div className="mt-2 text-[15px] font-semibold text-slate-900">out of {CHASSIS_TOTALS[size]}</div>
-                  </div>
-                  <div className={`rounded-md border px-5 py-4 text-center ${held ? "border-rose-200 bg-rose-50 text-rose-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
-                    <div className="text-2xl font-semibold tabular-nums">{held}</div>
-                    <div className="max-w-36 text-[15px] font-medium">held beyond 5 days</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Panel>
-      </div>
     </main>
   );
 }
