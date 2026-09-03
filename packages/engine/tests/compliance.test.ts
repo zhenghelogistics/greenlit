@@ -6,7 +6,8 @@ import {
   importJobStatus, isVgmPlausible, nextMovementRef, planExportMovements,
   planImportMovements, detectImportExceptions, MOVEMENT_TYPE, USER_SETTABLE_STATUS,
   NEVER_AUTO_CREATED, reconcileExtraction, reconcileVgm, idempotencyKey,
-  isAlreadyProcessed, field, CRITICAL_FIELDS,
+  isAlreadyProcessed, field, CRITICAL_FIELDS, canModifyAuditEvent,
+  isCriticalAuditEvent, systemEvent, userEvent,
 } from '../src/index.ts';
 import type { ExportContainer, ExportJob, ImportContainer, ImportJob, Movement, Thresholds } from '../src/types.ts';
 
@@ -253,9 +254,32 @@ const RULES: Rule[] = [
       assert.ok(true, 'asserted against the Repository surface in packages/core');
     } },
   { id: 'P-8', text: 'Critical audit events cannot be deleted or edited by standard users',
-    gap: 'the audit trail (§13) is not implemented; AuditSink is declared but has no implementation' },
+    verify: () => {
+      const at = '2026-09-01T00:00:00Z';
+      const override = userEvent({ event: 'gate.overridden', entityType: 'job', entityId: 'j' }, 'John Tan', at);
+      assert.equal(isCriticalAuditEvent('gate.overridden'), true);
+      assert.equal(canModifyAuditEvent(override, 'CONTROLLER').allowed, false);
+      assert.equal(canModifyAuditEvent(override, 'ADMINISTRATOR').allowed, false,
+        'a critical event is immutable even to an administrator');
+      const ordinary = userEvent({ event: 'movement.scheduled', entityType: 'movement', entityId: 'm' }, 'W', at);
+      assert.equal(canModifyAuditEvent(ordinary, 'CONTROLLER').allowed, false,
+        'standard users may not edit any audit event');
+    } },
   { id: 'P-9', text: 'System-generated audit entries name the rule that produced them',
-    gap: 'audit trail not implemented, though auto-created movements do carry their trigger text' },
+    verify: () => {
+      const at = '2026-09-01T00:00:00Z';
+      // A system entry without a rule cannot be constructed at all — the
+      // requirement is enforced at the constructor, not by review.
+      assert.throws(() => systemEvent({
+        event: 'transhipment.changed', entityType: 'job', entityId: 'j', rule: '',
+      }, at), /must name the rule/);
+      const ok = systemEvent({
+        event: 'transhipment.changed', entityType: 'job', entityId: 'j',
+        rule: '§45.2 rule 13, VGM received and transhipment pending',
+      }, at);
+      assert.match(ok.rule ?? '', /rule 13/);
+      assert.equal(ok.actor, 'System');
+    } },
   { id: 'P-10', text: 'Where a fact cannot be established, record who established it and when',
     verify: () => {
       // Every entered fact carries its provenance fields.

@@ -1,3 +1,4 @@
+import { userEvent, type AuditEvent } from '@greenlit/engine';
 import type {
   ExceptionRecord, ExportContainer, ExportJob, ImportContainer, ImportJob,
   Movement, Thresholds,
@@ -215,6 +216,29 @@ export function createMemoryRepository(): Repository {
   const findExportContainer = (id: string) =>
     Object.values(exportContainers).flat().find((c) => c.exportContainerId === id);
 
+  /**
+   * §13. Append-only. Every command records who did it and what changed, so a
+   * later reader can reconstruct the decision without asking anyone.
+   */
+  const audit: AuditEvent[] = [];
+  const record = (
+    entityId: string, event: string, actor: string,
+    change: { field?: string; from?: unknown; to?: unknown } = {},
+    entityType: 'job' | 'container' = 'job',
+  ) => {
+    audit.push(userEvent({
+      event, entityType, entityId,
+      field: change.field ?? null,
+      previousValue: change.from,
+      newValue: change.to,
+    }, actor, new Date().toISOString()));
+  };
+
+  /** Which job an export container belongs to, for audit attribution. */
+  const jobOfContainer = (containerId: string) =>
+    Object.entries(exportContainers)
+      .find(([, list]) => list.some((c) => c.exportContainerId === containerId))?.[0] ?? containerId;
+
   return {
     async listImportJobs() { return clone(importJobs); },
     async getImportJob(id) { return clone(importJobs.find((j) => j.jobId === id) ?? null); },
@@ -228,47 +252,67 @@ export function createMemoryRepository(): Repository {
     },
     async getThresholds() { return { ...DEFAULT_THRESHOLDS }; },
 
-    async recordCms(jobId, status) {
+    async recordCms(jobId, status, actor, reason) {
       const job = exportJobs.find((j) => j.exportJobId === jobId);
       if (!job) throw new Error(`Unknown export job ${jobId}`);
+      const from = job.cmsStatus;
       job.cmsStatus = status;
+      record(jobId, 'cms.completed', actor, { field: 'cmsStatus', from, to: status });
+      if (reason) record(jobId, 'cms.completed', actor, { field: 'reason', to: reason });
     },
-    async recordPermitReceived(jobId, permitNumber) {
+    async recordPermitReceived(jobId, permitNumber, actor) {
       const job = importJobs.find((j) => j.jobId === jobId);
       if (!job) throw new Error(`Unknown import job ${jobId}`);
+      const from = job.permitReceived;
       job.permitReceived = true;
       job.permitRejected = false;
-      void permitNumber;
+      record(jobId, 'permit.received', actor, { field: 'permitReceived', from, to: true });
+      record(jobId, 'permit.received', actor, { field: 'permitNumber', to: permitNumber });
     },
-    async recordPortnetReleased(jobId) {
+    async recordPortnetReleased(jobId, actor) {
       const job = importJobs.find((j) => j.jobId === jobId);
       if (!job) throw new Error(`Unknown import job ${jobId}`);
+      const from = job.portnetReleased;
       job.portnetReleased = true;
+      record(jobId, 'portnet.released', actor, { field: 'portnetReleased', from, to: true });
     },
-    async captureContainerIdentity(containerId, details) {
+    async captureContainerIdentity(containerId, details, actor) {
       const c = findExportContainer(containerId);
       if (!c) throw new Error(`Unknown container ${containerId}`);
       c.containerNumber = details.containerNumber;
       c.sealNumber = details.sealNumber;
       c.tareWeightKg = details.tareWeightKg;
+      record(jobOfContainer(containerId), 'container.identityCaptured', actor,
+        { field: 'containerNumber', to: details.containerNumber });
     },
-    async recordTranshipment(jobId, status) {
+    async recordTranshipment(jobId, status, actor) {
       const job = exportJobs.find((j) => j.exportJobId === jobId);
       if (!job) throw new Error(`Unknown export job ${jobId}`);
+      const from = job.transhipmentStatus;
       job.transhipmentStatus = status;
       job.transhipmentCheckedAt = new Date().toISOString();
+      record(jobId, 'transhipment.changed', actor,
+        { field: 'transhipmentStatus', from, to: status });
     },
-    async recordContainerReady(containerId) {
+    async recordContainerReady(containerId, actor) {
       const c = findExportContainer(containerId);
       if (!c) throw new Error(`Unknown container ${containerId}`);
       c.containerReady = true;
       c.containerReadyAt = new Date().toISOString();
+      record(jobOfContainer(containerId), 'container.readyConfirmed', actor,
+        { field: 'containerReady', from: false, to: true });
     },
-    async recordVgm(containerId, vgm) {
+    async recordVgm(containerId, vgm, actor) {
       const c = findExportContainer(containerId);
       if (!c) throw new Error(`Unknown container ${containerId}`);
+      const from = c.vgm;
       c.vgm = vgm;
       c.vgmReceivedAt = new Date().toISOString();
+      record(jobOfContainer(containerId), 'vgm.received', actor, { field: 'vgm', from, to: vgm });
+    },
+
+    async listAuditEvents(entityId) {
+      return clone(audit.filter((e) => e.entityId === entityId));
     },
   };
 }

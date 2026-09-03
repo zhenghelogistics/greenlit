@@ -1,6 +1,7 @@
 import type { MandatoryFieldSet } from '@greenlit/engine';
 import type { Repository } from './repository.ts';
-import { deriveExportJob, deriveImportJob, type DerivedJobView } from './derive.ts';
+import { asNarrative, describe } from '@greenlit/engine';
+import { deriveExportJob, deriveImportJob, type AuditEventView, type DerivedJobView } from './derive.ts';
 
 /**
  * §30 / §40.1. Configurable per job type; hard-coded here only until a
@@ -47,7 +48,9 @@ export class JobService {
         this.#repo.listMovementsForJob(jobId),
         this.#repo.listOpenExceptionsForJob(jobId),
       ]);
-      return deriveImportJob(importJob, containers, movements, exceptions, IMPORT_MANDATORY, thresholds, now);
+      const view = deriveImportJob(importJob, containers, movements, exceptions, IMPORT_MANDATORY, thresholds, now);
+      view.activity = await this.#activity(jobId);
+      return view;
     }
 
     const exportJob = await this.#repo.getExportJob(jobId);
@@ -57,7 +60,9 @@ export class JobService {
         this.#repo.listMovementsForJob(jobId),
         this.#repo.listOpenExceptionsForJob(jobId),
       ]);
-      return deriveExportJob(exportJob, containers, movements, exceptions, EXPORT_MANDATORY, thresholds, now);
+      const view = deriveExportJob(exportJob, containers, movements, exceptions, EXPORT_MANDATORY, thresholds, now);
+      view.activity = await this.#activity(jobId);
+      return view;
     }
 
     return null;
@@ -84,6 +89,21 @@ export class JobService {
     const open = all.filter((j) => j.nextActionRequired !== 'No action required');
     const filtered = waitingOn ? open.filter((j) => j.waitingOn === waitingOn) : open;
     return filtered.sort((a, b) => a.jobNumber.localeCompare(b.jobNumber));
+  }
+
+  /**
+   * §13. The audit stream as a narrative — oldest first, each entry rendered
+   * so a system change always shows the rule that produced it.
+   */
+  async #activity(jobId: string): Promise<AuditEventView[]> {
+    const events = await this.#repo.listAuditEvents(jobId);
+    return asNarrative(events).map((e) => ({
+      event: e.event,
+      description: describe(e),
+      actor: e.actor,
+      at: e.createdAt,
+      rule: e.rule,
+    }));
   }
 
   /** §26.1. Populated automatically by the mandatory field engine. */

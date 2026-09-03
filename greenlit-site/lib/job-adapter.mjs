@@ -54,10 +54,15 @@ export function jobFromApi(view) {
         heldSince: (c.chassisMountedAt ?? "").slice(0, 10) || null,
         released: Boolean(c.chassisReleasedAt),
       })),
-    // §13 activity timeline. The API does not expose audit events yet, so an
-    // empty history is the honest value — not a missing field the screens
-    // would crash on.
-    activity: [],
+    // §13 activity timeline, rendered from the audit stream. A system entry
+    // always carries the rule that produced it, so the narrative explains
+    // itself without opening anything else.
+    activity: (view.activity ?? []).map((e, i) => ({
+      id: `${e.at}-${i}`,
+      text: e.description,
+      at: e.at,
+      actor: e.actor,
+    })),
     // Present only for jobs created through document intake.
     sourceDocument: null,
     // §27.1 exceptions are records; none are surfaced through the API yet.

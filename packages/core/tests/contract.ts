@@ -151,6 +151,42 @@ export function runRepositoryContract(
     await assert.rejects(() => repo.recordVgm('no-such-id', 1, 'tester'));
   });
 
+  test(`[${name}] §13: commands leave an audit trail with a named actor`, async () => {
+    const repo = await fresh();
+    assert.deepEqual(await repo.listAuditEvents(seeded.exportJobId), [],
+      'no history before anything happened');
+
+    await repo.recordCms(seeded.exportJobId, 'COMPLETED', 'Sarah Lim');
+    const events = await repo.listAuditEvents(seeded.exportJobId);
+    assert.ok(events.length > 0, 'a command must leave a record');
+    const [first] = events;
+    assert.equal(first?.actor, 'Sarah Lim', '§13 forbids an anonymous change');
+    assert.ok(first?.createdAt, 'an event carries when it happened');
+  });
+
+  test(`[${name}] §13: the audit stream is append-only`, async () => {
+    const repo = await fresh();
+    // There is deliberately no update or delete on the port; that is the
+    // enforcement, not a convention.
+    const surface = Object.keys(repo);
+    for (const forbidden of ['updateAuditEvent', 'deleteAuditEvent', 'clearAuditEvents']) {
+      assert.equal((repo as unknown as Record<string, unknown>)[forbidden], undefined,
+        `${forbidden} must not exist: critical events cannot be deleted or edited`);
+    }
+    await repo.recordPortnetReleased(seeded.importJobId, 'tester');
+    const before = await repo.listAuditEvents(seeded.importJobId);
+    // Mutating what a read returned must not affect the stored stream.
+    before.length = 0;
+    assert.ok((await repo.listAuditEvents(seeded.importJobId)).length > 0);
+  });
+
+  test(`[${name}] audit events are attributed to the right entity`, async () => {
+    const repo = await fresh();
+    await repo.recordCms(seeded.exportJobId, 'COMPLETED', 'W');
+    assert.deepEqual(await repo.listAuditEvents(seeded.importJobId), [],
+      'an export job command must not appear on an import job');
+  });
+
   test(`[${name}] writing a derived value is impossible by construction`, async () => {
     const repo = await fresh();
     for (const forbidden of ['setJobStatus', 'setNextAction', 'setLocation',

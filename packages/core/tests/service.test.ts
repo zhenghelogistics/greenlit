@@ -143,3 +143,38 @@ test('§26.1: the incomplete queue is driven by the mandatory field engine', asy
   assert.ok(incomplete.every((j) => j.missingInformation.length > 0),
     'a job in the queue must be able to say what is missing');
 });
+
+test('§13: a command appears on the job as a narrative entry', async () => {
+  const repo = createMemoryRepository();
+  const service = new JobService(repo, at('2026-09-01T00:00:00Z'));
+
+  assert.deepEqual((await service.getJob('ej3'))?.activity, [],
+    'nothing has happened yet');
+
+  await repo.recordCms('ej3', 'COMPLETED', 'Sarah Lim');
+
+  const after = await service.getJob('ej3');
+  assert.ok((after?.activity.length ?? 0) > 0);
+  const entry = after!.activity[0]!;
+  assert.equal(entry.actor, 'Sarah Lim');
+  assert.match(entry.description, /cmsStatus/, 'the entry says what changed');
+});
+
+test('§13: activity is chronological, oldest first', async () => {
+  const repo = createMemoryRepository();
+  const service = new JobService(repo, at('2026-09-01T00:00:00Z'));
+  await repo.recordCms('ej3', 'COMPLETED', 'Sarah');
+  await new Promise((r) => setTimeout(r, 2));
+  await repo.recordTranshipment('ej3', 'AVAILABLE', 'Winnie');
+
+  const activity = (await service.getJob('ej3'))!.activity;
+  const times = activity.map((a) => a.at);
+  assert.deepEqual(times, [...times].sort(), 'a narrative reads forwards');
+});
+
+test('§13: one job’s history never leaks into another', async () => {
+  const repo = createMemoryRepository();
+  const service = new JobService(repo, at('2026-09-01T00:00:00Z'));
+  await repo.recordCms('ej3', 'COMPLETED', 'Sarah');
+  assert.deepEqual((await service.getJob('ij1'))?.activity, []);
+});

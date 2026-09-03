@@ -1,6 +1,6 @@
 import type {
-  ExceptionRecord, ExportContainer, ExportJob, ImportContainer, ImportJob,
-  Movement, Thresholds,
+  AuditEvent, ExceptionRecord, ExportContainer, ExportJob, ImportContainer,
+  ImportJob, Movement, Thresholds,
 } from '@greenlit/engine';
 
 /**
@@ -51,22 +51,18 @@ export interface Repository {
   recordTranshipment(jobId: string, status: 'AVAILABLE' | 'NOT_AVAILABLE', actor: string): Promise<void>;
   recordContainerReady(containerId: string, actor: string): Promise<void>;
   recordVgm(containerId: string, vgm: number, actor: string): Promise<void>;
+
+  /**
+   * §13. The job's audit stream, oldest first. Append-only: there is
+   * deliberately no update or delete, which is how "critical audit events
+   * cannot be deleted or edited" is enforced at the port.
+   */
+  listAuditEvents(entityId: string): Promise<AuditEvent[]>;
 }
 
-/** §13. Every command writes one of these. Named rule, named actor. */
-export interface AuditEvent {
-  event: string;
-  entityType: 'job' | 'container' | 'movement' | 'document' | 'exception';
-  entityId: string;
-  field: string | null;
-  previousValue: string | null;
-  newValue: string | null;
-  actor: string;
-  source: 'USER' | 'EMAIL_AUTOMATION' | 'AI_EXTRACTION' | 'SYSTEM_RULE' | 'API';
-  createdAt: string;
-}
-
-export interface AuditSink {
-  append(event: AuditEvent): Promise<void>;
-  listForEntity(entityId: string): Promise<AuditEvent[]>;
-}
+/**
+ * §13. The audit stream. AuditEvent itself lives in @greenlit/engine, because
+ * what makes an entry valid — a named actor, a named rule for system changes —
+ * is a rule, not a storage concern.
+ */
+export type { AuditEvent } from '@greenlit/engine';

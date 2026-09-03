@@ -44,6 +44,17 @@ export interface DerivedJobView {
   missingInformation: string[];
   containers: DerivedContainerView[];
   movements: Movement[];
+  /** §13. The job's audit stream as a chronological narrative. */
+  activity: AuditEventView[];
+}
+
+/** One rendered audit entry. §13: system entries always carry their rule. */
+export interface AuditEventView {
+  event: string;
+  description: string;
+  actor: string;
+  at: string;
+  rule: string | null;
 }
 
 const daysBetween = (from: string, to: string) =>
@@ -205,6 +216,7 @@ export function deriveImportJob(
     missingInformation: missing,
     containers: views,
     movements: [...movements],
+    activity: [],
   };
 }
 
@@ -257,5 +269,6 @@ export function deriveExportJob(
     missingInformation: missing,
     containers: views,
     movements: [...movements],
+    activity: [],
   };
 }
