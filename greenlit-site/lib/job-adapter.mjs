@@ -21,6 +21,10 @@ export function jobFromApi(view) {
 
   return {
     id: view.jobNumber,
+    // The API is addressed by internal id; screens display the job number.
+    // Keeping both means a command can be issued from a row that only shows
+    // the human reference.
+    apiId: view.jobId,
     type: isImport ? "Import" : "Export",
     customer: view.customer,
     createdDate: (r.createdAt ?? "").slice(0, 10),
@@ -67,9 +71,9 @@ export function jobFromApi(view) {
     sourceDocument: null,
     // §27.1 exceptions are records; none are surfaced through the API yet.
     exception: null,
-    // §12 discrepancies raised by document intake, awaiting a controller's
-    // decision. Empty for API-loaded jobs until intake runs against them.
-    discrepancies: [],
+    // §12 conflicts awaiting a decision, from the server. They are records,
+    // not screen state, so they survive a reload and a different browser.
+    discrepancies: view.discrepancies ?? [],
     // The last extracted field set, kept so a later document can be reconciled
     // against what a previous one established.
     documentFields: {},

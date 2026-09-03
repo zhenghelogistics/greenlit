@@ -46,6 +46,19 @@ export interface DerivedJobView {
   movements: Movement[];
   /** §13. The job's audit stream as a chronological narrative. */
   activity: AuditEventView[];
+  /** §12. Conflicts awaiting a controller's decision. */
+  discrepancies: OpenDiscrepancyView[];
+}
+
+/** §12. A conflict, with everything needed to decide it. */
+export interface OpenDiscrepancyView {
+  field: string;
+  storedValue: unknown;
+  extractedValue: unknown;
+  source: string;
+  confidence: number;
+  detectedAt: string;
+  reason: string;
 }
 
 /** One rendered audit entry. §13: system entries always carry their rule. */
@@ -217,6 +230,7 @@ export function deriveImportJob(
     containers: views,
     movements: [...movements],
     activity: [],
+    discrepancies: [],
   };
 }
 
@@ -270,5 +284,6 @@ export function deriveExportJob(
     containers: views,
     movements: [...movements],
     activity: [],
+    discrepancies: [],
   };
 }

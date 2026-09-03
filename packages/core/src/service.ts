@@ -50,6 +50,7 @@ export class JobService {
       ]);
       const view = deriveImportJob(importJob, containers, movements, exceptions, IMPORT_MANDATORY, thresholds, now);
       view.activity = await this.#activity(jobId);
+      view.discrepancies = await this.#repo.listOpenDiscrepancies(jobId);
       return view;
     }
 
@@ -62,6 +63,7 @@ export class JobService {
       ]);
       const view = deriveExportJob(exportJob, containers, movements, exceptions, EXPORT_MANDATORY, thresholds, now);
       view.activity = await this.#activity(jobId);
+      view.discrepancies = await this.#repo.listOpenDiscrepancies(jobId);
       return view;
     }
 

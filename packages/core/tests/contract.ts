@@ -187,6 +187,57 @@ export function runRepositoryContract(
       'an export job command must not appear on an import job');
   });
 
+  test(`[${name}] §12: a discrepancy outlives the screen that raised it`, async () => {
+    const repo = await fresh();
+    const d = {
+      field: 'eta', storedValue: '2026-08-17', extractedValue: '2026-08-18',
+      source: 'NOA.pdf', confidence: 0.95, detectedAt: '2026-09-01T00:00:00Z',
+      reason: 'Extracted eta conflicts with the stored value',
+    };
+    await repo.raiseDiscrepancy(seeded.importJobId, d, 'intake');
+    const open = await repo.listOpenDiscrepancies(seeded.importJobId);
+    assert.equal(open.length, 1);
+    assert.equal(open[0]?.resolvedAt, null, 'it stays open until someone decides');
+  });
+
+  test(`[${name}] §12: resolving records who decided and which way`, async () => {
+    const repo = await fresh();
+    const d = {
+      field: 'eta', storedValue: '2026-08-17', extractedValue: '2026-08-18',
+      source: 'NOA.pdf', confidence: 0.95, detectedAt: '2026-09-01T00:00:00Z',
+      reason: 'conflict',
+    };
+    await repo.raiseDiscrepancy(seeded.importJobId, d, 'intake');
+    await repo.resolveDiscrepancy(seeded.importJobId, 'eta', 'extracted', 'Brandon');
+
+    assert.deepEqual(await repo.listOpenDiscrepancies(seeded.importJobId), [],
+      'a resolved discrepancy is no longer open');
+
+    const events = await repo.listAuditEvents(seeded.importJobId);
+    const resolved = events.find((e) => e.event === 'discrepancy.resolved');
+    assert.ok(resolved, '§12 requires the decision to be audited');
+    assert.equal(resolved?.actor, 'Brandon');
+    assert.equal(resolved?.newValue, '2026-08-18', 'the chosen value is recorded');
+  });
+
+  test(`[${name}] §12: one open discrepancy per field`, async () => {
+    const repo = await fresh();
+    const base = {
+      field: 'eta', storedValue: '2026-08-17', source: 'a.pdf',
+      confidence: 0.9, detectedAt: '2026-09-01T00:00:00Z', reason: 'conflict',
+    };
+    await repo.raiseDiscrepancy(seeded.importJobId, { ...base, extractedValue: '2026-08-18' }, 'intake');
+    await repo.raiseDiscrepancy(seeded.importJobId, { ...base, extractedValue: '2026-08-19', source: 'b.pdf' }, 'intake');
+    const open = await repo.listOpenDiscrepancies(seeded.importJobId);
+    assert.equal(open.length, 1, 'a second document updates the standing question');
+    assert.equal(open[0]?.extractedValue, '2026-08-19');
+  });
+
+  test(`[${name}] resolving an unknown discrepancy fails loudly`, async () => {
+    const repo = await fresh();
+    await assert.rejects(() => repo.resolveDiscrepancy(seeded.importJobId, 'nope', 'stored', 'W'));
+  });
+
   test(`[${name}] writing a derived value is impossible by construction`, async () => {
     const repo = await fresh();
     for (const forbidden of ['setJobStatus', 'setNextAction', 'setLocation',

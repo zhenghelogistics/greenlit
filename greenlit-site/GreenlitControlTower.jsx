@@ -77,6 +77,14 @@ import { readPdfText } from "./lib/read-pdf.mjs";
 function operationalToday() {
   return new Date().toISOString().slice(0, 10);
 }
+/**
+ * §13 requires a named actor on every change, and §7 user roles are not built
+ * yet, so there is nobody to name. This placeholder is deliberately explicit:
+ * an audit trail attributing decisions to "Controller" is honest about what it
+ * does not know, where a plausible-looking name would not be.
+ */
+const CURRENT_USER = "Controller (unauthenticated)";
+
 const CARPARK = "ZHL Carpark, Pioneer Road";
 const CHASSIS_TOTALS = { "20ft": 47, "40ft": 42 };
 const MAINTENANCE_UNITS = {
@@ -2773,23 +2781,25 @@ export default function GreenlitControlTower() {
 
   /**
    * §12: the controller decides which value becomes current, and the decision
-   * is recorded. Choosing the extracted value writes it; choosing stored
-   * leaves it. Either way the discrepancy is closed with who and when.
+   * is audited. Resolving goes through the API so the record outlives this
+   * screen; the job is reloaded from the server afterwards rather than patched
+   * locally, so what is displayed is what was actually stored.
    */
-  function resolveDiscrepancy(discrepancy, choice) {
-    setJobs((current) => current.map((job) => {
-      if (!(job.discrepancies || []).some((d) => d === discrepancy)) return job;
-      const resolvedAt = new Date().toISOString();
-      return {
-        ...job,
-        documentFields: choice === "extracted"
-          ? { ...(job.documentFields || {}), [discrepancy.field]: discrepancy.extractedValue }
-          : job.documentFields,
-        discrepancies: job.discrepancies.map((d) => d === discrepancy
-          ? { ...d, resolvedAt, resolution: choice }
-          : d),
-      };
-    }));
+  async function resolveDiscrepancy(discrepancy, choice) {
+    const job = jobs.find((j) => (j.discrepancies || []).includes(discrepancy));
+    if (!job) return;
+    try {
+      const response = await fetch(`/api/jobs/${job.apiId ?? job.id}/discrepancies/resolve`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ field: discrepancy.field, choice, actor: CURRENT_USER }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      await loadJobs();
+    } catch {
+      // The decision was not recorded, so the conflict must stay visible.
+      showToast("That decision could not be saved. The conflict is still open.");
+    }
   }
 
   function applyDocument(result) {

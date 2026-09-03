@@ -1,6 +1,6 @@
 import type {
-  AuditEvent, ExceptionRecord, ExportContainer, ExportJob, ImportContainer,
-  ImportJob, Movement, Thresholds,
+  AuditEvent, Discrepancy, ExceptionRecord, ExportContainer, ExportJob,
+  ImportContainer, ImportJob, Movement, Thresholds,
 } from '@greenlit/engine';
 
 /**
@@ -58,6 +58,30 @@ export interface Repository {
    * cannot be deleted or edited" is enforced at the port.
    */
   listAuditEvents(entityId: string): Promise<AuditEvent[]>;
+
+  /**
+   * §12. Discrepancies are records, not transient UI state.
+   *
+   * "The controller decides which value becomes current, and that decision is
+   * audited" — which is only possible if the discrepancy outlives the screen
+   * that showed it.
+   */
+  listOpenDiscrepancies(jobId: string): Promise<StoredDiscrepancy[]>;
+  raiseDiscrepancy(jobId: string, discrepancy: Discrepancy, actor: string): Promise<void>;
+  /**
+   * Choosing `extracted` writes the extracted value; `stored` leaves it.
+   * Either way the decision is closed with who and when.
+   */
+  resolveDiscrepancy(
+    jobId: string, field: string, choice: 'stored' | 'extracted', actor: string,
+  ): Promise<void>;
+}
+
+/** A raised discrepancy, with its resolution once decided. */
+export interface StoredDiscrepancy extends Discrepancy {
+  resolvedAt: string | null;
+  resolvedBy: string | null;
+  resolution: 'stored' | 'extracted' | null;
 }
 
 /**

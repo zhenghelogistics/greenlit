@@ -1,9 +1,9 @@
-import { userEvent, type AuditEvent } from '@greenlit/engine';
+import { userEvent, type AuditEvent, type Discrepancy } from '@greenlit/engine';
 import type {
   ExceptionRecord, ExportContainer, ExportJob, ImportContainer, ImportJob,
   Movement, Thresholds,
 } from '@greenlit/engine';
-import type { Repository } from './repository.ts';
+import type { Repository, StoredDiscrepancy } from './repository.ts';
 
 /**
  * §27 / §56: thresholds are configurable and must not be hard-coded. These are
@@ -212,6 +212,7 @@ export function createMemoryRepository(): Repository {
   const exportContainers = clone(EXPORT_CONTAINERS);
   const movements = clone(MOVEMENTS);
   const exceptions = clone(EXCEPTIONS);
+  const discrepancies: Record<string, StoredDiscrepancy[]> = {};
 
   const findExportContainer = (id: string) =>
     Object.values(exportContainers).flat().find((c) => c.exportContainerId === id);
@@ -313,6 +314,36 @@ export function createMemoryRepository(): Repository {
 
     async listAuditEvents(entityId) {
       return clone(audit.filter((e) => e.entityId === entityId));
+    },
+
+    async listOpenDiscrepancies(jobId) {
+      return clone((discrepancies[jobId] ?? []).filter((d) => d.resolvedAt === null));
+    },
+
+    async raiseDiscrepancy(jobId, discrepancy: Discrepancy, actor) {
+      const list = discrepancies[jobId] ?? (discrepancies[jobId] = []);
+      // One open discrepancy per field: a second conflicting document updates
+      // the standing question rather than stacking another one behind it.
+      const existing = list.find((d) => d.field === discrepancy.field && d.resolvedAt === null);
+      if (existing) Object.assign(existing, discrepancy);
+      else list.push({ ...discrepancy, resolvedAt: null, resolvedBy: null, resolution: null });
+      record(jobId, 'discrepancy.raised', actor, {
+        field: discrepancy.field, from: discrepancy.storedValue, to: discrepancy.extractedValue,
+      });
+    },
+
+    async resolveDiscrepancy(jobId, field, choice, actor) {
+      const open = (discrepancies[jobId] ?? []).find((d) => d.field === field && d.resolvedAt === null);
+      if (!open) throw new Error(`Unknown open discrepancy ${field} on job ${jobId}`);
+      open.resolvedAt = new Date().toISOString();
+      open.resolvedBy = actor;
+      open.resolution = choice;
+      // §12: the decision is audited, whichever way it went.
+      record(jobId, 'discrepancy.resolved', actor, {
+        field,
+        from: open.storedValue,
+        to: choice === 'extracted' ? open.extractedValue : open.storedValue,
+      });
     },
   };
 }
