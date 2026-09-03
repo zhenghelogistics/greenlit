@@ -2,7 +2,7 @@
 /**
  * Design system gate.
  *
- * MASTER.md v2 is only worth writing if it is enforced. Every rule here maps to
+ * MASTER.md v3 is only worth writing if it is enforced. Every rule here maps to
  * a specific clause, and each one exists because the violation actually
  * happened in this repository — v1 accumulated all of them silently.
  *
@@ -52,6 +52,23 @@ const RULES = [
     applies: (f) => UI_EXT.has(extname(f)),
     pattern: /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,
     message: "Emoji are not icons. Use Lucide.",
+  },
+  {
+    id: "dark-chrome",
+    clause: "§7",
+    level: "error",
+    applies: (f) => UI_EXT.has(extname(f)),
+    // The v2 shell colours. v3 has no dark surfaces at all.
+    pattern: /#0f2333|#18364c|#172a3a|bg-slate-(7|8|9)00|bg-\[#0f2333\]/g,
+    message: "v3 has no dark chrome. The shell is white.",
+  },
+  {
+    id: "uppercase-label",
+    clause: "§2",
+    level: "warn",
+    applies: (f) => UI_EXT.has(extname(f)),
+    pattern: /\buppercase\b/g,
+    message: "v3 labels are sentence case; uppercase tracking adds noise without information.",
   },
   {
     id: "raw-hex",
@@ -110,7 +127,7 @@ if (process.argv.includes("--json")) {
 } else {
   const line = (f) =>
     `  ${f.file}:${f.lines.join(",")}  [${f.rule} ${f.clause}] x${f.count}\n      ${f.message}`;
-  console.log("Design system gate — MASTER.md v2\n");
+  console.log("Design system gate — MASTER.md v3\n");
   if (errors.length) { console.log(`FAIL  ${errors.length} error group(s):`); errors.forEach((f) => console.log(line(f))); console.log(""); }
   if (warns.length) { console.log(`WARN  ${warns.length} warning group(s):`); warns.forEach((f) => console.log(line(f))); console.log(""); }
   if (!errors.length && !warns.length) console.log("PASS  no violations.");

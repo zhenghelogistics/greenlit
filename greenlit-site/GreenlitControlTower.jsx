@@ -110,7 +110,7 @@ function ActingUser({ onChange }) {
   return (
     <label className="flex items-center gap-2">
       <span className="sr-only">Acting as</span>
-      <UserRound className="h-4 w-4 text-slate-300" aria-hidden="true" />
+      <UserRound className="h-4 w-4 text-[color:var(--gl-ink-faint)]" aria-hidden="true" />
       <select
         value={selected}
         onChange={(event) => {
@@ -883,18 +883,32 @@ function dwellTone(days) {
 }
 
 function WaitingPill({ owner }) {
-  const tones = {
-    Us: "border-rose-200 bg-rose-50 text-rose-800",
-    Customer: "border-amber-200 bg-amber-50 text-amber-800",
-    Carrier: "border-slate-200 bg-slate-100 text-slate-700",
-    Nobody: "border-emerald-200 bg-emerald-50 text-emerald-800",
-  };
-  return <span className={`gl-pill ${tones[owner]}`}>{owner}</span>;
+  // "Us" is the only one that means act, so it is the only one marked.
+  const state = owner === "Us" ? "blocked" : owner === "Customer" ? "warn"
+    : owner === "Nobody" ? "ready" : "idle";
+  return <span className="gl-pill" data-state={state}>{owner}</span>;
+}
+
+/**
+ * State is a small mark plus the word, never a filled block.
+ *
+ * A row of filled pills reads as decoration and competes with the one value
+ * that matters. A dot carries the same information at a fraction of the
+ * visual weight, and the word carries it for anyone who cannot see colour.
+ */
+function statusState(status) {
+  if (["Exception", "Cancelled", "On Hold"].includes(status)) return "blocked";
+  if (/^Awaiting|^Incomplete|Pending$/.test(status)) return "warn";
+  if (/^Ready|Delivered|Completed|Returned/.test(status)) return "ready";
+  return "idle";
 }
 
 function StatusPill({ status, large = false, flash = false }) {
   return (
-    <span className={`inline-flex items-center rounded-full border font-semibold ${large ? "min-h-12 px-5 py-2 text-[15px]" : "min-h-9 px-3 py-1 text-[15px]"} ${statusTone(status)} ${flash ? "greenlit-release-flash" : ""}`}>
+    <span
+      className={`gl-pill ${large ? "text-[15px]" : ""} ${flash ? "greenlit-release-flash" : ""}`}
+      data-state={statusState(status)}
+    >
       {status}
     </span>
   );
@@ -916,7 +930,7 @@ function CounterCard({ label, value, note, icon: Icon, tone = "navy", onClick })
   const iconTone = tone === "red" ? "bg-rose-50 text-rose-700"
     : tone === "amber" ? "bg-amber-50 text-amber-700"
     : tone === "green" ? "bg-emerald-50 text-emerald-700"
-    : "bg-slate-100 text-[color:var(--gl-brand)]";
+    : "bg-slate-100 text-[color:var(--gl-accent)]";
   return (
     <button
       type="button"
@@ -986,7 +1000,7 @@ function NewCompanyForm({ onCreated }) {
   if (!open) {
     return (
       <button type="button" onClick={() => setOpen(true)}
-        className="h-10 rounded border-0 bg-[color:var(--gl-brand)] px-4 text-[15px] font-medium text-white hover:bg-[color:var(--gl-brand-hover)]">
+        className="h-10 rounded border-0 bg-[color:var(--gl-accent)] px-4 text-[15px] font-medium text-white hover:bg-[color:var(--gl-accent-hover)]">
         Add company
       </button>
     );
@@ -1003,7 +1017,7 @@ function NewCompanyForm({ onCreated }) {
             maxLength={6}
             placeholder="ABC"
             aria-describedby="code-hint"
-            className="gl-data h-10 w-28 rounded border border-slate-300 px-3 uppercase"
+            className="gl-data h-10 w-28 rounded border border-slate-300 px-3"
           />
           <span id="code-hint" className="gl-caption">2–6 letters. Cannot be changed later.</span>
         </label>
@@ -1017,7 +1031,7 @@ function NewCompanyForm({ onCreated }) {
           />
         </label>
         <button type="submit" disabled={saving}
-          className="h-10 rounded border-0 bg-[color:var(--gl-brand)] px-4 text-[15px] font-medium text-white hover:bg-[color:var(--gl-brand-hover)]">
+          className="h-10 rounded border-0 bg-[color:var(--gl-accent)] px-4 text-[15px] font-medium text-white hover:bg-[color:var(--gl-accent-hover)]">
           {saving ? "Saving…" : "Create"}
         </button>
         <button type="button" onClick={() => { setOpen(false); setError(""); }}
@@ -1078,7 +1092,7 @@ function NewJobForm({ customerCode, onCreated }) {
         </select>
       </label>
       <button type="submit" disabled={saving}
-        className="h-10 rounded border-0 bg-[color:var(--gl-brand)] px-4 text-[15px] font-medium text-white hover:bg-[color:var(--gl-brand-hover)]">
+        className="h-10 rounded border-0 bg-[color:var(--gl-accent)] px-4 text-[15px] font-medium text-white hover:bg-[color:var(--gl-accent-hover)]">
         {saving ? "Creating…" : "Create job"}
       </button>
       <button type="button" onClick={() => { setOpen(false); setError(""); }}
@@ -1179,7 +1193,7 @@ function CompanyDetail({ code, onBack, onOpen }) {
 
   return (
     <main id="main-content" className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
-      <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center gap-2 rounded border border-slate-300 bg-white px-3 text-[15px] font-medium text-[var(--gl-brand)] hover:bg-slate-50">
+      <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center gap-2 rounded border border-slate-300 bg-white px-3 text-[15px] font-medium text-[var(--gl-accent)] hover:bg-slate-50">
         <ArrowLeft className="h-5 w-5" aria-hidden="true" /> Companies
       </button>
 
@@ -1212,7 +1226,7 @@ function CompanyDetail({ code, onBack, onOpen }) {
             <tbody>
               {jobs.map((j) => (
                 <tr key={j.jobId} onClick={() => onOpen(j.jobNumber)}>
-                  <td><span className="gl-data" style={{ color: "var(--gl-brand)" }}>{j.jobNumber}</span></td>
+                  <td><span className="gl-data" style={{ color: "var(--gl-accent)" }}>{j.jobNumber}</span></td>
                   <td className="gl-body">{j.domain === "IMPORT" ? "Import" : "Export"}</td>
                   <td><StatusPill status={j.jobStatus} /></td>
                   <td className="gl-body gl-strong" style={{ fontWeight: 500 }}>{j.nextActionRequired}</td>
@@ -1350,7 +1364,7 @@ function ActionTable({ rows, onOpen, compact = false }) {
                 onClick={() => job.openable !== false && onOpen(job.id)}
               >
                 <td>
-                  <span className="gl-data" style={{ color: "var(--gl-brand)" }}>{job.id}</span>
+                  <span className="gl-data" style={{ color: "var(--gl-accent)" }}>{job.id}</span>
                   <div className="gl-caption mt-0.5">{job.type}</div>
                 </td>
                 <td><span className="gl-data">{job.container}</span></td>
@@ -1389,7 +1403,7 @@ function ActionTable({ rows, onOpen, compact = false }) {
           <button key={job.id} type="button" onClick={() => onOpen(job.id)} className="block min-h-44 w-full px-5 py-5 text-left transition-colors duration-200 hover:bg-sky-50/70 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="text-xl font-semibold text-[var(--gl-brand)] underline decoration-1 underline-offset-4">{job.id}</div>
+                <div className="text-xl font-semibold text-[var(--gl-accent)] underline decoration-1 underline-offset-4">{job.id}</div>
                 <div className="mt-1 font-normal text-slate-600">{job.container} · {job.type}</div>
               </div>
               <StatusPill status={job.status} />
@@ -1413,7 +1427,7 @@ function TripTable({ trips, flashTripId, onOpenTrip }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[1160px] border-collapse text-left text-[15px]">
-        <thead className="bg-[#172a3a] text-white">
+        <thead className="bg-[var(--gl-bg-subtle)] text-white">
           <tr>
             {["Reference", "Container", "Route", "Type", "Status", "Planned date", "Collected", "Delivered", ""].map((heading, index) => (
               <th key={`${heading}-${index}`} className="border-r border-slate-600 px-4 py-4 text-[15px] font-semibold last:border-r-0">{heading}</th>
@@ -1441,7 +1455,7 @@ function TripTable({ trips, flashTripId, onOpenTrip }) {
                 <td className="px-4 py-4 font-semibold text-slate-900">{trip.plannedDate ? new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "short", year: "numeric" }).format(parseDay(trip.plannedDate)) : "Not scheduled"}</td>
                 <td className="px-4 py-4 font-semibold text-slate-900">{trip.collectedTime || "—"}</td>
                 <td className="px-4 py-4 font-semibold text-slate-900">{trip.deliveredTime || "—"}</td>
-                <td className="px-4 py-4"><button type="button" onClick={() => onOpenTrip(trip.id)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 font-semibold text-[var(--gl-brand)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">Manage <ChevronRight className="h-5 w-5" /></button></td>
+                <td className="px-4 py-4"><button type="button" onClick={() => onOpenTrip(trip.id)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 font-semibold text-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">Manage <ChevronRight className="h-5 w-5" /></button></td>
               </tr>
             );
           }) : (
@@ -1623,7 +1637,7 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
         <div className="gl-panel__header">
           <h2 className="gl-title">Action required</h2>
           <button type="button" onClick={() => onShowActions("us")}
-            className="gl-body min-h-9 px-2 font-medium text-[color:var(--gl-brand)] underline decoration-1 underline-offset-4">
+            className="gl-body min-h-9 px-2 font-medium text-[color:var(--gl-accent)] underline decoration-1 underline-offset-4">
             View full list
           </button>
         </div>
@@ -1648,13 +1662,13 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
       <section aria-label="Elsewhere" className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2">
         {elsewhere.map((item) => (
           <button key={item.label} type="button" onClick={() => onShowActions(item.filter)}
-            className="gl-body min-h-9 text-slate-600 hover:text-[color:var(--gl-brand)]">
+            className="gl-body min-h-9 text-slate-600 hover:text-[color:var(--gl-accent)]">
             <span className="gl-data gl-strong">{item.value}</span>
             <span className="ml-2">{item.label}</span>
           </button>
         ))}
         <button type="button" onClick={onShowFleet}
-          className="gl-body min-h-9 text-slate-600 hover:text-[color:var(--gl-brand)]">
+          className="gl-body min-h-9 text-slate-600 hover:text-[color:var(--gl-accent)]">
           <span className="gl-data gl-strong">{chassis.available.length}</span>
           <span className="ml-2">chassis available</span>
         </button>
@@ -1699,7 +1713,7 @@ function ActionRequired({ jobs, filter, setFilter, dashboardFilter, clearDashboa
 
       <div className="mt-5 flex flex-wrap gap-3" aria-label="Action filters">
         {FILTERS.map((item) => (
-          <button key={item.id} type="button" onClick={() => { setFilter(item.id); clearDashboardFilter(); }} aria-pressed={filter === item.id && !dashboardFilter} className={`min-h-12 rounded-md border px-5 py-2 text-[15px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${filter === item.id && !dashboardFilter ? "border-[var(--gl-brand)] bg-[var(--gl-brand)] text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"}`}>
+          <button key={item.id} type="button" onClick={() => { setFilter(item.id); clearDashboardFilter(); }} aria-pressed={filter === item.id && !dashboardFilter} className={`min-h-12 rounded-md border px-5 py-2 text-[15px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${filter === item.id && !dashboardFilter ? "border-[var(--gl-accent)] bg-[var(--gl-accent)] text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"}`}>
             {item.label}
           </button>
         ))}
@@ -1708,7 +1722,7 @@ function ActionRequired({ jobs, filter, setFilter, dashboardFilter, clearDashboa
       {dashboardFilter ? (
         <div className="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-[15px] font-medium text-sky-900">
           Dashboard filter: {dashboardLabels[dashboardFilter] || dashboardFilter}
-          <button type="button" onClick={clearDashboardFilter} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-sky-300 bg-white px-3 font-semibold text-[var(--gl-brand)] focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><X className="h-5 w-5" />Clear</button>
+          <button type="button" onClick={clearDashboardFilter} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-sky-300 bg-white px-3 font-semibold text-[var(--gl-accent)] focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><X className="h-5 w-5" />Clear</button>
         </div>
       ) : null}
 
@@ -1728,7 +1742,7 @@ function DetailField({ label, value, flash = false }) {
   );
 }
 
-const drawerInputClass = "mt-2 min-h-12 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[15px] font-medium text-slate-950 outline-none focus:border-[var(--gl-brand)] focus:outline focus:outline-4 focus:outline-offset-1 focus:outline-sky-600";
+const drawerInputClass = "mt-2 min-h-12 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[15px] font-medium text-slate-950 outline-none focus:border-[var(--gl-accent)] focus:outline focus:outline-4 focus:outline-offset-1 focus:outline-sky-600";
 
 function DrawerField({ label, children, hint }) {
   return (
@@ -1746,7 +1760,7 @@ function ChoiceGroup({ label, value, options, onChange }) {
       <legend className="text-[13px] font-normal text-slate-500">{label}</legend>
       <div className="mt-2 grid gap-3 sm:grid-cols-2">
         {options.map((option) => (
-          <button key={option.value} type="button" onClick={() => onChange(option.value)} aria-pressed={value === option.value} className={`min-h-14 rounded-md border px-4 py-3 text-left text-[15px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${value === option.value ? "border-[var(--gl-brand)] bg-[var(--gl-brand)] text-white" : "border-slate-300 bg-white text-slate-800 hover:border-[var(--gl-brand)]"}`}>
+          <button key={option.value} type="button" onClick={() => onChange(option.value)} aria-pressed={value === option.value} className={`min-h-14 rounded-md border px-4 py-3 text-left text-[15px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${value === option.value ? "border-[var(--gl-accent)] bg-[var(--gl-accent)] text-white" : "border-slate-300 bg-white text-slate-800 hover:border-[var(--gl-accent)]"}`}>
             <span className="block">{option.label}</span>
             {option.note ? <span className={`mt-1 block text-[15px] font-medium ${value === option.value ? "text-sky-100" : "text-slate-500"}`}>{option.note}</span> : null}
           </button>
@@ -1886,15 +1900,15 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
   const canRemoveContainer = panel.type === "container" && panel.mode !== "new" && containerRecords.length > 1 && !selectedContainerHasMovement;
 
   return (
-    <div className="fixed inset-0 z-[80] flex justify-end bg-[#0f2333]/45" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className="fixed inset-0 z-[80] flex justify-end bg-[color:var(--gl-ink-strong)]/25" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <aside role="dialog" aria-modal="true" aria-labelledby="operations-drawer-title" className="greenlit-drawer flex h-full w-full max-w-[680px] flex-col overflow-hidden border-l border-slate-300 bg-[#f4f6f8] shadow-[-20px_0_50px_rgba(15,35,51,0.22)]">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-700 bg-[#172a3a] px-5 py-5 text-white">
+        <div className="flex items-start justify-between gap-4 border-b border-[color:var(--gl-line)] bg-[var(--gl-bg-subtle)] px-5 py-5 text-white">
           <div className="min-w-0">
             <h2 id="operations-drawer-title" className="text-2xl font-semibold tracking-[-0.02em]">{heading.title}</h2>
-            <p className="mt-2 text-[15px] font-medium text-slate-200">{heading.note}</p>
-            {job ? <div className="mt-3 inline-flex min-h-8 items-center rounded-full border border-slate-500 bg-[#0f2333] px-3 text-[15px] font-semibold text-slate-100">{job.id} · {job.customer}</div> : null}
+            <p className="mt-2 text-[15px] font-medium text-[color:var(--gl-ink-muted)]">{heading.note}</p>
+            {job ? <div className="gl-data gl-muted mt-2 inline-flex items-center">{job.id} · {job.customer}</div> : null}
           </div>
-          <button type="button" onClick={onClose} autoFocus aria-label="Close management panel" className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md border border-slate-500 text-slate-100 hover:bg-[#0f2333] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400"><X className="h-6 w-6" /></button>
+          <button type="button" onClick={onClose} autoFocus aria-label="Close management panel" className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-md text-[color:var(--gl-ink-muted)] hover:bg-[color:var(--gl-bg-hover)]"><X className="h-6 w-6" /></button>
         </div>
 
         <form onSubmit={(event) => { event.preventDefault(); if (isReadOnly) onClose(); else onCommit(panel, draft); }} className="flex min-h-0 flex-1 flex-col">
@@ -2000,7 +2014,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
               <button type="button" onClick={onClose} className="min-h-12 rounded-md border border-slate-300 bg-white px-5 text-[15px] font-semibold text-slate-800 hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">{isReadOnly ? "Close" : "Cancel"}</button>
               {canRemoveContainer ? <button type="button" onClick={() => onCommit(panel, { ...draft, _delete: true })} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-rose-300 bg-white px-4 text-[15px] font-semibold text-rose-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><Trash2 className="h-5 w-5" />Remove</button> : null}
             </div>
-            {!isReadOnly ? <button type="submit" disabled={Boolean(duplicateContainerNumber)} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-md bg-[var(--gl-brand)] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:bg-slate-400"><Save className="h-5 w-5" />{panel.type === "container" && panel.mode === "new" ? "Add container" : "Save and recalculate"}</button> : null}
+            {!isReadOnly ? <button type="submit" disabled={Boolean(duplicateContainerNumber)} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-md bg-[var(--gl-accent)] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:bg-slate-400"><Save className="h-5 w-5" />{panel.type === "container" && panel.mode === "new" ? "Add container" : "Save and recalculate"}</button> : null}
           </div>
         </form>
       </aside>
@@ -2023,7 +2037,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
 
   return (
     <main id="main-content" className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
-      <button type="button" onClick={onBack} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[15px] font-semibold text-[var(--gl-brand)] hover:bg-slate-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+      <button type="button" onClick={onBack} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[15px] font-semibold text-[var(--gl-accent)] hover:bg-slate-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
         <ArrowLeft className="h-6 w-6" /> Back
       </button>
       {/* Placed directly under the header: a conflict blocks trusting anything
@@ -2042,15 +2056,15 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
           </div>
           <div className="flex flex-wrap items-center justify-end gap-3">
             <StatusPill status={status} large flash={highlight === "status"} />
-            <button type="button" onClick={() => onManage("job")} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[15px] font-semibold text-[var(--gl-brand)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><PencilLine className="h-5 w-5" />Edit job</button>
-            <button type="button" onClick={() => onManage("activity")} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[15px] font-semibold text-[var(--gl-brand)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><History className="h-5 w-5" />Activity</button>
+            <button type="button" onClick={() => onManage("job")} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[15px] font-semibold text-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><PencilLine className="h-5 w-5" />Edit job</button>
+            <button type="button" onClick={() => onManage("activity")} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[15px] font-semibold text-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><History className="h-5 w-5" />Activity</button>
           </div>
         </div>
       </header>
 
       {(isMoment1 || isMoment2 || isMoment3a || isMoment3b) ? (
         <div className="mt-5 flex items-start gap-3 rounded-lg border border-sky-200 bg-sky-50 px-5 py-4 text-[15px] font-medium text-sky-900">
-          <CircleDot className="mt-0.5 h-5 w-5 shrink-0 text-[var(--gl-brand)]" />
+          <CircleDot className="mt-0.5 h-5 w-5 shrink-0 text-[var(--gl-accent)]" />
           <span>
             {isMoment1 ? "Try this: record CMS completed and watch Greenlit create one empty-collection movement per container." : null}
             {isMoment2 ? "Try this: record the missing container details and watch the exception close." : null}
@@ -2086,7 +2100,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
                 </span>
                 <span className="text-[15px] font-semibold text-slate-900">{row.label}</span>
                 <span className={`font-semibold ${row.ok ? "text-emerald-800" : "text-rose-800"}`}>{row.value}</span>
-                <ChevronRight className="h-5 w-5 text-[var(--gl-brand)]" aria-hidden="true" />
+                <ChevronRight className="h-5 w-5 text-[var(--gl-accent)]" aria-hidden="true" />
               </button>
             ))}
           </div>
@@ -2099,18 +2113,18 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
           </div>
         </Panel>
 
-        <section className="rounded-lg bg-[#172a3a] p-6 text-white" aria-label="Next action">
-          <div className="flex items-center gap-3 text-slate-200"><ListTodo className="h-6 w-6" /><h2 className="text-xl font-semibold">Next action</h2></div>
+        <section className="rounded-lg bg-[var(--gl-bg-subtle)] p-6 text-white" aria-label="Next action">
+          <div className="flex items-center gap-3 text-[color:var(--gl-ink-muted)]"><ListTodo className="h-6 w-6" /><h2 className="text-xl font-semibold">Next action</h2></div>
           <p className={`mt-5 text-3xl font-semibold leading-tight tracking-[-0.02em] ${highlight === "nextAction" ? "greenlit-text-flash" : ""}`}>{nextAction(job)}</p>
           <div className="mt-6 border-t border-slate-600 pt-5">
-            <div className="font-medium text-slate-300">Why</div>
+            <div className="font-medium text-[color:var(--gl-ink-faint)]">Why</div>
             <div className="mt-2 text-[15px] font-medium">{blockingReason(job)}</div>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-3">
-            <span className="font-medium text-slate-300">Waiting on</span>
+            <span className="font-medium text-[color:var(--gl-ink-faint)]">Waiting on</span>
             <WaitingPill owner={job.waitingOn} />
           </div>
-          <button type="button" onClick={onNextAction} className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-md bg-white px-6 py-3 text-[15px] font-semibold text-[var(--gl-brand)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
+          <button type="button" onClick={onNextAction} className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-md bg-white px-6 py-3 text-[15px] font-semibold text-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
             {status === "Completed" ? <History className="h-5 w-5" /> : <ListTodo className="h-5 w-5" />}{status === "Completed" ? "View activity" : "Do this now"}<ChevronRight className="h-5 w-5" />
           </button>
         </section>
@@ -2126,7 +2140,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
         <section className="mt-6 rounded-lg border border-sky-200 bg-sky-50 p-5">
           <h2 className="text-xl font-semibold text-slate-900">Release this checkpoint</h2>
           <p className="mt-2 text-[15px] font-normal text-slate-700">This records the missing internal checkpoint and creates the permitted trip automatically.</p>
-          <button type="button" onClick={onRecordCms} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[var(--gl-brand)] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+          <button type="button" onClick={onRecordCms} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[var(--gl-accent)] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
             <PackageCheck className="h-6 w-6" /> Record CMS completed
           </button>
         </section>
@@ -2136,7 +2150,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
         <section className="mt-6 rounded-lg border border-rose-200 bg-rose-50 p-5">
           <h2 className="text-xl font-semibold text-rose-900">Open exception: {job.exception?.text ?? "Exception"}</h2>
           <p className="mt-2 text-[15px] font-normal text-rose-900">Delivered 26 hours ago. Container details must be recorded before this trip can complete.</p>
-          <button type="button" onClick={onRecordDetails} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[var(--gl-brand)] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+          <button type="button" onClick={onRecordDetails} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[var(--gl-accent)] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
             <ContainerIcon className="h-6 w-6" /> Record container details
           </button>
         </section>
@@ -2158,7 +2172,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
             <div className="mt-5 rounded-md border border-slate-200 bg-white p-5">
               <div className="text-xl font-semibold text-slate-900">Customer requests carpark?</div>
               <div className="mt-4 flex flex-wrap gap-3">
-                <button type="button" onClick={() => onCarparkDecision(true)} className="min-h-12 rounded-md bg-[var(--gl-brand)] px-6 py-2 text-[15px] font-semibold text-white focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">Yes — use carpark</button>
+                <button type="button" onClick={() => onCarparkDecision(true)} className="min-h-12 rounded-md bg-[var(--gl-accent)] px-6 py-2 text-[15px] font-semibold text-white focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">Yes — use carpark</button>
                 <button type="button" onClick={() => onCarparkDecision(false)} className="min-h-12 rounded-md border border-slate-300 bg-white px-6 py-2 text-[15px] font-semibold text-slate-800 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">No</button>
               </div>
             </div>
@@ -2170,14 +2184,14 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
         <section className="mt-6 rounded-lg border border-rose-200 bg-rose-50 p-5">
           <h2 className="text-xl font-semibold text-rose-900">Day 6 at carpark · chassis 4052 held 9 days</h2>
           <p className="mt-2 text-[15px] font-normal text-rose-900">Transhipment is still pending, so the container cannot make its final port trip.</p>
-          <button type="button" onClick={onCarparkAvailable} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[var(--gl-brand)] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
+          <button type="button" onClick={onCarparkAvailable} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[var(--gl-accent)] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
             <Anchor className="h-6 w-6" /> Transhipment now available
           </button>
         </section>
       ) : null}
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <Panel title="Containers" action={<button type="button" disabled={containers.length >= MAX_CONTAINERS_PER_JOB} onClick={() => onManage("container", { mode: "new" })} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-brand)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600 disabled:text-slate-400 disabled:no-underline"><Plus className="h-5 w-5" />{containers.length >= MAX_CONTAINERS_PER_JOB ? "20 container limit" : "Add container"}</button>}>
+        <Panel title="Containers" action={<button type="button" disabled={containers.length >= MAX_CONTAINERS_PER_JOB} onClick={() => onManage("container", { mode: "new" })} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600 disabled:text-slate-400 disabled:no-underline"><Plus className="h-5 w-5" />{containers.length >= MAX_CONTAINERS_PER_JOB ? "20 container limit" : "Add container"}</button>}>
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[13px] font-normal text-slate-500" aria-live="polite"><span>{containers.length} / {MAX_CONTAINERS_PER_JOB} containers on this job</span><span>{completedContainers} complete</span></div>
           <div className="divide-y divide-slate-200">
             {containers.map((container, index) => {
@@ -2185,14 +2199,14 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
               return (
                 <button key={container.ref || container.number || index} type="button" onClick={() => onManage("container", { index })} className="grid min-h-24 w-full gap-3 px-5 py-4 text-left hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                   <span className="min-w-0"><span className="block gl-label">{container.ref || `C${index + 1}`}</span><span className="mt-1 block break-all text-[15px] font-semibold text-slate-950">{container.number || "Identity pending"}</span><span className="mt-1 block text-[13px] font-normal text-slate-500">{job.type === "Import" ? [container.type, container.seal && `Seal ${container.seal}`].filter(Boolean).join(" · ") || "Type and seal not recorded" : [container.sizeType, container.stuffingLocation].filter(Boolean).join(" · ")}</span></span>
-                  <span className="flex items-center justify-between gap-3 sm:justify-end"><span className={`rounded-md border px-3 py-2 font-semibold ${statusTone(containerStatus)}`}>{containerStatus}</span><ChevronRight className="h-5 w-5 text-[var(--gl-brand)]" /></span>
+                  <span className="flex items-center justify-between gap-3 sm:justify-end"><span className={`rounded-md border px-3 py-2 font-semibold ${statusTone(containerStatus)}`}>{containerStatus}</span><ChevronRight className="h-5 w-5 text-[var(--gl-accent)]" /></span>
                 </button>
               );
             })}
           </div>
         </Panel>
 
-        <Panel title="Chassis" action={<button type="button" onClick={() => chassis.length ? onManage("chassis", { unit: chassis[0].unit, size: chassis[0].size, condition: "assigned" }) : onManage("fleet")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-brand)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><Truck className="h-5 w-5" />{chassis.length ? "Manage chassis" : "Assign chassis"}</button>}>
+        <Panel title="Chassis" action={<button type="button" onClick={() => chassis.length ? onManage("chassis", { unit: chassis[0].unit, size: chassis[0].size, condition: "assigned" }) : onManage("fleet")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><Truck className="h-5 w-5" />{chassis.length ? "Manage chassis" : "Assign chassis"}</button>}>
           {chassis.length ? (
             <div className="divide-y divide-slate-200">
               {chassis.map((item) => (
@@ -2200,7 +2214,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
                   <div><div className="font-normal text-slate-600">Unit</div><div className="mt-1 text-2xl font-semibold text-slate-950">{item.unit}</div></div>
                   <div><div className="font-normal text-slate-600">Size</div><div className="mt-1 text-[15px] font-semibold text-slate-950">{item.size}</div></div>
                   <div><div className="font-normal text-slate-600">Held</div><div className={`mt-1 text-[15px] font-semibold ${daysHeld(item.heldSince) > 5 ? "text-red-900" : "text-slate-950"}`}>{item.released ? "Released" : `${daysHeld(item.heldSince)} days`}</div></div>
-                  <ChevronRight className="h-5 w-5 text-[var(--gl-brand)]" />
+                  <ChevronRight className="h-5 w-5 text-[var(--gl-accent)]" />
                 </button>
               ))}
             </div>
@@ -2209,7 +2223,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
       </div>
 
       {job.type === "Import" ? (
-        <Panel title="Free time" className="mt-7" action={<button type="button" onClick={() => onManage("freeTime")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-brand)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><CalendarDays className="h-5 w-5" />Confirm dates</button>}>
+        <Panel title="Free time" className="mt-7" action={<button type="button" onClick={() => onManage("freeTime")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><CalendarDays className="h-5 w-5" />Confirm dates</button>}>
           <div className="grid md:grid-cols-2">
             {[
               { label: "Demurrage", date: job.demurrageLastFreeDay },
@@ -2227,12 +2241,12 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
         </Panel>
       ) : null}
 
-      <Panel title={`Trip history · ${job.trips.length} trip${job.trips.length === 1 ? "" : "s"} under ${job.id}`} className="mt-7" action={<button type="button" onClick={() => onManage("trip")} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[var(--gl-brand)] px-4 font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><Plus className="h-5 w-5" />Add trip</button>}>
+      <Panel title={`Trip history · ${job.trips.length} trip${job.trips.length === 1 ? "" : "s"} under ${job.id}`} className="mt-7" action={<button type="button" onClick={() => onManage("trip")} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[var(--gl-accent)] px-4 font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><Plus className="h-5 w-5" />Add trip</button>}>
         <TripTable trips={job.trips} flashTripId={highlight?.startsWith("trip:") ? highlight.split(":")[1] : ""} onOpenTrip={(tripId) => onManage("trip", { tripId })} />
       </Panel>
 
       {(job.activity || []).length ? (
-        <Panel title="Recent activity" className="mt-7" action={<button type="button" onClick={() => onManage("activity")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-brand)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><History className="h-5 w-5" />View full history</button>}>
+        <Panel title="Recent activity" className="mt-7" action={<button type="button" onClick={() => onManage("activity")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><History className="h-5 w-5" />View full history</button>}>
           <div className="divide-y divide-slate-200">
             {job.activity.slice(0, 3).map((item) => <div key={item.id} className="grid gap-2 px-5 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"><div className="font-semibold text-slate-950">{item.text}</div><div className="gl-label">{item.at} · {item.actor}</div></div>)}
           </div>
@@ -2240,7 +2254,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
       ) : null}
 
       <div className="mt-7 rounded-lg border border-slate-200 bg-slate-50 px-5 py-4 text-[15px] font-medium text-slate-700">
-        One job number keeps every trip, container fact, checkpoint and chassis decision together: <span className="font-semibold text-[var(--gl-brand)]">{job.id}</span>.
+        One job number keeps every trip, container fact, checkpoint and chassis decision together: <span className="font-semibold text-[var(--gl-accent)]">{job.id}</span>.
       </div>
     </main>
   );
@@ -2315,7 +2329,7 @@ function DocumentField({ field, value, confidence, onChange }) {
           value={value || ""}
           onChange={(event) => onChange(field.key, event.target.value)}
           rows={3}
-          className="mt-2 min-h-12 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[15px] font-medium text-slate-950 outline-none placeholder:text-slate-500 focus:border-[var(--gl-brand)] focus:outline focus:outline-4 focus:outline-offset-1 focus:outline-sky-600"
+          className="mt-2 min-h-12 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[15px] font-medium text-slate-950 outline-none placeholder:text-slate-500 focus:border-[var(--gl-accent)] focus:outline focus:outline-4 focus:outline-offset-1 focus:outline-sky-600"
         />
       ) : (
         <input
@@ -2324,7 +2338,7 @@ function DocumentField({ field, value, confidence, onChange }) {
           inputMode={field.inputMode}
           value={value || ""}
           onChange={(event) => onChange(field.key, event.target.value)}
-          className="mt-2 min-h-12 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[15px] font-medium text-slate-950 outline-none placeholder:text-slate-500 focus:border-[var(--gl-brand)] focus:outline focus:outline-4 focus:outline-offset-1 focus:outline-sky-600"
+          className="mt-2 min-h-12 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[15px] font-medium text-slate-950 outline-none placeholder:text-slate-500 focus:border-[var(--gl-accent)] focus:outline focus:outline-4 focus:outline-offset-1 focus:outline-sky-600"
         />
       )}
     </label>
@@ -2368,7 +2382,7 @@ function DocumentContainersEditor({ containers, onChange }) {
       <legend className="w-full bg-slate-100 px-5 py-3 text-[15px] font-semibold text-slate-950">Containers</legend>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-4">
         <div><div className="text-[15px] font-semibold text-slate-950">{containers.length} container{containers.length === 1 ? "" : "s"} found</div><div className="mt-1 text-[13px] font-normal text-slate-500">Review each unit independently. A job can contain up to {MAX_CONTAINERS_PER_JOB}.</div></div>
-        <button type="button" onClick={add} disabled={containers.length >= MAX_CONTAINERS_PER_JOB} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 font-semibold text-[var(--gl-brand)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:border-sky-200 disabled:bg-sky-50 disabled:text-sky-800"><Plus className="h-5 w-5" />{containers.length >= MAX_CONTAINERS_PER_JOB ? "Limit reached" : "Add container"}</button>
+        <button type="button" onClick={add} disabled={containers.length >= MAX_CONTAINERS_PER_JOB} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 font-semibold text-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:border-sky-200 disabled:bg-sky-50 disabled:text-sky-800"><Plus className="h-5 w-5" />{containers.length >= MAX_CONTAINERS_PER_JOB ? "Limit reached" : "Add container"}</button>
       </div>
       <div className="divide-y divide-slate-200">
         {containers.map((container, index) => (
@@ -2438,7 +2452,7 @@ function DiscrepancyReview({ job, onResolve }) {
               <button
                 type="button"
                 onClick={() => onResolve(d, "extracted")}
-                className="h-10 rounded border-0 bg-[color:var(--gl-brand)] px-3 text-[15px] font-medium text-white hover:bg-[color:var(--gl-brand-hover)]"
+                className="h-10 rounded border-0 bg-[color:var(--gl-accent)] px-3 text-[15px] font-medium text-white hover:bg-[color:var(--gl-accent-hover)]"
               >
                 Use extracted
               </button>
@@ -2543,16 +2557,16 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
 
       {stage === "processing" ? (
         <section className="mt-7 flex min-h-80 flex-col items-center justify-center rounded-lg border border-slate-200 bg-white px-6 py-12 text-center" aria-live="polite">
-          <LoaderCircle className="h-12 w-12 animate-spin text-[var(--gl-brand)]" aria-hidden="true" />
+          <LoaderCircle className="h-12 w-12 animate-spin text-[var(--gl-accent)]" aria-hidden="true" />
           <h2 className="mt-5 text-2xl font-semibold text-slate-950">Reading the arrival notice</h2>
-          <p className="mt-2 text-[15px] font-semibold text-[var(--gl-brand)]">{progress || "Preparing the document"}</p>
+          <p className="mt-2 text-[15px] font-semibold text-[var(--gl-accent)]">{progress || "Preparing the document"}</p>
           <p className="mt-2 max-w-[58ch] text-[15px] text-slate-600">Greenlit is finding shipment, party, container, cargo and free-time facts. The file remains in this browser.</p>
         </section>
       ) : null}
 
       {(stage === "idle" || stage === "error") ? (
         <section className="mt-7 overflow-hidden rounded-lg border border-slate-200 bg-white" aria-labelledby="upload-document-title">
-          <div className="border-b border-slate-200 bg-[#172a3a] px-5 py-4 text-white">
+          <div className="border-b border-slate-200 bg-[var(--gl-bg-subtle)] px-5 py-4 text-white">
             <h2 id="upload-document-title" className="text-xl font-semibold">Upload an arrival notice</h2>
           </div>
           <div className="p-5 sm:p-8">
@@ -2578,15 +2592,15 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
               onDragOver={(event) => event.preventDefault()}
               onDragLeave={() => setDragging(false)}
               onDrop={handleDrop}
-              className={`flex min-h-72 flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 text-center ${dragging ? "border-[var(--gl-brand)] bg-sky-50" : "border-slate-300 bg-slate-50"}`}
+              className={`flex min-h-72 flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 text-center ${dragging ? "border-[var(--gl-accent)] bg-sky-50" : "border-slate-300 bg-slate-50"}`}
             >
-              <span className="flex h-14 w-14 items-center justify-center rounded-md bg-[var(--gl-brand)] text-white"><Upload className="h-7 w-7" aria-hidden="true" /></span>
+              <span className="flex h-14 w-14 items-center justify-center rounded-md bg-[var(--gl-accent)] text-white"><Upload className="h-7 w-7" aria-hidden="true" /></span>
               <span className="mt-5 text-2xl font-semibold text-slate-950">Drop a PDF here</span>
               <span className="mt-2 max-w-[58ch] text-[15px] font-normal text-slate-600">Intake recognises Hapag-Lloyd-style arrival notices with selectable text and up to {MAX_CONTAINERS_PER_JOB} containers per job. Maximum file size: 15 MB.</span>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="mt-5 inline-flex min-h-12 items-center justify-center rounded-md bg-[var(--gl-brand)] px-6 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+                className="mt-5 inline-flex min-h-12 items-center justify-center rounded-md bg-[var(--gl-accent)] px-6 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
               >
                 Choose PDF
               </button>
@@ -2598,7 +2612,7 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
                 { icon: ListTodo, title: "Apply", text: "Create the job and recalculate the action queue." },
               ].map((item) => {
                 const Icon = item.icon;
-                return <div key={item.title} className="flex gap-3"><Icon className="mt-0.5 h-6 w-6 shrink-0 text-[var(--gl-brand)]" aria-hidden="true" /><div><div className="font-semibold text-slate-950">{item.title}</div><div className="mt-1 text-[13px] font-normal text-slate-500">{item.text}</div></div></div>;
+                return <div key={item.title} className="flex gap-3"><Icon className="mt-0.5 h-6 w-6 shrink-0 text-[var(--gl-accent)]" aria-hidden="true" /><div><div className="font-semibold text-slate-950">{item.title}</div><div className="mt-1 text-[13px] font-normal text-slate-500">{item.text}</div></div></div>;
               })}
             </div>
           </div>
@@ -2608,10 +2622,10 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
       {stage === "review" && result ? (
         <div className="mt-7">
           <section className="overflow-hidden rounded-lg border border-slate-200 bg-white" aria-labelledby="document-review-title">
-            <div className="flex flex-col gap-4 border-b border-slate-200 bg-[#172a3a] px-5 py-5 text-white lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-4 border-b border-slate-200 bg-[var(--gl-bg-subtle)] px-5 py-5 text-white lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h2 id="document-review-title" className="flex items-center gap-3 text-xl font-semibold"><FileText className="h-6 w-6" aria-hidden="true" />Review extracted facts</h2>
-                <p className="mt-2 break-all text-[15px] font-medium text-slate-300">{result.fileName} · {result.pages} pages · {(result.fileSize / 1024).toFixed(0)} KB</p>
+                <p className="mt-2 break-all text-[15px] font-medium text-[color:var(--gl-ink-faint)]">{result.fileName} · {result.pages} pages · {(result.fileSize / 1024).toFixed(0)} KB</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <span className="inline-flex min-h-9 items-center rounded-full border border-emerald-500/50 bg-emerald-950/40 px-3 text-[15px] font-semibold text-emerald-100">{result.extractedCount} fields extracted</span>
@@ -2624,7 +2638,7 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
               <div className="border-b border-slate-200 bg-slate-100 p-4 xl:border-b-0 xl:border-r">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div className="font-semibold text-slate-800">Source PDF</div>
-                  <a href={sourceUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center px-2 font-semibold text-[var(--gl-brand)] underline underline-offset-4">Open separately</a>
+                  <a href={sourceUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4">Open separately</a>
                 </div>
                 <object data={sourceUrl} type="application/pdf" className="h-[680px] w-full rounded-md border border-slate-300 bg-white" aria-label={`Source PDF ${result.fileName}`}>
                   <div className="p-5 text-[15px] text-slate-700">Your browser cannot show the PDF inline. Use “Open separately” while reviewing the extracted fields.</div>
@@ -2633,7 +2647,7 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
 
               <form onSubmit={(event) => { event.preventDefault(); onApply({ ...result, values: effectiveDraft, containers: normalisedContainers, confidence, planning: { demurrageLastFreeDay: planningDemurrage, detentionLastFreeDay: planningDetention, provisional: true } }); }}>
                 <div className="flex items-start gap-3 border-b border-sky-200 bg-sky-50 px-5 py-4 text-[15px] font-medium text-sky-900">
-                  <CircleDot className="mt-0.5 h-5 w-5 shrink-0 text-[var(--gl-brand)]" aria-hidden="true" />
+                  <CircleDot className="mt-0.5 h-5 w-5 shrink-0 text-[var(--gl-accent)]" aria-hidden="true" />
                   <span>Check fields marked <strong>Review</strong>. Greenlit will never overwrite a job until an operator applies the document.</span>
                 </div>
                 <div className="divide-y divide-slate-200">
@@ -2660,7 +2674,7 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
                   <div className="text-right">
                     {requiredMissing.length ? <div className="mb-2 text-[15px] font-semibold text-rose-800">Complete {requiredMissing.length} required field{requiredMissing.length === 1 ? "" : "s"} before applying.</div> : null}
                     {containerIssues.some(Boolean) ? <div className="mb-2 text-[15px] font-semibold text-rose-800">Correct the container list before applying.</div> : null}
-                    <button type="submit" disabled={requiredMissing.length > 0 || containerIssues.some(Boolean)} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-md bg-[var(--gl-brand)] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:bg-slate-400">
+                    <button type="submit" disabled={requiredMissing.length > 0 || containerIssues.some(Boolean)} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-md bg-[var(--gl-accent)] px-6 py-3 text-[15px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:bg-slate-400">
                       <FileCheck2 className="h-6 w-6" aria-hidden="true" />Apply to control tower
                     </button>
                   </div>
@@ -2677,7 +2691,7 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
           <div className="divide-y divide-slate-200">
             {documents.map((document) => (
               <button key={document.id} type="button" onClick={() => onOpenJob(document.jobId)} className="grid min-h-20 w-full gap-2 px-5 py-4 text-left hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-                <div><div className="break-all text-[15px] font-semibold text-[var(--gl-brand)] underline underline-offset-4">{document.fileName}</div><div className="mt-1 text-[13px] font-normal text-slate-500">{document.carrier} · {document.documentType} · {document.containerCount || 1} container{document.containerCount === 1 ? "" : "s"} · {document.extractedCount} fields</div></div>
+                <div><div className="break-all text-[15px] font-semibold text-[var(--gl-accent)] underline underline-offset-4">{document.fileName}</div><div className="mt-1 text-[13px] font-normal text-slate-500">{document.carrier} · {document.documentType} · {document.containerCount || 1} container{document.containerCount === 1 ? "" : "s"} · {document.extractedCount} fields</div></div>
                 <div className="font-semibold text-slate-900">Applied to {document.jobId}</div>
               </button>
             ))}
@@ -2701,22 +2715,22 @@ function ChassisFleet({ fleet, onOpen, onUnit }) {
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-3">
-        {[{ id: "available", label: "Available", value: fleet.available.length, tone: "text-emerald-800" }, { id: "inUse", label: "Under containers", value: fleet.inUse.length, tone: "text-slate-950" }, { id: "maintenance", label: "Maintenance or inspection", value: fleet.maintenance.length, tone: "text-amber-800" }].map((item) => <button key={item.id} type="button" onClick={() => setView((current) => current === item.id ? "all" : item.id)} aria-pressed={view === item.id} className={`rounded-lg border bg-white p-5 text-left hover:border-[var(--gl-brand)] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${view === item.id ? "border-[var(--gl-brand)] shadow-[inset_0_-3px_0_var(--gl-brand)]" : "border-slate-200"}`}><div className={`text-4xl font-semibold tabular-nums ${item.tone}`}>{item.value}</div><div className="mt-2 flex items-center justify-between gap-3 text-[15px] font-medium text-slate-600"><span>{item.label}</span><ChevronRight className="h-5 w-5 text-[var(--gl-brand)]" /></div></button>)}
+        {[{ id: "available", label: "Available", value: fleet.available.length, tone: "text-emerald-800" }, { id: "inUse", label: "Under containers", value: fleet.inUse.length, tone: "text-slate-950" }, { id: "maintenance", label: "Maintenance or inspection", value: fleet.maintenance.length, tone: "text-amber-800" }].map((item) => <button key={item.id} type="button" onClick={() => setView((current) => current === item.id ? "all" : item.id)} aria-pressed={view === item.id} className={`rounded-lg border bg-white p-5 text-left hover:border-[var(--gl-accent)] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${view === item.id ? "border-[var(--gl-accent)] shadow-[inset_0_-3px_0_var(--gl-accent)]" : "border-slate-200"}`}><div className={`text-4xl font-semibold tabular-nums ${item.tone}`}>{item.value}</div><div className="mt-2 flex items-center justify-between gap-3 text-[15px] font-medium text-slate-600"><span>{item.label}</span><ChevronRight className="h-5 w-5 text-[var(--gl-accent)]" /></div></button>)}
       </div>
 
       {showInUse ? <Panel title="Units under containers" className="mt-7">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[850px] border-collapse text-left text-[15px]">
-            <thead className="bg-[#172a3a] text-white"><tr>{["Unit", "Size", "Job", "Customer", "Days held", ""].map((heading, index) => <th key={`${heading}-${index}`} className="px-4 py-4 text-[15px] font-semibold">{heading}</th>)}</tr></thead>
+            <thead className="bg-[var(--gl-bg-subtle)] text-white"><tr>{["Unit", "Size", "Job", "Customer", "Days held", ""].map((heading, index) => <th key={`${heading}-${index}`} className="px-4 py-4 text-[15px] font-semibold">{heading}</th>)}</tr></thead>
             <tbody>
               {[...fleet.inUse].sort((a, b) => b.days - a.days).map((item) => (
                 <tr key={item.unit} className="border-b border-slate-200 even:bg-slate-50/70">
-                  <td className="px-4 py-4"><button type="button" onClick={() => onUnit({ ...item, condition: "assigned" })} className="min-h-11 text-xl font-semibold text-[var(--gl-brand)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">{item.unit}</button></td>
+                  <td className="px-4 py-4"><button type="button" onClick={() => onUnit({ ...item, condition: "assigned" })} className="min-h-11 text-xl font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">{item.unit}</button></td>
                   <td className="px-4 py-4 font-semibold text-slate-900">{item.size}</td>
-                  <td className="px-4 py-4 font-semibold text-[var(--gl-brand)]">{item.jobId}</td>
+                  <td className="px-4 py-4 font-semibold text-[var(--gl-accent)]">{item.jobId}</td>
                   <td className="px-4 py-4 font-semibold text-slate-900">{item.customer}</td>
                   <td className={`px-4 py-4 text-[15px] font-semibold ${item.days > 5 ? "text-red-900" : "text-slate-950"}`}>{item.days} days {item.days > 5 ? "— ATTENTION" : ""}</td>
-                  <td className="px-4 py-4"><button type="button" onClick={() => onOpen(item.jobId)} className="min-h-11 rounded-md border border-slate-300 px-4 font-semibold text-[var(--gl-brand)] hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">Open job</button></td>
+                  <td className="px-4 py-4"><button type="button" onClick={() => onOpen(item.jobId)} className="min-h-11 rounded-md border border-slate-300 px-4 font-semibold text-[var(--gl-accent)] hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">Open job</button></td>
                 </tr>
               ))}
             </tbody>
@@ -2726,10 +2740,10 @@ function ChassisFleet({ fleet, onOpen, onUnit }) {
 
       {showAvailable ? <div className="mt-7 grid gap-7 xl:grid-cols-2">
         <Panel title="20ft available">
-          <div className="flex flex-wrap gap-3 p-5">{fleet.available.filter((item) => item.size === "20ft").map((item) => <button key={item.unit} type="button" onClick={() => onUnit({ ...item, condition: "available" })} className="inline-flex min-h-11 min-w-20 items-center justify-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 font-semibold text-[var(--gl-brand)] hover:border-[var(--gl-brand)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">{item.unit}<Plus className="h-4 w-4" /></button>)}</div>
+          <div className="flex flex-wrap gap-3 p-5">{fleet.available.filter((item) => item.size === "20ft").map((item) => <button key={item.unit} type="button" onClick={() => onUnit({ ...item, condition: "available" })} className="inline-flex min-h-11 min-w-20 items-center justify-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 font-semibold text-[var(--gl-accent)] hover:border-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">{item.unit}<Plus className="h-4 w-4" /></button>)}</div>
         </Panel>
         <Panel title="40ft available">
-          <div className="flex flex-wrap gap-3 p-5">{fleet.available.filter((item) => item.size === "40ft").map((item) => <button key={item.unit} type="button" onClick={() => onUnit({ ...item, condition: "available" })} className="inline-flex min-h-11 min-w-20 items-center justify-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 font-semibold text-[var(--gl-brand)] hover:border-[var(--gl-brand)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">{item.unit}<Plus className="h-4 w-4" /></button>)}</div>
+          <div className="flex flex-wrap gap-3 p-5">{fleet.available.filter((item) => item.size === "40ft").map((item) => <button key={item.unit} type="button" onClick={() => onUnit({ ...item, condition: "available" })} className="inline-flex min-h-11 min-w-20 items-center justify-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 font-semibold text-[var(--gl-accent)] hover:border-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">{item.unit}<Plus className="h-4 w-4" /></button>)}</div>
         </Panel>
       </div> : null}
 
@@ -3255,8 +3269,8 @@ export default function GreenlitControlTower() {
         * { scrollbar-color: #64748b #e2e8f0; scrollbar-width: auto; }
         button, a { cursor: pointer; -webkit-tap-highlight-color: transparent; transition-duration: 180ms; transition-timing-function: cubic-bezier(.22,1,.36,1); }
         button:disabled { cursor: not-allowed; opacity: .55; }
-        input, textarea, select { caret-color: var(--gl-brand); }
-        ::selection { background: var(--gl-brand); color: #ffffff; }
+        input, textarea, select { caret-color: var(--gl-accent); }
+        ::selection { background: var(--gl-accent); color: #ffffff; }
         .greenlit-release-flash { animation: greenlitRelease 1.1s cubic-bezier(.16,1,.3,1); }
         .greenlit-new-row { animation: greenlitRow 1.35s cubic-bezier(.16,1,.3,1); }
         .greenlit-text-flash { animation: greenlitText 1.1s cubic-bezier(.16,1,.3,1); }
@@ -3284,14 +3298,14 @@ export default function GreenlitControlTower() {
         }
       `}</style>
 
-      <a href="#main-content" className="fixed left-3 top-3 z-[100] -translate-y-24 rounded-md bg-white px-5 py-3 font-semibold text-[var(--gl-brand)] shadow-lg focus:translate-y-0 focus:outline focus:outline-4 focus:outline-sky-600">Skip to main content</a>
+      <a href="#main-content" className="fixed left-3 top-3 z-[100] -translate-y-24 rounded-md bg-white px-5 py-3 font-semibold text-[var(--gl-accent)] shadow-lg focus:translate-y-0 focus:outline focus:outline-4 focus:outline-sky-600">Skip to main content</a>
 
-      <header className="sticky top-0 z-40 border-b border-slate-700 bg-[#0f2333] text-white shadow-[0_6px_20px_rgba(15,23,42,0.14)]">
+      <header className="sticky top-0 z-40 border-b border-[color:var(--gl-line)] bg-white/95 text-[color:var(--gl-ink)] backdrop-blur">
         <div className="mx-auto flex max-w-[1900px] flex-col lg:flex-row lg:items-stretch">
-          <div className="flex min-h-16 items-center justify-between gap-4 border-b border-slate-700 px-4 py-3 pr-32 sm:px-6 sm:pr-40 lg:min-w-72 lg:border-b-0 lg:border-r lg:pr-6 xl:min-w-80">
+          <div className="flex min-h-16 items-center justify-between gap-4 px-4 py-2 sm:px-6 lg:min-w-56 lg:border-r lg:pr-6 xl:min-w-80">
             <div>
-              <div className="greenlit-display text-lg font-semibold tracking-[0.04em]">PROJECT GREENLIT</div>
-              <div className="mt-1 text-[15px] font-normal text-slate-300">Singapore transport control</div>
+              <div className="gl-title">Greenlit</div>
+              <div className="mt-1 text-[15px] font-normal text-[color:var(--gl-ink-faint)]">Singapore transport control</div>
             </div>
             <Anchor className="hidden h-6 w-6 text-slate-400 lg:block" aria-hidden="true" />
           </div>
@@ -3300,16 +3314,16 @@ export default function GreenlitControlTower() {
               const Icon = item.icon;
               const active = screen === item.id || (screen === "detail" && returnScreen === item.id);
               return (
-                <button key={item.id} type="button" onClick={() => goTo(item.id)} aria-current={active ? "page" : undefined} className={`flex min-h-20 min-w-0 flex-col items-center justify-center gap-1 border-r border-slate-700 px-1 py-2 text-[15px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-400 sm:min-h-16 sm:flex-row sm:gap-3 sm:px-5 sm:py-3 lg:flex-1 ${active ? "bg-[#18364c] text-white shadow-[inset_0_-3px_0_#38bdf8]" : "text-slate-300 hover:bg-[#142e42] hover:text-white"}`}>
+                <button key={item.id} type="button" onClick={() => goTo(item.id)} aria-current={active ? "page" : undefined} className={`flex min-h-10 min-w-0 items-center gap-2 rounded-md px-3 text-[14px] transition-colors duration-150 ${active ? "bg-[color:var(--gl-bg-selected)] font-medium text-[color:var(--gl-ink-strong)]" : "text-[color:var(--gl-ink-muted)] hover:bg-[color:var(--gl-bg-hover)] hover:text-[color:var(--gl-ink)]"}`}>
                   <Icon className="hidden h-5 w-5 shrink-0 sm:block" aria-hidden="true" />
                   <span className="text-center leading-tight">{item.label}</span>
-                  <span className="inline-flex min-h-7 min-w-7 items-center justify-center rounded-full border border-slate-500 bg-[#0f2333] px-1 text-[15px] tabular-nums text-slate-200">{item.count}</span>
+                  <span className="gl-data gl-faint">{item.count}</span>
                 </button>
               );
             })}
           </nav>
-          <div className="absolute right-3 top-2 flex min-h-12 items-center justify-end sm:right-5 lg:static lg:min-h-16 lg:px-6 lg:py-3 lg:border-l lg:border-slate-700">
-            <button type="button" onClick={resetDemo} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-500 bg-transparent px-3 text-[15px] font-semibold text-slate-200 hover:border-slate-400 hover:bg-[#18364c] hover:text-white focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400 sm:px-4">
+          <div className="absolute right-3 top-2 flex min-h-12 items-center justify-end sm:right-5 lg:static lg:min-h-16 lg:px-6 lg:py-3 lg:border-l lg:border-[color:var(--gl-line)]">
+            <button type="button" onClick={resetDemo} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[color:var(--gl-line-strong)] bg-transparent px-3 text-[15px] font-semibold text-[color:var(--gl-ink-muted)] hover:border-slate-400 hover:bg-[var(--gl-bg-selected)] hover:text-white focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400 sm:px-4">
               <RotateCcw className="h-4 w-4" />
               <span className="sm:hidden">Reset</span>
               <span className="hidden sm:inline">Reload</span>
