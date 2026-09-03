@@ -8,7 +8,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 */
 
 import React, { useEffect, useRef, useState } from "react";
-import { jobFromApi } from "./lib/job-adapter.mjs";
+import { jobFromApi, WAITING_LABEL_API } from "./lib/job-adapter.mjs";
 import {
   AlertCircle,
   AlertTriangle,
@@ -43,6 +43,7 @@ import {
   Wrench,
   X,
   XCircle,
+  Building2,
 } from "lucide-react";
 import { addIsoDays, MAX_CONTAINERS_PER_JOB, parseArrivalNoticeText, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
 import { reconcileExtraction, toExtractedFields } from "@greenlit/engine";
@@ -893,6 +894,143 @@ function CounterCard({ label, value, note, icon: Icon, tone = "navy", onClick })
         <div className="gl-caption min-h-[16px] truncate">{note ?? ""}</div>
       </div>
     </button>
+  );
+}
+
+
+/**
+ * §9 / ADR-0007. Companies are an entry point, not a filter.
+ *
+ * The book is retainer, so a controller thinks "what is ABC Company running"
+ * far more often than "what came in on the 17th". Opening a company shows its
+ * jobs in the order they happened, newest first.
+ */
+function Companies({ onOpenCompany }) {
+  const [customers, setCustomers] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/customers")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => { if (!cancelled) setCustomers(d.customers ?? []); })
+      .catch(() => { if (!cancelled) setCustomers([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <main id="main-content" className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+      <h1 className="gl-display">Companies</h1>
+      <p className="gl-body gl-muted mt-1">
+        Every job belongs to a company and is numbered within it.
+      </p>
+
+      {customers === null ? (
+        <div className="gl-panel mt-6 divide-y divide-slate-200" aria-busy="true">
+          {Array.from({ length: 4 }, (_, i) => (
+            <div key={i} className="flex h-14 items-center gap-4 px-4">
+              <div className="h-3 w-16 animate-pulse rounded bg-slate-200" />
+              <div className="h-3 w-48 animate-pulse rounded bg-slate-100" />
+            </div>
+          ))}
+        </div>
+      ) : customers.length === 0 ? (
+        <div className="gl-panel mt-6 p-8 text-center">
+          <Building2 className="mx-auto h-9 w-9 text-slate-400" aria-hidden="true" />
+          <p className="gl-title mt-3">No companies yet</p>
+          <p className="gl-body gl-muted mt-1">Add one to start recording jobs against it.</p>
+        </div>
+      ) : (
+        <div className="gl-panel mt-6 overflow-hidden">
+          <table className="gl-table">
+            <thead>
+              <tr>
+                <th>Code</th><th>Company</th><th>Contact</th><th>Since</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {customers.map((c) => (
+                <tr key={c.customerId} onClick={() => onOpenCompany(c.code)}>
+                  <td><span className="gl-data gl-strong">{c.code}</span></td>
+                  <td className="gl-body">{c.companyName}</td>
+                  <td className="gl-body gl-muted">{c.defaultContact ?? "—"}</td>
+                  <td><span className="gl-data gl-muted">{String(c.createdAt).slice(0, 10)}</span></td>
+                  <td>
+                    <span className={`gl-pill ${c.accountStatus === "ACTIVE"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-amber-200 bg-amber-50 text-amber-800"}`}>
+                      {c.accountStatus === "ACTIVE" ? "Active" : c.accountStatus}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </main>
+  );
+}
+
+/** One company, with its jobs newest first. */
+function CompanyDetail({ code, onBack, onOpen }) {
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/customers/${encodeURIComponent(code)}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => { if (!cancelled) setData(d); })
+      .catch(() => { if (!cancelled) setData({ customer: null, jobs: [] }); });
+    return () => { cancelled = true; };
+  }, [code]);
+
+  const customer = data?.customer;
+  const jobs = data?.jobs ?? [];
+
+  return (
+    <main id="main-content" className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+      <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center gap-2 rounded border border-slate-300 bg-white px-3 text-[15px] font-medium text-[var(--gl-brand)] hover:bg-slate-50">
+        <ArrowLeft className="h-5 w-5" aria-hidden="true" /> Companies
+      </button>
+
+      <div className="mt-4 flex flex-wrap items-baseline gap-3">
+        <span className="gl-data gl-strong text-2xl">{code}</span>
+        <h1 className="gl-display">{customer?.companyName ?? code}</h1>
+      </div>
+      {customer ? (
+        <p className="gl-body gl-muted mt-1">
+          {customer.defaultContact ?? "No contact recorded"}
+          {customer.defaultDeliveryAddress ? ` · ${customer.defaultDeliveryAddress}` : ""}
+        </p>
+      ) : null}
+
+      <div className="gl-panel mt-6 overflow-hidden">
+        <div className="gl-panel__header">
+          <h2 className="gl-title">{jobs.length} {jobs.length === 1 ? "job" : "jobs"}</h2>
+          <span className="gl-caption">Newest first</span>
+        </div>
+        {jobs.length === 0 ? (
+          <p className="gl-body gl-muted p-6 text-center">No jobs recorded for this company yet.</p>
+        ) : (
+          <table className="gl-table">
+            <thead>
+              <tr><th>Ref</th><th>Direction</th><th>Status</th><th>Next action</th><th>Waiting on</th></tr>
+            </thead>
+            <tbody>
+              {jobs.map((j) => (
+                <tr key={j.jobId} onClick={() => onOpen(j.jobNumber)}>
+                  <td><span className="gl-data" style={{ color: "var(--gl-brand)" }}>{j.jobNumber}</span></td>
+                  <td className="gl-body">{j.domain === "IMPORT" ? "Import" : "Export"}</td>
+                  <td><StatusPill status={j.jobStatus} /></td>
+                  <td className="gl-body gl-strong" style={{ fontWeight: 500 }}>{j.nextActionRequired}</td>
+                  <td><WaitingPill owner={WAITING_LABEL_API[j.waitingOn] ?? "Nobody"} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </main>
   );
 }
 
@@ -2524,6 +2662,7 @@ export default function GreenlitControlTower() {
   useEffect(() => { loadJobs(); }, [loadJobs]);
   const [documents, setDocuments] = useState([]);
   const [clearedMaintenanceUnits, setClearedMaintenanceUnits] = useState([]);
+  const [selectedCompany, setSelectedCompany] = useState(null);
   const [workPanel, setWorkPanel] = useState(null);
   const [screen, setScreen] = useState("dashboard");
   const [returnScreen, setReturnScreen] = useState("actions");
@@ -2917,6 +3056,7 @@ export default function GreenlitControlTower() {
     { id: "dashboard", label: "Dashboard", count: jobs.filter((job) => jobStatus(job) !== "Completed").length, icon: LayoutDashboard },
     { id: "actions", label: "Action Required", count: actionJobs.length, icon: ListTodo },
     { id: "documents", label: "Document Intake", count: documents.length, icon: FileSearch },
+    { id: "companies", label: "Companies", count: null, icon: Building2 },
     { id: "fleet", label: "Chassis Fleet", count: fleet.available.length, icon: Truck },
   ];
 
@@ -3002,6 +3142,16 @@ export default function GreenlitControlTower() {
       {screen === "dashboard" ? <Dashboard jobs={jobs} actionJobs={actionJobs} chassis={fleet} onOpen={openJob} onShowActions={showActions} onShowFleet={() => goTo("fleet")} /> : null}
       {screen === "actions" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}
       {screen === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onOpenJob={openJob} /> : null}
+      {screen === "companies" ? (
+        <Companies onOpenCompany={(code) => { setSelectedCompany(code); setScreen("company"); }} />
+      ) : null}
+      {screen === "company" && selectedCompany ? (
+        <CompanyDetail
+          code={selectedCompany}
+          onBack={() => { setSelectedCompany(null); setScreen("companies"); }}
+          onOpen={openJob}
+        />
+      ) : null}
       {screen === "fleet" ? <ChassisFleet fleet={fleet} onOpen={openJob} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
       {screen === "detail" && selectedJob ? (
         <JobDetail

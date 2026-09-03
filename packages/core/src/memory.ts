@@ -7,7 +7,7 @@ import type {
   ExceptionRecord, ExportContainer, ExportJob, ImportContainer, ImportJob,
   Movement, Thresholds,
 } from '@greenlit/engine';
-import type { Repository, StoredDiscrepancy } from './repository.ts';
+import type { ExportJobDraft, ImportJobDraft, Repository, StoredDiscrepancy } from './repository.ts';
 
 /**
  * §27 / §56: thresholds are configurable and must not be hard-coded. These are
@@ -372,6 +372,82 @@ export function createMemoryRepository(): Repository {
     async nextReferenceFor(customerCode) {
       const issued = [...importJobs.map((j) => j.jobNumber), ...exportJobs.map((j) => j.jobNumber)];
       return nextJobReference(issued, customerCode);
+    },
+
+    async createImportJob(draft: ImportJobDraft, actor) {
+      const customer = customers.find((c) => c.code === draft.customerCode.trim().toUpperCase());
+      if (!customer) throw new Error(`Unknown customer ${draft.customerCode}`);
+
+      const issued = [...importJobs.map((j) => j.jobNumber), ...exportJobs.map((j) => j.jobNumber)];
+      const jobNumber = nextJobReference(issued, customer.code);
+      const jobId = jobNumber.toLowerCase();
+
+      const job: ImportJob = {
+        jobId, jobNumber, customer: customer.companyName,
+        blNumber: draft.blNumber ?? null,
+        vesselName: draft.vesselName ?? null,
+        voyageNumber: draft.voyageNumber ?? null,
+        eta: draft.eta ?? null,
+        jobType: draft.jobType ?? 'standard',
+        // §9: the customer master supplies the default so it is not retyped.
+        deliveryAddress: draft.deliveryAddress ?? customer.defaultDeliveryAddress,
+        permitRequired: draft.permitRequired ?? true,
+        permitReceived: false, permitRejected: false,
+        portnetRequired: draft.portnetRequired ?? true,
+        portnetReleased: false,
+        assignedController: draft.assignedController ?? null,
+        cancelled: false, onHold: false,
+        createdAt: new Date().toISOString(),
+      };
+      importJobs.push(job);
+      importContainers[jobId] = [];
+      movements[jobId] = [];
+      record(jobId, 'job.created', actor, { field: 'jobNumber', to: jobNumber });
+      return clone(job);
+    },
+
+    async createExportJob(draft: ExportJobDraft, actor) {
+      const customer = customers.find((c) => c.code === draft.customerCode.trim().toUpperCase());
+      if (!customer) throw new Error(`Unknown customer ${draft.customerCode}`);
+
+      const issued = [...importJobs.map((j) => j.jobNumber), ...exportJobs.map((j) => j.jobNumber)];
+      const jobNumber = nextJobReference(issued, customer.code);
+      const jobId = jobNumber.toLowerCase();
+      const quantity = Math.max(1, draft.containerQuantity ?? 1);
+
+      const job: ExportJob = {
+        exportJobId: jobId, jobNumber, customer: customer.companyName,
+        shipper: draft.shipper ?? customer.companyName,
+        bookingReference: draft.bookingReference ?? null,
+        exportClearanceReference: draft.exportClearanceReference ?? null,
+        carrier: null,
+        vesselName: draft.vesselName ?? null,
+        voyageNumber: draft.voyageNumber ?? null,
+        etaSingapore: draft.etaSingapore ?? null,
+        vesselClosingAt: null,
+        emptyCollectionYard: draft.emptyCollectionYard ?? null,
+        cmsRequired: draft.cmsRequired ?? true,
+        cmsStatus: 'PENDING',
+        containerQuantity: quantity,
+        containerSizeType: draft.containerSizeType ?? null,
+        truckInDate: draft.truckInDate ?? null,
+        truckOutDate: draft.truckOutDate ?? null,
+        standbyRequired: false, standbyInstructionSource: null,
+        standbyExpectedMinutes: null,
+        transhipmentStatus: 'PENDING', transhipmentCheckedAt: null,
+        carparkRequested: false,
+        assignedController: draft.assignedController ?? null,
+        cancelled: false, onHold: false,
+        createdAt: new Date().toISOString(),
+      };
+      exportJobs.push(job);
+      // §38.2: container records are created with the job and identified later.
+      exportContainers[jobId] = Array.from({ length: quantity }, (_, i) =>
+        ec({ exportContainerId: `${jobId}-c${i + 1}`, exportJobId: jobId,
+          containerRef: `C${i + 1}`, sizeType: draft.containerSizeType ?? '' }));
+      movements[jobId] = [];
+      record(jobId, 'job.created', actor, { field: 'jobNumber', to: jobNumber });
+      return clone(job);
     },
 
     async getPrincipal(userId) { return clone(USERS.find((u) => u.userId === userId) ?? null); },

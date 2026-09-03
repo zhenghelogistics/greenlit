@@ -1,7 +1,7 @@
 // Extracted from the control tower component so it can be unit-tested.
 // Pure data mapping: API shape in, screen shape out. No JSX, no React.
 
-const WAITING_LABEL_API = { US: "Us", CUSTOMER: "Customer", CARRIER: "Carrier", NOBODY: "Nobody" };
+export const WAITING_LABEL_API = { US: "Us", CUSTOMER: "Customer", CARRIER: "Carrier", NOBODY: "Nobody" };
 
 /**
  * Maps a DerivedJobView from the API into the shape these screens consume.

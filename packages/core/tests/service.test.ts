@@ -246,3 +246,43 @@ test('ADR-0007: references are per customer and do not reset', async () => {
   // Existing fixtures use the old format, which must not feed the new sequence.
   assert.equal(await repo.nextReferenceFor('ABC'), 'ABC-001');
 });
+
+test('ADR-0007: a created job gets a customer-scoped reference', async () => {
+  const repo = createMemoryRepository();
+  const first = await repo.createImportJob({ customerCode: 'ABC' }, 'Sarah Lim');
+  assert.equal(first.jobNumber, 'ABC-001');
+
+  const second = await repo.createExportJob({ customerCode: 'ABC' }, 'Sarah Lim');
+  assert.equal(second.jobNumber, 'ABC-002',
+    'one sequence per customer, covering both domains');
+
+  const other = await repo.createImportJob({ customerCode: 'LCT' }, 'Sarah Lim');
+  assert.equal(other.jobNumber, 'LCT-001', 'customers do not share a sequence');
+});
+
+test('creation defaults from the customer master rather than retyping', async () => {
+  const repo = createMemoryRepository();
+  const job = await repo.createImportJob({ customerCode: 'ABC' }, 'Sarah Lim');
+  assert.equal(job.deliveryAddress, '12 Tuas Ave 8', '§9: the master supplies the default');
+  assert.equal(job.customer, 'ABC Company');
+});
+
+test('a created job is incomplete, not invalid', async () => {
+  const repo = createMemoryRepository();
+  const service = new JobService(repo, at('2026-09-01T00:00:00Z'));
+  const created = await repo.createExportJob({ customerCode: 'STR', containerQuantity: 2 }, 'Winnie');
+  const view = await service.getJob(created.exportJobId);
+
+  assert.equal(view?.mandatoryComplete, false, '§26.1: a job starts before its information is known');
+  assert.ok((view?.missingInformation.length ?? 0) > 0, 'and it can say what is missing');
+  assert.equal(view?.containers.length, 2, '§38.2: container records are created with the job');
+});
+
+test('creation is audited and refuses an unknown customer', async () => {
+  const repo = createMemoryRepository();
+  const job = await repo.createImportJob({ customerCode: 'ABC' }, 'Sarah Lim');
+  const events = await repo.listAuditEvents(job.jobId);
+  assert.equal(events[0]?.event, 'job.created');
+  assert.equal(events[0]?.actor, 'Sarah Lim');
+  await assert.rejects(() => repo.createImportJob({ customerCode: 'NOPE' }, 'Sarah'), /Unknown customer/);
+});

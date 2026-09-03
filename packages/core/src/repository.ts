@@ -55,6 +55,17 @@ export interface Repository {
   nextReferenceFor(customerCode: string): Promise<string>;
 
   /**
+   * Job creation. A job is created against a customer and issued a reference
+   * scoped to them (ADR-0007).
+   *
+   * Deliberately permissive about content: §26.1's Incomplete queue exists
+   * because a job legitimately starts before its mandatory information is
+   * known. What creation requires is a customer and an actor, not completeness.
+   */
+  createImportJob(draft: ImportJobDraft, actor: string): Promise<ImportJob>;
+  createExportJob(draft: ExportJobDraft, actor: string): Promise<ExportJob>;
+
+  /**
    * §7. The user directory. Permissions are answered server-side (§14.1), so
    * a command resolves its principal here rather than trusting anything the
    * caller asserts about itself.
@@ -107,6 +118,36 @@ export interface Repository {
   resolveDiscrepancy(
     jobId: string, field: string, choice: 'stored' | 'extracted', actor: string,
   ): Promise<void>;
+}
+
+export interface ImportJobDraft {
+  customerCode: string;
+  blNumber?: string | null;
+  vesselName?: string | null;
+  voyageNumber?: string | null;
+  eta?: string | null;
+  deliveryAddress?: string | null;
+  jobType?: string;
+  permitRequired?: boolean;
+  portnetRequired?: boolean;
+  assignedController?: string | null;
+}
+
+export interface ExportJobDraft {
+  customerCode: string;
+  shipper?: string | null;
+  bookingReference?: string | null;
+  exportClearanceReference?: string | null;
+  vesselName?: string | null;
+  voyageNumber?: string | null;
+  etaSingapore?: string | null;
+  emptyCollectionYard?: string | null;
+  containerQuantity?: number;
+  containerSizeType?: string | null;
+  truckInDate?: string | null;
+  truckOutDate?: string | null;
+  cmsRequired?: boolean;
+  assignedController?: string | null;
 }
 
 /** A raised discrepancy, with its resolution once decided. */
