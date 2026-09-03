@@ -1,4 +1,8 @@
-import { userEvent, type AuditEvent, type Chassis, type ChassisHolding, type Discrepancy, type Principal } from '@greenlit/engine';
+import {
+  nextJobReference, userEvent, validateCustomerDraft,
+  type AuditEvent, type Chassis, type ChassisHolding, type Customer,
+  type CustomerDraft, type Discrepancy, type Principal,
+} from '@greenlit/engine';
 import type {
   ExceptionRecord, ExportContainer, ExportJob, ImportContainer, ImportJob,
   Movement, Thresholds,
@@ -44,6 +48,29 @@ const INSPECTION_CLUSTER_MONTH = '2026-09';
  * server-side today and the audit trail can name a real person instead of a
  * placeholder. Sign-in replaces the lookup, not the rules.
  */
+const CUSTOMERS: Customer[] = [
+  { customerId: 'abc', code: 'ABC', companyName: 'ABC Company', shortName: 'ABC',
+    billingName: 'ABC Company Pte Ltd', defaultConsignee: 'ABC Company',
+    defaultDeliveryAddress: '12 Tuas Ave 8', defaultContact: 'ops@abccompany.sg',
+    emailDomains: ['abccompany.sg'], accountStatus: 'ACTIVE', notes: null,
+    createdAt: '2025-04-02T00:00:00Z' },
+  { customerId: 'lct', code: 'LCT', companyName: 'Lion City Traders', shortName: 'Lion City',
+    billingName: 'Lion City Traders Pte Ltd', defaultConsignee: 'Lion City Traders',
+    defaultDeliveryAddress: '3 Pioneer Sector 2', defaultContact: 'ops@lioncity.sg',
+    emailDomains: ['lioncity.sg'], accountStatus: 'ACTIVE', notes: null,
+    createdAt: '2024-11-18T00:00:00Z' },
+  { customerId: 'mer', code: 'MER', companyName: 'Meridian Freight', shortName: 'Meridian',
+    billingName: 'Meridian Freight Pte Ltd', defaultConsignee: null,
+    defaultDeliveryAddress: null, defaultContact: 'desk@meridianfreight.com',
+    emailDomains: ['meridianfreight.com'], accountStatus: 'ACTIVE', notes: null,
+    createdAt: '2025-09-30T00:00:00Z' },
+  { customerId: 'str', code: 'STR', companyName: 'Straits Cargo', shortName: 'Straits',
+    billingName: 'Straits Cargo Pte Ltd', defaultConsignee: null,
+    defaultDeliveryAddress: null, defaultContact: 'ops@straitscargo.sg',
+    emailDomains: ['straitscargo.sg'], accountStatus: 'ACTIVE', notes: null,
+    createdAt: '2026-02-11T00:00:00Z' },
+];
+
 const USERS: Principal[] = [
   { userId: 'sarah', displayName: 'Sarah Lim', role: 'CONTROLLER', active: true },
   { userId: 'winnie', displayName: 'Winnie Ong', role: 'CONTROLLER', active: true },
@@ -273,6 +300,7 @@ export function createMemoryRepository(): Repository {
   const exceptions = clone(EXCEPTIONS);
   const discrepancies: Record<string, StoredDiscrepancy[]> = {};
   const fleet = buildFleetRegister();
+  const customers = clone(CUSTOMERS);
 
   const findExportContainer = (id: string) =>
     Object.values(exportContainers).flat().find((c) => c.exportContainerId === id);
@@ -312,6 +340,39 @@ export function createMemoryRepository(): Repository {
       return clone((exceptions[id] ?? []).filter((e) => e.resolvedAt === null));
     },
     async getThresholds() { return { ...DEFAULT_THRESHOLDS }; },
+
+    async listCustomers() { return clone(customers); },
+    async getCustomerByCode(code) {
+      return clone(customers.find((c) => c.code === code.trim().toUpperCase()) ?? null);
+    },
+    async createCustomer(draft: CustomerDraft, actor) {
+      const validation = validateCustomerDraft(draft, customers);
+      if (!validation.valid) throw new Error(validation.reasons.join('; '));
+      const created: Customer = {
+        customerId: draft.code.trim().toLowerCase(),
+        code: draft.code.trim().toUpperCase(),
+        companyName: draft.companyName.trim(),
+        shortName: draft.shortName ?? null,
+        billingName: null, defaultConsignee: null, defaultDeliveryAddress: null,
+        defaultContact: null, emailDomains: [...(draft.emailDomains ?? [])],
+        accountStatus: 'ACTIVE', notes: null,
+        createdAt: new Date().toISOString(),
+      };
+      customers.push(created);
+      record(created.customerId, 'job.created', actor,
+        { field: 'customer', to: `${created.code} ${created.companyName}` });
+      return clone(created);
+    },
+
+    /** Every reference issued, so ADR-0007's per-customer sequence can derive. */
+    async listJobReferences() {
+      return [...importJobs.map((j) => j.jobNumber), ...exportJobs.map((j) => j.jobNumber)];
+    },
+
+    async nextReferenceFor(customerCode) {
+      const issued = [...importJobs.map((j) => j.jobNumber), ...exportJobs.map((j) => j.jobNumber)];
+      return nextJobReference(issued, customerCode);
+    },
 
     async getPrincipal(userId) { return clone(USERS.find((u) => u.userId === userId) ?? null); },
     async listPrincipals() { return clone(USERS); },

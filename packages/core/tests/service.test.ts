@@ -211,3 +211,38 @@ test('§35.6: capacity follows from average job duration', async () => {
   assert.ok(view.monthlyCapacity20ft > 0);
   assert.ok(view.averageJobDays >= 1);
 });
+
+test('ADR-0007: the customer master is seeded and readable', async () => {
+  const repo = createMemoryRepository();
+  const customers = await repo.listCustomers();
+  assert.ok(customers.length >= 4);
+  assert.ok(customers.every((c) => /^[A-Z]{2,6}$/.test(c.code)));
+  assert.equal((await repo.getCustomerByCode('abc'))?.companyName, 'ABC Company',
+    'lookup is case-insensitive on the code');
+});
+
+test('ADR-0007: creating a customer validates and audits', async () => {
+  const repo = createMemoryRepository();
+  const created = await repo.createCustomer(
+    { code: 'ZEN', companyName: 'Zenith Shipping' }, 'John Tan');
+  assert.equal(created.code, 'ZEN');
+  assert.equal((await repo.listCustomers()).length, 5);
+  const events = await repo.listAuditEvents('zen');
+  assert.equal(events[0]?.actor, 'John Tan');
+});
+
+test('ADR-0007: a duplicate code or company name is refused', async () => {
+  const repo = createMemoryRepository();
+  await assert.rejects(() => repo.createCustomer({ code: 'ABC', companyName: 'Another' }, 'John'),
+    /already used by ABC Company/);
+  await assert.rejects(() => repo.createCustomer({ code: 'ZZZ', companyName: 'abc company' }, 'John'),
+    /already exists/);
+});
+
+test('ADR-0007: references are per customer and do not reset', async () => {
+  const repo = createMemoryRepository();
+  const first = await repo.nextReferenceFor('ZEN');
+  assert.equal(first, 'ZEN-001', 'a new customer starts at 001');
+  // Existing fixtures use the old format, which must not feed the new sequence.
+  assert.equal(await repo.nextReferenceFor('ABC'), 'ABC-001');
+});

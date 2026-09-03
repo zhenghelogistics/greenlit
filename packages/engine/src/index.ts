@@ -23,5 +23,6 @@ export * from './chassis.ts';
 export * from './date-amendments.ts';
 export * from './job-numbers.ts';
 export * from './roles.ts';
+export * from './customers.ts';
 export { IMPORT_RULES, type ImportCtx } from './rules-import.ts';
 export { EXPORT_RULES, type ExportCtx } from './rules-export.ts';

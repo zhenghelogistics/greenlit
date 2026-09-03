@@ -1,5 +1,6 @@
 import type {
-  AuditEvent, Chassis, ChassisHolding, Discrepancy, ExceptionRecord, Principal,
+  AuditEvent, Chassis, ChassisHolding, Customer, CustomerDraft, Discrepancy,
+  ExceptionRecord, Principal,
   ExportContainer, ExportJob, ImportContainer, ImportJob, Movement, Thresholds,
 } from '@greenlit/engine';
 
@@ -38,6 +39,21 @@ export interface Repository {
    * registered. §35.3 derives status from these plus the holdings, so neither
    * carries a status field of its own.
    */
+  /**
+   * The customer master. Retainer customers are the organising unit of the
+   * operation (ADR-0007), so this is load-bearing rather than reference data.
+   */
+  listCustomers(): Promise<Customer[]>;
+  getCustomerByCode(code: string): Promise<Customer | null>;
+  createCustomer(draft: CustomerDraft, actor: string): Promise<Customer>;
+  /** Every job reference issued, for deriving the next one. */
+  listJobReferences(): Promise<string[]>;
+  /**
+   * ADR-0007. The next reference for a customer, derived from those already
+   * issued rather than a stored counter.
+   */
+  nextReferenceFor(customerCode: string): Promise<string>;
+
   /**
    * §7. The user directory. Permissions are answered server-side (§14.1), so
    * a command resolves its principal here rather than trusting anything the

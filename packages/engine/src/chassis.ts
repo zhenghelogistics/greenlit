@@ -263,3 +263,122 @@ export function detectChassisExceptions(input: ChassisExceptionInput): {
 
   return out;
 }
+
+/**
+ * §35.8. A mid-job chassis change.
+ *
+ * "This is an exception, not a workflow." A chassis needing maintenance while
+ * under a container is the only case that forces a dismount, it happens
+ * rarely, and there is no established procedure for it today — so the system
+ * must not invent one. It records what was decided; it does not decide.
+ */
+export interface ChassisChange {
+  changeId: string;
+  containerId: string;
+  jobId: string;
+  /** The unit withdrawn. */
+  chassisIdPrevious: string;
+  /** The replacement, or null where the container was grounded. */
+  chassisIdNew: string | null;
+  /** Mandatory free text. */
+  reason: string;
+  location: string;
+  changedAt: string;
+  changedBy: string;
+  /** True where no replacement was fitted. */
+  containerGrounded: boolean;
+}
+
+export interface ChassisChangeRequest {
+  containerId: string;
+  jobId: string;
+  chassisIdPrevious: string;
+  chassisIdNew: string | null;
+  reason: string;
+  location: string;
+  changedAt: string;
+  changedBy: string;
+}
+
+/**
+ * §35.8. Neither option is blocked and no replacement is assumed available —
+ * grounding is a legitimate outcome. What is required is that the decision is
+ * attributable and explained.
+ */
+export function validateChassisChange(
+  request: ChassisChangeRequest,
+): { valid: boolean; reason: string | null } {
+  if (!request.changedBy?.trim()) {
+    return { valid: false, reason: '§35.8: a chassis change requires a named user' };
+  }
+  if (!request.reason?.trim()) {
+    return { valid: false, reason: '§35.8: a reason is mandatory' };
+  }
+  if (!request.location?.trim()) {
+    return { valid: false, reason: '§35.8: the location of the change is required' };
+  }
+  if (request.chassisIdNew === request.chassisIdPrevious) {
+    return { valid: false, reason: 'The replacement is the same unit' };
+  }
+  return { valid: true, reason: null };
+}
+
+export function recordChassisChange(
+  request: ChassisChangeRequest,
+  changeId: string,
+): ChassisChange {
+  const validation = validateChassisChange(request);
+  if (!validation.valid) throw new Error(validation.reason ?? 'Invalid chassis change');
+  return {
+    changeId,
+    containerId: request.containerId,
+    jobId: request.jobId,
+    chassisIdPrevious: request.chassisIdPrevious,
+    chassisIdNew: request.chassisIdNew,
+    reason: request.reason,
+    location: request.location,
+    changedAt: request.changedAt,
+    changedBy: request.changedBy,
+    containerGrounded: request.chassisIdNew === null,
+  };
+}
+
+/**
+ * §35.8. "chassis_days splits across both units, so neither unit's occupancy
+ * record is falsified by the swap."
+ *
+ * The split falls out of modelling the change as two holdings rather than one
+ * edited in place: the withdrawn unit is released at the moment of the change,
+ * and the replacement is mounted at the same moment.
+ */
+export function applyChassisChange(
+  holdings: readonly ChassisHolding[],
+  change: ChassisChange,
+): ChassisHolding[] {
+  const out: ChassisHolding[] = [];
+  let closed = false;
+
+  for (const h of holdings) {
+    const isTheOne = h.containerId === change.containerId
+      && h.chassisId === change.chassisIdPrevious
+      && h.releasedAt === null;
+    if (!isTheOne) { out.push(h); continue; }
+    out.push({ ...h, releasedAt: change.changedAt });
+    closed = true;
+  }
+  if (!closed) throw new Error(`No open holding for ${change.containerId} on ${change.chassisIdPrevious}`);
+
+  // A grounded container has no replacement holding, which is why the
+  // container simply has no chassis until one is fitted.
+  if (change.chassisIdNew) {
+    out.push({
+      chassisId: change.chassisIdNew,
+      containerId: change.containerId,
+      jobId: change.jobId,
+      mountedAt: change.changedAt,
+      releasedAt: null,
+      doubleMountedWith: null,
+    });
+  }
+  return out;
+}

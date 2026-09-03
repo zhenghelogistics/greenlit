@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   checkChassisAvailability, chassisDays, chassisStatus, detectChassisExceptions,
   fleetAvailability, isChassisSizeValid, jobChassisDays, monthlyCapacity,
+  applyChassisChange, recordChassisChange, validateChassisChange,
   type Chassis, type ChassisHolding,
 } from '../src/chassis.ts';
 
@@ -145,4 +146,64 @@ test('§35.8: maintenance while a container is mounted raises an exception', () 
   });
   const exc = found.find((e) => e.exceptionType === 'Chassis maintenance mid-job');
   assert.equal(exc?.severity, 'HIGH', 'the only case that forces a dismount');
+});
+
+test('§35.8: a chassis change requires a named user, a reason and a location', () => {
+  const base = {
+    containerId: 'c1', jobId: 'j1', chassisIdPrevious: 'CH-4029',
+    chassisIdNew: 'CH-4030', reason: 'Brake fault', location: 'Pioneer yard',
+    changedAt: '2026-08-28T00:00:00Z', changedBy: 'Brandon',
+  };
+  assert.equal(validateChassisChange(base).valid, true);
+  assert.equal(validateChassisChange({ ...base, reason: '' }).valid, false);
+  assert.equal(validateChassisChange({ ...base, changedBy: ' ' }).valid, false);
+  assert.equal(validateChassisChange({ ...base, location: '' }).valid, false);
+});
+
+test('§35.8: grounding is a legitimate outcome, not an error', () => {
+  const change = recordChassisChange({
+    containerId: 'c1', jobId: 'j1', chassisIdPrevious: 'CH-4029', chassisIdNew: null,
+    reason: 'No replacement available at the yard', location: 'Pioneer yard',
+    changedAt: '2026-08-28T00:00:00Z', changedBy: 'Brandon',
+  }, 'chg-1');
+  assert.equal(change.containerGrounded, true);
+  assert.equal(change.chassisIdNew, null,
+    'the system records the outcome; it does not assume a replacement exists');
+});
+
+test('§35.8: occupancy splits across both units, falsifying neither', () => {
+  const before = [hold({ chassisId: 'CH-4029', containerId: 'c1', mountedAt: '2026-08-25T00:00:00Z' })];
+  const change = recordChassisChange({
+    containerId: 'c1', jobId: 'j1', chassisIdPrevious: 'CH-4029', chassisIdNew: 'CH-4030',
+    reason: 'Brake fault', location: 'Pioneer yard',
+    changedAt: '2026-08-28T00:00:00Z', changedBy: 'Brandon',
+  }, 'chg-1');
+
+  const after = applyChassisChange(before, change);
+  assert.equal(after.length, 2, 'two holdings, not one edited in place');
+
+  const withdrawn = after.find((h) => h.chassisId === 'CH-4029')!;
+  const replacement = after.find((h) => h.chassisId === 'CH-4030')!;
+  assert.equal(chassisDays(withdrawn, '2026-09-01T00:00:00Z'), 3, 'the withdrawn unit stops at the change');
+  assert.equal(chassisDays(replacement, '2026-09-01T00:00:00Z'), 4, 'the replacement starts there');
+});
+
+test('§35.8: a grounded container leaves no replacement holding', () => {
+  const before = [hold({ chassisId: 'CH-4029', containerId: 'c1' })];
+  const change = recordChassisChange({
+    containerId: 'c1', jobId: 'j1', chassisIdPrevious: 'CH-4029', chassisIdNew: null,
+    reason: 'Grounded pending repair', location: 'Yard',
+    changedAt: '2026-08-28T00:00:00Z', changedBy: 'Brandon',
+  }, 'chg-2');
+  const after = applyChassisChange(before, change);
+  assert.equal(after.length, 1);
+  assert.equal(after[0]?.releasedAt, '2026-08-28T00:00:00Z');
+});
+
+test('§35.8: changing a unit that is not mounted fails loudly', () => {
+  const change = recordChassisChange({
+    containerId: 'c1', jobId: 'j1', chassisIdPrevious: 'CH-9999', chassisIdNew: 'CH-4030',
+    reason: 'x', location: 'y', changedAt: '2026-08-28T00:00:00Z', changedBy: 'B',
+  }, 'chg-3');
+  assert.throws(() => applyChassisChange([hold({ chassisId: 'CH-4029' })], change), /No open holding/);
 });

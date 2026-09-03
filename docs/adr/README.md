@@ -18,3 +18,4 @@ decision after it is accepted — supersede it with a new record.
 | [0004](0004-location-from-journey-order.md) | Derive location from journey order, not status rank | Accepted |
 | [0005](0005-portnet-warns-never-blocks.md) | Portnet processing warns; it never blocks the laden gate | Accepted |
 | [0006](0006-no-build-step-packages.md) | Packages run TypeScript with no build step | Accepted |
+| [0007](0007-customer-scoped-job-references.md) | Customer-scoped job references, replacing §8.1 job numbers | Accepted |
