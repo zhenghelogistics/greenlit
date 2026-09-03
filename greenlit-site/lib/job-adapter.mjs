@@ -78,6 +78,8 @@ export function jobFromApi(view) {
     // against what a previous one established.
     documentFields: {},
     containers: stored.map((c, i) => ({
+      // Commands address a container by its internal id; screens show the ref.
+      id: view.containers?.[i]?.containerId ?? c.exportContainerId ?? c.containerId ?? null,
       ref: c.containerRef ?? `C${i + 1}`,
       number: c.containerNumber ?? "",
       seal: c.sealNumber ?? "",

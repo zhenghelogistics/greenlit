@@ -44,6 +44,7 @@ import {
   X,
   XCircle,
   Building2,
+  UserRound,
 } from "lucide-react";
 import { addIsoDays, MAX_CONTAINERS_PER_JOB, parseArrivalNoticeText, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
 import { reconcileExtraction, toExtractedFields } from "@greenlit/engine";
@@ -81,12 +82,53 @@ function operationalToday() {
 /**
  * The acting user, until sign-in exists.
  *
- * §7 roles are enforced server-side against the user directory, so naming a
- * user here does not grant anything — the server checks what this person may
- * actually do. What is still missing is proof that the person at the keyboard
- * IS this user, which is what authentication adds.
+ * Held in a module-level variable rather than context so the existing handlers
+ * can read it without threading a prop through every screen. §7 roles are
+ * enforced server-side against the user directory, so choosing a user here
+ * grants nothing — the server still refuses anything that user may not do.
+ * What is missing is proof that the person at the keyboard IS this user, which
+ * is exactly what authentication adds.
  */
-const CURRENT_USER = "winnie";
+let CURRENT_USER = "winnie";
+
+/** Until sign-in exists, who is acting is a choice rather than a fact. */
+function ActingUser({ onChange }) {
+  const [users, setUsers] = useState([]);
+  const [selected, setSelected] = useState(CURRENT_USER);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/users")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("no users"))))
+      .then((d) => { if (!cancelled) setUsers(d.users ?? []); })
+      .catch(() => { if (!cancelled) setUsers([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!users.length) return null;
+
+  return (
+    <label className="flex items-center gap-2">
+      <span className="sr-only">Acting as</span>
+      <UserRound className="h-4 w-4 text-slate-300" aria-hidden="true" />
+      <select
+        value={selected}
+        onChange={(event) => {
+          setSelected(event.target.value);
+          CURRENT_USER = event.target.value;
+          onChange?.(event.target.value);
+        }}
+        className="h-9 rounded border border-white/20 bg-transparent px-2 text-[13px] text-white"
+      >
+        {users.map((u) => (
+          <option key={u.userId} value={u.userId} className="text-slate-900">
+            {u.displayName} · {u.role === "ADMINISTRATOR" ? "Admin" : u.role === "MANAGER" ? "Manager" : "Controller"}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 const CARPARK = "ZHL Carpark, Pioneer Road";
 const CHASSIS_TOTALS = { "20ft": 47, "40ft": 42 };
@@ -905,8 +947,152 @@ function CounterCard({ label, value, note, icon: Icon, tone = "navy", onClick })
  * far more often than "what came in on the 17th". Opening a company shows its
  * jobs in the order they happened, newest first.
  */
+
+/**
+ * Creating a company.
+ *
+ * The code is typed rather than generated because it goes on paperwork and
+ * into every job reference, and it is immutable once issued — so the operator
+ * chooses something they will recognise, and the server checks it is free.
+ */
+function NewCompanyForm({ onCreated }) {
+  const [open, setOpen] = useState(false);
+  const [code, setCode] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/customers", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code, companyName, actor: CURRENT_USER }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) { setError(payload.error ?? `Could not save (HTTP ${response.status}).`); return; }
+      setCode(""); setCompanyName(""); setOpen(false);
+      onCreated();
+    } catch {
+      setError("Could not reach the server. Nothing was saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)}
+        className="h-10 rounded border-0 bg-[color:var(--gl-brand)] px-4 text-[15px] font-medium text-white hover:bg-[color:var(--gl-brand-hover)]">
+        Add company
+      </button>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="gl-panel mt-4 p-4">
+      <div className="flex flex-wrap items-end gap-4">
+        <label className="flex flex-col gap-1">
+          <span className="gl-label">Code</span>
+          <input
+            value={code}
+            onChange={(e) => setCode(e.target.value.toUpperCase())}
+            maxLength={6}
+            placeholder="ABC"
+            aria-describedby="code-hint"
+            className="gl-data h-10 w-28 rounded border border-slate-300 px-3 uppercase"
+          />
+          <span id="code-hint" className="gl-caption">2–6 letters. Cannot be changed later.</span>
+        </label>
+        <label className="flex min-w-[16rem] flex-1 flex-col gap-1">
+          <span className="gl-label">Company name</span>
+          <input
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            placeholder="ABC Company"
+            className="h-10 rounded border border-slate-300 px-3 text-[15px]"
+          />
+        </label>
+        <button type="submit" disabled={saving}
+          className="h-10 rounded border-0 bg-[color:var(--gl-brand)] px-4 text-[15px] font-medium text-white hover:bg-[color:var(--gl-brand-hover)]">
+          {saving ? "Saving…" : "Create"}
+        </button>
+        <button type="button" onClick={() => { setOpen(false); setError(""); }}
+          className="h-10 rounded border border-slate-300 bg-white px-4 text-[15px] font-medium text-slate-700 hover:bg-slate-50">
+          Cancel
+        </button>
+      </div>
+      {error ? <p className="gl-body mt-3 text-rose-800" role="alert">{error}</p> : null}
+    </form>
+  );
+}
+
+/** Creating a job against a company. The reference is issued by the server. */
+function NewJobForm({ customerCode, onCreated }) {
+  const [open, setOpen] = useState(false);
+  const [domain, setDomain] = useState("IMPORT");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ domain, customerCode, actor: CURRENT_USER }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) { setError(payload.error ?? `Could not save (HTTP ${response.status}).`); return; }
+      setOpen(false);
+      onCreated();
+    } catch {
+      setError("Could not reach the server. Nothing was saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)}
+        className="h-10 rounded border border-slate-300 bg-white px-4 text-[15px] font-medium text-slate-700 hover:bg-slate-50">
+        New job
+      </button>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
+      <label className="flex flex-col gap-1">
+        <span className="gl-label">Direction</span>
+        <select value={domain} onChange={(e) => setDomain(e.target.value)}
+          className="h-10 rounded border border-slate-300 px-3 text-[15px]">
+          <option value="IMPORT">Import</option>
+          <option value="EXPORT">Export</option>
+        </select>
+      </label>
+      <button type="submit" disabled={saving}
+        className="h-10 rounded border-0 bg-[color:var(--gl-brand)] px-4 text-[15px] font-medium text-white hover:bg-[color:var(--gl-brand-hover)]">
+        {saving ? "Creating…" : "Create job"}
+      </button>
+      <button type="button" onClick={() => { setOpen(false); setError(""); }}
+        className="h-10 rounded border border-slate-300 bg-white px-4 text-[15px] font-medium text-slate-700 hover:bg-slate-50">
+        Cancel
+      </button>
+      {error ? <p className="gl-body w-full text-rose-800" role="alert">{error}</p> : null}
+    </form>
+  );
+}
+
 function Companies({ onOpenCompany }) {
   const [customers, setCustomers] = useState(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -915,14 +1101,17 @@ function Companies({ onOpenCompany }) {
       .then((d) => { if (!cancelled) setCustomers(d.customers ?? []); })
       .catch(() => { if (!cancelled) setCustomers([]); });
     return () => { cancelled = true; };
-  }, []);
+  }, [reloadToken]);
 
   return (
     <main id="main-content" className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
       <h1 className="gl-display">Companies</h1>
-      <p className="gl-body gl-muted mt-1">
-        Every job belongs to a company and is numbered within it.
-      </p>
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
+        <p className="gl-body gl-muted">
+          Every job belongs to a company and is numbered within it.
+        </p>
+        <NewCompanyForm onCreated={() => setReloadToken((n) => n + 1)} />
+      </div>
 
       {customers === null ? (
         <div className="gl-panel mt-6 divide-y divide-slate-200" aria-busy="true">
@@ -974,6 +1163,7 @@ function Companies({ onOpenCompany }) {
 /** One company, with its jobs newest first. */
 function CompanyDetail({ code, onBack, onOpen }) {
   const [data, setData] = useState(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -982,7 +1172,7 @@ function CompanyDetail({ code, onBack, onOpen }) {
       .then((d) => { if (!cancelled) setData(d); })
       .catch(() => { if (!cancelled) setData({ customer: null, jobs: [] }); });
     return () => { cancelled = true; };
-  }, [code]);
+  }, [code, reloadToken]);
 
   const customer = data?.customer;
   const jobs = data?.jobs ?? [];
@@ -1007,7 +1197,10 @@ function CompanyDetail({ code, onBack, onOpen }) {
       <div className="gl-panel mt-6 overflow-hidden">
         <div className="gl-panel__header">
           <h2 className="gl-title">{jobs.length} {jobs.length === 1 ? "job" : "jobs"}</h2>
-          <span className="gl-caption">Newest first</span>
+          <div className="flex items-center gap-3">
+            <span className="gl-caption">Newest first</span>
+            <NewJobForm customerCode={code} onCreated={() => setReloadToken((n) => n + 1)} />
+          </div>
         </div>
         {jobs.length === 0 ? (
           <p className="gl-body gl-muted p-6 text-center">No jobs recorded for this company yet.</p>
@@ -2845,63 +3038,67 @@ export default function GreenlitControlTower() {
     showToast(activityMessage);
   }
 
-  function recordCms() {
-    updateJob("EXP-260819-001", (job) => applyCheckpoint(job, "cmsCompleted", true));
-    flashSequence([
-      { value: "readiness", delay: 0 },
-      { value: "verdict", delay: 650 },
-      { value: "status", delay: 1300 },
-      { value: "trip:MOV-001", delay: 1950 },
-      { value: "nextAction", delay: 2600 },
-    ]);
-    showToast("Two empty-collection movements created automatically — one for C1 and one for C2.");
-  }
-
-  function recordDetails() {
-    updateJob("EXP-260819-002", (job) => applyContainerUpdate(job, 0, { number: "ABCU4471902", seal: "887341", tareKg: 3850, vgmKg: "" }));
-    flashSequence([
-      { value: "container", delay: 0 },
-      { value: "readiness", delay: 700 },
-      { value: "trip:MOV-001", delay: 1400 },
-      { value: "status", delay: 2100 },
-      { value: "nextAction", delay: 2700 },
-    ]);
-    showToast("Container details recorded. MOV-001 completed and the exception was closed.");
-  }
-
-  function setTranshipment(answer) {
-    updateJob("EXP-260819-005", (job) => {
-      const next = applyCheckpoint(job, "transhipment", answer);
-      const withoutBranch = next.trips.filter((trip) => !["Direct Laden to Port", "One-Way Loaded"].includes(trip.type));
-      if (answer === "available") {
-        const container = jobContainers(next)[0];
-        return {
-          ...next,
-          carparkRequested: false,
-          trips: [...withoutBranch, {
-            id: "MOV-002",
-            route: "Golden Harvest Foods → PSA Tuas",
-            type: "Direct Laden to Port",
-            status: "Pending",
-            plannedDate: null,
-            containerRef: container?.ref,
-            containerNumber: container?.number || undefined,
-            collectedTime: "",
-            deliveredTime: "",
-            createdAutomatically: true,
-          }],
-        };
+  /**
+   * Runs a command against the server and reloads from it.
+   *
+   * Reloading rather than patching locally means the screen shows what was
+   * actually stored, including everything the engine recomputed downstream —
+   * a status change, a new next action, a movement the trigger created. A
+   * failure leaves the screen untouched and says so, because an action that
+   * was not recorded must not look like one that was.
+   */
+  async function runJobCommand(job, path, body, successMessage) {
+    if (!job) return false;
+    const id = job.apiId ?? job.id;
+    try {
+      const response = await fetch(`/api/jobs/${encodeURIComponent(id)}${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...body, actor: CURRENT_USER }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        showToast(payload.error ?? `That could not be saved (HTTP ${response.status}).`);
+        return false;
       }
-      return { ...next, carparkRequested: null, trips: withoutBranch };
-    });
-    if (answer === "available") {
-      flashSequence([{ value: "readiness", delay: 0 }, { value: "trip:MOV-002", delay: 700 }, { value: "status", delay: 1400 }]);
-      showToast("MOV-002 Direct Laden to Port created. Both trips remain under EXP-260819-005.");
-    } else {
-      setHighlight("readiness");
-      window.setTimeout(() => setHighlight(""), 1200);
-      showToast("Transhipment marked not available. Confirm whether the customer wants the company carpark.");
+      await loadJobs();
+      if (successMessage) showToast(successMessage);
+      return true;
+    } catch {
+      showToast("That could not be saved. Nothing was changed.");
+      return false;
     }
+  }
+
+  /** §40.2. Recording CMS opens the empty collection gate (§41). */
+  async function recordCms() {
+    await runJobCommand(selectedJob, "/cms", { status: "COMPLETED" },
+      "CMS recorded. The empty collection gate reopened.");
+  }
+
+  /** §39. Container number, seal and tare are captured together. */
+  async function recordDetails(details) {
+    const container = selectedJob?.containers?.[0];
+    if (!container) { showToast("This job has no container to identify."); return; }
+    await runJobCommand(
+      selectedJob,
+      `/containers/${encodeURIComponent(container.id ?? container.ref)}/identity`,
+      {
+        containerNumber: details?.number ?? container.number,
+        sealNumber: details?.seal ?? container.seal,
+        tareWeightKg: Number(details?.tareKg ?? container.tare ?? 0),
+      },
+      "Container details recorded.",
+    );
+  }
+
+  /** §44.1. The answer is stored with a timestamp and a user, not just "checked". */
+  async function setTranshipment(answer) {
+    const status = answer === "available" ? "AVAILABLE" : "NOT_AVAILABLE";
+    await runJobCommand(selectedJob, "/transhipment", { status },
+      status === "AVAILABLE"
+        ? "Transhipment available. The laden movement to port can be arranged."
+        : "Transhipment unavailable. Check whether the customer wants the carpark.");
   }
 
   function carparkDecision(useCarpark) {
@@ -3135,6 +3332,9 @@ export default function GreenlitControlTower() {
               <span className="sm:hidden">Reset</span>
               <span className="hidden sm:inline">Reload</span>
             </button>
+            {/* Until sign-in exists, who is acting is a choice. The server
+                still enforces what that person may do. */}
+            <ActingUser onChange={() => loadJobs()} />
           </div>
         </div>
       </header>
