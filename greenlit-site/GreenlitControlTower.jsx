@@ -183,6 +183,8 @@ export const SEED_JOBS = [
     customer: "Sunrise Foods Pte Ltd",
     createdDate: "2026-08-19",
     booking: "BK-88213",
+    billOfLading: "",
+    houseBillOfLading: "",
     vessel: "Ever Lambent 044E",
     infoComplete: true,
     cmsCompleted: false,
@@ -203,6 +205,8 @@ export const SEED_JOBS = [
     customer: "Meridian Trading",
     createdDate: "2026-08-18",
     booking: "BK-77104",
+    billOfLading: "KMTCSHKB016289",
+    houseBillOfLading: "SZX10267517",
     vessel: "CMA CGM Tigris 198W",
     infoComplete: true,
     cmsCompleted: true,
@@ -2180,6 +2184,9 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
           <div className="grid divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-4">
             <DetailField label="Source document" value={job.sourceDocument?.fileName} />
             <DetailField label="Bill of lading" value={job.billOfLading || "Not recorded"} />
+            {job.houseBillOfLading ? (
+              <DetailField label="House bill of lading" value={job.houseBillOfLading} />
+            ) : null}
             <DetailField label="Vessel / voyage" value={[job.vessel, job.voyage].filter(Boolean).join(" / ") || "Not recorded"} />
             <DetailField label="Fields applied" value={`${job.sourceDocument?.extractedCount} verified facts`} />
           </div>
@@ -3322,6 +3329,7 @@ export default function GreenlitControlTower() {
         customerCode: match.code,
         actor: CURRENT_USER,
         blNumber: fields.billOfLading ?? null,
+        houseBlNumber: fields.houseBillOfLading ?? null,
         vesselName: fields.vessel ?? null,
         voyageNumber: fields.voyage ?? null,
         eta: fields.eta ?? null,

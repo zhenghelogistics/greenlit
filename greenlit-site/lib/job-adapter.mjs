@@ -29,6 +29,10 @@ export function jobFromApi(view) {
     customer: view.customer,
     createdDate: (r.createdAt ?? "").slice(0, 10),
     booking: r.bookingReference ?? r.blNumber ?? "",
+    // The detail screen renders these directly. They were never produced here,
+    // so "Bill of lading" read "Not recorded" on every job that had one.
+    billOfLading: r.blNumber ?? "",
+    houseBillOfLading: r.houseBlNumber ?? "",
     vessel: [r.vesselName, r.voyageNumber].filter(Boolean).join(" / "),
     infoComplete: view.mandatoryComplete,
     missingInformation: view.missingInformation ?? [],
