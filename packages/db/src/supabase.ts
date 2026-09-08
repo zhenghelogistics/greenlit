@@ -135,12 +135,14 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
     },
 
     async getThresholds(customerId) {
+      // '*' is the global scope; a customer row overrides it for that key.
       const r = await db.from('config_thresholds').select('*')
-        .or(`customer_id.is.null,customer_id.eq.${customerId ?? '__none__'}`);
+        .in('customer_id', ['*', customerId ?? '*']);
       if (r.error) return { ...DEFAULT_THRESHOLDS };
       const merged: Record<string, number> = { ...DEFAULT_THRESHOLDS };
-      // A customer-specific row wins over the global one for the same key.
-      for (const row of (r.data ?? []).sort((a, b) => (a.customer_id ? 1 : 0) - (b.customer_id ? 1 : 0))) {
+      for (const row of (r.data ?? []).sort(
+        (a, b) => (a.customer_id === '*' ? 0 : 1) - (b.customer_id === '*' ? 0 : 1),
+      )) {
         merged[row.threshold_key as string] = Number(row.value);
       }
       return merged as unknown as Thresholds;

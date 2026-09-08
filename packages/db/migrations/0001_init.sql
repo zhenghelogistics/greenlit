@@ -1,3 +1,5 @@
+create extension if not exists "pgcrypto";
+
 -- Project Greenlit — initial schema
 --
 -- Shapes follow PRD §55 and the domain records in @greenlit/engine.
@@ -11,8 +13,6 @@
 --
 --   2. Operational records are never hard-deleted (§57 rule 7). Cancellation is
 --      a flag; audit rows have no delete path at all.
-
-create extension if not exists "pgcrypto";
 
 -- §9. Customers are the organising unit (ADR-0007).
 create table if not exists customers (
@@ -174,6 +174,13 @@ create table if not exists export_containers (
 
 -- §17, §55. ONE movements table, both domains: the engine cannot be written
 -- once against two.
+-- movements.job_id, exceptions.job_id and discrepancies.job_id deliberately
+-- carry NO foreign key: they reference either import_jobs or export_jobs
+-- depending on job_domain, and Postgres cannot express a reference to one of
+-- two tables. §55 requires one movements table serving both domains — the
+-- engine cannot be written once against two — so the integrity of these
+-- columns is the service layer's job, and job_domain records which side to
+-- look in.
 create table if not exists movements (
   movement_id            text primary key,
   movement_ref           text not null,
@@ -249,6 +256,21 @@ create table if not exists audit_events (
 );
 create index if not exists audit_events_entity_idx on audit_events (entity_id, created_at);
 
+-- §13: "Critical audit events cannot be deleted or edited by standard users."
+-- The port exposes no update or delete, but a comment is not enforcement and a
+-- privileged role could still rewrite history. This makes it impossible at the
+-- table, including for the service role the application uses.
+create or replace function audit_events_are_append_only() returns trigger as $$
+begin
+  raise exception 'audit_events is append-only (PRD §13): % is not permitted', tg_op;
+end;
+$$ language plpgsql;
+
+drop trigger if exists audit_events_no_update on audit_events;
+create trigger audit_events_no_update
+  before update or delete on audit_events
+  for each row execute function audit_events_are_append_only();
+
 -- §12. Discrepancies are records, not screen state.
 create table if not exists discrepancies (
   discrepancy_id  bigserial primary key,
@@ -323,14 +345,29 @@ create index if not exists date_amendments_entity_idx
 -- §27, §56. Every threshold in the PRD, configurable globally or per customer.
 create table if not exists config_thresholds (
   threshold_key text not null,
-  customer_id   text references customers(customer_id),
+  -- '*' is the global scope. It cannot be NULL: Postgres makes every
+  -- primary-key column NOT NULL, so a nullable customer_id here would make the
+  -- global row impossible to insert — which is exactly the bug this replaces.
+  customer_id   text not null default '*',
   value         numeric not null,
   unit          text not null default 'days',
+  -- No foreign key: '*' is a scope, not a customer, and Postgres cannot
+  -- express "either this sentinel or a real row" as a check constraint —
+  -- subqueries are not permitted there.
   primary key (threshold_key, customer_id)
 );
 
--- Access is entirely through the API, which resolves a principal and checks
--- permissions (§7, §14.1). Nothing reaches these tables from a browser.
+-- RLS is enabled and DELIBERATELY has no policies.
+--
+-- Every read and write arrives through a server-side API route that has
+-- already resolved a principal and checked its permission (§7, §14.1), using
+-- the service role key — which bypasses RLS by design. No anon or authenticated
+-- client ever reaches these tables, so a policy would be describing an access
+-- path that does not exist.
+--
+-- Enabling RLS with no policies is therefore the safe posture, not an omission:
+-- if a browser-facing key were ever introduced by mistake, it would read
+-- nothing rather than everything.
 alter table customers          enable row level security;
 alter table principals         enable row level security;
 alter table import_jobs        enable row level security;
