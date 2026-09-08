@@ -40,6 +40,7 @@ export const toImportJob = (r: Record<string, unknown>): ImportJob => ({
   jobNumber: r.job_number as string,
   customer: r.customer as string,
   blNumber: nn(r.bl_number as string),
+  houseBlNumber: nn(r.house_bl_number as string),
   vesselName: nn(r.vessel_name as string),
   voyageNumber: nn(r.voyage_number as string),
   eta: nn(r.eta as string),

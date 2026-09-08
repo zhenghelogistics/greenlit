@@ -26,7 +26,8 @@ import { field, type ExtractedField } from "@greenlit/engine";
 /** The operational fields worth reading off a shipping document. */
 const FIELDS: Record<string, { type: string; description?: string }> = {
   containerNumber: { type: "string", description: "ISO 6346, 4 letters + 7 digits, e.g. HLXU1234567" },
-  blNumber: { type: "string", description: "Bill of lading number" },
+  blNumber: { type: "string", description: "The carrier's own bill of lading number (the master B/L). Never the house B/L." },
+  houseBlNumber: { type: "string", description: "House bill of lading, issued by a freight forwarder rather than the carrier. Labelled inconsistently: House BL, House B/L, HOUSE BILL OF LADING, HBL, HB/L, H B/L, or as a column heading beside the ocean or master bill. Absent entirely on a direct carrier booking." },
   bookingReference: { type: "string" },
   carrier: { type: "string", description: "Shipping line, e.g. Hapag-Lloyd" },
   vesselName: { type: "string" },
@@ -91,7 +92,10 @@ Rules:
 - Every field you return must carry a confidence between 0 and 1 reflecting how clearly you could read it. Clean printed text is high. Handwriting, a skewed photo, or a partly obscured field is low. Be honest — a low score routes the field to a human, which is the correct outcome when you are unsure.
 - consignee, notifyParty and shipper are company names only. Leave out the street address, postcode and country.
 - Dates as YYYY-MM-DD. If a date is ambiguous between formats (03/04/2026), return null rather than picking one.
-- Container numbers are 4 letters then 7 digits, no spaces.`;
+- Container numbers are 4 letters then 7 digits, no spaces.
+- A document may carry two bills of lading. The carrier issues the master or ocean bill; a freight forwarder issues the house bill. Put each under its own name and never the house number under blNumber — they identify different contracts, and confusing them misroutes the shipment.
+- The house bill is labelled inconsistently: "House BL", "House B/L", "HOUSE BILL OF LADING", "HBL", "HB/L", "H B/L", sometimes only as a column heading beside "Ocean Bill of Lading" or "Master B/L", and sometimes in a table where the heading row and the value row are far apart. Read it wherever it appears.
+- A booking made directly with the carrier has no house bill at all. That is the ordinary case, not a failure to find one: do not list houseBlNumber, and never repeat the master number there.`;
 
 export interface ClaudeExtractionResult {
   fields: Record<string, ExtractedField<unknown>>;

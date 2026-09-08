@@ -41,3 +41,20 @@ test("no two extracted fields write to the same form field", () => {
   assert.equal(new Set(targets).size, targets.length,
     `duplicate targets: ${targets.filter((t, i) => targets.indexOf(t) !== i).join(", ")}`);
 });
+
+test("a house bill reaches the form under its own name", () => {
+  const r = toIntakeResult({ fields: {
+    blNumber: f("KMTCSHKB016289", 0.96),
+    houseBlNumber: f("HBL-SG-99120", 0.91),
+  } });
+  assert.equal(r.values.billOfLading, "KMTCSHKB016289");
+  assert.equal(r.values.houseBillOfLading, "HBL-SG-99120");
+});
+
+test("a document with no house bill leaves the field empty, not blank-filled", () => {
+  // Optional by nature: most direct carrier documents carry no house bill, and
+  // an empty string would look like one that was looked for and not found.
+  const r = toIntakeResult({ fields: { blNumber: f("KMTCSHKB016289", 0.96) } });
+  assert.equal(r.values.billOfLading, "KMTCSHKB016289");
+  assert.ok(!("houseBillOfLading" in r.values));
+});

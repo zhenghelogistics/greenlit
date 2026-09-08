@@ -131,7 +131,7 @@ const mv = (o: Partial<Movement> & Pick<Movement, 'movementId' | 'movementRef' |
 const IMPORT_JOBS: ImportJob[] = [
   {
     jobId: 'ij1', jobNumber: 'JOB-260818-001', customer: 'ABC Company',
-    blNumber: 'ABC123456', vesselName: 'Vessel XYZ', voyageNumber: '123E',
+    blNumber: 'ABC123456', houseBlNumber: null, vesselName: 'Vessel XYZ', voyageNumber: '123E',
     eta: '2026-08-20', jobType: 'standard', deliveryAddress: '12 Tuas Ave 8',
     permitRequired: true, permitReceived: false, permitRejected: false,
     portnetRequired: true, portnetReleased: false,
@@ -140,7 +140,7 @@ const IMPORT_JOBS: ImportJob[] = [
   },
   {
     jobId: 'ij2', jobNumber: 'JOB-260816-004', customer: 'Lion City Traders',
-    blNumber: 'BL778812', vesselName: 'Kota Ratu', voyageNumber: '044W',
+    blNumber: 'BL778812', houseBlNumber: 'HBL-99120', vesselName: 'Kota Ratu', voyageNumber: '044W',
     eta: '2026-08-16', jobType: 'standard', deliveryAddress: '3 Pioneer Sector 2',
     permitRequired: false, permitReceived: true, permitRejected: false,
     portnetRequired: true, portnetReleased: true,
@@ -440,6 +440,7 @@ export function createMemoryRepository(): Repository {
       const job: ImportJob = {
         jobId, jobNumber, customer: customer.companyName,
         blNumber: draft.blNumber ?? null,
+        houseBlNumber: draft.houseBlNumber ?? null,
         vesselName: draft.vesselName ?? null,
         voyageNumber: draft.voyageNumber ?? null,
         eta: draft.eta ?? null,

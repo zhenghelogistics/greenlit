@@ -137,6 +137,9 @@ const DOCUMENT_FIELD_GROUPS = [
     fields: [
       { key: "eta", label: "Estimated arrival", type: "date", required: true },
       { key: "billOfLading", label: "Bill of lading", required: true },
+      // Present only when a forwarder is involved, so optional by nature
+      // rather than by omission — most direct carrier documents carry none.
+      { key: "houseBillOfLading", label: "House bill of lading" },
       { key: "bookingNumber", label: "Booking number" },
       { key: "vessel", label: "Main vessel", required: true },
       { key: "voyage", label: "Voyage" },

@@ -96,6 +96,15 @@ export interface ImportJob {
   jobNumber: string;
   customer: string;
   blNumber: string | null;
+  /**
+   * §29. The forwarder's bill of lading, where the shipment moves under one.
+   *
+   * Separate from blNumber rather than overloading it: the master bill is the
+   * contract between the carrier and the forwarder, the house bill the one
+   * between the forwarder and the shipper. They identify different parties,
+   * and a document carrying both is the normal case for forwarded cargo.
+   */
+  houseBlNumber: string | null;
   vesselName: string | null;
   voyageNumber: string | null;
   eta: IsoDate | null;

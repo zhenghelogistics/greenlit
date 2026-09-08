@@ -48,7 +48,7 @@ const mv = (o: Partial<Movement> = {}): Movement => ({
 });
 
 const importJob = (o: Partial<ImportJob> = {}): ImportJob => ({
-  jobId: 'j', jobNumber: 'JOB-260901-001', customer: 'ABC', blNumber: 'BL',
+  jobId: 'j', jobNumber: 'JOB-260901-001', customer: 'ABC', blNumber: 'BL', houseBlNumber: null,
   vesselName: 'V', voyageNumber: '1E', eta: '2026-09-01', jobType: 'std',
   deliveryAddress: '12 Tuas', permitRequired: true, permitReceived: true,
   permitRejected: false, portnetRequired: true, portnetReleased: true,

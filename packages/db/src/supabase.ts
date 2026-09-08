@@ -314,6 +314,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         job_id: jobId, job_number: jobNumber,
         customer_id: customer.customerId, customer: customer.companyName,
         bl_number: draft.blNumber ?? null,
+        house_bl_number: draft.houseBlNumber ?? null,
         vessel_name: draft.vesselName ?? null,
         voyage_number: draft.voyageNumber ?? null,
         eta: draft.eta ?? null,

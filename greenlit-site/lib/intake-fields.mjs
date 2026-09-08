@@ -8,6 +8,7 @@
  */
 export const API_TO_FORM = {
   blNumber: "billOfLading",
+  houseBlNumber: "houseBillOfLading",
   bookingReference: "bookingNumber",
   vesselName: "vessel",
   notifyParty: "notify",

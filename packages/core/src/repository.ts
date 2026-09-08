@@ -146,6 +146,8 @@ export interface DateAmendmentInput {
 export interface ImportJobDraft {
   customerCode: string;
   blNumber?: string | null;
+  /** The forwarder's bill, where one exists. Optional: a direct carrier booking has none. */
+  houseBlNumber?: string | null;
   vesselName?: string | null;
   voyageNumber?: string | null;
   eta?: string | null;
