@@ -1153,7 +1153,7 @@ function Companies({ onOpenCompany }) {
             <tbody>
               {customers.map((c) => (
                 <tr key={c.customerId} onClick={() => onOpenCompany(c.code)}>
-                  <td><span className="gl-data gl-strong">{c.code}</span></td>
+                  <td><span className="gl-data gl-ref">{c.code}</span></td>
                   <td className="gl-body">{c.companyName}</td>
                   <td className="gl-body gl-muted">{c.defaultContact ?? "—"}</td>
                   <td><span className="gl-data gl-muted">{String(c.createdAt).slice(0, 10)}</span></td>
@@ -1226,7 +1226,7 @@ function CompanyDetail({ code, onBack, onOpen }) {
             <tbody>
               {jobs.map((j) => (
                 <tr key={j.jobId} onClick={() => onOpen(j.jobNumber)}>
-                  <td><span className="gl-data" style={{ color: "var(--gl-accent)" }}>{j.jobNumber}</span></td>
+                  <td><span className="gl-data gl-ref">{j.jobNumber}</span></td>
                   <td className="gl-body">{j.domain === "IMPORT" ? "Import" : "Export"}</td>
                   <td><StatusPill status={j.jobStatus} /></td>
                   <td className="gl-body gl-strong" style={{ fontWeight: 500 }}>{j.nextActionRequired}</td>
@@ -1364,7 +1364,7 @@ function ActionTable({ rows, onOpen, compact = false }) {
                 onClick={() => job.openable !== false && onOpen(job.id)}
               >
                 <td>
-                  <span className="gl-data" style={{ color: "var(--gl-accent)" }}>{job.id}</span>
+                  <span className="gl-data gl-ref">{job.id}</span>
                   <div className="gl-caption mt-0.5">{job.type}</div>
                 </td>
                 <td><span className="gl-data">{job.container}</span></td>
@@ -1633,7 +1633,7 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
 
       {/* PRIMARY. §61.3 defines done as working this list top to bottom, so it
           is the first thing on the screen rather than the fourth. */}
-      <section className="gl-panel overflow-hidden" aria-label="Action required">
+      <section className="gl-panel gl-panel--lead overflow-hidden" aria-label="Action required">
         <div className="gl-panel__header">
           <h2 className="gl-title">Action required</h2>
           <button type="button" onClick={() => onShowActions("us")}

@@ -8,7 +8,9 @@
   --gl-bg: #ffffff;
   --gl-bg-subtle: #fafafa;
   --gl-bg-hover: #f4f4f5;
-  --gl-bg-selected: #eef1fb;
+  --gl-bg-selected: #eff6ff;
+  /* A blue wash for surfaces that lead: the register header, the acting rail. */
+  --gl-bg-accent: #f5f9ff;
 
   /* Ink. Near-monochrome, four steps. */
   --gl-ink-strong: #0d0e10;
@@ -22,10 +24,13 @@
   --gl-line: #eceef1;
   --gl-line-strong: #dfe2e6;
 
-  /* One accent, used rarely. */
-  --gl-accent: #5b5bd6;
-  --gl-accent-hover: #4d4dc4;
-  --gl-focus: #5b5bd6;
+  /* One accent. Blue, and used where it means "you can act on this":
+     links, the primary action, the current destination, the focused row.
+     5.17:1 on white, and white on it also passes, so it works as both. */
+  --gl-accent: #2563eb;
+  --gl-accent-hover: #1d4ed8;
+  --gl-accent-soft: #dbeafe;
+  --gl-focus: #2563eb;
 
   /* State. Carried by a small mark and words, never by a filled block. */
   --gl-state-blocked: #d4351c;
@@ -93,7 +98,10 @@ body {
 .gl-table tbody tr { border-bottom: 1px solid var(--gl-line); }
 .gl-table tbody tr:last-child { border-bottom: 0; }
 .gl-table tbody tr:hover { background: var(--gl-bg-hover); cursor: pointer; }
-.gl-table tbody tr[data-active="true"] { background: var(--gl-bg-selected); }
+.gl-table tbody tr[data-active="true"] {
+  background: var(--gl-bg-selected);
+  box-shadow: inset 2px 0 0 0 var(--gl-accent);
+}
 .gl-table tbody tr:focus { outline: none; }
 .gl-table tbody tr:focus-visible { outline: 2px solid var(--gl-focus); outline-offset: -2px; }
 
@@ -103,6 +111,13 @@ body {
   display: flex; align-items: center; justify-content: space-between;
   min-height: 36px; padding: 0 var(--gl-space-3) var(--gl-space-2) 0;
 }
+
+/* A section that leads the screen carries the accent on its rule. */
+.gl-panel--lead > .gl-panel__header { border-bottom: 2px solid var(--gl-accent); }
+
+/* Identifiers are links: blue, and obviously so on hover. */
+.gl-ref { color: var(--gl-accent); }
+.gl-ref:hover { color: var(--gl-accent-hover); text-decoration: underline; text-underline-offset: 3px; }
 
 .gl-raised  { box-shadow: var(--gl-raised); }
 .gl-overlay { box-shadow: var(--gl-overlay); border-radius: 8px; }

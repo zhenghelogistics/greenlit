@@ -84,8 +84,25 @@ a region genuinely needs an edge. **Not around panels.**
 
 ### Accent and state
 
-One accent, `#5b5bd6`, for links and the primary action. Used rarely enough
-that it still means something.
+One accent, **`#2563eb`**, and it is blue. 5.17:1 on white as text, and white
+on it also passes, so the same value serves a link and a filled button without
+a second token.
+
+It means **"you can act on this"**, and appears only where that is true:
+
+| Surface | Why |
+|---|---|
+| Job and customer references | They are links |
+| Primary action buttons | The one thing to do on that screen |
+| Current navigation destination | Where you are |
+| Focused table row | A 2px rail, plus `bg-selected` |
+| Focus ring | Keyboard position |
+| Leading section rule | A 2px rule under the register's header, because it is the screen's centre of gravity |
+
+`bg-selected #eff6ff` and `accent-soft #dbeafe` are its quiet grounds.
+
+Used anywhere else it stops meaning anything, which is the whole reason the
+rest of the palette is near-monochrome.
 
 State is `blocked #d4351c`, `warn #b45309`, `ready #15803d`, `idle #9ca0a8` —
 applied to a 6px dot beside the word, never as a background.
@@ -132,7 +149,8 @@ box.**
 - [ ] Panels have no border box.
 - [ ] Table rows are 40px, hairline-separated, no zebra.
 - [ ] At most three attention counters per screen.
-- [ ] The accent appears only on links and the primary action.
+- [ ] The accent appears only where the user can act: links, primary
+      actions, current destination, focus.
 - [ ] Register is fully keyboard-operable.
 - [ ] Focus is visible at 2px on every interactive element.
 - [ ] No page-level horizontal overflow at 375, 768, 1024, 1440px.
