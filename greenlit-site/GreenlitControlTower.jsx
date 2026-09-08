@@ -141,7 +141,6 @@ const DOCUMENT_FIELD_GROUPS = [
   {
     title: "Shipment",
     fields: [
-      { key: "issueDate", label: "Issue date", type: "date" },
       { key: "eta", label: "Estimated arrival", type: "date", required: true },
       { key: "billOfLading", label: "Bill of lading", required: true },
       { key: "bookingNumber", label: "Booking number" },
@@ -150,17 +149,6 @@ const DOCUMENT_FIELD_GROUPS = [
       { key: "portOfLoading", label: "Port of loading" },
       { key: "portOfDischarge", label: "Port of discharge", required: true },
       { key: "terminal", label: "Discharging terminal", required: true },
-      { key: "haulage", label: "Haulage" },
-    ],
-  },
-  {
-    title: "Cargo",
-    fields: [
-      { key: "packageCount", label: "Packages", inputMode: "numeric" },
-      { key: "packageType", label: "Package type" },
-      { key: "grossWeightKg", label: "Gross weight (kg)", inputMode: "decimal" },
-      { key: "volumeM3", label: "Volume (m³)", inputMode: "decimal" },
-      { key: "cargoDescription", label: "Cargo description", multiline: true },
     ],
   },
   {
