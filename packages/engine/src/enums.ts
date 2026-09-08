@@ -45,8 +45,15 @@ export type CargoState = (typeof CARGO_STATE)[number];
 export const LOCATION_TYPE = ['YARD', 'CUSTOMER', 'CARPARK', 'PORT', 'TERMINAL'] as const;
 export type LocationType = (typeof LOCATION_TYPE)[number];
 
-/** §9.2 */
-export const FREE_TIME_MODEL = ['SPLIT', 'COMBINED'] as const;
+/**
+ * §9.2, §34. Which shape of allowance the carrier issues.
+ *
+ * NOT_CONFIRMED is the honest starting state. A job exists before anyone has
+ * read its arrival notice, and defaulting to SPLIT there asserts a carrier
+ * rule nobody has checked — which then shows two countdowns that may be one
+ * allowance, the exact error §34.3 forbids. Absent is not the same as split.
+ */
+export const FREE_TIME_MODEL = ['SPLIT', 'COMBINED', 'NOT_CONFIRMED'] as const;
 export type FreeTimeModel = (typeof FREE_TIME_MODEL)[number];
 
 export const FREE_TIME_COUNTS_FROM = ['VESSEL_ETA', 'DISCHARGE', 'GATE_OUT'] as const;

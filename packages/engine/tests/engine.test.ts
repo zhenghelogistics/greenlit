@@ -56,7 +56,7 @@ const importContainer = (): ImportContainer => ({
   cargoDescription: 'Goods', portTerminal: 'PSA', emptyReturnYard: 'Yard',
   freeTimeModel: 'SPLIT', freeTimeCountsFrom: 'VESSEL_ETA',
   demurrageFreeDays: 7, demurrageLfd: null, detentionFreeDays: 7, detentionLfd: null,
-  combinedFreeDays: null, combinedLfd: null, internalLfd: null,
+  combinedFreeDays: null, combinedLfd: null, freeTimeRemarks: null, internalLfd: null,
   carparkReason: null, carparkArrivedAt: null, emptyReadyConfirmed: false,
   emptyReadyConfirmedAt: null, emptyReadySource: null,
   chassisId: null, chassisMountedAt: null, chassisReleasedAt: null,

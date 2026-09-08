@@ -42,8 +42,11 @@ const FIELDS: Record<string, { type: string; description?: string }> = {
   notifyParty: { type: "string", description: "Notify party company name only, without the address. Carriers that print no consignee often print this instead." },
   deliveryAddress: { type: "string" },
   emptyReturnYard: { type: "string" },
-  demurrageFreeDays: { type: "string", description: "Digits only" },
-  detentionFreeDays: { type: "string", description: "Digits only" },
+  freeTimeModel: { type: "string", description: "SPLIT when the document states demurrage and detention separately. COMBINED when it states one pool covering both, e.g. 'combined D&D 14 days'. Omit entirely if the document does not say." },
+  demurrageFreeDays: { type: "string", description: "Digits only. Only when the document states demurrage separately." },
+  detentionFreeDays: { type: "string", description: "Digits only. Only when the document states detention separately." },
+  combinedFreeDays: { type: "string", description: "Digits only. Only when the document states a single combined D&D allowance." },
+  freeTimeRemarks: { type: "string", description: "The free-time terms exactly as worded, when they carry a condition a number cannot, e.g. '10 combined calendar days from discharge' or 'detention starts after empty return notification'." },
   permitNumber: { type: "string" },
   vgm: { type: "string", description: "Verified gross mass in kg, digits only" },
 };
@@ -93,6 +96,7 @@ Rules:
 - consignee, notifyParty and shipper are company names only. Leave out the street address, postcode and country.
 - Dates as YYYY-MM-DD. If a date is ambiguous between formats (03/04/2026), return null rather than picking one.
 - Container numbers are 4 letters then 7 digits, no spaces.
+- Free time comes in two shapes and they are not interchangeable. Some carriers state demurrage and detention as separate allowances; others state a single combined D&D pool covering both. Report freeTimeModel as SPLIT or COMBINED to say which the document uses, and fill only the matching fields — never both shapes. Splitting a combined allowance in two invents a deadline that does not exist. If the document does not make the shape clear, omit freeTimeModel rather than assuming.
 - A document may carry two bills of lading. The carrier issues the master or ocean bill; a freight forwarder issues the house bill. Put each under its own name and never the house number under blNumber — they identify different contracts, and confusing them misroutes the shipment.
 - The house bill is labelled inconsistently: "House BL", "House B/L", "HOUSE BILL OF LADING", "HBL", "HB/L", "H B/L", sometimes only as a column heading beside "Ocean Bill of Lading" or "Master B/L", and sometimes in a table where the heading row and the value row are far apart. Read it wherever it appears.
 - A booking made directly with the carrier has no house bill at all. That is the ordinary case, not a failure to find one: do not list houseBlNumber, and never repeat the master number there.`;

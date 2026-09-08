@@ -160,11 +160,21 @@ const DOCUMENT_FIELD_GROUPS = [
   },
   {
     title: "Free-time terms",
-    fields: [
-      { key: "demurrageFreeDays", label: "Demurrage-free days", inputMode: "numeric" },
-      { key: "detentionFreeDays", label: "Detention-free days", inputMode: "numeric" },
-    ],
+    // Rendered by FreeTimeFields, not the generic field grid: which of these
+    // apply depends on the carrier's model, and showing all three at once is
+    // how a container ends up recorded as DEM 5 / DET 7 / combined 14 — three
+    // numbers describing two different allowances, with no way to tell later
+    // which the carrier actually issued.
+    freeTime: true,
+    fields: [],
   },
+];
+
+/** §34. The shapes a carrier's allowance can take. */
+const FREE_TIME_MODELS = [
+  { value: "SPLIT", label: "Separate demurrage and detention" },
+  { value: "COMBINED", label: "Combined D&D" },
+  { value: "NOT_CONFIRMED", label: "Not confirmed yet" },
 ];
 
 /**
@@ -2441,6 +2451,76 @@ function documentConfidenceTone(level) {
   return "border-rose-200 bg-rose-50 text-rose-900";
 }
 
+/**
+ * §34. Free-time terms, shown according to the carrier's model.
+ *
+ * A carrier issues either two allowances or one, and the two shapes are not
+ * interchangeable. Offering all three numbers at once invites a container
+ * recorded as demurrage 5, detention 7 and combined 14 — three figures
+ * describing two different allowances, with nothing to say afterwards which
+ * the carrier actually gave. §34.3 is explicit that splitting a single
+ * allowance in two "invents a deadline that does not exist and hides the one
+ * that does", so the model chooses the fields rather than sitting beside them.
+ *
+ * Clearing the fields that no longer apply is deliberate: leaving them would
+ * store the contradiction this exists to prevent, just out of sight.
+ */
+function FreeTimeFields({ draft, confidence, onChange }) {
+  const model = draft.freeTimeModel || "NOT_CONFIRMED";
+
+  function selectModel(next) {
+    onChange("freeTimeModel", next);
+    if (next !== "SPLIT") {
+      onChange("demurrageFreeDays", "");
+      onChange("detentionFreeDays", "");
+    }
+    if (next !== "COMBINED") onChange("combinedFreeDays", "");
+  }
+
+  return (
+    <>
+      <div className="border-b border-slate-200 p-5 md:col-span-2">
+        <label className="flex flex-col gap-2">
+          <span className="text-[17px] font-semibold text-slate-950">Free-time type</span>
+          <span className="text-[15px] text-slate-700">
+            What the carrier issues. Read from the document where it says so, and confirmed here.
+          </span>
+          <select value={model} onChange={(event) => selectModel(event.target.value)}
+            className="mt-1 h-12 max-w-[420px] rounded-md border border-slate-400 px-3 text-[17px] text-slate-950">
+            {FREE_TIME_MODELS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {model === "SPLIT" ? (
+        <>
+          <DocumentField field={{ key: "demurrageFreeDays", label: "Demurrage-free days", inputMode: "numeric" }}
+            value={draft.demurrageFreeDays} confidence={confidence.demurrageFreeDays} onChange={onChange} />
+          <DocumentField field={{ key: "detentionFreeDays", label: "Detention-free days", inputMode: "numeric" }}
+            value={draft.detentionFreeDays} confidence={confidence.detentionFreeDays} onChange={onChange} />
+        </>
+      ) : null}
+
+      {model === "COMBINED" ? (
+        <DocumentField field={{ key: "combinedFreeDays", label: "Combined D&D days", inputMode: "numeric" }}
+          value={draft.combinedFreeDays} confidence={confidence.combinedFreeDays} onChange={onChange} />
+      ) : null}
+
+      {model === "NOT_CONFIRMED" ? (
+        <div className="p-5 text-[17px] text-slate-700 md:col-span-2">
+          No countdown is shown until the type is confirmed. A deadline derived from
+          an unchecked carrier rule is worse than none, because it will be trusted.
+        </div>
+      ) : null}
+
+      <DocumentField field={{ key: "freeTimeRemarks", label: "Free-time remarks", multiline: true }}
+        value={draft.freeTimeRemarks} confidence={confidence.freeTimeRemarks} onChange={onChange} />
+    </>
+  );
+}
+
 function DocumentField({ field, value, confidence, onChange }) {
   const status = confidence === "high" ? "Extracted" : confidence === "edited" ? "Edited" : confidence === "review" ? "Review" : "Missing";
   return (
@@ -2789,7 +2869,9 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
                       <fieldset>
                         <legend className="w-full bg-slate-100 px-5 py-3 text-[17px] font-semibold text-slate-950">{group.title}</legend>
                         <div className="grid divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0">
-                          {group.fields.map((field) => <DocumentField key={field.key} field={field} value={draft[field.key]} confidence={confidence[field.key]} onChange={updateField} />)}
+                          {group.freeTime
+                            ? <FreeTimeFields draft={draft} confidence={confidence} onChange={updateField} />
+                            : group.fields.map((field) => <DocumentField key={field.key} field={field} value={draft[field.key]} confidence={confidence[field.key]} onChange={updateField} />)}
                         </div>
                       </fieldset>
                       {group.title === "Shipment" ? <DocumentContainersEditor containers={containerDrafts} onChange={setContainerDrafts} /> : null}

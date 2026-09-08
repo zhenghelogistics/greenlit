@@ -76,6 +76,7 @@ export const toImportContainer = (r: Record<string, unknown>): ImportContainer =
   detentionLfd: nn(r.detention_lfd as string),
   combinedFreeDays: nn(r.combined_free_days as number),
   combinedLfd: nn(r.combined_lfd as string),
+  freeTimeRemarks: nn(r.free_time_remarks as string),
   internalLfd: nn(r.internal_lfd as string),
   carparkReason: nn(r.carpark_reason as ImportContainer['carparkReason']),
   carparkArrivedAt: nn(r.carpark_arrived_at as string),

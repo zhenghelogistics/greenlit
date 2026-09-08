@@ -73,6 +73,15 @@ export interface ImportContainer {
   detentionLfd: IsoDate | null;
   combinedFreeDays: number | null;
   combinedLfd: IsoDate | null;
+  /**
+   * §34. The allowance as the carrier worded it.
+   *
+   * "10 combined calendar days from discharge" and "detention starts after
+   * empty return notification" are terms a number cannot carry. Kept verbatim
+   * so a controller can see what was actually written before trusting the
+   * count derived from it.
+   */
+  freeTimeRemarks: string | null;
   /** §34.1. Internal standard, counted from vessel ETA for every container. */
   internalLfd: IsoDate | null;
   /** §36.2 */

@@ -16,6 +16,7 @@ export * from './status.ts';
 export * from './next-action.ts';
 export * from './movements.ts';
 export * from './auto-create.ts';
+export * from './free-time.ts';
 export * from './exceptions.ts';
 export * from './extraction.ts';
 export * from './audit.ts';

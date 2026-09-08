@@ -1,3 +1,4 @@
+import { carrierLastFreeDay } from './free-time.ts';
 import type {
   ExportContainer, ExportJob, ImportContainer, ImportJob, Movement, Thresholds,
 } from './types.ts';
@@ -111,7 +112,11 @@ export function detectImportExceptions(
 
   // §34.6. "Overdue" is reserved for the carrier last free date. Passing the
   // internal target is a different sentence and a different severity.
-  const carrierLfd = container.demurrageLfd ?? container.combinedLfd;
+  // §34.3. Which clock applies is the container's model to decide, not a
+  // fallback chain: `demurrageLfd ?? combinedLfd` preferred a stale split
+  // value over the combined one that actually applied, and for a combined
+  // carrier that invents a deadline while hiding the real one.
+  const carrierLfd = carrierLastFreeDay(container);
   const collected = own.some((m) => m.movementType === 'IMPORT_DELIVERY'
     && MOVED.includes(m.movementStatus));
 
