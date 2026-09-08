@@ -34,6 +34,7 @@ const FIELDS: Record<string, { type: string; description?: string }> = {
   eta: { type: "string", description: "Arrival date as YYYY-MM-DD" },
   portOfDischarge: { type: "string" },
   consignee: { type: "string", description: "Consignee company name only, without the address" },
+  notifyParty: { type: "string", description: "Notify party company name only, without the address. Carriers that print no consignee often print this instead." },
   deliveryAddress: { type: "string" },
   emptyReturnYard: { type: "string" },
   demurrageFreeDays: { type: "integer" },
@@ -77,7 +78,7 @@ Rules:
 - A field not present on the page is null. Never infer, complete, or guess a value from context or from what is typical. A blank prompts a human to check; a wrong value does not.
 - Never repair a value into what it "should" be. If a container number is smudged and you can only read HLXU12345??, return null rather than a completed guess.
 - Every field you return must carry a confidence between 0 and 1 reflecting how clearly you could read it. Clean printed text is high. Handwriting, a skewed photo, or a partly obscured field is low. Be honest — a low score routes the field to a human, which is the correct outcome when you are unsure.
-- consignee is the company name only. Leave out the street address, postcode and country.
+- consignee and notifyParty are company names only. Leave out the street address, postcode and country.
 - Dates as YYYY-MM-DD. If a date is ambiguous between formats (03/04/2026), return null rather than picking one.
 - Container numbers are 4 letters then 7 digits, no spaces.`;
 
