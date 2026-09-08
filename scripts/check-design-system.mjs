@@ -29,13 +29,16 @@ const RULES = [
     message: "Weight 700+ is not in the system. Only 400/500/600.",
   },
   {
-    id: "type-collapse",
+    id: "type-too-small",
     clause: "§2.2",
     level: "error",
     applies: (f) => UI_EXT.has(extname(f)),
-    // The exact band v1 collapsed into. Body is 15px; labels are 12px.
-    pattern: /text-\[1[678]px\]|(?<![\w-])text-base(?![\w-])/g,
-    message: "16-18px is the band v1 collapsed into. Use 15px body, 13px caption or 12px label.",
+    // v4 raised the scale for the people who actually use this: controllers in
+    // their fifties and sixties, reading it all day. The floor is what the
+    // rule now protects — v3's 12-14px sizes are the regression to catch, not
+    // a collapsed band. 15px caption, 17px body, 22px+ headings.
+    pattern: /text-\[(?:[0-9]|1[0-4])px\]|(?<![\w-])text-(?:xs|sm)(?![\w-])/g,
+    message: "Below 15px is under the v4 floor. Use 15px caption, 17px body, 22px+ heading.",
   },
   {
     id: "important-override",

@@ -7,39 +7,53 @@
   /* Ground. White, not a grey canvas: panels stop needing to be white boxes. */
   --gl-bg: #ffffff;
   --gl-bg-subtle: #fafafa;
-  --gl-bg-hover: #f4f4f5;
-  --gl-bg-selected: #eff6ff;
+  --gl-bg-hover: #f1f2f4;
+  --gl-bg-selected: #e8effc;
   /* A blue wash for surfaces that lead: the register header, the acting rail. */
   --gl-bg-accent: #f5f9ff;
 
   /* Ink. Near-monochrome, four steps. */
-  --gl-ink-strong: #0d0e10;
-  --gl-ink: #26282d;
-  --gl-ink-muted: #6b6f76;
+  --gl-ink-strong: #0a0b0c;
+  --gl-ink: #1a1c20;
+  --gl-ink-muted: #4a4e56;
   /* 4.57:1 on white. #9ca0a8 measured 2.62 and failed even the large-text
      threshold, while carrying captions, labels and navigation counts. */
-  --gl-ink-faint: #71767f;
+  --gl-ink-faint: #53585f;
 
   /* Lines. Used sparingly — between sections, rarely around them. */
-  --gl-line: #eceef1;
-  --gl-line-strong: #dfe2e6;
+  --gl-line: #dcdfe3;
+  --gl-line-strong: #b9bec5;
 
   /* One accent. Blue, and used where it means "you can act on this":
      links, the primary action, the current destination, the focused row.
      5.17:1 on white, and white on it also passes, so it works as both. */
-  --gl-accent: #2563eb;
-  --gl-accent-hover: #1d4ed8;
+  --gl-accent: #1e40af;
+  --gl-accent-hover: #1e3a8a;
   --gl-accent-soft: #dbeafe;
-  --gl-focus: #2563eb;
+  --gl-focus: #1e40af;
 
   /* State. Carried by a small mark and words, never by a filled block. */
-  --gl-state-blocked: #d4351c;
-  --gl-state-warn: #b45309;
-  --gl-state-ready: #15803d;
-  --gl-state-idle: #a1a5ad;
+  --gl-state-blocked: #a11b09;
+  --gl-state-warn: #8a4200;
+  --gl-state-ready: #12631f;
+  --gl-state-idle: #54585f;
 
   --gl-font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --gl-font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* v4 type scale. Every step is 2px larger than v3 and the spread between
+     them is unchanged, so the hierarchy v2 restored still reads. */
+  --gl-text-body: 17px;
+  --gl-text-caption: 15px;
+  --gl-text-label: 13px;
+  --gl-text-section: 20px;
+  --gl-text-page: 26px;
+
+  /* 44px is the smallest target most adults hit reliably first time, and the
+     gap between 36 and 44 widens with age. */
+  --gl-control-height: 44px;
+  --gl-control-height-lg: 48px;
+  --gl-row-height: 48px;
 
   --gl-space-1: 4px;  --gl-space-2: 8px;  --gl-space-3: 12px;
   --gl-space-4: 16px; --gl-space-5: 24px; --gl-space-6: 32px;
@@ -63,21 +77,26 @@ body {
   background: var(--gl-bg);
   color: var(--gl-ink);
   font-family: var(--gl-font-sans);
-  font-size: 14px;
-  line-height: 20px;
-  letter-spacing: -0.006em;
+  font-size: var(--gl-text-body);
+  line-height: 26px;
+  letter-spacing: 0;
   margin: 0;
   -webkit-font-smoothing: antialiased;
 }
 
-/* ---- Type. Tight scale; hierarchy from weight and ink, not size jumps. ---- */
-.gl-display { font: 600 21px/28px var(--gl-font-sans); color: var(--gl-ink-strong); letter-spacing: -.02em; }
-.gl-title   { font: 500 15px/20px var(--gl-font-sans); color: var(--gl-ink-strong); letter-spacing: -.01em; }
-.gl-body    { font: 400 14px/20px var(--gl-font-sans); color: var(--gl-ink); }
-.gl-label   { font: 500 12px/16px var(--gl-font-sans); color: var(--gl-ink-muted); letter-spacing: 0; text-transform: none; }
-.gl-data    { font: 450 13px/18px var(--gl-font-mono); font-variant-numeric: tabular-nums; color: var(--gl-ink); letter-spacing: -.01em; }
-.gl-caption { font: 400 12px/16px var(--gl-font-sans); color: var(--gl-ink-faint); }
-.gl-metric  { font: 600 24px/28px var(--gl-font-sans); font-variant-numeric: tabular-nums; color: var(--gl-ink-strong); letter-spacing: -.02em; }
+/* ---- Type ----
+   v4 keeps v2's principle — hierarchy from weight and ink rather than size
+   jumps — and moves the whole scale up. v3 set body at 14px and captions at
+   12px, which is small for anyone and below comfortable reading for the
+   controllers who use this all day. Line height rises with it: tight leading
+   costs more as near vision declines. */
+.gl-display { font: 600 26px/34px var(--gl-font-sans); color: var(--gl-ink-strong); letter-spacing: -.018em; }
+.gl-title   { font: 500 19px/26px var(--gl-font-sans); color: var(--gl-ink-strong); letter-spacing: -.008em; }
+.gl-body    { font: 400 17px/26px var(--gl-font-sans); color: var(--gl-ink); }
+.gl-label   { font: 500 14px/20px var(--gl-font-sans); color: var(--gl-ink-muted); letter-spacing: 0; text-transform: none; }
+.gl-data    { font: 450 16px/24px var(--gl-font-mono); font-variant-numeric: tabular-nums; color: var(--gl-ink); letter-spacing: 0; }
+.gl-caption { font: 400 15px/22px var(--gl-font-sans); color: var(--gl-ink-faint); }
+.gl-metric  { font: 600 30px/36px var(--gl-font-sans); font-variant-numeric: tabular-nums; color: var(--gl-ink-strong); letter-spacing: -.018em; }
 
 .gl-strong { color: var(--gl-ink-strong); }
 .gl-muted  { color: var(--gl-ink-muted); }
@@ -89,12 +108,12 @@ body {
   position: sticky; top: 0; z-index: 2;
   background: var(--gl-bg);
   color: var(--gl-ink-faint);
-  font: 500 12px/16px var(--gl-font-sans);
+  font: 500 14px/20px var(--gl-font-sans);
   text-align: left; text-transform: none; letter-spacing: 0;
-  padding: 8px 12px; white-space: nowrap;
+  padding: 12px 14px; white-space: nowrap;
   border-bottom: 1px solid var(--gl-line);
 }
-.gl-table tbody td { padding: 0 12px; height: 40px; vertical-align: middle; }
+.gl-table tbody td { padding: 0 14px; height: var(--gl-row-height); vertical-align: middle; }
 .gl-table tbody tr { border-bottom: 1px solid var(--gl-line); }
 .gl-table tbody tr:last-child { border-bottom: 0; }
 .gl-table tbody tr:hover { background: var(--gl-bg-hover); cursor: pointer; }
@@ -103,7 +122,7 @@ body {
   box-shadow: inset 2px 0 0 0 var(--gl-accent);
 }
 .gl-table tbody tr:focus { outline: none; }
-.gl-table tbody tr:focus-visible { outline: 2px solid var(--gl-focus); outline-offset: -2px; }
+.gl-table tbody tr:focus-visible { outline: 3px solid var(--gl-focus); outline-offset: -3px; }
 
 /* ---- Panels. A panel is a region, not a box. ---- */
 .gl-panel { background: var(--gl-bg); border: 0; border-radius: 0; box-shadow: none; }

@@ -31,18 +31,24 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const strategy = extractionStrategy(document);
-  if (strategy !== "TEXT_LAYER" && !claudeExtractionAvailable()) {
+  if (!claudeExtractionAvailable()) {
     return Response.json({
-      error: "This document has no text layer, so it needs vision extraction, "
-        + "which requires ANTHROPIC_API_KEY to be configured.",
+      error: "Reading documents requires ANTHROPIC_API_KEY to be configured.",
       strategy,
       fileName: file.name,
     }, { status: 503 });
   }
 
-  // ingest() rasterises what it can into per-page data URLs; those are what a
-  // model can actually look at. Splitting them here keeps the base64 handling
-  // in one place rather than in the extractor.
+  // A scanned PDF has no text layer and ingest() does not rasterise, so
+  // reading it used to need OCR — a rung that loses the layout and mangles
+  // handwriting before the fields are ever parsed. Sending the PDF itself
+  // avoids both: the API renders and reads it, so the model sees the page as
+  // printed rather than an OCR engine's guess at it.
+  const isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
+  const pdfBase64 = isPdf
+    ? Buffer.from(await file.arrayBuffer()).toString("base64")
+    : undefined;
+
   const images = [];
   for (const page of document.pages) {
     const match = /^data:(image\/(?:png|jpeg));base64,(.+)$/.exec(page.imageDataUrl ?? "");
@@ -52,7 +58,10 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const result = await extractWithClaude({
       fileName: file.name,
+      pdfBase64,
       images,
+      // The text layer, when there is one, is sent alongside the page rather
+      // than instead of it: it is exact where rendering is interpretation.
       text: document.text || undefined,
     });
     return Response.json({

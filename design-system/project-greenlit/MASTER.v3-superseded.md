@@ -1,44 +1,13 @@
 # Design System Master File
 
 **Project:** Project Greenlit
-**Version:** 4.0 — quiet, fast, and legible to the people who use it
-**Supersedes:** v3.0 (quiet, keyboard-first), retained as `MASTER.v3-superseded.md`
-**Reference point:** Linear, corrected for its audience
+**Version:** 3.0 — quiet, fast, keyboard-first
+**Supersedes:** v2.0 (operational instrument), retained as `MASTER.v2-superseded.md`
+**Reference point:** Linear
 
 ---
 
-## 0. Why v3 was replaced
-
-v3 was designed against the wrong reader. Its reference point was Linear — a
-tool made for software teams, whose conventions assume a young, screen-native
-audience: 14px body text, 12px captions, grey-on-white supporting copy at the
-4.5:1 AA floor, and 36px controls.
-
-The people who actually run this book are controllers in their fifties and
-sixties, reading it all day. Every one of those conventions works against
-them. Presbyopia is effectively universal past about 45, and contrast
-sensitivity declines alongside it, so the AA floor — a minimum written for
-the general population — is not a target for this audience. A 12px caption at
-4.57:1 is legible in a design review and tiring on a Tuesday afternoon.
-
-v4 changes the reader, not the character. Quiet, fast and keyboard-first all
-survive; nothing became louder or more decorated. What changed is that the
-quiet is now legible:
-
-- **The whole type scale moved up** — body 14px to 17px, captions 12px to
-  15px — with the spread between steps preserved, so the hierarchy v2
-  restored still reads. This is not the v1 collapse in reverse: v1 put 76% of
-  its text in a 2px band, and v4's steps are 13/15/17/19/22/26.
-- **Every text colour now meets AAA (7:1), not AA.** `ink-faint` was 4.57:1
-  and is 7.17:1. Contrast is measured in the build, not asserted here — v2
-  claimed a token was "4.6:1" when it measured 2.9, which is exactly what an
-  unmeasured claim is worth.
-- **Targets are 44px**, not 36px. The gap between 36 and 44 widens with age.
-- **Focus rings are 3px**, not 2px. Findable is not the same as unmissable.
-- **Line height rose with the type.** Tight leading costs more as near vision
-  declines, so 17px body sits on 26px rather than 20px.
-
-## 0.1 Why v2 was replaced
+## 0. Why v2 was replaced
 
 v2 fixed a real problem — v1 had collapsed 76% of its text into a 2px band, so
 nothing could be emphasised. v2 restored typographic hierarchy.
@@ -141,16 +110,11 @@ applied to a 6px dot beside the word, never as a background.
 ## 4. Density
 
 ```
-Table row        48px, no zebra, no vertical rules
-Cell padding     0 14px
-Control height   44px, 48px for a primary action
+Table row        40px, no zebra, no vertical rules
+Cell padding     0 12px
+Control height   36px, 40px for a primary action
 Section gap      24px
 ```
-
-44px is the smallest target most adults hit reliably on the first attempt, and
-the margin between 36px and 44px widens with age. Density here comes from
-whitespace and the absence of chrome, not from shrinking what a person has to
-hit or read.
 
 Rows are separated by a hairline and nothing else. Hover and keyboard focus are
 the only row treatments.
