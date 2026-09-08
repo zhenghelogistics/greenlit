@@ -50,11 +50,19 @@ export function getRepository(): Repository {
  * the port this becomes destructive, so the route that calls it refuses to run
  * in production.
  */
-export function resetRepository(): void {
-  // Deliberately always in-memory: against a real database this would delete
-  // real work, and the route that calls it refuses in production anyway.
+export function resetRepository(): { reset: boolean; reason: string | null } {
+  // Silently swapping a Supabase-backed app to in-memory was worse than either
+  // option: the fixtures would appear, the real data would look deleted, and
+  // anything created afterwards would go nowhere. Refuse instead.
+  if (storageKind() === "supabase") {
+    return {
+      reset: false,
+      reason: "This instance is backed by Supabase. Reset only applies to in-memory data.",
+    };
+  }
   repository = createMemoryRepository();
   service = new JobService(repository);
+  return { reset: true, reason: null };
 }
 
 export function jsonError(error: unknown, status = 500) {

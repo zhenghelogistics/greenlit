@@ -15,6 +15,9 @@ export async function POST() {
       { status: 403 },
     );
   }
-  resetRepository();
+  const result = resetRepository();
+  if (!result.reset) {
+    return Response.json({ error: result.reason }, { status: 409 });
+  }
   return Response.json({ ok: true, message: "Rebuilt from the seeded fixtures" });
 }
