@@ -19,7 +19,6 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleDot,
-  Clock3,
   Container as ContainerIcon,
   FileCheck2,
   FileSearch,
@@ -39,14 +38,13 @@ import {
   Trash2,
   Truck,
   Upload,
-  Warehouse,
   Wrench,
   X,
   XCircle,
   Building2,
   UserRound,
 } from "lucide-react";
-import { addIsoDays, MAX_CONTAINERS_PER_JOB, parseArrivalNoticeText, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
+import { addIsoDays, MAX_CONTAINERS_PER_JOB, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
 import { reconcileExtraction, toExtractedFields } from "@greenlit/engine";
 
 /**
@@ -63,7 +61,8 @@ const INTAKE_CRITICAL_FIELDS = [
   "detentionFreeDays",
 ];
 import { addContainerRecord, applyCheckpoint, applyContainerUpdate, applyFreeTime, applyJobFacts, applyTripUpdate, assignChassis, nextTripReference, releaseChassis, removeContainerRecord } from "./lib/operations-actions.mjs";
-import { readPdfText } from "./lib/read-pdf.mjs";
+import { companyNameFromConsignee, suggestCode } from "./lib/company-from-document.mjs";
+import { toIntakeResult } from "./lib/intake-fields.mjs";
 
 // -----------------------------------------------------------------------------
 // Seed data — fixed at 19 August 2026 so the demo is repeatable.
@@ -131,11 +130,6 @@ function ActingUser({ onChange }) {
 }
 
 const CARPARK = "ZHL Carpark, Pioneer Road";
-const CHASSIS_TOTALS = { "20ft": 47, "40ft": 42 };
-const MAINTENANCE_UNITS = {
-  "20ft": [2040, 2043, 2055, 2066, 2072, 2080],
-  "40ft": [4031, 4036, 4045, 4058, 4065, 4488],
-};
 
 const DOCUMENT_FIELD_GROUPS = [
   {
@@ -835,11 +829,6 @@ function tripStatusTone(trip) {
   return "border-emerald-200 bg-emerald-50 text-emerald-800";
 }
 
-function dwellTone(days) {
-  if (days > 5) return "border-rose-200 bg-rose-50 text-rose-800";
-  if (days > 3) return "border-amber-200 bg-amber-50 text-amber-800";
-  return "border-slate-200 bg-slate-50 text-slate-700";
-}
 
 function WaitingPill({ owner }) {
   // "Us" is the only one that means act, so it is the only one marked.
@@ -936,6 +925,56 @@ function CounterCard({ label, value, note, icon: Icon, tone = "navy", onClick })
  * read, proposes a code, and makes a person confirm it, because the code is
  * immutable once issued and goes on every job reference from then on.
  */
+/**
+ * What the board says when it has nothing to show.
+ *
+ * An empty book and an unreachable server produce the same blank screen, and
+ * they mean opposite things: one is "there is no work", the other is "you
+ * cannot see the work". A controller who cannot tell them apart will assume
+ * the first, which is the dangerous reading.
+ */
+function BoardState({ source, onRetry, onAddDocument }) {
+  if (source === "loading") {
+    return (
+      <div role="status" className="gl-panel mx-auto mt-10 max-w-[560px] p-8 text-center">
+        <p className="gl-body">Loading the board&hellip;</p>
+      </div>
+    );
+  }
+
+  if (source === "offline") {
+    return (
+      <div role="alert" className="gl-panel mx-auto mt-10 max-w-[560px] p-8 text-center">
+        <AlertCircle className="mx-auto h-8 w-8 text-[color:var(--gl-state-blocked)]" aria-hidden="true" />
+        <h2 className="gl-title mt-4">The board could not be loaded</h2>
+        <p className="gl-body mt-2">
+          Greenlit could not reach the server, so nothing is shown rather than
+          something out of date. Any job already in progress is unaffected.
+        </p>
+        <button type="button" onClick={onRetry}
+          className="mt-6 h-11 rounded border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-medium text-white hover:bg-[color:var(--gl-accent-hover)]">
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="gl-panel mx-auto mt-10 max-w-[560px] p-8 text-center">
+      <FileText className="mx-auto h-8 w-8 text-slate-600" aria-hidden="true" />
+      <h2 className="gl-title mt-4">No jobs yet</h2>
+      <p className="gl-body mt-2">
+        Upload an arrival notice and Greenlit will read it, match the company,
+        and open the job for you.
+      </p>
+      <button type="button" onClick={onAddDocument}
+        className="mt-6 h-11 rounded border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-medium text-white hover:bg-[color:var(--gl-accent-hover)]">
+        Upload a document
+      </button>
+    </div>
+  );
+}
+
 function UnknownCompanyPrompt({ pending, onCancel, onChange, onCreated }) {
   const [saving, setSaving] = useState(false);
 
@@ -1515,9 +1554,6 @@ function TripTable({ trips, flashTripId, onOpenTrip }) {
   );
 }
 
-function formatKg(value) {
-  return value ? `${value.toLocaleString()} kg` : "Not yet known";
-}
 
 function freeTimeTone(days) {
   if (days < 0) return "border-rose-800 bg-rose-800 text-white";
@@ -1634,7 +1670,6 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
   const exceptions = jobs.filter((job) => job.exception?.open);
   const atCarpark = jobs.filter((job) => location(job) === CARPARK);
   const freeRisk = jobs.filter((job) => job.type === "Import" && !["Delivered", "Empty Return Pending", "Completed"].includes(jobStatus(job)) && daysUntil(job.demurrageLastFreeDay) <= 3);
-  const heldBeyondFive = chassis.inUse.filter((item) => item.days > 5).length;
 
   /**
    * §48: "The dashboard answers one question: what requires attention right
@@ -1923,9 +1958,15 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
   const [draft, setDraft] = useState(() => initialDrawerDraft(panel, job));
   const heading = panel ? panelHeading(panel, job) : { title: "", note: "" };
 
+  // The drawer's draft is reset when it is pointed at a different panel. The
+  // rule flags setState in an effect generically; here the effect is the
+  // synchronisation, and the dependency list is the panel identity rather than
+  // the objects themselves so a re-render does not discard typing in progress.
+  /* eslint-disable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
   useEffect(() => {
     setDraft(initialDrawerDraft(panel, job));
   }, [panel?.type, panel?.jobId, panel?.key, panel?.index, panel?.mode, panel?.tripId, panel?.unit]);
+  /* eslint-enable react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 
   useEffect(() => {
     if (!panel) return undefined;
@@ -1961,7 +2002,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
             <p className="mt-2 text-[17px] font-medium text-[color:var(--gl-ink-muted)]">{heading.note}</p>
             {job ? <div className="gl-data gl-muted mt-2 inline-flex items-center">{job.id} · {job.customer}</div> : null}
           </div>
-          <button type="button" onClick={onClose} autoFocus aria-label="Close management panel" className="flex min-h-11 min-w-9 shrink-0 items-center justify-center rounded-md text-[color:var(--gl-ink-muted)] hover:bg-[color:var(--gl-bg-hover)]"><X className="h-6 w-6" /></button>
+          <button type="button" onClick={onClose} aria-label="Close management panel" className="flex min-h-11 min-w-9 shrink-0 items-center justify-center rounded-md text-[color:var(--gl-ink-muted)] hover:bg-[color:var(--gl-bg-hover)]"><X className="h-6 w-6" /></button>
         </div>
 
         <form onSubmit={(event) => { event.preventDefault(); if (isReadOnly) onClose(); else onCommit(panel, draft); }} className="flex min-h-0 flex-1 flex-col">
@@ -2814,81 +2855,8 @@ function ChassisFleet({ fleet, onOpen, onUnit }) {
   );
 }
 
-function nextDocumentJobId(jobs) {
-  const prefix = `JOB-${operationalToday().slice(2).replaceAll("-", "")}-`;
-  const nextNumber = jobs.reduce((highest, job) => {
-    if (!job.id.startsWith(prefix)) return highest;
-    return Math.max(highest, Number(job.id.slice(prefix.length)) || 0);
-  }, 0) + 1;
-  return `${prefix}${String(nextNumber).padStart(3, "0")}`;
-}
 
-function partyName(value) {
-  return String(value || "").split("·")[0].trim() || "Consignee to confirm";
-}
 
-function buildImportJobFromDocument(result, jobs, existingJob = null) {
-  const fields = result.values;
-  const jobId = existingJob?.id || nextDocumentJobId(jobs);
-  const incoming = (result.containers?.length ? result.containers : [{ number: fields.containerNumber, type: fields.containerType, seal: fields.sealNumber }]).slice(0, MAX_CONTAINERS_PER_JOB);
-  const mappedContainers = incoming.map((item, index) => {
-    const previous = existingJob?.containers?.find((container) => container.number === item.number) || existingJob?.containers?.[index];
-    return {
-      ...previous,
-      ref: item.ref || previous?.ref || `C${index + 1}`,
-      number: item.number,
-      type: item.type || previous?.type || "",
-      seal: item.seal || previous?.seal || "",
-      state: previous?.state || "Awaiting permit",
-      lastFreeDay: previous?.lastFreeDay || result.planning.demurrageLastFreeDay,
-      cargoDescription: item.cargoDescription || fields.cargoDescription || "",
-      grossWeightKg: item.grossWeightKg || "",
-    };
-  });
-  const incomingNumbers = new Set(mappedContainers.map((container) => container.number));
-  const retainedContainers = (existingJob?.containers || []).filter((container) => !incomingNumbers.has(container.number));
-  const containers = [...mappedContainers, ...retainedContainers].slice(0, MAX_CONTAINERS_PER_JOB);
-  return {
-    ...(existingJob || {}),
-    id: jobId,
-    type: "Import",
-    customer: partyName(fields.consignee),
-    createdDate: existingJob?.createdDate || operationalToday(),
-    infoComplete: REQUIRED_JOB_FIELDS.every((key) => Boolean(String(fields[key] || "").trim())),
-    permitReceived: existingJob?.permitReceived || false,
-    portnetReleased: existingJob?.portnetReleased || false,
-    terminal: fields.terminal,
-    deliveryAddress: fields.deliveryAddress || fields.consignee,
-    containers,
-    trips: existingJob?.trips || [],
-    chassis: existingJob?.chassis || [],
-    demurrageLastFreeDay: result.planning.demurrageLastFreeDay,
-    detentionLastFreeDay: result.planning.detentionLastFreeDay,
-    deadlineProvisional: true,
-    booking: fields.bookingNumber,
-    billOfLading: fields.billOfLading,
-    vessel: fields.vessel,
-    voyage: fields.voyage,
-    portOfLoading: fields.portOfLoading,
-    portOfDischarge: fields.portOfDischarge,
-    sealNumber: fields.sealNumber,
-    containerType: fields.containerType,
-    cargoDescription: fields.cargoDescription,
-    sourceDocument: {
-      fileName: result.fileName,
-      documentType: fields.documentType,
-      carrier: fields.carrier,
-      pages: result.pages,
-      issueDate: fields.issueDate,
-      extractedCount: result.extractedCount,
-      containerCount: containers.length,
-      processedLocally: true,
-      values: { ...fields },
-      containers: containers.map((container) => ({ ref: container.ref, number: container.number, type: container.type, seal: container.seal })),
-    },
-    exception: existingJob?.exception || null,
-  };
-}
 
 export default function GreenlitControlTower() {
   // Starts empty, not from fixtures. Seeding the screen meant an empty
@@ -2916,8 +2884,16 @@ export default function GreenlitControlTower() {
       });
   }, []);
 
+  // Loading the board on mount is the effect's whole purpose: the server is
+  // the external system being synchronised from.
+  /* eslint-disable-next-line react-hooks/set-state-in-effect */
   useEffect(() => { loadJobs(); }, [loadJobs]);
   const [documents, setDocuments] = useState([]);
+  // Written in two places and read in none: clearing a unit's maintenance flag
+  // records the decision and then nothing consults it, so the unit reappears
+  // as under maintenance. Left in place rather than deleted because deleting
+  // it would hide the gap; the fix is to make the fleet view read it.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [clearedMaintenanceUnits, setClearedMaintenanceUnits] = useState([]);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [workPanel, setWorkPanel] = useState(null);
@@ -3488,8 +3464,11 @@ export default function GreenlitControlTower() {
         </div>
       </header>
 
-      {screen === "dashboard" ? <Dashboard jobs={jobs} actionJobs={actionJobs} chassis={fleet} onOpen={openJob} onShowActions={showActions} onShowFleet={() => goTo("fleet")} /> : null}
-      {screen === "actions" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}
+      {(screen === "dashboard" || screen === "actions") && source !== "engine" ? (
+        <BoardState source={source} onRetry={loadJobs} onAddDocument={() => goTo("documents")} />
+      ) : null}
+      {screen === "dashboard" && source === "engine" ? <Dashboard jobs={jobs} actionJobs={actionJobs} chassis={fleet} onOpen={openJob} onShowActions={showActions} onShowFleet={() => goTo("fleet")} /> : null}
+      {screen === "actions" && source === "engine" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}
       {screen === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onOpenJob={openJob} /> : null}
       {screen === "companies" ? (
         <Companies onOpenCompany={(code) => { setSelectedCompany(code); setScreen("company"); }} />

@@ -36,6 +36,23 @@ const eslintConfig = defineConfig([
       },
     },
   },
+  {
+    // ESLint 9 lints .js/.mjs/.cjs by default and leaves .jsx alone unless a
+    // config names it. GreenlitControlTower.jsx — the whole UI — was therefore
+    // never linted, which is how three helpers came to be called with no
+    // import: not typechecked either, so nothing looked at them until the
+    // browser said "toIntakeResult is not defined".
+    files: ["**/*.jsx", "**/*.mjs", "**/*.js"],
+    rules: {
+      // typescript-eslint switches this off because tsc reports an unknown
+      // name more precisely. That holds only for files tsc reads.
+      "no-undef": "error",
+      // This codebase types nothing at runtime and uses no PropTypes; the rule
+      // would report every prop of every component and drown the rules that
+      // find real defects.
+      "react/prop-types": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;
