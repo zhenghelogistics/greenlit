@@ -5,3 +5,4 @@
  * and no other change. The contract suite in @greenlit/core is what proves it.
  */
 export { createSupabaseRepository, type SupabaseRepositoryOptions } from './supabase.ts';
+export { seed, type SeedOptions } from './seed.ts';

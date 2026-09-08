@@ -58,13 +58,17 @@ export function runRepositoryContract(
     assert.notEqual(after[0]!.customer, '__MUTATED__');
   });
 
-  test(`[${name}] instances are independent`, async () => {
-    const a = await fresh();
-    const b = await fresh();
-    await a.recordPortnetReleased(seeded.importJobId, 'tester');
-    const fromB = await b.getImportJob(seeded.importJobId);
-    assert.equal(fromB?.portnetReleased, false,
-      'a write to one instance must not be visible in another');
+  test(`[${name}] a write is visible to a later read`, async () => {
+    // This replaced a test asserting that two instances were ISOLATED. That is
+    // true of the in-memory adapter, which owns its own maps, and false — and
+    // correctly so — of any shared database. It was an implementation detail
+    // masquerading as a contract, and it failed the moment a second adapter
+    // existed. What every implementation genuinely owes is durability: what
+    // was written can be read back.
+    const repo = await fresh();
+    await repo.recordPortnetReleased(seeded.importJobId, 'tester');
+    const after = await repo.getImportJob(seeded.importJobId);
+    assert.equal(after?.portnetReleased, true, 'a write must be readable afterwards');
   });
 
   test(`[${name}] movements returned for a job belong to that job`, async () => {
@@ -153,15 +157,18 @@ export function runRepositoryContract(
 
   test(`[${name}] §13: commands leave an audit trail with a named actor`, async () => {
     const repo = await fresh();
-    assert.deepEqual(await repo.listAuditEvents(seeded.exportJobId), [],
-      'no history before anything happened');
+    // Relative, not absolute: a persistent store carries history from earlier
+    // work, and requiring an empty trail would only ever pass on a fresh
+    // in-memory instance.
+    const before = await repo.listAuditEvents(seeded.exportJobId);
 
     await repo.recordCms(seeded.exportJobId, 'COMPLETED', 'Sarah Lim');
-    const events = await repo.listAuditEvents(seeded.exportJobId);
-    assert.ok(events.length > 0, 'a command must leave a record');
-    const [first] = events;
-    assert.equal(first?.actor, 'Sarah Lim', '§13 forbids an anonymous change');
-    assert.ok(first?.createdAt, 'an event carries when it happened');
+    const after = await repo.listAuditEvents(seeded.exportJobId);
+
+    assert.ok(after.length > before.length, 'a command must leave a record');
+    const added = after.at(-1);
+    assert.equal(added?.actor, 'Sarah Lim', '§13 forbids an anonymous change');
+    assert.ok(added?.createdAt, 'an event carries when it happened');
   });
 
   test(`[${name}] §13: the audit stream is append-only`, async () => {
@@ -182,9 +189,15 @@ export function runRepositoryContract(
 
   test(`[${name}] audit events are attributed to the right entity`, async () => {
     const repo = await fresh();
+    const importBefore = (await repo.listAuditEvents(seeded.importJobId)).length;
+
     await repo.recordCms(seeded.exportJobId, 'COMPLETED', 'W');
-    assert.deepEqual(await repo.listAuditEvents(seeded.importJobId), [],
+
+    const importAfter = await repo.listAuditEvents(seeded.importJobId);
+    assert.equal(importAfter.length, importBefore,
       'an export job command must not appear on an import job');
+    assert.ok(importAfter.every((e) => e.entityId === seeded.importJobId),
+      'every event on a job names that job');
   });
 
   test(`[${name}] §12: a discrepancy outlives the screen that raised it`, async () => {
