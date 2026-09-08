@@ -24,37 +24,49 @@ import Anthropic from "@anthropic-ai/sdk";
 import { field, type ExtractedField } from "@greenlit/engine";
 
 /** The operational fields worth reading off a shipping document. */
+const FIELDS: Record<string, { type: string; description?: string }> = {
+  containerNumber: { type: "string", description: "ISO 6346, 4 letters + 7 digits, e.g. HLXU1234567" },
+  blNumber: { type: "string", description: "Bill of lading number" },
+  bookingReference: { type: "string" },
+  carrier: { type: "string", description: "Shipping line, e.g. Hapag-Lloyd" },
+  vesselName: { type: "string" },
+  voyage: { type: "string" },
+  eta: { type: "string", description: "Arrival date as YYYY-MM-DD" },
+  portOfDischarge: { type: "string" },
+  consignee: { type: "string", description: "Consignee company name only, without the address" },
+  deliveryAddress: { type: "string" },
+  emptyReturnYard: { type: "string" },
+  demurrageFreeDays: { type: "integer" },
+  detentionFreeDays: { type: "integer" },
+  permitNumber: { type: "string" },
+  vgm: { type: "number", description: "Verified gross mass in kg" },
+};
+
+/**
+ * Each field is an object carrying its own confidence, rather than a flat
+ * value plus a parallel confidence map.
+ *
+ * Two reasons, one of which the API enforced: a parallel map made every score
+ * a separate optional property and blew the 24-optional-parameter limit. The
+ * better reason is that pairing them makes a score impossible to omit — a
+ * value can no longer arrive unscored and be mistaken for a confident one.
+ */
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
-  properties: {
-    containerNumber: { type: ["string", "null"], description: "ISO 6346, 4 letters + 7 digits, e.g. HLXU1234567" },
-    blNumber: { type: ["string", "null"], description: "Bill of lading number" },
-    bookingReference: { type: ["string", "null"] },
-    carrier: { type: ["string", "null"], description: "Shipping line, e.g. Hapag-Lloyd" },
-    vesselName: { type: ["string", "null"] },
-    voyage: { type: ["string", "null"] },
-    eta: { type: ["string", "null"], description: "Arrival date as YYYY-MM-DD" },
-    portOfDischarge: { type: ["string", "null"] },
-    deliveryAddress: { type: ["string", "null"] },
-    emptyReturnYard: { type: ["string", "null"] },
-    demurrageFreeDays: { type: ["integer", "null"] },
-    detentionFreeDays: { type: ["integer", "null"] },
-    permitNumber: { type: ["string", "null"] },
-    vgm: { type: ["number", "null"], description: "Verified gross mass in kg" },
-    confidence: {
-      type: "object",
+  properties: Object.fromEntries(
+    Object.entries(FIELDS).map(([name, spec]) => [name, {
+      type: ["object", "null"],
       additionalProperties: false,
-      description: "Per-field confidence 0-1. Required for every field you returned non-null.",
-      properties: Object.fromEntries(
-        ["containerNumber", "blNumber", "bookingReference", "carrier", "vesselName", "voyage",
-         "eta", "portOfDischarge", "deliveryAddress", "emptyReturnYard", "demurrageFreeDays",
-         "detentionFreeDays", "permitNumber", "vgm"].map((k) => [k, { type: "number" }]),
-      ),
-      required: [],
-    },
-  },
-  required: ["confidence"],
+      description: spec.description,
+      properties: {
+        value: { type: spec.type },
+        confidence: { type: "number", description: "0-1, how clearly you could read it" },
+      },
+      required: ["value", "confidence"],
+    }]),
+  ),
+  required: Object.keys(FIELDS),
 } as const;
 
 const SYSTEM = `You read shipping documents for a Singapore haulier and return structured fields.
@@ -64,7 +76,8 @@ Documents range from a clean carrier PDF to a phone photograph of a handwritten 
 Rules:
 - A field not present on the page is null. Never infer, complete, or guess a value from context or from what is typical. A blank prompts a human to check; a wrong value does not.
 - Never repair a value into what it "should" be. If a container number is smudged and you can only read HLXU12345??, return null rather than a completed guess.
-- Give each non-null field a confidence between 0 and 1 reflecting how clearly you could read it. Clean printed text is high. Handwriting, a skewed photo, or a partly obscured field is low. Be honest — a low score routes the field to a human, which is the correct outcome when you are unsure.
+- Every field you return must carry a confidence between 0 and 1 reflecting how clearly you could read it. Clean printed text is high. Handwriting, a skewed photo, or a partly obscured field is low. Be honest — a low score routes the field to a human, which is the correct outcome when you are unsure.
+- consignee is the company name only. Leave out the street address, postcode and country.
 - Dates as YYYY-MM-DD. If a date is ambiguous between formats (03/04/2026), return null rather than picking one.
 - Container numbers are 4 letters then 7 digits, no spaces.`;
 
@@ -83,17 +96,15 @@ export interface ClaudeExtractionResult {
 export function toFields(
   json: string, fileName: string, now: string,
 ): Record<string, ExtractedField<unknown>> {
-  const parsed = JSON.parse(json) as
-    Record<string, unknown> & { confidence?: Record<string, number> };
-  const scores = parsed.confidence ?? {};
+  const parsed = JSON.parse(json) as Record<string, { value: unknown; confidence: number } | null>;
 
   const fields: Record<string, ExtractedField<unknown>> = {};
-  for (const [key, value] of Object.entries(parsed)) {
-    if (key === "confidence" || value === null || value === undefined) continue;
-    // A value returned without a confidence score is treated as unverified
-    // rather than certain. Defaulting to 0 routes it to a human; defaulting to
-    // 1 would let a silent omission read as agreement.
-    fields[key] = field(value, fileName, scores[key] ?? 0, now);
+  for (const [key, entry] of Object.entries(parsed)) {
+    if (entry === null || entry === undefined || entry.value === null) continue;
+    // A value that somehow arrives without a score is treated as unverified
+    // rather than certain: 0 routes it to a human, where 1 would let a silent
+    // omission read as agreement.
+    fields[key] = field(entry.value, fileName, entry.confidence ?? 0, now);
   }
   return fields;
 }

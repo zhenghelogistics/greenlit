@@ -957,6 +957,95 @@ function CounterCard({ label, value, note, icon: Icon, tone = "navy", onClick })
  * into every job reference, and it is immutable once issued — so the operator
  * chooses something they will recognise, and the server checks it is free.
  */
+/**
+ * A document naming a company the master does not have.
+ *
+ * §11.2 detects the customer rather than asking for it, and the master stays
+ * the authority — so this does not create anything silently. It shows what was
+ * read, proposes a code, and makes a person confirm it, because the code is
+ * immutable once issued and goes on every job reference from then on.
+ */
+function UnknownCompanyPrompt({ pending, onCancel, onChange, onCreated }) {
+  const [saving, setSaving] = useState(false);
+
+  async function create(event) {
+    event.preventDefault();
+    setSaving(true);
+    onChange({ error: "" });
+    try {
+      const response = await fetch("/api/customers", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          code: pending.code,
+          companyName: pending.companyName,
+          actor: CURRENT_USER,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        onChange({ error: payload.error ?? `Could not save (HTTP ${response.status}).` });
+        return;
+      }
+      // The document that prompted this is applied straight away, so the
+      // operator is not left to remember what they were in the middle of.
+      await onCreated(pending.document);
+    } catch {
+      onChange({ error: "Could not reach the server. Nothing was saved." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[color:var(--gl-ink-strong)]/25 p-4">
+      <form onSubmit={create} role="dialog" aria-modal="true" aria-labelledby="new-company-title"
+        className="w-full max-w-[520px] rounded-lg border border-slate-300 bg-white p-6 shadow-[0_16px_48px_rgba(15,23,42,0.24)]">
+        <h2 id="new-company-title" className="text-[19px] font-medium text-slate-900">
+          Add this company?
+        </h2>
+        <p className="mt-2 text-[15px] text-slate-700">
+          No company in the master matches the consignee on this document.
+        </p>
+
+        <label className="mt-5 flex flex-col gap-1">
+          <span className="text-[13px] font-medium text-slate-700">Company name</span>
+          <input value={pending.companyName} onChange={(e) => onChange({ companyName: e.target.value })}
+            className="h-11 rounded border border-slate-400 px-3 text-[15px] text-slate-900" required />
+        </label>
+
+        <label className="mt-4 flex flex-col gap-1">
+          <span className="text-[13px] font-medium text-slate-700">Code</span>
+          <input value={pending.code} onChange={(e) => onChange({ code: e.target.value.toUpperCase() })}
+            className="h-11 w-[160px] rounded border border-slate-400 px-3 text-[15px] text-slate-900"
+            required maxLength={6} />
+          <span className="text-[13px] text-slate-600">
+            Goes on every job reference for this company — {pending.code || "ABC"}-001, {pending.code || "ABC"}-002.
+            It cannot be changed later.
+          </span>
+        </label>
+
+        {pending.error ? (
+          <p role="alert" className="mt-4 rounded border border-red-300 bg-red-50 p-3 text-[15px] text-red-900">
+            {pending.error}
+          </p>
+        ) : null}
+
+        <div className="mt-6 flex items-center gap-3">
+          <button type="submit" disabled={saving}
+            className="h-11 rounded border-0 bg-[color:var(--gl-accent)] px-4 text-[15px] font-medium text-white hover:bg-[color:var(--gl-accent-hover)] disabled:opacity-60">
+            {saving ? "Adding…" : "Add and apply document"}
+          </button>
+          <button type="button" onClick={onCancel}
+            className="h-11 rounded border border-slate-400 bg-white px-4 text-[15px] text-slate-800 hover:bg-slate-50">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function NewCompanyForm({ onCreated }) {
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState("");
@@ -2850,6 +2939,8 @@ export default function GreenlitControlTower() {
   const [toast, setToast] = useState("");
   const [highlight, setHighlight] = useState("");
   const [toastTimer, setToastTimer] = useState(null);
+  // A company the document names that the master does not have yet.
+  const [pendingCompany, setPendingCompany] = useState(null);
   const [highlightTimer, setHighlightTimer] = useState(null);
 
   const actionJobs = jobs.filter(isActionRequired).sort((a, b) => urgency(b) - urgency(a));
@@ -3209,9 +3300,16 @@ export default function GreenlitControlTower() {
     });
 
     if (!match) {
-      showToast(named
-        ? `No company matches “${named}”. Add it under Companies, then apply this document again.`
-        : "This document names no consignee. Add the company under Companies first.");
+      // Sending the operator to another screen to type a name the document
+      // already contains, then back again to redo the apply, is three steps to
+      // record something the system just read. Offer it here instead; the code
+      // still has to be confirmed, because it is immutable once issued.
+      const companyName = companyNameFromConsignee(named);
+      if (!companyName) {
+        showToast("This document names no consignee, so there is nothing to match a company against.");
+        return;
+      }
+      setPendingCompany({ companyName, code: suggestCode(companyName), document: result, error: "" });
       return;
     }
 
@@ -3430,6 +3528,18 @@ export default function GreenlitControlTower() {
       ) : null}
 
       <OperationsDrawer panel={workPanel} jobs={jobs} onClose={() => setWorkPanel(null)} onCommit={commitOperationalPanel} />
+
+      {pendingCompany ? (
+        <UnknownCompanyPrompt
+          pending={pendingCompany}
+          onCancel={() => setPendingCompany(null)}
+          onChange={(next) => setPendingCompany((prev) => ({ ...prev, ...next }))}
+          onCreated={async (document) => {
+            setPendingCompany(null);
+            await applyDocument(document);
+          }}
+        />
+      ) : null}
 
       {toast ? (
         <div role="status" aria-live="polite" className="fixed bottom-5 right-5 z-50 flex max-w-[560px] items-start gap-3 rounded-lg border border-emerald-300 bg-white p-5 text-[15px] font-semibold text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.2)]">
