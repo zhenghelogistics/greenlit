@@ -13,6 +13,7 @@
     "test": "npm run build && node --test tests/*.test.mjs"
   },
   "dependencies": {
+    "@greenlit/db": "*",
     "lucide-react": "^1.32.0",
     "next": "^15.5.25",
     "pdfjs-dist": "^6.2.108",

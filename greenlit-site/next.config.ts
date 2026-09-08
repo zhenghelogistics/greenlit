@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
    * ADR-0006 keeps them buildless so they run under Node's strip-only
    * execution. Next therefore has to compile them itself.
    */
-  transpilePackages: ["@greenlit/engine", "@greenlit/core"],
+  transpilePackages: ["@greenlit/engine", "@greenlit/core", "@greenlit/db"],
 };
 
 export default nextConfig;

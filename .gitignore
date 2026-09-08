@@ -34,3 +34,6 @@ tmp/
 # Next.js
 .next/
 next-env.d.ts
+
+# macOS duplicate copies. These once reached main and broke the build.
+*[[:space:]]2.*
