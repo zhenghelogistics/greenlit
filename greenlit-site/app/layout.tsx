@@ -1,21 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Self-hosted through next/font: no external request, no render-blocking
+// stylesheet chain, and the exact weights v3 uses.
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
-  title: "Project Greenlit — Control Tower Demo",
+  title: "Project Greenlit — Control Tower",
   description:
-    "An operable maritime control-tower proof of concept with browser-local arrival-notice intake and linked job, container, trip, chassis, readiness, and free-time management.",
+    "A maritime transportation control tower with browser-local arrival-notice intake and linked job, container, trip, chassis, readiness, and free-time management.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
@@ -30,7 +34,7 @@ export default function RootLayout({
   return (
     <html lang="en-SG">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
       >
         {children}
       </body>

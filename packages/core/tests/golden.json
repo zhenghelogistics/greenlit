@@ -1,0 +1,129 @@
+[
+  {
+    "jobNumber": "JOB-260818-001",
+    "domain": "IMPORT",
+    "jobStatus": "Awaiting Portnet",
+    "location": "Terminal / Port of discharge",
+    "nextActionRequired": "Prioritise collection",
+    "blockingReason": "Last free day is today, container not collected",
+    "waitingOn": "US",
+    "mandatoryComplete": true,
+    "missingInformation": [],
+    "containers": [
+      {
+        "reference": "OOLU8841250",
+        "status": "Awaiting Portnet",
+        "location": "Terminal / Port of discharge",
+        "gatePassed": false,
+        "gateFailures": [
+          "Permit has not been received",
+          "Portnet release not confirmed"
+        ]
+      }
+    ]
+  },
+  {
+    "jobNumber": "JOB-260816-004",
+    "domain": "IMPORT",
+    "jobStatus": "Empty Return Pending",
+    "location": "Customer / Shipper",
+    "nextActionRequired": "Prioritise empty return",
+    "blockingReason": "Detention last free day approaching, empty not returned",
+    "waitingOn": "US",
+    "mandatoryComplete": true,
+    "missingInformation": [],
+    "containers": [
+      {
+        "reference": "CSNU7213366",
+        "status": "Empty Return Pending",
+        "location": "Customer / Shipper",
+        "gatePassed": true,
+        "gateFailures": []
+      }
+    ]
+  },
+  {
+    "jobNumber": "EXP-260818-002",
+    "domain": "EXPORT",
+    "jobStatus": "Awaiting T/T",
+    "location": "Company Carpark",
+    "nextActionRequired": "Escalate carpark dwell",
+    "blockingReason": "Container at carpark 9 days, threshold 3",
+    "waitingOn": "US",
+    "mandatoryComplete": true,
+    "missingInformation": [],
+    "containers": [
+      {
+        "reference": "C1",
+        "status": "Awaiting T/T",
+        "location": "Company Carpark",
+        "gatePassed": false,
+        "gateFailures": [
+          "Transhipment availability not established"
+        ]
+      }
+    ]
+  },
+  {
+    "jobNumber": "EXP-260819-002",
+    "domain": "EXPORT",
+    "jobStatus": "Empty Delivered",
+    "location": "Customer / Shipper",
+    "nextActionRequired": "Enter container, seal and tare",
+    "blockingReason": "Empty delivered, container identity not captured",
+    "waitingOn": "US",
+    "mandatoryComplete": true,
+    "missingInformation": [],
+    "containers": [
+      {
+        "reference": "C1",
+        "status": "Empty Delivered",
+        "location": "Customer / Shipper",
+        "gatePassed": false,
+        "gateFailures": [
+          "Container number not captured",
+          "Customer has not confirmed container ready",
+          "VGM not received",
+          "Transhipment availability not established"
+        ]
+      }
+    ]
+  },
+  {
+    "jobNumber": "EXP-260819-001",
+    "domain": "EXPORT",
+    "jobStatus": "Awaiting CMS",
+    "location": "Empty Collection Yard",
+    "nextActionRequired": "Complete CMS",
+    "blockingReason": "CMS is required and has not been completed",
+    "waitingOn": "US",
+    "mandatoryComplete": true,
+    "missingInformation": [],
+    "containers": [
+      {
+        "reference": "C1",
+        "status": "Awaiting CMS",
+        "location": "Empty Collection Yard",
+        "gatePassed": false,
+        "gateFailures": [
+          "Container number not captured",
+          "Customer has not confirmed container ready",
+          "VGM not received",
+          "Transhipment availability not established"
+        ]
+      },
+      {
+        "reference": "C2",
+        "status": "Awaiting CMS",
+        "location": "Empty Collection Yard",
+        "gatePassed": false,
+        "gateFailures": [
+          "Container number not captured",
+          "Customer has not confirmed container ready",
+          "VGM not received",
+          "Transhipment availability not established"
+        ]
+      }
+    ]
+  }
+]

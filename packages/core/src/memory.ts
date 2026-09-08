@@ -1,8 +1,17 @@
+import {
+  appendAmendment, applyChassisChange, nextJobReference, recordChassisChange,
+  userEvent, validateCustomerDraft,
+  type AuditEvent, type Chassis, type ChassisHolding, type Customer,
+  type ChassisChange, type CustomerDraft, type DateAmendment, type Discrepancy,
+  type Principal,
+} from '@greenlit/engine';
 import type {
   ExceptionRecord, ExportContainer, ExportJob, ImportContainer, ImportJob,
   Movement, Thresholds,
 } from '@greenlit/engine';
-import type { Repository } from './repository.ts';
+import type {
+  DateAmendmentInput, ExportJobDraft, ImportJobDraft, Repository, StoredDiscrepancy,
+} from './repository.ts';
 
 /**
  * §27 / §56: thresholds are configurable and must not be hard-coded. These are
@@ -21,6 +30,87 @@ export const DEFAULT_THRESHOLDS: Thresholds = {
   portnetNotProcessedDays: 1,
   ddCriticalDays: 1,
 };
+
+
+/**
+ * §9.1. The chassis fleet, as at the current register: 89 units, 47 twenty-foot
+ * and 42 forty-foot. Numbers and plates are unique across the fleet.
+ *
+ * §9.1 also records two data-quality items to resolve before a real load: max
+ * gross weight is filled for only 12 of 47 twenty-foot units and entered
+ * inconsistently, and inspection dates cluster heavily — 22 units due in a
+ * single month. Both are represented here rather than smoothed over, so the
+ * capacity view shows the real shape.
+ */
+const INSPECTION_CLUSTER_MONTH = '2026-09';
+
+/**
+ * §7. A seeded user directory.
+ *
+ * Not authentication: nobody proves who they are yet. It is the authorisation
+ * half — given a user, what may they do — so commands can be refused
+ * server-side today and the audit trail can name a real person instead of a
+ * placeholder. Sign-in replaces the lookup, not the rules.
+ */
+const CUSTOMERS: Customer[] = [
+  { customerId: 'abc', code: 'ABC', companyName: 'ABC Company', shortName: 'ABC',
+    billingName: 'ABC Company Pte Ltd', defaultConsignee: 'ABC Company',
+    defaultDeliveryAddress: '12 Tuas Ave 8', defaultContact: 'ops@abccompany.sg',
+    emailDomains: ['abccompany.sg'], accountStatus: 'ACTIVE', notes: null,
+    createdAt: '2025-04-02T00:00:00Z' },
+  { customerId: 'lct', code: 'LCT', companyName: 'Lion City Traders', shortName: 'Lion City',
+    billingName: 'Lion City Traders Pte Ltd', defaultConsignee: 'Lion City Traders',
+    defaultDeliveryAddress: '3 Pioneer Sector 2', defaultContact: 'ops@lioncity.sg',
+    emailDomains: ['lioncity.sg'], accountStatus: 'ACTIVE', notes: null,
+    createdAt: '2024-11-18T00:00:00Z' },
+  { customerId: 'mer', code: 'MER', companyName: 'Meridian Freight', shortName: 'Meridian',
+    billingName: 'Meridian Freight Pte Ltd', defaultConsignee: null,
+    defaultDeliveryAddress: null, defaultContact: 'desk@meridianfreight.com',
+    emailDomains: ['meridianfreight.com'], accountStatus: 'ACTIVE', notes: null,
+    createdAt: '2025-09-30T00:00:00Z' },
+  { customerId: 'str', code: 'STR', companyName: 'Straits Cargo', shortName: 'Straits',
+    billingName: 'Straits Cargo Pte Ltd', defaultConsignee: null,
+    defaultDeliveryAddress: null, defaultContact: 'ops@straitscargo.sg',
+    emailDomains: ['straitscargo.sg'], accountStatus: 'ACTIVE', notes: null,
+    createdAt: '2026-02-11T00:00:00Z' },
+];
+
+const USERS: Principal[] = [
+  { userId: 'sarah', displayName: 'Sarah Lim', role: 'CONTROLLER', active: true },
+  { userId: 'winnie', displayName: 'Winnie Ong', role: 'CONTROLLER', active: true },
+  { userId: 'brandon', displayName: 'Brandon Lee', role: 'CONTROLLER', active: true },
+  { userId: 'john', displayName: 'John Tan', role: 'ADMINISTRATOR', active: true },
+  { userId: 'mei', displayName: 'Mei Chen', role: 'MANAGER', active: true },
+  // §7.3: override is grantable to a manager as a narrow extra permission.
+  { userId: 'raymond', displayName: 'Raymond Koh', role: 'MANAGER', active: true,
+    extraPermissions: ['gate.override'] },
+  { userId: 'former', displayName: 'Former Staff', role: 'CONTROLLER', active: false },
+];
+
+function buildFleetRegister(): Chassis[] {
+  const units: Chassis[] = [];
+  const push = (chassisNo: number, size: '20FT' | '40FT', index: number) => {
+    // The clustering §9.1 warns about: roughly a quarter of the fleet falls due
+    // in one month.
+    const clustered = index % 4 === 0;
+    units.push({
+      chassisId: `CH-${chassisNo}`,
+      chassisNo: String(chassisNo),
+      plateNo: `TRA${1000 + chassisNo}Y`,
+      size,
+      unladenWeightKg: size === '20FT' ? 3200 : 4200,
+      // Deliberately sparse, per §9.1.
+      maxGrossWeightKg: size === '40FT' || index < 12 ? (size === '20FT' ? 30000 : 41000) : null,
+      inspectionDueDate: clustered ? `${INSPECTION_CLUSTER_MONTH}-15` : null,
+      manualStatus: index % 17 === 0 ? 'MAINTENANCE' : null,
+      active: true,
+    });
+  };
+  for (let i = 0; i < 47; i += 1) push(2038 + i, '20FT', i);
+  for (let i = 0; i < 41; i += 1) push(4029 + i, '40FT', i);
+  push(4488, '40FT', 41);
+  return units;
+}
 
 const mv = (o: Partial<Movement> & Pick<Movement, 'movementId' | 'movementRef' | 'jobId' | 'jobDomain' | 'jobNumber' | 'movementType' | 'movementStatus'>): Movement => ({
   containerId: null, containerNumber: null, secondaryContainerId: null,
@@ -132,7 +222,8 @@ const ec = (o: Partial<ExportContainer> & Pick<ExportContainer, 'exportContainer
   stuffingLocation: 'Customer site A', containerDetailsSent: false,
   containerDetailsSentAt: null, containerReady: false, containerReadyAt: null,
   vgm: null, vgmReceivedAt: null, portnetProcessed: 'PENDING',
-  chassisId: null, carparkArrivedAt: null, cancelled: false, onHold: false, ...o,
+  chassisId: null, chassisMountedAt: null, chassisReleasedAt: null,
+  carparkArrivedAt: null, cancelled: false, onHold: false, ...o,
 });
 
 const EXPORT_CONTAINERS: Record<string, ExportContainer[]> = {
@@ -211,9 +302,81 @@ export function createMemoryRepository(): Repository {
   const exportContainers = clone(EXPORT_CONTAINERS);
   const movements = clone(MOVEMENTS);
   const exceptions = clone(EXCEPTIONS);
+  const discrepancies: Record<string, StoredDiscrepancy[]> = {};
+  const fleet = buildFleetRegister();
+  const customers = clone(CUSTOMERS);
+  const chassisChanges: ChassisChange[] = [];
+  const amendments: DateAmendment[] = [];
+  /** Holdings after any §35.8 changes have been applied. */
+  let derivedHoldings: ChassisHolding[] | null = null;
+
+  /** Materialises holdings on first use so a swap can split occupancy. */
+  const holdingsNow = (): ChassisHolding[] => {
+    if (!derivedHoldings) {
+      const holdings: ChassisHolding[] = [];
+      for (const [jobId, list] of Object.entries(importContainers)) {
+        for (const c of list) {
+          if (!c.chassisId) continue;
+          holdings.push({ chassisId: c.chassisId, containerId: c.containerId, jobId,
+            mountedAt: c.chassisMountedAt, releasedAt: c.chassisReleasedAt, doubleMountedWith: null });
+        }
+      }
+      for (const [jobId, list] of Object.entries(exportContainers)) {
+        for (const c of list) {
+          if (!c.chassisId) continue;
+          holdings.push({ chassisId: c.chassisId, containerId: c.exportContainerId, jobId,
+            mountedAt: c.chassisMountedAt, releasedAt: c.chassisReleasedAt, doubleMountedWith: null });
+        }
+      }
+      derivedHoldings = holdings;
+    }
+    return derivedHoldings;
+  };
+
+  /** Reads the current value of an amendable date field. */
+  const dateFieldValue = (entityId: string, field: string): string | null => {
+    const exp = exportJobs.find((j) => j.exportJobId === entityId);
+    if (exp) return (exp as unknown as Record<string, string | null>)[field] ?? null;
+    const imp = importJobs.find((j) => j.jobId === entityId);
+    if (imp) return (imp as unknown as Record<string, string | null>)[field] ?? null;
+    const movement = Object.values(movements).flat().find((m) => m.movementId === entityId);
+    return movement ? ((movement as unknown as Record<string, string | null>)[field] ?? null) : null;
+  };
+
+  const applyDateValue = (entityId: string, field: string, value: string | null) => {
+    const exp = exportJobs.find((j) => j.exportJobId === entityId);
+    if (exp) { (exp as unknown as Record<string, unknown>)[field] = value; return; }
+    const imp = importJobs.find((j) => j.jobId === entityId);
+    if (imp) { (imp as unknown as Record<string, unknown>)[field] = value; return; }
+    const movement = Object.values(movements).flat().find((m) => m.movementId === entityId);
+    if (movement) (movement as unknown as Record<string, unknown>)[field] = value;
+  };
 
   const findExportContainer = (id: string) =>
     Object.values(exportContainers).flat().find((c) => c.exportContainerId === id);
+
+  /**
+   * §13. Append-only. Every command records who did it and what changed, so a
+   * later reader can reconstruct the decision without asking anyone.
+   */
+  const audit: AuditEvent[] = [];
+  const record = (
+    entityId: string, event: string, actor: string,
+    change: { field?: string; from?: unknown; to?: unknown } = {},
+    entityType: 'job' | 'container' = 'job',
+  ) => {
+    audit.push(userEvent({
+      event, entityType, entityId,
+      field: change.field ?? null,
+      previousValue: change.from,
+      newValue: change.to,
+    }, actor, new Date().toISOString()));
+  };
+
+  /** Which job an export container belongs to, for audit attribution. */
+  const jobOfContainer = (containerId: string) =>
+    Object.entries(exportContainers)
+      .find(([, list]) => list.some((c) => c.exportContainerId === containerId))?.[0] ?? containerId;
 
   return {
     async listImportJobs() { return clone(importJobs); },
@@ -228,47 +391,288 @@ export function createMemoryRepository(): Repository {
     },
     async getThresholds() { return { ...DEFAULT_THRESHOLDS }; },
 
-    async recordCms(jobId, status) {
+    async listCustomers() { return clone(customers); },
+    async getCustomerByCode(code) {
+      return clone(customers.find((c) => c.code === code.trim().toUpperCase()) ?? null);
+    },
+    async createCustomer(draft: CustomerDraft, actor) {
+      const validation = validateCustomerDraft(draft, customers);
+      if (!validation.valid) throw new Error(validation.reasons.join('; '));
+      const created: Customer = {
+        customerId: draft.code.trim().toLowerCase(),
+        code: draft.code.trim().toUpperCase(),
+        companyName: draft.companyName.trim(),
+        shortName: draft.shortName ?? null,
+        billingName: null, defaultConsignee: null, defaultDeliveryAddress: null,
+        defaultContact: null, emailDomains: [...(draft.emailDomains ?? [])],
+        accountStatus: 'ACTIVE', notes: null,
+        createdAt: new Date().toISOString(),
+      };
+      customers.push(created);
+      record(created.customerId, 'job.created', actor,
+        { field: 'customer', to: `${created.code} ${created.companyName}` });
+      return clone(created);
+    },
+
+    /** Every reference issued, so ADR-0007's per-customer sequence can derive. */
+    async listJobReferences() {
+      return [...importJobs.map((j) => j.jobNumber), ...exportJobs.map((j) => j.jobNumber)];
+    },
+
+    async nextReferenceFor(customerCode) {
+      const issued = [...importJobs.map((j) => j.jobNumber), ...exportJobs.map((j) => j.jobNumber)];
+      return nextJobReference(issued, customerCode);
+    },
+
+    async createImportJob(draft: ImportJobDraft, actor) {
+      const customer = customers.find((c) => c.code === draft.customerCode.trim().toUpperCase());
+      if (!customer) throw new Error(`Unknown customer ${draft.customerCode}`);
+
+      const issued = [...importJobs.map((j) => j.jobNumber), ...exportJobs.map((j) => j.jobNumber)];
+      const jobNumber = nextJobReference(issued, customer.code);
+      const jobId = jobNumber.toLowerCase();
+
+      const job: ImportJob = {
+        jobId, jobNumber, customer: customer.companyName,
+        blNumber: draft.blNumber ?? null,
+        vesselName: draft.vesselName ?? null,
+        voyageNumber: draft.voyageNumber ?? null,
+        eta: draft.eta ?? null,
+        jobType: draft.jobType ?? 'standard',
+        // §9: the customer master supplies the default so it is not retyped.
+        deliveryAddress: draft.deliveryAddress ?? customer.defaultDeliveryAddress,
+        permitRequired: draft.permitRequired ?? true,
+        permitReceived: false, permitRejected: false,
+        portnetRequired: draft.portnetRequired ?? true,
+        portnetReleased: false,
+        assignedController: draft.assignedController ?? null,
+        cancelled: false, onHold: false,
+        createdAt: new Date().toISOString(),
+      };
+      importJobs.push(job);
+      importContainers[jobId] = [];
+      movements[jobId] = [];
+      record(jobId, 'job.created', actor, { field: 'jobNumber', to: jobNumber });
+      return clone(job);
+    },
+
+    async createExportJob(draft: ExportJobDraft, actor) {
+      const customer = customers.find((c) => c.code === draft.customerCode.trim().toUpperCase());
+      if (!customer) throw new Error(`Unknown customer ${draft.customerCode}`);
+
+      const issued = [...importJobs.map((j) => j.jobNumber), ...exportJobs.map((j) => j.jobNumber)];
+      const jobNumber = nextJobReference(issued, customer.code);
+      const jobId = jobNumber.toLowerCase();
+      const quantity = Math.max(1, draft.containerQuantity ?? 1);
+
+      const job: ExportJob = {
+        exportJobId: jobId, jobNumber, customer: customer.companyName,
+        shipper: draft.shipper ?? customer.companyName,
+        bookingReference: draft.bookingReference ?? null,
+        exportClearanceReference: draft.exportClearanceReference ?? null,
+        carrier: null,
+        vesselName: draft.vesselName ?? null,
+        voyageNumber: draft.voyageNumber ?? null,
+        etaSingapore: draft.etaSingapore ?? null,
+        vesselClosingAt: null,
+        emptyCollectionYard: draft.emptyCollectionYard ?? null,
+        cmsRequired: draft.cmsRequired ?? true,
+        cmsStatus: 'PENDING',
+        containerQuantity: quantity,
+        containerSizeType: draft.containerSizeType ?? null,
+        truckInDate: draft.truckInDate ?? null,
+        truckOutDate: draft.truckOutDate ?? null,
+        standbyRequired: false, standbyInstructionSource: null,
+        standbyExpectedMinutes: null,
+        transhipmentStatus: 'PENDING', transhipmentCheckedAt: null,
+        carparkRequested: false,
+        assignedController: draft.assignedController ?? null,
+        cancelled: false, onHold: false,
+        createdAt: new Date().toISOString(),
+      };
+      exportJobs.push(job);
+      // §38.2: container records are created with the job and identified later.
+      exportContainers[jobId] = Array.from({ length: quantity }, (_, i) =>
+        ec({ exportContainerId: `${jobId}-c${i + 1}`, exportJobId: jobId,
+          containerRef: `C${i + 1}`, sizeType: draft.containerSizeType ?? '' }));
+      movements[jobId] = [];
+      record(jobId, 'job.created', actor, { field: 'jobNumber', to: jobNumber });
+      return clone(job);
+    },
+
+    async getPrincipal(userId) { return clone(USERS.find((u) => u.userId === userId) ?? null); },
+    async listPrincipals() { return clone(USERS); },
+
+    async listChassis() { return clone(fleet); },
+
+    async recordChassisChange(request, actor) {
+      const change = recordChassisChange(
+        { ...request, changedBy: actor, changedAt: new Date().toISOString() },
+        `CHG-${chassisChanges.length + 1}`);
+      // §35.8: occupancy splits across both units, so neither record is
+      // falsified. Applying the change is what performs the split.
+      derivedHoldings = applyChassisChange(holdingsNow(), change);
+      chassisChanges.push(change);
+      record(change.jobId, 'movement.cancelled', actor, {
+        field: 'chassis',
+        from: change.chassisIdPrevious,
+        to: change.chassisIdNew ?? 'grounded',
+      });
+      return clone(change);
+    },
+    async listChassisChanges() { return clone(chassisChanges); },
+
+    async listDateAmendments(entityId) {
+      return clone(amendments.filter((a) => a.entityId === entityId));
+    },
+
+    async amendDate(request: DateAmendmentInput, actor) {
+      const current = dateFieldValue(request.entityId, request.dateField);
+      const { amendment, log } = appendAmendment(amendments, {
+        entityType: request.entityType,
+        entityId: request.entityId,
+        dateField: request.dateField,
+        previousValue: current,
+        newValue: request.newValue,
+        reasonCode: request.reasonCode as DateAmendment['reasonCode'],
+        reasonNote: request.reasonNote ?? null,
+        amendedBy: actor,
+        amendedAt: new Date().toISOString(),
+      }, `AMD-${amendments.length + 1}`);
+      amendments.length = 0;
+      amendments.push(...log);
+      applyDateValue(request.entityId, request.dateField, request.newValue);
+      // §13.1 rule 5: both are written. The audit stream is the legal record,
+      // the amendment log is the operational one.
+      record(request.entityId, 'job.mandatoryFieldChanged', actor, {
+        field: request.dateField, from: current, to: request.newValue,
+      });
+      return clone(amendment);
+    },
+
+    /**
+     * §35.2. Holdings are derived from the containers themselves: a chassis is
+     * assigned at job level and held until released, so there is no separate
+     * holdings table to drift out of step with the jobs.
+     */
+    async listChassisHoldings() {
+      if (derivedHoldings) return clone(derivedHoldings);
+      const holdings: ChassisHolding[] = [];
+      for (const [jobId, list] of Object.entries(importContainers)) {
+        for (const c of list) {
+          if (!c.chassisId) continue;
+          holdings.push({
+            chassisId: c.chassisId, containerId: c.containerId, jobId,
+            mountedAt: c.chassisMountedAt, releasedAt: c.chassisReleasedAt,
+            doubleMountedWith: null,
+          });
+        }
+      }
+      for (const [jobId, list] of Object.entries(exportContainers)) {
+        for (const c of list) {
+          if (!c.chassisId) continue;
+          holdings.push({
+            chassisId: c.chassisId, containerId: c.exportContainerId, jobId,
+            mountedAt: c.chassisMountedAt, releasedAt: c.chassisReleasedAt,
+            doubleMountedWith: null,
+          });
+        }
+      }
+      derivedHoldings = holdings;
+      return clone(holdings);
+    },
+
+    async recordCms(jobId, status, actor, reason) {
       const job = exportJobs.find((j) => j.exportJobId === jobId);
       if (!job) throw new Error(`Unknown export job ${jobId}`);
+      const from = job.cmsStatus;
       job.cmsStatus = status;
+      record(jobId, 'cms.completed', actor, { field: 'cmsStatus', from, to: status });
+      if (reason) record(jobId, 'cms.completed', actor, { field: 'reason', to: reason });
     },
-    async recordPermitReceived(jobId, permitNumber) {
+    async recordPermitReceived(jobId, permitNumber, actor) {
       const job = importJobs.find((j) => j.jobId === jobId);
       if (!job) throw new Error(`Unknown import job ${jobId}`);
+      const from = job.permitReceived;
       job.permitReceived = true;
       job.permitRejected = false;
-      void permitNumber;
+      record(jobId, 'permit.received', actor, { field: 'permitReceived', from, to: true });
+      record(jobId, 'permit.received', actor, { field: 'permitNumber', to: permitNumber });
     },
-    async recordPortnetReleased(jobId) {
+    async recordPortnetReleased(jobId, actor) {
       const job = importJobs.find((j) => j.jobId === jobId);
       if (!job) throw new Error(`Unknown import job ${jobId}`);
+      const from = job.portnetReleased;
       job.portnetReleased = true;
+      record(jobId, 'portnet.released', actor, { field: 'portnetReleased', from, to: true });
     },
-    async captureContainerIdentity(containerId, details) {
+    async captureContainerIdentity(containerId, details, actor) {
       const c = findExportContainer(containerId);
       if (!c) throw new Error(`Unknown container ${containerId}`);
       c.containerNumber = details.containerNumber;
       c.sealNumber = details.sealNumber;
       c.tareWeightKg = details.tareWeightKg;
+      record(jobOfContainer(containerId), 'container.identityCaptured', actor,
+        { field: 'containerNumber', to: details.containerNumber });
     },
-    async recordTranshipment(jobId, status) {
+    async recordTranshipment(jobId, status, actor) {
       const job = exportJobs.find((j) => j.exportJobId === jobId);
       if (!job) throw new Error(`Unknown export job ${jobId}`);
+      const from = job.transhipmentStatus;
       job.transhipmentStatus = status;
       job.transhipmentCheckedAt = new Date().toISOString();
+      record(jobId, 'transhipment.changed', actor,
+        { field: 'transhipmentStatus', from, to: status });
     },
-    async recordContainerReady(containerId) {
+    async recordContainerReady(containerId, actor) {
       const c = findExportContainer(containerId);
       if (!c) throw new Error(`Unknown container ${containerId}`);
       c.containerReady = true;
       c.containerReadyAt = new Date().toISOString();
+      record(jobOfContainer(containerId), 'container.readyConfirmed', actor,
+        { field: 'containerReady', from: false, to: true });
     },
-    async recordVgm(containerId, vgm) {
+    async recordVgm(containerId, vgm, actor) {
       const c = findExportContainer(containerId);
       if (!c) throw new Error(`Unknown container ${containerId}`);
+      const from = c.vgm;
       c.vgm = vgm;
       c.vgmReceivedAt = new Date().toISOString();
+      record(jobOfContainer(containerId), 'vgm.received', actor, { field: 'vgm', from, to: vgm });
+    },
+
+    async listAuditEvents(entityId) {
+      return clone(audit.filter((e) => e.entityId === entityId));
+    },
+
+    async listOpenDiscrepancies(jobId) {
+      return clone((discrepancies[jobId] ?? []).filter((d) => d.resolvedAt === null));
+    },
+
+    async raiseDiscrepancy(jobId, discrepancy: Discrepancy, actor) {
+      const list = discrepancies[jobId] ?? (discrepancies[jobId] = []);
+      // One open discrepancy per field: a second conflicting document updates
+      // the standing question rather than stacking another one behind it.
+      const existing = list.find((d) => d.field === discrepancy.field && d.resolvedAt === null);
+      if (existing) Object.assign(existing, discrepancy);
+      else list.push({ ...discrepancy, resolvedAt: null, resolvedBy: null, resolution: null });
+      record(jobId, 'discrepancy.raised', actor, {
+        field: discrepancy.field, from: discrepancy.storedValue, to: discrepancy.extractedValue,
+      });
+    },
+
+    async resolveDiscrepancy(jobId, field, choice, actor) {
+      const open = (discrepancies[jobId] ?? []).find((d) => d.field === field && d.resolvedAt === null);
+      if (!open) throw new Error(`Unknown open discrepancy ${field} on job ${jobId}`);
+      open.resolvedAt = new Date().toISOString();
+      open.resolvedBy = actor;
+      open.resolution = choice;
+      // §12: the decision is audited, whichever way it went.
+      record(jobId, 'discrepancy.resolved', actor, {
+        field,
+        from: open.storedValue,
+        to: choice === 'extracted' ? open.extractedValue : open.storedValue,
+      });
     },
   };
 }

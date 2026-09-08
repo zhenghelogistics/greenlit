@@ -20,6 +20,17 @@ export interface DerivedContainerView {
 }
 
 export interface DerivedJobView {
+  /**
+   * The stored record, verbatim.
+   *
+   * Screens need operational facts the derivation does not produce — vessel,
+   * booking reference, yard, dates, chassis. Returning them alongside the
+   * derived values, under a separate key, keeps the distinction the whole
+   * design rests on: everything under `record` was typed by someone, and
+   * everything outside it was computed. §56.
+   */
+  record: ImportJob | ExportJob;
+  storedContainers: (ImportContainer | ExportContainer)[];
   jobId: string;
   jobNumber: string;
   domain: 'IMPORT' | 'EXPORT';
@@ -33,6 +44,30 @@ export interface DerivedJobView {
   missingInformation: string[];
   containers: DerivedContainerView[];
   movements: Movement[];
+  /** §13. The job's audit stream as a chronological narrative. */
+  activity: AuditEventView[];
+  /** §12. Conflicts awaiting a controller's decision. */
+  discrepancies: OpenDiscrepancyView[];
+}
+
+/** §12. A conflict, with everything needed to decide it. */
+export interface OpenDiscrepancyView {
+  field: string;
+  storedValue: unknown;
+  extractedValue: unknown;
+  source: string;
+  confidence: number;
+  detectedAt: string;
+  reason: string;
+}
+
+/** One rendered audit entry. §13: system entries always carry their rule. */
+export interface AuditEventView {
+  event: string;
+  description: string;
+  actor: string;
+  at: string;
+  rule: string | null;
 }
 
 const daysBetween = (from: string, to: string) =>
@@ -179,6 +214,8 @@ export function deriveImportJob(
     : { nextActionRequired: 'Complete job information', blockingReason: 'No containers on job', waitingOn: 'US' as WaitingOn };
 
   return {
+    record: job,
+    storedContainers: [...containers],
     jobId: job.jobId,
     jobNumber: job.jobNumber,
     domain: 'IMPORT',
@@ -192,6 +229,8 @@ export function deriveImportJob(
     missingInformation: missing,
     containers: views,
     movements: [...movements],
+    activity: [],
+    discrepancies: [],
   };
 }
 
@@ -229,6 +268,8 @@ export function deriveExportJob(
     : { nextActionRequired: 'Complete job information', blockingReason: 'No containers on job', waitingOn: 'US' as WaitingOn };
 
   return {
+    record: job,
+    storedContainers: [...containers],
     jobId: job.exportJobId,
     jobNumber: job.jobNumber,
     domain: 'EXPORT',
@@ -242,5 +283,7 @@ export function deriveExportJob(
     missingInformation: missing,
     containers: views,
     movements: [...movements],
+    activity: [],
+    discrepancies: [],
   };
 }
