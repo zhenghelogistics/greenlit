@@ -134,9 +134,17 @@ export async function ingest(file, { onProgress } = {}) {
   };
 }
 
-/** Which extraction rung this document can start at. See docs/extraction-engine.md. */
+/**
+ * How this document will be read. See docs/extraction-engine.md.
+ *
+ * There is no OCR rung. The ladder once ended in one, for the scanned PDF
+ * that has neither a text layer nor a rasterised page — but OCR flattens the
+ * layout and mangles handwriting before a single field is parsed, and the
+ * document can simply be sent as a PDF and rendered where it is read. The
+ * rung was removed rather than implemented.
+ */
 export function extractionStrategy(document) {
   if (!document.needsVision) return "TEXT_LAYER";
-  if (document.pages.some((p) => p.imageDataUrl)) return "VISION";
-  return "OCR";
+  if (document.pages.some((p) => p.imageDataUrl)) return "IMAGE";
+  return "RENDERED";
 }

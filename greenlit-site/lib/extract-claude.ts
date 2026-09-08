@@ -32,42 +32,53 @@ const FIELDS: Record<string, { type: string; description?: string }> = {
   vesselName: { type: "string" },
   voyage: { type: "string" },
   eta: { type: "string", description: "Arrival date as YYYY-MM-DD" },
+  portOfLoading: { type: "string" },
   portOfDischarge: { type: "string" },
+  terminal: { type: "string", description: "Discharging terminal" },
+  shipper: { type: "string", description: "Shipper company name only, without the address" },
+  carrierReference: { type: "string", description: "The carrier's own reference for this shipment" },
   consignee: { type: "string", description: "Consignee company name only, without the address" },
   notifyParty: { type: "string", description: "Notify party company name only, without the address. Carriers that print no consignee often print this instead." },
   deliveryAddress: { type: "string" },
   emptyReturnYard: { type: "string" },
-  demurrageFreeDays: { type: "integer" },
-  detentionFreeDays: { type: "integer" },
+  demurrageFreeDays: { type: "string", description: "Digits only" },
+  detentionFreeDays: { type: "string", description: "Digits only" },
   permitNumber: { type: "string" },
-  vgm: { type: "number", description: "Verified gross mass in kg" },
+  vgm: { type: "string", description: "Verified gross mass in kg, digits only" },
 };
 
 /**
- * Each field is an object carrying its own confidence, rather than a flat
- * value plus a parallel confidence map.
+ * The model returns a list of what it found, not a slot per field.
  *
- * Two reasons, one of which the API enforced: a parallel map made every score
- * a separate optional property and blew the 24-optional-parameter limit. The
- * better reason is that pairing them makes a score impossible to omit — a
- * value can no longer arrive unscored and be mistaken for a confident one.
+ * A slot per field needs every slot to be nullable, and the API caps how many
+ * union-typed parameters a schema may have (16) — which the field list
+ * outgrew as soon as the review screen asked for five more. A list has no
+ * unions at all, and it scales: adding a field costs one enum member.
+ *
+ * It also states absence more honestly. There is no empty slot to fill in, so
+ * "not on the page" is expressed by not listing it, rather than by a null the
+ * model has to choose to emit.
  */
 const SCHEMA = {
   type: "object",
   additionalProperties: false,
-  properties: Object.fromEntries(
-    Object.entries(FIELDS).map(([name, spec]) => [name, {
-      type: ["object", "null"],
-      additionalProperties: false,
-      description: spec.description,
-      properties: {
-        value: { type: spec.type },
-        confidence: { type: "number", description: "0-1, how clearly you could read it" },
+  properties: {
+    fields: {
+      type: "array",
+      description: "One entry per field you could actually read. Omit anything not on the page.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          name: { type: "string", enum: Object.keys(FIELDS) },
+          value: { type: "string", description: "The value as printed. Numbers as digits, dates as YYYY-MM-DD." },
+          confidence: { type: "number", description: "0-1, how clearly you could read it" },
+        },
+        required: ["name", "value", "confidence"],
       },
-      required: ["value", "confidence"],
-    }]),
-  ),
-  required: Object.keys(FIELDS),
+    },
+  },
+  required: ["fields"],
 } as const;
 
 const SYSTEM = `You read shipping documents for a Singapore haulier and return structured fields.
@@ -78,7 +89,7 @@ Rules:
 - A field not present on the page is null. Never infer, complete, or guess a value from context or from what is typical. A blank prompts a human to check; a wrong value does not.
 - Never repair a value into what it "should" be. If a container number is smudged and you can only read HLXU12345??, return null rather than a completed guess.
 - Every field you return must carry a confidence between 0 and 1 reflecting how clearly you could read it. Clean printed text is high. Handwriting, a skewed photo, or a partly obscured field is low. Be honest — a low score routes the field to a human, which is the correct outcome when you are unsure.
-- consignee and notifyParty are company names only. Leave out the street address, postcode and country.
+- consignee, notifyParty and shipper are company names only. Leave out the street address, postcode and country.
 - Dates as YYYY-MM-DD. If a date is ambiguous between formats (03/04/2026), return null rather than picking one.
 - Container numbers are 4 letters then 7 digits, no spaces.`;
 
@@ -97,15 +108,20 @@ export interface ClaudeExtractionResult {
 export function toFields(
   json: string, fileName: string, now: string,
 ): Record<string, ExtractedField<unknown>> {
-  const parsed = JSON.parse(json) as Record<string, { value: unknown; confidence: number } | null>;
+  const parsed = JSON.parse(json) as {
+    fields?: Array<{ name?: string; value?: unknown; confidence?: number }>;
+  };
 
   const fields: Record<string, ExtractedField<unknown>> = {};
-  for (const [key, entry] of Object.entries(parsed)) {
-    if (entry === null || entry === undefined || entry.value === null) continue;
-    // A value that somehow arrives without a score is treated as unverified
-    // rather than certain: 0 routes it to a human, where 1 would let a silent
+  for (const entry of parsed.fields ?? []) {
+    // An unknown name is dropped rather than stored: the form has nowhere to
+    // put it, and a field nothing renders is a field nobody checks.
+    if (!entry?.name || !(entry.name in FIELDS)) continue;
+    if (entry.value === null || entry.value === undefined || entry.value === "") continue;
+    // A value that arrives without a score is treated as unverified rather
+    // than certain: 0 routes it to a human, where 1 would let a silent
     // omission read as agreement.
-    fields[key] = field(entry.value, fileName, entry.confidence ?? 0, now);
+    fields[entry.name] = field(entry.value, fileName, entry.confidence ?? 0, now);
   }
   return fields;
 }

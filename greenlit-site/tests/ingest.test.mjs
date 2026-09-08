@@ -50,10 +50,12 @@ test("the strategy ladder routes by what the document actually has", () => {
   // A photograph has pixels but no text: straight to vision.
   assert.equal(
     extractionStrategy({ needsVision: true, pages: [{ imageDataUrl: "data:image/png;base64,x" }] }),
-    "VISION",
+    "IMAGE",
   );
   // A scanned PDF has neither yet — it must be rasterised first.
-  assert.equal(extractionStrategy({ needsVision: true, pages: [{ imageDataUrl: null }] }), "OCR");
+  // A scanned PDF: no text layer and nothing rasterised. It is sent whole and
+  // rendered where it is read, which is why there is no OCR rung to route to.
+  assert.equal(extractionStrategy({ needsVision: true, pages: [{ imageDataUrl: null }] }), "RENDERED");
 });
 
 test("every ingested document carries its provenance", async () => {

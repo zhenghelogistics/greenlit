@@ -170,6 +170,15 @@ const DOCUMENT_FIELD_GROUPS = [
   },
 ];
 
+/**
+ * The shape every screen expects a job to have.
+ *
+ * Not data. Nothing renders these — the screens read the API, and an empty
+ * database shows an empty board. This exists as the reference the adapter is
+ * tested against: it is the record of which keys the screens dereference, and
+ * it is what catches "job.chassis.filter is not a function" before a
+ * controller does. Keep it in step with the screens, not with the database.
+ */
 export const SEED_JOBS = [
   {
     id: "EXP-260819-001",
@@ -810,44 +819,6 @@ function readiness(job) {
   return { rows, ready: rows.every((row) => row.ok), reason: firstMissing ? `${firstMissing.label}: ${firstMissing.value}` : "Every container has passed its laden gate." };
 }
 
-function cloneSeedJobs() {
-  return JSON.parse(JSON.stringify(SEED_JOBS)).map((job) => {
-    if (job.type === "Import") {
-      const containers = (job.containers || []).map((container, index) => ({ ref: container.ref || `C${index + 1}`, ...container }));
-      return {
-        ...job,
-        containers,
-        trips: (job.trips || []).map((trip, index) => {
-          if (trip.containerRef || trip.containerNumber || trip.type === "Empty Return") return trip;
-          const container = containers[Math.min(index, containers.length - 1)];
-          return { ...trip, containerRef: container?.ref, containerNumber: container?.number };
-        }),
-      };
-    }
-    const quantity = Math.min(MAX_CONTAINERS_PER_JOB, Math.max(1, Number(job.containerQuantity || job.containers?.length || 1)));
-    const existing = Array.isArray(job.containers) ? job.containers : [];
-    const containers = Array.from({ length: quantity }, (_, index) => ({
-      ref: `C${index + 1}`,
-      number: "",
-      seal: "",
-      tareKg: null,
-      vgmKg: null,
-      sizeType: job.containerSizeType || "",
-      stuffingLocation: job.deliveryAddress || "",
-      detailsSent: Boolean(job.detailsSent),
-      customerReady: Boolean(job.customerReady),
-      ...(index === 0 ? job.container || {} : {}),
-      ...(existing[index] || {}),
-    }));
-    return {
-      ...job,
-      containers,
-      containerQuantity: containers.length,
-      container: { ...containers[0] },
-      trips: (job.trips || []).map((trip) => trip.containerRef || trip.containerNumber ? trip : { ...trip, containerRef: "C1", containerNumber: containers[0].number || undefined }),
-    };
-  });
-}
 
 function statusTone(status) {
   if (["Completed", "Delivered", "Delivered to Port", "Ready for Collection", "Ready for Empty Collection", "Ready for Port Delivery", "Ready for Direct Laden Trip", "Ready for One-Way Loaded Trip"].includes(status)) {
@@ -1585,11 +1556,16 @@ function rowsFromApi(jobs) {
  *
  * Enterprise table guidance says filter and sort should survive a reload with
  * a way back to the default. Browser-side storage APIs are deliberately NOT
- * used here: this component carries the browser-local document-intake
- * contract — it tells the user "Processed on this device", and
- * tests/rendered-html.test.mjs asserts that no such API appears in this file.
- * The URL gives the same persistence and makes a filtered queue shareable,
- * which is more useful to a controller anyway.
+ * used here, and tests/rendered-html.test.mjs asserts none appears in this
+ * file: a document a controller uploads should not be left sitting in browser
+ * storage afterwards. The URL gives the same persistence and makes a filtered
+ * queue shareable, which is more useful to a controller anyway.
+ *
+ * The "processed on this device" claim this once carried is gone. Intake now
+ * posts the document to /api/extract, which is what lets it read a scan or an
+ * unfamiliar carrier at all — so the badge says where the document actually
+ * goes. A privacy claim that has quietly stopped being true is worse than no
+ * claim.
  */
 function useUrlState(key, initial) {
   const [value, setValue] = useState(() => {
@@ -2564,15 +2540,22 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
     let nextUrl = "";
     try {
       nextUrl = URL.createObjectURL(file);
-      const extracted = await readPdfText(file, { onProgress: setProgress });
-      setProgress("Matching Hapag-Lloyd fields");
-      const parsed = parseArrivalNoticeText(extracted.text);
-      setResult({
-        ...parsed,
-        fileName: file.name,
-        fileSize: file.size,
-        pages: extracted.pages,
-      });
+      setProgress("Reading the document");
+
+      // Server-side, because the reading happens there. The browser parser
+      // this replaced matched one carrier's layout against selectable text,
+      // so a scan or any other line failed at the door.
+      const body = new FormData();
+      body.append("file", file);
+      const response = await fetch("/api/extract", { method: "POST", body });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error ?? `Could not read this document (HTTP ${response.status}).`);
+      }
+
+      const parsed = toIntakeResult(payload);
+      setProgress("");
+      setResult({ ...parsed, fileName: file.name, fileSize: file.size });
       setDraft(parsed.values);
       setConfidence(parsed.confidence);
       setContainerDrafts(parsed.containers.length ? parsed.containers : [{ id: "container-1", ref: "C1", number: "", type: "", seal: "" }]);
@@ -2580,7 +2563,7 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
       setStage("review");
     } catch (problem) {
       if (nextUrl) URL.revokeObjectURL(nextUrl);
-      setError(problem instanceof Error ? problem.message : "Greenlit could not read this PDF. Choose another arrival notice.");
+      setError(problem instanceof Error ? problem.message : "Greenlit could not read this document.");
       setProgress("");
       setStage("error");
     }
@@ -2624,11 +2607,11 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
       <div className="flex flex-col gap-4 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-[2rem]">Document intake</h1>
-          <p className="mt-2 max-w-[72ch] text-[17px] font-normal text-slate-600">Turn an arrival notice into verified job facts before anything enters the control tower.</p>
+          <p className="mt-2 max-w-[72ch] text-[17px] font-normal text-slate-600">Turn a carrier document into verified job facts before anything enters the control tower.</p>
         </div>
-        <div className="inline-flex min-h-11 items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-4 text-[17px] font-semibold text-emerald-800">
+        <div className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-slate-50 px-4 text-[17px] font-normal text-slate-700">
           <ShieldCheck className="h-5 w-5" aria-hidden="true" />
-          Processed on this device
+          Read on Greenlit&rsquo;s server, not stored
         </div>
       </div>
 
@@ -2672,19 +2655,19 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
               className={`flex min-h-72 flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 text-center ${dragging ? "border-[var(--gl-accent)] bg-sky-50" : "border-slate-300 bg-slate-50"}`}
             >
               <span className="flex h-14 w-14 items-center justify-center rounded-md bg-[var(--gl-accent)] text-white"><Upload className="h-7 w-7" aria-hidden="true" /></span>
-              <span className="mt-5 text-2xl font-semibold text-slate-950">Drop a PDF here</span>
-              <span className="mt-2 max-w-[58ch] text-[17px] font-normal text-slate-600">Intake reads PDFs with selectable text today, and accepts images and email files for the vision path. Up to {MAX_CONTAINERS_PER_JOB} containers per job, 15 MB maximum.</span>
+              <span className="mt-5 text-2xl font-semibold text-slate-950">Drop a document here</span>
+              <span className="mt-2 max-w-[58ch] text-[17px] font-normal text-slate-600">PDFs, scans, photographs and email files, from any carrier. Up to {MAX_CONTAINERS_PER_JOB} containers per job, 15 MB maximum.</span>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="mt-5 inline-flex min-h-12 items-center justify-center rounded-md bg-[var(--gl-accent)] px-6 text-[17px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
               >
-                Choose PDF
+                Choose a document
               </button>
             </div>
             <div className="mt-5 grid gap-4 border-t border-slate-200 pt-5 md:grid-cols-3">
               {[
-                { icon: ScanText, title: "Extract", text: "Read labelled shipment facts from every page." },
+                { icon: ScanText, title: "Extract", text: "Read the shipment facts from every page, whatever the layout." },
                 { icon: FileCheck2, title: "Verify", text: "Review uncertain fields before they enter a job." },
                 { icon: ListTodo, title: "Apply", text: "Create the job and recalculate the action queue." },
               ].map((item) => {
@@ -2908,7 +2891,10 @@ function buildImportJobFromDocument(result, jobs, existingJob = null) {
 }
 
 export default function GreenlitControlTower() {
-  const [jobs, setJobs] = useState(cloneSeedJobs);
+  // Starts empty, not from fixtures. Seeding the screen meant an empty
+  // database showed twelve invented jobs that looked exactly like real ones —
+  // and after the customer master was purged, that is precisely what happened.
+  const [jobs, setJobs] = useState([]);
   // Source of record. Seed data is the offline fallback only; when the API
   // answers, every screen below reads engine-derived values (§56).
   const [source, setSource] = useState("loading");
@@ -2919,10 +2905,15 @@ export default function GreenlitControlTower() {
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((data) => {
         const mapped = (data.jobs ?? []).map(jobFromApi);
-        if (mapped.length) { setJobs(mapped); setSource("engine"); }
-        else setSource("empty");
+        setJobs(mapped);
+        setSource(mapped.length ? "engine" : "empty");
       })
-      .catch(() => setSource("offline"));
+      .catch(() => {
+        // Stale rows are worse than none: a controller cannot tell that what
+        // they are reading is no longer coming from the server.
+        setJobs([]);
+        setSource("offline");
+      });
   }, []);
 
   useEffect(() => { loadJobs(); }, [loadJobs]);

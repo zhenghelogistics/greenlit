@@ -30,7 +30,7 @@ test("server-renders the Greenlit control tower", async () => {
   assert.doesNotMatch(html, /Your site is taking shape|codex-preview/);
 });
 
-test("ships the browser-local document-intake contract", async () => {
+test("ships the document-intake contract", async () => {
   const [component, reader, parser, layout] = await Promise.all([
     readFile(new URL("../GreenlitControlTower.jsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/read-pdf.mjs", import.meta.url), "utf8"),
@@ -38,11 +38,18 @@ test("ships the browser-local document-intake contract", async () => {
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(component, /Processed on this device/);
+  // Intake posts the document to /api/extract, which is what lets it read a
+  // scan or an unfamiliar carrier. The badge has to say so: the screen
+  // previously claimed "Processed on this device", and a privacy claim that
+  // has quietly stopped being true is worse than none.
+  assert.doesNotMatch(component, /Processed on this device/,
+    "the browser-local claim is no longer true and must not be shown");
+  assert.match(component, /Read on Greenlit&rsquo;s server, not stored/);
+  assert.match(component, /api\/extract/, "intake must call the extraction route");
   assert.match(component, /Review extracted facts/);
   assert.match(component, /Apply to control tower/);
   assert.match(component, /Planning dates require confirmation/);
-  assert.match(component, /Choose PDF/);
+  assert.match(component, /Choose a document/);
   assert.match(component, /20 container limit/);
   assert.match(component, /Add container/);
   assert.match(component, /Container identity/);
