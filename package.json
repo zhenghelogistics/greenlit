@@ -2,19 +2,21 @@
   "name": "greenlit-workspace",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "greenlit-site"
   ],
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present && node_modules/.bin/tsc --noEmit -p greenlit-site/tsconfig.json",
     "test:packages": "npm run test --workspaces --if-present",
-    "test:app": "npm --prefix greenlit-site test",
+    "test:app": "npm --workspace greenlit-site test",
     "test": "npm run test:packages && npm run test:app",
-    "lint": "npm --prefix greenlit-site run lint",
+    "lint": "npm --workspace greenlit-site run lint",
     "design": "node scripts/check-design-system.mjs",
     "verify": "npm run typecheck && npm run lint && npm run design && npm run spec && npm run test",
-    "dev": "npm --prefix greenlit-site run dev",
+    "dev": "npm --workspace greenlit-site run dev",
     "spec": "node scripts/spec-coverage.mjs --min 80",
-    "coverage": "npm run test:coverage --workspaces --if-present"
+    "coverage": "npm run test:coverage --workspaces --if-present",
+    "vercel-build": "npm --workspace greenlit-site run build"
   },
   "devDependencies": {
     "@types/node": "^22",

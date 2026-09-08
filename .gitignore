@@ -5,8 +5,8 @@ node_modules/
 .next/
 dist/
 build/
-.vinext/
-.wrangler/
+
+
 *.tsbuildinfo
 
 # Environment and secrets — never commit these
@@ -27,3 +27,10 @@ build/
 # Scratch
 tmp/
 .vite/
+
+# Vercel build output
+.vercel/
+
+# Next.js
+.next/
+next-env.d.ts

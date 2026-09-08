@@ -25,11 +25,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - name: Install workspace
-        run: npm ci --no-audit --no-fund
-
-      - name: Install app
-        working-directory: greenlit-site
+      # The app is a workspace member, so one install covers everything.
+      - name: Install
         run: npm ci --no-audit --no-fund
 
       # Every check below runs even if an earlier one failed, so a single run
@@ -94,8 +91,7 @@ jobs:
       - name: Build
         id: build
         continue-on-error: true
-        working-directory: greenlit-site
-        run: npm run build
+        run: npm run vercel-build
 
       - name: Report
         if: always()

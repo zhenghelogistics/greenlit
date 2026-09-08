@@ -2,32 +2,23 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+/**
+ * Next prerenders the page at build time, so the test reads that output rather
+ * than booting a server.
+ *
+ * This previously imported the Cloudflare Worker entry and called
+ * worker.fetch(request, env, ctx). That interface disappeared with the move to
+ * Next on Vercel (ADR-0008); the assertions below are unchanged.
+ */
 async function render() {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
-
-  return worker.fetch(
-    new Request("http://localhost/", {
-      headers: { accept: "text/html" },
-    }),
-    {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
-    {
-      waitUntil() {},
-      passThroughOnException() {},
-    },
-  );
+  const html = await readFile(new URL("../.next/server/app/index.html", import.meta.url), "utf8");
+  return { text: async () => html };
 }
 
 test("server-renders the Greenlit control tower", async () => {
   const response = await render();
-  assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
-
+  // No status or content-type assertions: this reads build output rather than
+  // making a request, so faking a Response to keep them would assert nothing.
   const html = await response.text();
   assert.match(html, /<html lang="en-SG">/);
   assert.match(html, /<title>Project Greenlit — Control Tower<\/title>/);
