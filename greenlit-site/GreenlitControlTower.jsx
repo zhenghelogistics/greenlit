@@ -548,6 +548,28 @@ function parseDay(value) {
   return new Date(`${value}T12:00:00+08:00`);
 }
 
+/**
+ * Format a day, or say it is not set.
+ *
+ * Intl.format throws RangeError on an invalid Date rather than producing
+ * something harmless, so an absent date crashes the screen it appears on
+ * instead of leaving a blank cell. A job that has not reached the port yet
+ * genuinely has no last free day, so this is the ordinary case, not an error.
+ */
+function formatDay(value, fallback = "Not set") {
+  if (!value) return fallback;
+  const date = parseDay(value);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "long", year: "numeric" }).format(date);
+}
+
+function formatDayShort(value, fallback = "Not scheduled") {
+  if (!value) return fallback;
+  const date = parseDay(value);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "short", year: "numeric" }).format(date);
+}
+
 function dayDifference(from, to) {
   return Math.round((parseDay(to) - parseDay(from)) / 86400000);
 }
@@ -1546,7 +1568,7 @@ function TripTable({ trips, flashTripId, onOpenTrip }) {
                   {pending && !trip.plannedDate ? <div className="mt-2 font-normal text-slate-600">Not yet scheduled</div> : null}
                   {cancelled ? <div className="mt-2 font-semibold text-red-900">{trip.cancelledReason}</div> : null}
                 </td>
-                <td className="px-4 py-4 font-semibold text-slate-900">{trip.plannedDate ? new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "short", year: "numeric" }).format(parseDay(trip.plannedDate)) : "Not scheduled"}</td>
+                <td className="px-4 py-4 font-semibold text-slate-900">{formatDayShort(trip.plannedDate)}</td>
                 <td className="px-4 py-4 font-semibold text-slate-900">{trip.collectedTime || "—"}</td>
                 <td className="px-4 py-4 font-semibold text-slate-900">{trip.deliveredTime || "—"}</td>
                 <td className="px-4 py-4"><button type="button" onClick={() => onOpenTrip(trip.id)} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 font-semibold text-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">Manage <ChevronRight className="h-5 w-5" /></button></td>
@@ -2336,7 +2358,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
               const days = daysUntil(clock.date);
               return (
                 <div key={clock.label} className={`flex min-h-36 items-center justify-between gap-5 p-6 ${index === 0 ? "border-b border-slate-200 md:border-b-0 md:border-r" : ""}`}>
-                  <div><div className="text-xl font-semibold text-slate-950">{clock.label}</div><div className="mt-2 font-normal text-slate-600">Last free day: {new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "long", year: "numeric" }).format(parseDay(clock.date))}</div></div>
+                  <div><div className="text-xl font-semibold text-slate-950">{clock.label}</div><div className="mt-2 font-normal text-slate-600">Last free day: {formatDay(clock.date, "Not set — the container has not been discharged yet")}</div></div>
                   <span className={`inline-flex min-h-14 items-center rounded-md border px-4 py-2 text-[17px] font-semibold ${freeTimeTone(days)}`}>{freeTimeLabel(days)}</span>
                 </div>
               );
