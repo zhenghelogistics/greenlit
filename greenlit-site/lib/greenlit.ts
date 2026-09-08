@@ -21,6 +21,18 @@ export function getRepository(): Repository {
   return repository;
 }
 
+/**
+ * Discards all in-memory state and rebuilds from the seeded fixtures.
+ *
+ * Only meaningful while the repository is in-memory: once Supabase is behind
+ * the port this becomes destructive, so the route that calls it refuses to run
+ * in production.
+ */
+export function resetRepository(): void {
+  repository = createMemoryRepository();
+  service = new JobService(repository);
+}
+
 export function jsonError(error: unknown, status = 500) {
   const message = error instanceof Error ? error.message : "Unexpected error";
   return Response.json({ error: message }, { status });

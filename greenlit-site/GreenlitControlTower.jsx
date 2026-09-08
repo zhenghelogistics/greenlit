@@ -3172,62 +3172,129 @@ export default function GreenlitControlTower() {
     }
   }
 
-  function applyDocument(result) {
-    const fields = result.values;
-    const incomingNumbers = new Set((result.containers || []).map((container) => container.number));
-    const existingJob = jobs.find((job) => job.type === "Import" && (
-      job.billOfLading === fields.billOfLading
-      || job.containers?.some((container) => incomingNumbers.has(container.number))
-    ));
-    // §12: an extraction may never silently overwrite a critical field on a
-    // job that already exists. A new job has nothing to contradict, so it is
-    // applied whole.
-    let discrepancies = [];
-    if (existingJob) {
-      const extracted = toExtractedFields(
-        fields,
-        result.confidence || {},
-        result.fileName || "document",
-        new Date().toISOString(),
-      );
-      const reconciled = reconcileExtraction(existingJob.documentFields || {}, extracted, {
-        criticalFields: INTAKE_CRITICAL_FIELDS,
-      });
-      discrepancies = reconciled.discrepancies;
-    }
-
-    const appliedJob = buildImportJobFromDocument(result, jobs, existingJob);
-    // Conflicting critical values are held for review; the stored values stay.
-    for (const d of discrepancies) {
-      if (existingJob?.documentFields && d.field in existingJob.documentFields) {
-        appliedJob.documentFields = {
-          ...appliedJob.documentFields,
-          [d.field]: existingJob.documentFields[d.field],
-        };
+  /**
+   * §11. Applies an extracted document to the control tower.
+   *
+   * The job is created on the SERVER so it gets a customer-scoped reference
+   * (ADR-0007), an audit entry, and permission checking. Previously this built
+   * a job in browser state, which meant intake produced records the engine had
+   * never seen and no conflict could ever be recorded against them.
+   *
+   * The PDF itself never leaves the browser — that contract is unchanged. Only
+   * the extracted fields are sent.
+   */
+  /** Discards server state and rebuilds from the seeded fixtures. */
+  async function resetData() {
+    try {
+      const response = await fetch("/api/reset", { method: "POST" });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        showToast(payload.error ?? "Reset is unavailable here.");
+        return;
       }
+      setDocuments([]);
+      await loadJobs();
+      showToast("Rebuilt from the seeded fixtures.");
+    } catch {
+      showToast("Could not reach the server to reset.");
     }
-    appliedJob.discrepancies = [...(existingJob?.discrepancies || []), ...discrepancies];
-    appliedJob.documentFields = { ...(appliedJob.documentFields || {}), ...fields };
+  }
 
-    setJobs((current) => existingJob
-      ? current.map((job) => job.id === existingJob.id ? appliedJob : job)
-      : [...current, appliedJob]);
+  async function applyDocument(result) {
+    const fields = result.values ?? {};
+
+    // §11.2 detects the customer rather than asking for it. The master is the
+    // authority: a code is human-chosen and immutable, so intake matches
+    // against it and refuses rather than inventing one.
+    const named = String(fields.consignee || fields.notify || "").trim();
+    const customers = await fetch("/api/customers")
+      .then((r) => (r.ok ? r.json() : { customers: [] }))
+      .then((d) => d.customers ?? [])
+      .catch(() => []);
+
+    const match = customers.find((c) => {
+      const haystack = named.toLowerCase();
+      if (!haystack) return false;
+      if (haystack.includes(c.companyName.toLowerCase())) return true;
+      if (c.shortName && haystack.includes(c.shortName.toLowerCase())) return true;
+      return (c.emailDomains || []).some((d) => haystack.includes(String(d).replace(/^@/, "").split(".")[0]));
+    });
+
+    if (!match) {
+      showToast(named
+        ? `No company matches “${named}”. Add it under Companies, then apply this document again.`
+        : "This document names no consignee. Add the company under Companies first.");
+      return;
+    }
+
+    const incomingNumbers = new Set((result.containers || []).map((c) => c.number).filter(Boolean));
+    const existing = jobs.find((job) => job.type === "Import" && (
+      (fields.billOfLading && job.documentFields?.billOfLading === fields.billOfLading)
+      || (job.containers || []).some((c) => incomingNumbers.has(c.number))
+    ));
+
+    if (existing) {
+      // §12: an extraction never silently overwrites a critical field. Each
+      // conflict is raised as a record for the controller to decide.
+      const extracted = toExtractedFields(fields, result.confidence || {},
+        result.fileName || "document", new Date().toISOString());
+      const { discrepancies } = reconcileExtraction(existing.documentFields || {}, extracted,
+        { criticalFields: INTAKE_CRITICAL_FIELDS });
+
+      for (const d of discrepancies) {
+        await fetch(`/api/jobs/${encodeURIComponent(existing.apiId ?? existing.id)}/discrepancies`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ...d, actor: CURRENT_USER }),
+        }).catch(() => {});
+      }
+      await loadJobs();
+      showToast(discrepancies.length
+        ? `${existing.id}: ${discrepancies.length} conflict${discrepancies.length === 1 ? "" : "s"} raised for review.`
+        : `${existing.id} updated from ${result.fileName ?? "the document"}.`);
+      setSelectedJobId(existing.id);
+      setReturnScreen("documents");
+      setScreen("detail");
+      return;
+    }
+
+    const response = await fetch("/api/jobs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        domain: "IMPORT",
+        customerCode: match.code,
+        actor: CURRENT_USER,
+        blNumber: fields.billOfLading ?? null,
+        vesselName: fields.vessel ?? null,
+        voyageNumber: fields.voyage ?? null,
+        eta: fields.eta ?? null,
+        deliveryAddress: fields.deliveryAddress ?? null,
+      }),
+    }).catch(() => null);
+
+    if (!response?.ok) {
+      const payload = await response?.json().catch(() => ({}));
+      showToast(payload?.error ?? "That document could not be applied.");
+      return;
+    }
+
+    const { job } = await response.json();
     setDocuments((current) => [{
       id: `DOC-${Date.now()}`,
-      jobId: appliedJob.id,
+      jobId: job.jobNumber,
       fileName: result.fileName,
       carrier: fields.carrier,
       documentType: fields.documentType,
       extractedCount: result.extractedCount,
       containerCount: result.containers?.length || 1,
     }, ...current]);
+
+    await loadJobs();
+    showToast(`${job.jobNumber} created for ${match.companyName} from ${result.fileName ?? "the document"}.`);
+    setSelectedJobId(job.jobNumber);
     setReturnScreen("documents");
-    setSelectedJobId(appliedJob.id);
     setScreen("detail");
-    setHighlight("sourceDocument");
-    window.setTimeout(() => setHighlight(""), 1500);
-    showToast(`${result.extractedCount} document facts and ${appliedJob.containers.length} container${appliedJob.containers.length === 1 ? "" : "s"} applied. ${existingJob ? `Job ${appliedJob.id} updated.` : `Import job ${appliedJob.id} created.`}`);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function resetDemo() {
@@ -3327,6 +3394,15 @@ export default function GreenlitControlTower() {
               <RotateCcw className="h-4 w-4" />
               <span className="sm:hidden">Reset</span>
               <span className="hidden sm:inline">Reload</span>
+            </button>
+            <button
+              type="button"
+              onClick={resetData}
+              className="inline-flex min-h-9 items-center gap-2 rounded-md px-3 text-[13px] text-[color:var(--gl-ink-muted)] hover:bg-[color:var(--gl-bg-hover)] hover:text-[color:var(--gl-ink)]"
+              title="Discard all data and rebuild from the seeded fixtures"
+            >
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Reset</span>
             </button>
             {/* Until sign-in exists, who is acting is a choice. The server
                 still enforces what that person may do. */}

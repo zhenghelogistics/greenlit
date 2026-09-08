@@ -223,10 +223,13 @@ test('ADR-0007: the customer master is seeded and readable', async () => {
 
 test('ADR-0007: creating a customer validates and audits', async () => {
   const repo = createMemoryRepository();
+  const before = (await repo.listCustomers()).length;
   const created = await repo.createCustomer(
     { code: 'ZEN', companyName: 'Zenith Shipping' }, 'John Tan');
   assert.equal(created.code, 'ZEN');
-  assert.equal((await repo.listCustomers()).length, 5);
+  // Relative, not a pinned count: seeding another fixture customer is not a
+  // reason for this test to fail.
+  assert.equal((await repo.listCustomers()).length, before + 1);
   const events = await repo.listAuditEvents('zen');
   assert.equal(events[0]?.actor, 'John Tan');
 });
