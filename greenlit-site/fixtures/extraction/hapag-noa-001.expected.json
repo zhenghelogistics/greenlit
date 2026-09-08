@@ -1,0 +1,16 @@
+{
+  "$comment": "Ground truth for a Hapag-Lloyd arrival notice, read by a person from the document. Only fields the review step keeps are listed; see docs/extraction-engine.md.",
+  "documentType": "Arrival Notice",
+  "carrier": "Hapag-Lloyd",
+  "eta": "2026-08-31",
+  "billOfLading": "HLCUSZX2607BSUB0",
+  "bookingNumber": "34416855",
+  "vessel": "DALLAS EXPRESS",
+  "voyage": "632S",
+  "portOfLoading": "NANSHA",
+  "portOfDischarge": "SINGAPORE",
+  "terminal": "PSA PASIR PANJANG TERMINAL",
+  "containerNumber": "SEGU3218850",
+  "demurrageFreeDays": "3",
+  "detentionFreeDays": "4"
+}
