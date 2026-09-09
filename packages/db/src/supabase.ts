@@ -444,6 +444,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         vessel_name: draft.vesselName ?? null,
         voyage_number: draft.voyageNumber ?? null,
         eta_singapore: draft.etaSingapore ?? null,
+        vessel_closing_at: draft.vesselClosingAt ?? null,
         empty_collection_yard: draft.emptyCollectionYard ?? null,
         cms_required: draft.cmsRequired ?? true,
         container_quantity: quantity,

@@ -123,3 +123,39 @@ test('a refused job leaves nothing behind', async () => {
   assert.equal((await repo.listImportJobs()).length, before,
     'a job refused for too many containers must not be half-created');
 });
+
+/**
+ * An export job is a booking, not an arrival.
+ *
+ * Chapter D is explicit that import logic must not be carried across: there is
+ * no last free day here, and the deadline is the vessel closing. Which makes
+ * vesselClosingAt the field the whole domain turns on — miss it and the box
+ * rolls to the next vessel.
+ */
+test('§47: an export job keeps the vessel closing it was created with', async () => {
+  const repo = createMemoryRepository();
+  const job = await repo.createExportJob({
+    customerCode: 'ABC',
+    shipper: 'Seng Bee Hardware',
+    bookingReference: 'SGSIN2609887',
+    vesselName: 'ONE TRIUMPH',
+    voyageNumber: '123E',
+    vesselClosingAt: '2026-09-20T17:00:00+08:00',
+    emptyCollectionYard: 'COSCO-PSA Depot',
+    containerQuantity: 2,
+  }, 'tester');
+
+  assert.equal(job.vesselClosingAt, '2026-09-20T17:00:00+08:00',
+    'the draft accepted no closing at all, so an export job arrived with no deadline');
+  assert.equal(job.bookingReference, 'SGSIN2609887');
+  assert.equal((await repo.listContainersForExportJob(job.exportJobId)).length, 2,
+    'the booking says two containers, so the job has two');
+});
+
+test('an export job created without a closing simply has none', async () => {
+  // Not every booking confirmation states one, and inventing a deadline is
+  // worse than having none: a controller would work to it.
+  const repo = createMemoryRepository();
+  const job = await repo.createExportJob({ customerCode: 'ABC' }, 'tester');
+  assert.equal(job.vesselClosingAt, null);
+});

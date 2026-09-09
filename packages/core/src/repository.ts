@@ -213,6 +213,16 @@ export interface ExportJobDraft {
   vesselName?: string | null;
   voyageNumber?: string | null;
   etaSingapore?: string | null;
+  /**
+   * §47. When the vessel closes.
+   *
+   * The deadline an export job is worked against, and the reason export is
+   * urgent at all: miss it and the box rolls to the next vessel. It was
+   * absent from this draft, so a booking confirmation could be read, the
+   * closing extracted, and the job created without it — arriving with no
+   * deadline at all.
+   */
+  vesselClosingAt?: string | null;
   emptyCollectionYard?: string | null;
   containerQuantity?: number;
   containerSizeType?: string | null;

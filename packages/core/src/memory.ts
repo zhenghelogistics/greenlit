@@ -534,7 +534,7 @@ export function createMemoryRepository(): Repository {
         vesselName: draft.vesselName ?? null,
         voyageNumber: draft.voyageNumber ?? null,
         etaSingapore: draft.etaSingapore ?? null,
-        vesselClosingAt: null,
+        vesselClosingAt: draft.vesselClosingAt ?? null,
         emptyCollectionYard: draft.emptyCollectionYard ?? null,
         cmsRequired: draft.cmsRequired ?? true,
         cmsStatus: 'PENDING',

@@ -3651,10 +3651,31 @@ export default function GreenlitControlTower() {
       return;
     }
 
+    // Which direction this job runs. An export job is a booking rather than
+    // an arrival: it is worked against the vessel closing, not free time, and
+    // opening one the wrong way round means chasing the wrong deadline for
+    // its whole life. Defaults to import, which is what every document read
+    // before this point was.
+    const isExport = result.domain === "EXPORT";
+
     const response = await fetch("/api/jobs", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({
+      body: JSON.stringify(isExport ? {
+        domain: "EXPORT",
+        customerCode: match.code,
+        actor: CURRENT_USER,
+        shipper: fields.shipper ?? null,
+        bookingReference: fields.bookingNumber ?? null,
+        exportClearanceReference: fields.exportClearanceReference ?? null,
+        vesselName: fields.vessel ?? null,
+        voyageNumber: fields.voyage ?? null,
+        etaSingapore: fields.eta ?? null,
+        vesselClosingAt: fields.vesselClosingAt ?? null,
+        emptyCollectionYard: fields.emptyCollectionYard ?? null,
+        containerQuantity: numberOrNull(fields.containerQuantity) ?? undefined,
+        containerSizeType: (result.containers ?? [])[0]?.type ?? null,
+      } : {
         domain: "IMPORT",
         customerCode: match.code,
         actor: CURRENT_USER,

@@ -7,6 +7,14 @@
  * the mapping is the thing to check, and it is testable.
  */
 export const API_TO_FORM = {
+  // Export. An export job is a booking rather than an arrival: the deadline is
+  // the vessel closing, and the box is collected empty before it is anything.
+  vesselClosingAt: "vesselClosingAt",
+  etd: "etd",
+  emptyCollectionYard: "emptyCollectionYard",
+  stuffingLocation: "stuffingLocation",
+  exportClearanceReference: "exportClearanceReference",
+  containerQuantity: "containerQuantity",
   blNumber: "billOfLading",
   houseBlNumber: "houseBillOfLading",
   bookingReference: "bookingNumber",
@@ -80,6 +88,12 @@ export function toIntakeResult(response) {
     values,
     confidence,
     containers,
+    // What the document is about, so intake opens the job in the right
+    // direction. Null when the document did not say — better than a guess,
+    // because a job opened the wrong way is worked against the wrong deadline
+    // entirely: free time for an import, vessel closing for an export.
+    domain: response.fields?.domain?.value ?? null,
+    documentType: response.fields?.documentType?.value ?? null,
     fileName: response.fileName,
     pages: response.pages ?? 1,
     model: response.model,

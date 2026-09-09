@@ -25,6 +25,10 @@ import { field, type ExtractedField } from "@greenlit/engine";
 
 /** The operational fields worth reading off a shipping document. */
 const FIELDS: Record<string, { type: string; description?: string }> = {
+  // ---- Which kind of document this is -------------------------------------
+  domain: { type: "string", description: "IMPORT for a document about cargo arriving in Singapore (arrival notice, cartage advice, delivery order). EXPORT for one about cargo leaving (booking confirmation, shipping instruction, container release order, VGM declaration). Omit if genuinely unclear rather than guessing." },
+  documentType: { type: "string", description: "What the document calls itself, e.g. Arrival Notice, Cartage Advice, Booking Confirmation, Container Release Order, Shipping Instruction, VGM Declaration." },
+
   blNumber: { type: "string", description: "The carrier's own bill of lading number (the master B/L). Never the house B/L." },
   houseBlNumber: { type: "string", description: "House bill of lading, issued by a freight forwarder rather than the carrier. Labelled inconsistently: House BL, House B/L, HOUSE BILL OF LADING, HBL, HB/L, H B/L, or as a column heading beside the ocean or master bill. Absent entirely on a direct carrier booking." },
   bookingReference: { type: "string" },
@@ -48,6 +52,17 @@ const FIELDS: Record<string, { type: string; description?: string }> = {
   freeTimeRemarks: { type: "string", description: "The free-time terms exactly as worded, when they carry a condition a number cannot, e.g. '10 combined calendar days from discharge' or 'detention starts after empty return notification'." },
   permitNumber: { type: "string" },
   vgm: { type: "string", description: "Verified gross mass in kg, digits only" },
+
+  // ---- Export ---------------------------------------------------------------
+  // An export job is a booking, not an arrival: the deadline is the vessel
+  // closing rather than free time, and the box is collected empty before it
+  // is anything else.
+  vesselClosingAt: { type: "string", description: "Cargo closing for the vessel, as YYYY-MM-DD HH:MM when a time is given and YYYY-MM-DD when it is not. Also printed as CY cut-off, closing time, or SI cut-off. Keep the time — a closing at 1700 and one at midnight are different deadlines. Where both a CY and an SI cut-off are given, this is the CY one." },
+  etd: { type: "string", description: "Estimated departure from the load port, as YYYY-MM-DD." },
+  emptyCollectionYard: { type: "string", description: "Where the empty container is collected from, e.g. a depot name." },
+  stuffingLocation: { type: "string", description: "Where the container is stuffed, if the document says." },
+  exportClearanceReference: { type: "string", description: "Export permit or clearance reference, e.g. a Singapore Customs OUT permit number." },
+  containerQuantity: { type: "string", description: "How many containers the booking covers, digits only." },
 };
 
 /**
@@ -127,6 +142,8 @@ Rules:
 - Every field you return must carry a confidence between 0 and 1 reflecting how clearly you could read it. Clean printed text is high. Handwriting, a skewed photo, or a partly obscured field is low. Be honest — a low score routes the field to a human, which is the correct outcome when you are unsure.
 - consignee, notifyParty and shipper are company names only. Leave out the street address, postcode and country.
 - Dates as YYYY-MM-DD. If a date is ambiguous between formats (03/04/2026), return null rather than picking one.
+- vesselClosingAt keeps its time when the document gives one. "CY CUT-OFF: 20 Sep 2026 1700 hrs" is "2026-09-20 17:00", not "2026-09-20". Dropping the time moves the deadline to midnight and buys a container eleven hours it does not have.
+- Always report domain and documentType. The domain is what the document is about, not who sent it: an arrival notice, cartage advice or delivery order is IMPORT because the cargo is arriving; a booking confirmation, container release order, shipping instruction or VGM declaration is EXPORT because the cargo is leaving. If a document genuinely does not say, omit domain rather than guessing — a job opened in the wrong direction is worked against the wrong deadline entirely.
 - Container numbers are 4 letters then 7 digits, no spaces.
 - Every field carries the page it came from and the line as printed. The quote is what lets a person check the value against the document without reading all of it, so copy the text exactly, including the label beside it, and never paraphrase or reconstruct it.
 - grossWeight is the cargo weight the document declares. vgm is a separately verified figure and usually appears only on export paperwork; do not copy one into the other.
