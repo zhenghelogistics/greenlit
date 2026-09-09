@@ -924,11 +924,28 @@ function StatusPill({ status, large = false, flash = false }) {
   );
 }
 
-function Panel({ title, action, children, className = "" }) {
+/**
+ * v5. A panel headed by a solid block naming what it holds.
+ *
+ * `kind` is the sort of information inside — money, containers, movements,
+ * documents, history — and it picks the hue. It is not decoration: the five
+ * colours never appear anywhere that is not the thing they name, so a
+ * controller learns them once and then knows where they are before reading
+ * the heading. A panel with no kind keeps a plain white header, which is the
+ * right answer for anything that is not one of the five.
+ */
+const PANEL_HEAD = {
+  money: "gl-head-money", box: "gl-head-box", move: "gl-head-move",
+  doc: "gl-head-doc", past: "gl-head-past",
+};
+
+function Panel({ title, action, children, className = "", kind }) {
+  const head = PANEL_HEAD[kind];
   return (
     <section className={`overflow-hidden rounded-lg border border-slate-200 bg-white ${className}`}>
-      <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-3">
-        <h2 className="text-xl font-semibold tracking-[-0.01em] text-slate-900">{title}</h2>
+      <div className={`flex min-h-16 flex-wrap items-center justify-between gap-3 px-5 py-3 ${
+        head ? head : "border-b border-slate-200 bg-white"}`}>
+        <h2 className={`text-xl font-semibold tracking-[-0.01em] ${head ? "" : "text-slate-900"}`}>{title}</h2>
         {action}
       </div>
       {children}
@@ -1883,36 +1900,37 @@ function ActionRequired({ jobs, filter, setFilter, dashboardFilter, clearDashboa
  * at a screen since seven.
  */
 function FreeTimeRow({ clock }) {
-  const tone = {
-    OVERDUE: "border-l-[6px] border-l-[color:var(--gl-state-blocked)] bg-white",
-    LAST_DAY: "border-l-[6px] border-l-[color:var(--gl-state-blocked)] bg-white",
-    DUE_SOON: "border-l-[6px] border-l-[color:var(--gl-state-warn)] bg-white",
-    SETTLED: "border-l-[6px] border-l-[color:var(--gl-state-ready)] bg-white",
-    OK: "border-l-[6px] border-l-[color:var(--gl-state-ready)] bg-white",
-    UNKNOWN: "border-l-[6px] border-l-[color:var(--gl-state-idle)] bg-white",
-  }[clock.standing] ?? "border-l-[6px] border-l-[color:var(--gl-state-idle)] bg-white";
+  // v5. A clock that is costing money is a solid block, not a tinted one: it
+  // is the loudest thing on the job because it is the only thing on the job
+  // with a running meter. Everything else takes the pale money wash, so it
+  // still reads as belonging to free time without competing.
+  const solid = clock.standing === "OVERDUE" || clock.standing === "LAST_DAY";
+  const ground = solid
+    ? "bg-[color:var(--gl-state-blocked)] text-white"
+    : clock.standing === "SETTLED"
+      ? "bg-[color:var(--gl-state-ready)] text-white"
+      : "gl-wash-money";
 
-  const ink = {
-    OVERDUE: "text-[color:var(--gl-state-blocked)]",
-    LAST_DAY: "text-[color:var(--gl-state-blocked)]",
-    DUE_SOON: "text-[color:var(--gl-state-warn)]",
-    SETTLED: "text-[color:var(--gl-state-ready)]",
-    OK: "text-[color:var(--gl-ink)]",
-    UNKNOWN: "text-[color:var(--gl-ink-muted)]",
-  }[clock.standing] ?? "text-[color:var(--gl-ink-muted)]";
+  const ink = solid || clock.standing === "SETTLED"
+    ? ""
+    : clock.standing === "DUE_SOON"
+      ? "text-[color:var(--gl-state-warn-ink)]"
+      : clock.standing === "UNKNOWN"
+        ? "text-[color:var(--gl-ink-muted)]"
+        : "text-[color:var(--gl-money-ink)]";
+
+  const quiet = solid || clock.standing === "SETTLED" ? "text-white/85" : "";
 
   return (
-    <div className={`flex flex-wrap items-baseline justify-between gap-3 rounded-md border border-[color:var(--gl-line)] p-4 ${tone}`}>
+    <div className={`flex flex-wrap items-baseline justify-between gap-3 rounded-md p-4 ${ground}`}>
       <div>
-        <div className="gl-label">{clock.label}</div>
+        <div className={`gl-label ${quiet || "gl-ink-money"}`}>{clock.label}</div>
         <div className={`mt-1 text-[19px] font-semibold ${ink}`}>{clock.summary}</div>
       </div>
-      <div className="gl-caption text-right">
+      <div className={`gl-caption text-right ${quiet}`}>
         {clock.freeDays === null ? "Free time not recorded" : `${clock.freeDays} free days`}
         {clock.lastFreeDay ? <div>Last free day {formatDay(clock.lastFreeDay)}</div> : null}
-        {clock.chargeableDays > 0
-          ? <div className="font-semibold text-[color:var(--gl-state-blocked)]">{clock.chargeableDays} chargeable</div>
-          : null}
+        {clock.chargeableDays > 0 ? <div className="font-semibold">{clock.chargeableDays} chargeable</div> : null}
       </div>
     </div>
   );
@@ -2403,7 +2421,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
       ) : null}
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <Panel title="Containers" action={<button type="button" disabled={containers.length >= MAX_CONTAINERS_PER_JOB} onClick={() => onManage("container", { mode: "new" })} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600 disabled:text-slate-600 disabled:no-underline"><Plus className="h-5 w-5" />{containers.length >= MAX_CONTAINERS_PER_JOB ? "20 container limit" : "Add container"}</button>}>
+        <Panel title="Containers" kind="box" action={<button type="button" disabled={containers.length >= MAX_CONTAINERS_PER_JOB} onClick={() => onManage("container", { mode: "new" })} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600 disabled:text-slate-600 disabled:no-underline"><Plus className="h-5 w-5" />{containers.length >= MAX_CONTAINERS_PER_JOB ? "20 container limit" : "Add container"}</button>}>
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[15px] font-normal text-slate-600" aria-live="polite"><span>{containers.length} / {MAX_CONTAINERS_PER_JOB} containers on this job</span><span>{completedContainers} complete</span></div>
           <div className="divide-y divide-slate-200">
             {containers.map((container, index) => {
@@ -2418,7 +2436,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
           </div>
         </Panel>
 
-        <Panel title="Chassis" action={<button type="button" onClick={() => chassis.length ? onManage("chassis", { unit: chassis[0].unit, size: chassis[0].size, condition: "assigned" }) : onManage("fleet")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><Truck className="h-5 w-5" />{chassis.length ? "Manage chassis" : "Assign chassis"}</button>}>
+        <Panel title="Chassis" kind="move" action={<button type="button" onClick={() => chassis.length ? onManage("chassis", { unit: chassis[0].unit, size: chassis[0].size, condition: "assigned" }) : onManage("fleet")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><Truck className="h-5 w-5" />{chassis.length ? "Manage chassis" : "Assign chassis"}</button>}>
           {chassis.length ? (
             <div className="divide-y divide-slate-200">
               {chassis.map((item) => (
@@ -2435,7 +2453,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
       </div>
 
       {job.type === "Import" ? (
-        <Panel title="Free time" className="mt-7" action={<button type="button" onClick={() => onManage("freeTime")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><CalendarDays className="h-5 w-5" />Confirm dates</button>}>
+        <Panel title="Free time" kind="money" className="mt-7" action={<button type="button" onClick={() => onManage("freeTime")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><CalendarDays className="h-5 w-5" />Confirm dates</button>}>
           <div className="p-6">
             {/*
               Driven by the engine, not by two hardcoded rows. The old block
@@ -2460,7 +2478,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
       </Panel>
 
       {(job.activity || []).length ? (
-        <Panel title="Recent activity" className="mt-7" action={<button type="button" onClick={() => onManage("activity")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><History className="h-5 w-5" />View full history</button>}>
+        <Panel title="Recent activity" kind="past" className="mt-7" action={<button type="button" onClick={() => onManage("activity")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><History className="h-5 w-5" />View full history</button>}>
           <div className="divide-y divide-slate-200">
             {job.activity.slice(0, 3).map((item) => <div key={item.id} className="grid gap-2 px-5 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"><div className="font-semibold text-slate-950">{item.text}</div><div className="gl-label">{item.at} · {item.actor}</div></div>)}
           </div>
@@ -3026,7 +3044,7 @@ function ChassisFleet({ fleet, onOpen, onUnit }) {
         {[{ id: "available", label: "Available", value: fleet.available.length, tone: "text-emerald-800" }, { id: "inUse", label: "Under containers", value: fleet.inUse.length, tone: "text-slate-950" }, { id: "maintenance", label: "Maintenance or inspection", value: fleet.maintenance.length, tone: "text-amber-800" }].map((item) => <button key={item.id} type="button" onClick={() => setView((current) => current === item.id ? "all" : item.id)} aria-pressed={view === item.id} className={`rounded-lg border bg-white p-5 text-left hover:border-[var(--gl-accent)] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${view === item.id ? "border-[var(--gl-accent)] shadow-[inset_0_-3px_0_var(--gl-accent)]" : "border-slate-200"}`}><div className={`text-4xl font-semibold tabular-nums ${item.tone}`}>{item.value}</div><div className="mt-2 flex items-center justify-between gap-3 text-[17px] font-medium text-slate-600"><span>{item.label}</span><ChevronRight className="h-5 w-5 text-[var(--gl-accent)]" /></div></button>)}
       </div>
 
-      {showInUse ? <Panel title="Units under containers" className="mt-7">
+      {showInUse ? <Panel title="Units under containers" kind="move" className="mt-7">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[850px] border-collapse text-left text-[17px]">
             <thead className="bg-[var(--gl-bg-subtle)] text-[color:var(--gl-ink)]"><tr>{["Unit", "Size", "Job", "Customer", "Days held", ""].map((heading, index) => <th key={`${heading}-${index}`} className="px-4 py-4 text-[17px] font-semibold">{heading}</th>)}</tr></thead>

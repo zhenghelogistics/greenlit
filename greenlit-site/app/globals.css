@@ -32,11 +32,39 @@
   --gl-accent-soft: #dbeafe;
   --gl-focus: #1e40af;
 
-  /* State. Carried by a small mark and words, never by a filled block. */
-  --gl-state-blocked: #9e1a08;
-  --gl-state-warn: #844000;
-  --gl-state-ready: #115e1d;
-  --gl-state-idle: #50545b;
+  /* State. Two forms of each: a solid that carries white text, and the ink
+     for the same meaning written on a pale ground. Both are needed — a pill
+     is solid, an inline sentence is not. */
+  --gl-state-blocked: #a41c1c;
+  --gl-state-warn: #864700;
+  --gl-state-ready: #0c643b;
+  --gl-state-idle: #3f4a5a;
+
+  --gl-state-blocked-ink: #9e1a08;
+  --gl-state-warn-ink: #844000;
+  --gl-state-ready-ink: #115e1d;
+  --gl-state-idle-ink: #50545b;
+
+  /* ---- v5. One hue per kind of information, not per decoration ----
+
+     A controller learns five grounds once and then knows what they are
+     looking at before reading a word, which is the only thing colour is
+     faster at than text. Each solid carries white text at 7:1 or better —
+     which is what caps the brightness, because a lighter, more vivid colour
+     cannot hold white type at this contrast. Saturation runs 71–94%.
+
+     The `-soft` wash is the same hue for rows inside a block, and `-ink` is
+     what stays legible on that wash. Nothing here appears anywhere that is
+     not the thing it names. */
+  --gl-money: #9a3412;  --gl-money-soft: #fdf1e8;  --gl-money-ink: #7a2a0e;
+  --gl-box:   #0f5c6b;  --gl-box-soft:   #e9f3f5;  --gl-box-ink:   #0d4c58;
+  --gl-move:  #3730a3;  --gl-move-soft:  #eeedfa;  --gl-move-ink:  #2f2a8a;
+  --gl-doc:   #065f46;  --gl-doc-soft:   #e8f4ef;  --gl-doc-ink:   #054e39;
+  --gl-past:  #6b21a8;  --gl-past-soft:  #f3ecfa;  --gl-past-ink:  #591b8c;
+
+  /* The two domains, used only as an edge on a row and a band on a header. */
+  --gl-import: #1e4d8f;
+  --gl-export: #7c2d6b;
 
   --gl-font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --gl-font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, monospace;
@@ -171,3 +199,44 @@ button:disabled { cursor: not-allowed; opacity: .5; }
     transition-duration: .01ms !important; scroll-behavior: auto !important;
   }
 }
+
+
+/* ---- v5 section blocks ----------------------------------------------
+   A panel is headed by a solid block naming what it holds. The header
+   carries white text; the body stays white so the reading surface never
+   moves. `.gl-wash-*` is the pale row inside a block — the same hue, so a
+   row belongs to its section without competing with the header.
+   -------------------------------------------------------------------- */
+.gl-head-money { background: var(--gl-money); color: #fff; }
+.gl-head-box   { background: var(--gl-box);   color: #fff; }
+.gl-head-move  { background: var(--gl-move);  color: #fff; }
+.gl-head-doc   { background: var(--gl-doc);   color: #fff; }
+.gl-head-past  { background: var(--gl-past);  color: #fff; }
+
+.gl-wash-money { background: var(--gl-money-soft); }
+.gl-wash-box   { background: var(--gl-box-soft); }
+.gl-wash-move  { background: var(--gl-move-soft); }
+.gl-wash-doc   { background: var(--gl-doc-soft); }
+.gl-wash-past  { background: var(--gl-past-soft); }
+
+.gl-ink-money { color: var(--gl-money-ink); }
+.gl-ink-box   { color: var(--gl-box-ink); }
+.gl-ink-move  { color: var(--gl-move-ink); }
+.gl-ink-doc   { color: var(--gl-doc-ink); }
+.gl-ink-past  { color: var(--gl-past-ink); }
+
+/* A pill is solid and carries white text; the meaning is in the words. */
+.gl-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 13px; border-radius: 999px;
+  font: 600 14px/1.3 var(--gl-font-sans); color: #fff;
+}
+.gl-pill-blocked { background: var(--gl-state-blocked); }
+.gl-pill-warn    { background: var(--gl-state-warn); }
+.gl-pill-ready   { background: var(--gl-state-ready); }
+.gl-pill-idle    { background: var(--gl-state-idle); }
+.gl-pill .gl-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+/* The domain, as an edge rather than a label competing with the job number. */
+.gl-edge-import { border-left: 6px solid var(--gl-import); }
+.gl-edge-export { border-left: 6px solid var(--gl-export); }

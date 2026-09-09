@@ -103,6 +103,23 @@ const RULES = [
     message: "Pale ink on a translucent dark ground resolves to ~2:1 over the white shell. Use a light ground with dark ink.",
   },
   {
+    id: "hue-hardcoded",
+    clause: "§0.1",
+    level: "error",
+    applies: (f) => UI_EXT.has(extname(f)),
+    /**
+     * The five hues, written as literals instead of taken from the token.
+     *
+     * v5 gives each hue a meaning, and a meaning only holds while there is one
+     * definition of it. A hardcoded #9a3412 is the money colour until someone
+     * adjusts the token and it silently is not — and a section that no longer
+     * matches its hue is worse than one that never had a hue, because it has
+     * already been learned.
+     */
+    pattern: /#(?:9a3412|0f5c6b|3730a3|065f46|6b21a8|1e4d8f|7c2d6b)\b/gi,
+    message: "This is a v5 hue. Use its --gl- token so the meaning has one definition.",
+  },
+  {
     id: "uppercase-label",
     clause: "§2",
     level: "warn",
@@ -167,7 +184,7 @@ if (process.argv.includes("--json")) {
 } else {
   const line = (f) =>
     `  ${f.file}:${f.lines.join(",")}  [${f.rule} ${f.clause}] x${f.count}\n      ${f.message}`;
-  console.log("Design system gate — MASTER.md v3\n");
+  console.log("Design system gate — MASTER.md v5\n");
   if (errors.length) { console.log(`FAIL  ${errors.length} error group(s):`); errors.forEach((f) => console.log(line(f))); console.log(""); }
   if (warns.length) { console.log(`WARN  ${warns.length} warning group(s):`); warns.forEach((f) => console.log(line(f))); console.log(""); }
   if (!errors.length && !warns.length) console.log("PASS  no violations.");

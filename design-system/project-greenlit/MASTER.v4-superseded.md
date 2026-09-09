@@ -1,69 +1,13 @@
 # Design System Master File
 
 **Project:** Project Greenlit
-**Version:** 5.0 — colour with a job
-**Supersedes:** v4.0 (legible), retained as `MASTER.v4-superseded.md`
-**Reference point:** none. v1 through v4 each borrowed one, and the borrowing
-is what kept producing a tool that looked like software for someone else.
+**Version:** 4.0 — quiet, fast, and legible to the people who use it
+**Supersedes:** v3.0 (quiet, keyboard-first), retained as `MASTER.v3-superseded.md`
+**Reference point:** Linear, corrected for its audience
 
 ---
 
-## 0. Why v4 was replaced
-
-v4 fixed legibility and stopped there. Everything was readable and nothing was
-distinguishable: white panels on an off-white ground, grey headers, a single
-blue accent doing every job at once. The operator's words were that it felt
-"too high tech" and that staff "will use until their eye pain" — the second
-part v4 had already addressed, the first it had not touched at all.
-
-The mistake was treating colour as risk. v1 through v3 each overused it and
-each was corrected by removing more, until v4 had almost none left and the
-screen had nothing to orient by. Removing colour is not the same as using it
-well.
-
-### 0.1 One hue per kind of information
-
-v5 gives colour a job. Five hues, each naming a kind of information, and none
-appearing anywhere that is not the thing it names:
-
-| Hue | | Names |
-|---|---|---|
-| Burnt orange | `#9a3412` | Money and deadlines — free time, last free day, anything that becomes a charge |
-| Deep teal | `#0f5c6b` | Containers — numbers, seals, sizes, weights |
-| Indigo | `#3730a3` | Movements — trips, trucks, collection and delivery |
-| Emerald | `#065f46` | Documents — what arrived, what was read from it, permits |
-| Plum | `#6b21a8` | History — what already happened, and who did it |
-
-Colour that decorates has to be learned twice: once as a pattern, once as an
-exception. Colour that encodes is learned once. A controller learns these five
-grounds and then knows what they are looking at before reading a word, which is
-the only thing colour is faster at than text.
-
-### 0.2 Saturated, because white text is the ceiling
-
-Each solid carries **white text at 7:1 or better**, and that requirement is
-what caps the brightness. A lighter, more vivid colour cannot hold white type
-at this contrast, so "saturated" here means rich rather than bright — 71% to
-94% saturation, all of it dark enough to read white on.
-
-The alternative was brighter grounds with dark text. It was rejected: a solid
-block with white type reads as a heading, and a pale block with dark type reads
-as a row. The blocks are headings.
-
-A pale `-soft` wash of the same hue carries rows *inside* a block, with an
-`-ink` that stays legible on it. So a section is a solid header over a white
-body, with its own rows tinted to belong to it — colour marks where you are,
-and the reading surface never moves.
-
-### 0.3 What did not change from v4
-
-The type scale, the 7:1 floor, the 44px targets and the 3px focus ring all
-stand. v4's reader is still the reader: a controller in their fifties or
-sixties, on this screen from seven in the morning. v5 does not spend any of
-that back for the colour — every pairing was measured, and the five hues, the
-five washes, the four state solids and both domain edges all clear 7:1.
-
-## 0.4 Why v3 was replaced
+## 0. Why v3 was replaced
 
 v3 was designed against the wrong reader. Its reference point was Linear — a
 tool made for software teams, whose conventions assume a young, screen-native
@@ -94,7 +38,7 @@ quiet is now legible:
 - **Line height rose with the type.** Tight leading costs more as near vision
   declines, so 17px body sits on 26px rather than 20px.
 
-## 0.5 Why v2 was replaced
+## 0.1 Why v2 was replaced
 
 v2 fixed a real problem — v1 had collapsed 76% of its text into a 2px band, so
 nothing could be emphasised. v2 restored typographic hierarchy.
