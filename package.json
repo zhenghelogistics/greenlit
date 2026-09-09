@@ -17,7 +17,8 @@
     "spec": "node scripts/spec-coverage.mjs --min 80",
     "coverage": "npm run test:coverage --workspaces --if-present",
     "vercel-build": "npm --workspace greenlit-site run build",
-    "duplicates": "node scripts/check-duplicate-files.mjs"
+    "duplicates": "node scripts/check-duplicate-files.mjs",
+    "accuracy": "node scripts/extraction-accuracy.mjs"
   },
   "devDependencies": {
     "@types/node": "^22",

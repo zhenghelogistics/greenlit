@@ -69,6 +69,7 @@ export async function POST(request: Request): Promise<Response> {
       strategy,
       pages: document.pages?.length ?? 1,
       fields: result.fields,
+      containers: result.containers,
       model: result.model,
       usage: result.usage,
     });

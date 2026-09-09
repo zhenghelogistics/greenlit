@@ -25,12 +25,6 @@ import { field, type ExtractedField } from "@greenlit/engine";
 
 /** The operational fields worth reading off a shipping document. */
 const FIELDS: Record<string, { type: string; description?: string }> = {
-  containerNumber: { type: "string", description: "ISO 6346, 4 letters + 7 digits, e.g. HLXU1234567" },
-  containerSizeType: { type: "string", description: "As printed, e.g. '40 HQ', '20 GP', \"20' GENERAL PURPOSE\"" },
-  sealNumber: { type: "string", description: "Carrier seal on the container" },
-  grossWeight: { type: "string", description: "Cargo gross weight in kilograms as a bare number, no unit and no thousands separator: 990.0 KGM is \"990.0\". Convert from tonnes if the document uses them. Not the VGM, which is separately verified." },
-  packageCount: { type: "string", description: "Number of packages or pieces, digits only, e.g. 300 from '300 CASE (CS)'" },
-  packageType: { type: "string", description: "The unit the packages are counted in, as a single word: CASE, CARTON, PALLET, PKG, DRUM. From \"300 CASE (CS)\" this is \"CASE\" — drop any bracketed code." },
   blNumber: { type: "string", description: "The carrier's own bill of lading number (the master B/L). Never the house B/L." },
   houseBlNumber: { type: "string", description: "House bill of lading, issued by a freight forwarder rather than the carrier. Labelled inconsistently: House BL, House B/L, HOUSE BILL OF LADING, HBL, HB/L, H B/L, or as a column heading beside the ocean or master bill. Absent entirely on a direct carrier booking." },
   bookingReference: { type: "string" },
@@ -38,8 +32,8 @@ const FIELDS: Record<string, { type: string; description?: string }> = {
   vesselName: { type: "string" },
   voyage: { type: "string" },
   eta: { type: "string", description: "Arrival date as YYYY-MM-DD" },
-  portOfLoading: { type: "string" },
-  portOfDischarge: { type: "string" },
+  portOfLoading: { type: "string", description: "The place name only. Documents often print a UN/LOCODE beside it — \"SGSIN = Singapore, Singapore\" is SINGAPORE, \"CNSHA Shanghai\" is SHANGHAI." },
+  portOfDischarge: { type: "string", description: "The place name only. Documents often print a UN/LOCODE beside it — \"SGSIN = Singapore, Singapore\" is SINGAPORE, \"CNSHA Shanghai\" is SHANGHAI." },
   terminal: { type: "string", description: "Discharging terminal" },
   shipper: { type: "string", description: "Shipper company name only, without the address" },
   carrierReference: { type: "string", description: "The carrier's own reference for this shipment" },
@@ -72,6 +66,34 @@ const SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
+    /**
+     * One entry per container on the document.
+     *
+     * A single containerNumber field lost four of the five containers on a
+     * real Hapag notice — and paired the one it kept with a seal from a
+     * different row, which is worse than losing them: a container shown with
+     * another box's seal reads as fact. Number, seal, size and weight belong
+     * to one another and have to be read as a row.
+     */
+    containers: {
+      type: "array",
+      description: "Every container listed. One entry each, with that container's own seal, size and weight. Empty string for anything the document does not state for that container.",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          containerNumber: { type: "string", description: "ISO 6346, 4 letters + 7 digits, no spaces" },
+          sizeType: { type: "string", description: "As printed, e.g. 40 HQ, 20 GP, 20' GENERAL PURPOSE" },
+          sealNumber: { type: "string", description: "This container's own seal" },
+          grossWeight: { type: "string", description: "Kilograms, bare number, no unit" },
+          packageCount: { type: "string", description: "Digits only" },
+          packageType: { type: "string", description: "Single word: CASE, CARTON, PALLET, CTN" },
+          confidence: { type: "number", description: "0-1, how clearly you could read this row" },
+        },
+        required: ["containerNumber", "sizeType", "sealNumber", "grossWeight",
+                   "packageCount", "packageType", "confidence"],
+      },
+    },
     fields: {
       type: "array",
       description: "One entry per field you could actually read. Omit anything not on the page.",
@@ -87,7 +109,7 @@ const SCHEMA = {
       },
     },
   },
-  required: ["fields"],
+  required: ["fields", "containers"],
 } as const;
 
 const SYSTEM = `You read shipping documents for a Singapore haulier and return structured fields.
@@ -107,8 +129,19 @@ Rules:
 - The house bill is labelled inconsistently: "House BL", "House B/L", "HOUSE BILL OF LADING", "HBL", "HB/L", "H B/L", sometimes only as a column heading beside "Ocean Bill of Lading" or "Master B/L", and sometimes in a table where the heading row and the value row are far apart. Read it wherever it appears.
 - A booking made directly with the carrier has no house bill at all. That is the ordinary case, not a failure to find one: do not list houseBlNumber, and never repeat the master number there.`;
 
+export interface ExtractedContainer {
+  containerNumber: string;
+  sizeType: string;
+  sealNumber: string;
+  grossWeight: string;
+  packageCount: string;
+  packageType: string;
+  confidence: number;
+}
+
 export interface ClaudeExtractionResult {
   fields: Record<string, ExtractedField<unknown>>;
+  containers: ExtractedContainer[];
   model: string;
   usage: { input: number; output: number };
 }
@@ -119,6 +152,51 @@ export interface ClaudeExtractionResult {
  * Separate from the request so the mapping is testable without spending money
  * or needing a key — and the mapping is where the safety decisions live.
  */
+/** Fields whose value is a place, and so goes through normalisePlace. */
+const PLACE_FIELDS = new Set(['portOfLoading', 'portOfDischarge']);
+
+/**
+ * UN/LOCODEs a Singapore haulier meets constantly.
+ *
+ * Deliberately small and deliberately not a master list. Some documents print
+ * the code alone — the KMTC advice gives "SGSIN" and no name — and there is
+ * nothing in the text to expand it from. This covers the home port and its
+ * usual origins; anything else keeps the code, which is still correct, just
+ * less readable. A full LOCODE table is master data, and master data belongs
+ * in the database rather than compiled into an extractor.
+ */
+const LOCODES: Record<string, string> = {
+  SGSIN: 'SINGAPORE', MYPKG: 'PORT KLANG', MYTPP: 'TANJUNG PELEPAS',
+  CNSHA: 'SHANGHAI', CNNSA: 'NANSHA', CNSZX: 'SHENZHEN', CNNGB: 'NINGBO',
+  CNYTN: 'YANTIAN', CNQIN: 'QINGDAO', CNTAO: 'QINGDAO', CNXMN: 'XIAMEN',
+  HKHKG: 'HONG KONG', KRPUS: 'BUSAN', JPTYO: 'TOKYO', JPYOK: 'YOKOHAMA',
+  THLCH: 'LAEM CHABANG', VNSGN: 'HO CHI MINH CITY', IDJKT: 'JAKARTA',
+  INNSA: 'NHAVA SHEVA', AEJEA: 'JEBEL ALI', NLRTM: 'ROTTERDAM',
+};
+
+/**
+ * A port as a place name.
+ *
+ * Documents print the UN/LOCODE beside the name — "SGSIN = Singapore,
+ * Singapore" — and the prompt asking for the name alone did not reliably get
+ * it. Normalising here rather than asking again is the same lesson as the
+ * weights: what arrives is what has to be handled, and a value that is right
+ * but unusable still costs a controller the time to fix it.
+ *
+ * The code is only dropped when something is left after it, so a five-letter
+ * place — TOKYO, BUSAN — survives intact.
+ */
+export function normalisePlace(raw: string): string {
+  // (?![A-Z]) keeps SINGAPORE whole: without it the rule ate the first five
+  // letters and returned PORE.
+  const withoutCode = raw.replace(/^\s*[A-Z]{5}(?![A-Z])\s*(?:=|-|:)?\s*(?=\S)/, '');
+  const text = (withoutCode.trim() ? withoutCode : raw).trim();
+  // "Singapore, Singapore" is city then country; the first is the port.
+  const place = text.split(',')[0]!.trim();
+  // A bare code has no name beside it to recover, so expand what we know.
+  return LOCODES[place.toUpperCase()] ?? place;
+}
+
 export function toFields(
   json: string, fileName: string, now: string,
 ): Record<string, ExtractedField<unknown>> {
@@ -135,9 +213,33 @@ export function toFields(
     // A value that arrives without a score is treated as unverified rather
     // than certain: 0 routes it to a human, where 1 would let a silent
     // omission read as agreement.
-    fields[entry.name] = field(entry.value, fileName, entry.confidence ?? 0, now);
+    const value = PLACE_FIELDS.has(entry.name) && typeof entry.value === 'string'
+      ? normalisePlace(entry.value)
+      : entry.value;
+    fields[entry.name] = field(value, fileName, entry.confidence ?? 0, now);
   }
   return fields;
+}
+
+/**
+ * The container rows, keeping each row's values together.
+ *
+ * A row with no number is dropped: it is a header or a stray line, and a
+ * container with a seal but no number cannot be matched to anything.
+ */
+export function toContainers(json: string): ExtractedContainer[] {
+  const parsed = JSON.parse(json) as { containers?: Array<Record<string, unknown>> };
+  return (parsed.containers ?? [])
+    .map((c) => ({
+      containerNumber: String(c.containerNumber ?? "").replace(/\s+/g, "").toUpperCase(),
+      sizeType: String(c.sizeType ?? ""),
+      sealNumber: String(c.sealNumber ?? ""),
+      grossWeight: String(c.grossWeight ?? ""),
+      packageCount: String(c.packageCount ?? ""),
+      packageType: String(c.packageType ?? ""),
+      confidence: typeof c.confidence === "number" ? c.confidence : 0,
+    }))
+    .filter((c) => c.containerNumber !== "");
 }
 
 export function claudeExtractionAvailable(): boolean {
@@ -204,11 +306,38 @@ export async function extractWithClaude(
     throw new Error(`Extraction declined: ${response.stop_details?.explanation ?? "no reason given"}`);
   }
 
+  // A truncated response is not a shorter answer, it is an unfinished one: the
+  // JSON is cut mid-object and whatever survives is a fragment of the page.
+  if (response.stop_reason === "max_tokens") {
+    throw new Error(
+      "The document was too long to read in one pass and the answer was cut off. "
+      + "Split it and try the pages separately.",
+    );
+  }
+
+  // The silent path this replaces: no text block defaulted to "{}", so a
+  // transient failure returned an empty extraction rather than an error — and
+  // an empty extraction creates a job with nothing on it, which looks like a
+  // document that said nothing rather than a read that did not happen.
   const text = response.content.find((b) => b.type === "text");
-  const fields = toFields(text && "text" in text ? text.text : "{}", document.fileName, now);
+  if (!text || !("text" in text) || !text.text.trim()) {
+    throw new Error(`Nothing came back for ${document.fileName}. Try again.`);
+  }
+
+  const json = text.text;
+  const fields = toFields(json, document.fileName, now);
+  const containers = toContainers(json);
+
+  if (Object.keys(fields).length === 0 && containers.length === 0) {
+    throw new Error(
+      `No shipment details could be read from ${document.fileName}. `
+      + "Check it is a carrier document, and that scanned pages are legible.",
+    );
+  }
 
   return {
     fields,
+    containers,
     model: response.model,
     usage: { input: response.usage.input_tokens, output: response.usage.output_tokens },
   };

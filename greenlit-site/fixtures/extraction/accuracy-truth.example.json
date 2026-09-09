@@ -1,0 +1,53 @@
+{
+  "noa-558221590": {
+    "carrier": "Hapag-Lloyd", "note": "Hapag arrival notice, text layer, 1 container",
+    "fields": {
+      "blNumber": "HLCUSZX2607BSUB0", "bookingReference": "34416855",
+      "vesselName": "DALLAS EXPRESS", "voyage": "632S",
+      "portOfLoading": "NANSHA", "portOfDischarge": "SINGAPORE",
+      "eta": "2026-08-31", "notifyParty": "PEPSICO INTERNATIONAL PTE. LTD.",
+      "demurrageFreeDays": "3", "detentionFreeDays": "4", "freeTimeModel": "SPLIT"
+    },
+    "containers": [{ "containerNumber": "SEGU3218850", "sealNumber": "HLK6603170" }]
+  },
+  "noa-570431733": {
+    "carrier": "Hapag-Lloyd", "note": "Hapag arrival notice, 5 containers",
+    "fields": {
+      "blNumber": "HLCUSHA2607DXBE2", "bookingReference": "13625254",
+      "vesselName": "PRAGUE EXPRESS", "portOfLoading": "SHANGHAI",
+      "portOfDischarge": "SINGAPORE",
+      "demurrageFreeDays": "3", "detentionFreeDays": "4", "freeTimeModel": "SPLIT"
+    },
+    "containers": [
+      { "containerNumber": "UETU9346085", "sealNumber": "HLK8024493" },
+      { "containerNumber": "UETU9345221", "sealNumber": "HLK8024332" },
+      { "containerNumber": "UETU9346932", "sealNumber": "HLK8024412" },
+      { "containerNumber": "CAJU5620864", "sealNumber": "HLK8024310" },
+      { "containerNumber": "CAJU5607991", "sealNumber": "HLK8028097" }
+    ]
+  },
+  "kmtc-s610267517": {
+    "carrier": "KMTC via JAS Forwarding", "note": "Cartage advice, master + house BL",
+    "fields": {
+      "blNumber": "KMTCSHKB016289", "houseBlNumber": "SZX10267517",
+      "vesselName": "KMTC MOMBASA", "portOfDischarge": "SINGAPORE"
+    },
+    "containers": [{ "containerNumber": "TXTU4888537" }]
+  },
+  "anse-s2603809132": {
+    "carrier": "CMA CGM via DHL", "note": "Forwarder arrival notice, house BL",
+    "fields": {
+      "houseBlNumber": "JKTA83158", "vesselName": "CMA CGM ESCURIAL",
+      "eta": "2026-09-08", "portOfDischarge": "SINGAPORE"
+    },
+    "containers": [{ "containerNumber": "ECMU2899994", "sealNumber": "M2865485" }]
+  },
+  "evergreen-scan": {
+    "carrier": "Evergreen", "note": "SCANNED — no text layer at all",
+    "fields": {
+      "blNumber": "EGLV140602374592", "vesselName": "EVER GOLDEN",
+      "portOfDischarge": "SINGAPORE"
+    },
+    "containers": [{ "containerNumber": "EITU3306045" }]
+  }
+}

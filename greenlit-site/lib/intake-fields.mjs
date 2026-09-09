@@ -37,20 +37,6 @@ export const API_TO_FORM = {
 export const REVIEW_BELOW = 0.85;
 
 /**
- * Container-level fields. These describe the box, not the shipment, so they
- * belong on the container row rather than the job form — a job can carry
- * several containers with different seals and weights.
- */
-export const CONTAINER_FIELDS = {
-  containerNumber: "number",
-  containerSizeType: "type",
-  sealNumber: "seal",
-  grossWeight: "grossWeight",
-  packageCount: "packageCount",
-  packageType: "packageType",
-};
-
-/**
  * Turn an /api/extract response into what the review screen renders.
  *
  * Confidence becomes one of "high" or "review" rather than a number: the
@@ -68,17 +54,27 @@ export function toIntakeResult(response) {
     confidence[formKey] = entry.confidence >= REVIEW_BELOW ? "high" : "review";
   }
 
-  // Container-level values are one row of the container table, not form
-  // fields. One row is always produced: a job with no container cannot
-  // progress, so there is somewhere to type the number even when the document
-  // did not carry one.
-  const row = { id: "container-1", ref: "C1", number: "", type: "", seal: "",
-                grossWeight: "", packageCount: "", packageType: "" };
-  for (const [apiKey, rowKey] of Object.entries(CONTAINER_FIELDS)) {
-    const entry = response.fields?.[apiKey];
-    if (entry?.value != null) row[rowKey] = String(entry.value);
-  }
-  const containers = [row];
+  // Every container the document listed, each keeping its own seal, size and
+  // weight. Reading them as separate fields lost four of the five on a real
+  // notice and paired the survivor with another row's seal.
+  //
+  // One empty row when the document listed none: a job with no container
+  // cannot progress, so there has to be somewhere to type the number.
+  const rows = (response.containers ?? []).map((c, index) => ({
+    id: `container-${index + 1}`,
+    ref: `C${index + 1}`,
+    number: c.containerNumber ?? "",
+    type: c.sizeType ?? "",
+    seal: c.sealNumber ?? "",
+    grossWeight: c.grossWeight ?? "",
+    packageCount: c.packageCount ?? "",
+    packageType: c.packageType ?? "",
+    confidence: c.confidence >= REVIEW_BELOW ? "high" : "review",
+  }));
+  const containers = rows.length ? rows : [{
+    id: "container-1", ref: "C1", number: "", type: "", seal: "",
+    grossWeight: "", packageCount: "", packageType: "",
+  }];
 
   return {
     values,

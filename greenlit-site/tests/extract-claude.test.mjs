@@ -6,8 +6,10 @@ const NOW = "2026-09-08T00:00:00.000Z";
 const list = (...fields) => JSON.stringify({ fields });
 
 test("a field absent from the page is simply not listed", () => {
-  const f = toFields(list({ name: "containerNumber", value: "HLXU1234567", confidence: 0.98 }), "noa.pdf", NOW);
-  assert.ok("containerNumber" in f);
+  // containerNumber is no longer a shipment field: it moved to the container
+  // list, so that a notice carrying five boxes keeps each one's own seal.
+  const f = toFields(list({ name: "vesselName", value: "DALLAS EXPRESS", confidence: 0.98 }), "noa.pdf", NOW);
+  assert.ok("vesselName" in f);
   assert.ok(!("blNumber" in f), "an unlisted field must not become a stored blank");
 });
 
@@ -35,6 +37,13 @@ test("an empty string is absence, not a value", () => {
 });
 
 test("an empty list yields no fields rather than throwing", () => {
+  assert.deepEqual(toFields(JSON.stringify({ fields: [] }), "x.pdf", NOW), {});
+  assert.deepEqual(toFields("{}", "x.pdf", NOW), {});
+});
+
+test("an empty parse yields nothing rather than a phantom field", () => {
+  // Guards the shape that fed the silent path: toFields is total, and the
+  // caller is what must refuse to treat "nothing read" as a valid extraction.
   assert.deepEqual(toFields(JSON.stringify({ fields: [] }), "x.pdf", NOW), {});
   assert.deepEqual(toFields("{}", "x.pdf", NOW), {});
 });

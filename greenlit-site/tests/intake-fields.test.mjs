@@ -17,14 +17,25 @@ test("a low score marks the field for review", () => {
   assert.equal(r.confidence.carrier, "high");
 });
 
-test("the container number becomes a container row, not a form field", () => {
-  const r = toIntakeResult({ fields: { containerNumber: f("HLXU1234567", 0.98) } });
-  assert.equal(r.containers[0].number, "HLXU1234567");
-  assert.ok(!("containerNumber" in r.values));
+test("every container on the document becomes its own row", () => {
+  // A single containerNumber field lost four of the five containers on a real
+  // Hapag notice, and paired the one it kept with a seal from another row.
+  const r = toIntakeResult({ fields: {}, containers: [
+    { containerNumber: "UETU9346085", sizeType: "40 HQ", sealNumber: "HLK8024332", confidence: 0.95 },
+    { containerNumber: "CAJU5607991", sizeType: "40 HQ", sealNumber: "HLK8028097", confidence: 0.94 },
+  ] });
+  assert.equal(r.containers.length, 2);
+  assert.equal(r.containers[0].number, "UETU9346085");
+  assert.equal(r.containers[0].seal, "HLK8024332", "a seal must stay with its own container");
+  assert.equal(r.containers[1].number, "CAJU5607991");
+  assert.equal(r.containers[1].seal, "HLK8028097");
+  assert.ok(!("containerNumber" in r.values), "container values do not leak onto the shipment form");
 });
 
-test("an empty extraction still yields one blank container row", () => {
-  const r = toIntakeResult({ fields: {} });
+test("a document listing no container still yields one empty row", () => {
+  // A job with no container cannot progress, so there has to be somewhere to
+  // type the number when it arrives.
+  const r = toIntakeResult({ fields: {}, containers: [] });
   assert.equal(r.containers.length, 1);
   assert.equal(r.containers[0].number, "");
 });
