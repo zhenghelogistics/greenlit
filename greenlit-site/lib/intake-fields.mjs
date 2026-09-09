@@ -37,6 +37,20 @@ export const API_TO_FORM = {
 export const REVIEW_BELOW = 0.85;
 
 /**
+ * Container-level fields. These describe the box, not the shipment, so they
+ * belong on the container row rather than the job form — a job can carry
+ * several containers with different seals and weights.
+ */
+export const CONTAINER_FIELDS = {
+  containerNumber: "number",
+  containerSizeType: "type",
+  sealNumber: "seal",
+  grossWeight: "grossWeight",
+  packageCount: "packageCount",
+  packageType: "packageType",
+};
+
+/**
  * Turn an /api/extract response into what the review screen renders.
  *
  * Confidence becomes one of "high" or "review" rather than a number: the
@@ -54,11 +68,17 @@ export function toIntakeResult(response) {
     confidence[formKey] = entry.confidence >= REVIEW_BELOW ? "high" : "review";
   }
 
-  // A container number is one row of the container table, not a form field.
-  const number = response.fields?.containerNumber;
-  const containers = number?.value
-    ? [{ id: "container-1", ref: "C1", number: String(number.value), type: "", seal: "" }]
-    : [{ id: "container-1", ref: "C1", number: "", type: "", seal: "" }];
+  // Container-level values are one row of the container table, not form
+  // fields. One row is always produced: a job with no container cannot
+  // progress, so there is somewhere to type the number even when the document
+  // did not carry one.
+  const row = { id: "container-1", ref: "C1", number: "", type: "", seal: "",
+                grossWeight: "", packageCount: "", packageType: "" };
+  for (const [apiKey, rowKey] of Object.entries(CONTAINER_FIELDS)) {
+    const entry = response.fields?.[apiKey];
+    if (entry?.value != null) row[rowKey] = String(entry.value);
+  }
+  const containers = [row];
 
   return {
     values,

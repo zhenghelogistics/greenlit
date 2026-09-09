@@ -88,44 +88,50 @@ function operationalToday() {
  * What is missing is proof that the person at the keyboard IS this user, which
  * is exactly what authentication adds.
  */
-let CURRENT_USER = "winnie";
+/**
+ * Who is acting.
+ *
+ * A picker used to sit in the header offering every name in the directory,
+ * which meant anyone at the keyboard could act as an administrator. §7 roles
+ * are enforced server-side, so it granted no permission the chosen user did
+ * not have — but it let one person put another's name on an audit entry, and
+ * §13 exists precisely so that a change can be traced to a person. A choice of
+ * identity is not an identity.
+ *
+ * It is a single fixed operator until sign-in exists. That is still not proof
+ * of who is at the keyboard, but it no longer invites the impersonation, and
+ * it makes the gap obvious rather than dressing it up as a feature.
+ */
+const CURRENT_USER = "winnie";
 
-/** Until sign-in exists, who is acting is a choice rather than a fact. */
-function ActingUser({ onChange }) {
-  const [users, setUsers] = useState([]);
-  const [selected, setSelected] = useState(CURRENT_USER);
+/** Shown, not chosen: the name that will appear on this session's audit trail. */
+function ActingUser() {
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
     fetch("/api/users")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("no users"))))
-      .then((d) => { if (!cancelled) setUsers(d.users ?? []); })
-      .catch(() => { if (!cancelled) setUsers([]); });
+      .then((d) => {
+        if (!cancelled) setUser((d.users ?? []).find((u) => u.userId === CURRENT_USER) ?? null);
+      })
+      .catch(() => { if (!cancelled) setUser(null); });
     return () => { cancelled = true; };
   }, []);
 
-  if (!users.length) return null;
+  if (!user) return null;
+
+  const role = user.role === "ADMINISTRATOR" ? "Admin"
+    : user.role === "MANAGER" ? "Manager" : "Controller";
 
   return (
-    <label className="flex items-center gap-2">
-      <span className="sr-only">Acting as</span>
-      <UserRound className="h-4 w-4 text-[color:var(--gl-ink-faint)]" aria-hidden="true" />
-      <select
-        value={selected}
-        onChange={(event) => {
-          setSelected(event.target.value);
-          CURRENT_USER = event.target.value;
-          onChange?.(event.target.value);
-        }}
-        className="h-11 rounded border border-[color:var(--gl-line-strong)] bg-white px-2 text-[15px] text-[color:var(--gl-ink)]"
-      >
-        {users.map((u) => (
-          <option key={u.userId} value={u.userId} className="text-slate-900">
-            {u.displayName} · {u.role === "ADMINISTRATOR" ? "Admin" : u.role === "MANAGER" ? "Manager" : "Controller"}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="flex items-center gap-2 text-[15px] text-[color:var(--gl-ink-muted)]">
+      <UserRound className="h-5 w-5 text-[color:var(--gl-ink-faint)]" aria-hidden="true" />
+      <span>
+        <span className="sr-only">Acting as </span>
+        {user.displayName} &middot; {role}
+      </span>
+    </div>
   );
 }
 
@@ -554,10 +560,20 @@ function movementMatchesContainer(trip, container, index, total) {
   return total === 1 || index === 0;
 }
 
-/** A form field is text; the draft wants a number or nothing. */
+/**
+ * A form field is text; the draft wants a number or nothing.
+ *
+ * Tolerant of what actually arrives. Asked for a bare number, an extraction
+ * can still return "990.0 KGM" or "1,234 KG", and a strict Number() turns both
+ * into NaN — losing a weight that was read correctly. The unit and separators
+ * are stripped rather than rejected; a field with no digits at all is genuinely
+ * absent and returns null.
+ */
 function numberOrNull(value) {
-  const n = Number(String(value ?? "").trim());
-  return String(value ?? "").trim() !== "" && Number.isFinite(n) ? n : null;
+  const text = String(value ?? "").replace(/,/g, "").trim();
+  if (!text) return null;
+  const match = /-?\d+(?:\.\d+)?/.exec(text);
+  return match ? Number(match[0]) : null;
 }
 
 function parseDay(value) {
@@ -2607,6 +2623,9 @@ function DocumentContainersEditor({ containers, onChange }) {
               <label><span className="text-[15px] font-normal text-slate-600">Container number *</span><input required maxLength={11} pattern="[A-Za-z]{4}[0-9]{7}" value={container.number || ""} onChange={(event) => update(index, "number", event.target.value)} className={drawerInputClass} /></label>
               <label><span className="text-[15px] font-normal text-slate-600">Container type</span><input value={container.type || ""} onChange={(event) => update(index, "type", event.target.value)} className={drawerInputClass} /></label>
               <label><span className="text-[15px] font-normal text-slate-600">Seal number</span><input value={container.seal || ""} onChange={(event) => update(index, "seal", event.target.value)} className={drawerInputClass} /></label>
+              <label><span className="text-[15px] font-normal text-slate-600">Gross weight (kg)</span><input inputMode="numeric" value={container.grossWeight || ""} onChange={(event) => update(index, "grossWeight", event.target.value)} className={drawerInputClass} /></label>
+              <label><span className="text-[15px] font-normal text-slate-600">Packages</span><input inputMode="numeric" value={container.packageCount || ""} onChange={(event) => update(index, "packageCount", event.target.value)} className={drawerInputClass} /></label>
+              <label><span className="text-[15px] font-normal text-slate-600">Package type</span><input value={container.packageType || ""} onChange={(event) => update(index, "packageType", event.target.value)} className={drawerInputClass} /></label>
             </div>
             {issues[index] ? <div role="alert" className="mt-3 text-[17px] font-semibold text-rose-800">{issues[index]}</div> : null}
           </div>
@@ -3452,6 +3471,9 @@ export default function GreenlitControlTower() {
           containerNumber: c.number || null,
           sizeType: c.type || null,
           sealNumber: c.seal || null,
+          grossWeight: numberOrNull(c.grossWeight),
+          packageCount: numberOrNull(c.packageCount),
+          packageType: c.packageType || null,
           freeTimeModel: fields.freeTimeModel || null,
           demurrageFreeDays: numberOrNull(fields.demurrageFreeDays),
           detentionFreeDays: numberOrNull(fields.detentionFreeDays),
@@ -3594,7 +3616,7 @@ export default function GreenlitControlTower() {
             </button>
             {/* Until sign-in exists, who is acting is a choice. The server
                 still enforces what that person may do. */}
-            <ActingUser onChange={() => loadJobs()} />
+            <ActingUser />
           </div>
         </div>
       </header>

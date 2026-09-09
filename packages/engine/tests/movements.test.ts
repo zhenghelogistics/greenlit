@@ -110,7 +110,7 @@ const importJob: ImportJob = {
 };
 const importContainer: ImportContainer = {
   containerId: 'c', containerNumber: 'ABCU1234567', jobId: 'j', containerSize: '40',
-  containerType: 'HQ', sealNumber: null, grossWeight: 1, cargoDescription: 'x',
+  containerType: 'HQ', sealNumber: null, grossWeight: 1, packageCount: null, packageType: null, cargoDescription: 'x',
   portTerminal: 'PSA', emptyReturnYard: 'Jurong', freeTimeModel: 'SPLIT',
   freeTimeCountsFrom: 'VESSEL_ETA', demurrageFreeDays: 7, demurrageLfd: null,
   detentionFreeDays: 7, detentionLfd: null, combinedFreeDays: null, combinedLfd: null, freeTimeRemarks: null,

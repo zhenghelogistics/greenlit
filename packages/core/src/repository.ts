@@ -153,6 +153,9 @@ export interface ImportContainerDraft {
   containerNumber?: string | null;
   sizeType?: string | null;
   sealNumber?: string | null;
+  grossWeight?: number | null;
+  packageCount?: number | null;
+  packageType?: string | null;
   freeTimeModel?: string | null;
   demurrageFreeDays?: number | null;
   detentionFreeDays?: number | null;

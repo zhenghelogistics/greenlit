@@ -26,6 +26,11 @@ import { field, type ExtractedField } from "@greenlit/engine";
 /** The operational fields worth reading off a shipping document. */
 const FIELDS: Record<string, { type: string; description?: string }> = {
   containerNumber: { type: "string", description: "ISO 6346, 4 letters + 7 digits, e.g. HLXU1234567" },
+  containerSizeType: { type: "string", description: "As printed, e.g. '40 HQ', '20 GP', \"20' GENERAL PURPOSE\"" },
+  sealNumber: { type: "string", description: "Carrier seal on the container" },
+  grossWeight: { type: "string", description: "Cargo gross weight in kilograms as a bare number, no unit and no thousands separator: 990.0 KGM is \"990.0\". Convert from tonnes if the document uses them. Not the VGM, which is separately verified." },
+  packageCount: { type: "string", description: "Number of packages or pieces, digits only, e.g. 300 from '300 CASE (CS)'" },
+  packageType: { type: "string", description: "The unit the packages are counted in, as a single word: CASE, CARTON, PALLET, PKG, DRUM. From \"300 CASE (CS)\" this is \"CASE\" — drop any bracketed code." },
   blNumber: { type: "string", description: "The carrier's own bill of lading number (the master B/L). Never the house B/L." },
   houseBlNumber: { type: "string", description: "House bill of lading, issued by a freight forwarder rather than the carrier. Labelled inconsistently: House BL, House B/L, HOUSE BILL OF LADING, HBL, HB/L, H B/L, or as a column heading beside the ocean or master bill. Absent entirely on a direct carrier booking." },
   bookingReference: { type: "string" },
@@ -96,6 +101,7 @@ Rules:
 - consignee, notifyParty and shipper are company names only. Leave out the street address, postcode and country.
 - Dates as YYYY-MM-DD. If a date is ambiguous between formats (03/04/2026), return null rather than picking one.
 - Container numbers are 4 letters then 7 digits, no spaces.
+- grossWeight is the cargo weight the document declares. vgm is a separately verified figure and usually appears only on export paperwork; do not copy one into the other.
 - Free time comes in two shapes and they are not interchangeable. Some carriers state demurrage and detention as separate allowances; others state a single combined D&D pool covering both. Report freeTimeModel as SPLIT or COMBINED to say which the document uses, and fill only the matching fields — never both shapes. Splitting a combined allowance in two invents a deadline that does not exist. If the document does not make the shape clear, omit freeTimeModel rather than assuming.
 - A document may carry two bills of lading. The carrier issues the master or ocean bill; a freight forwarder issues the house bill. Put each under its own name and never the house number under blNumber — they identify different contracts, and confusing them misroutes the shipment.
 - The house bill is labelled inconsistently: "House BL", "House B/L", "HOUSE BILL OF LADING", "HBL", "HB/L", "H B/L", sometimes only as a column heading beside "Ocean Bill of Lading" or "Master B/L", and sometimes in a table where the heading row and the value row are far apart. Read it wherever it appears.

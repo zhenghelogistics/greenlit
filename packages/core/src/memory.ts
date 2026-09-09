@@ -153,7 +153,7 @@ const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
   ij1: [{
     containerId: 'ic1', containerNumber: 'OOLU8841250', jobId: 'ij1',
     containerSize: '40', containerType: 'HQ', sealNumber: null, grossWeight: 21400,
-    cargoDescription: 'General cargo', portTerminal: 'PSA Pasir Panjang',
+    packageCount: 300, packageType: 'CASE', cargoDescription: 'General cargo', portTerminal: 'PSA Pasir Panjang',
     emptyReturnYard: 'Jurong Yard', freeTimeModel: 'SPLIT', freeTimeCountsFrom: 'VESSEL_ETA',
     demurrageFreeDays: 5, demurrageLfd: '2026-09-01', detentionFreeDays: 7,
     detentionLfd: '2026-09-04', combinedFreeDays: null, combinedLfd: null, freeTimeRemarks: null,
@@ -165,7 +165,7 @@ const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
   ij2: [{
     containerId: 'ic2', containerNumber: 'CSNU7213366', jobId: 'ij2',
     containerSize: '20', containerType: 'GP', sealNumber: 'SG88213', grossWeight: 14800,
-    cargoDescription: 'Machine parts', portTerminal: 'PSA Brani',
+    packageCount: null, packageType: null, cargoDescription: 'Machine parts', portTerminal: 'PSA Brani',
     emptyReturnYard: 'Jurong Yard', freeTimeModel: 'COMBINED', freeTimeCountsFrom: 'DISCHARGE',
     demurrageFreeDays: null, demurrageLfd: null, detentionFreeDays: null,
     detentionLfd: '2026-09-02', combinedFreeDays: 10, combinedLfd: '2026-09-02', freeTimeRemarks: null,
@@ -473,7 +473,10 @@ export function createMemoryRepository(): Repository {
           containerSize: size || '',
           containerType: type.join(' '),
           sealNumber: c.sealNumber?.trim() || null,
-          grossWeight: null, cargoDescription: null, portTerminal: null,
+          grossWeight: c.grossWeight ?? null,
+          packageCount: c.packageCount ?? null,
+          packageType: c.packageType?.trim() || null,
+          cargoDescription: null, portTerminal: null,
           emptyReturnYard: null,
           // §34. Absent is not the same as split: nothing is asserted about
           // the carrier's allowance until someone has read it.

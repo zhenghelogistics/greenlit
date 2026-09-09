@@ -353,6 +353,9 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
           container_size: size || '',
           container_type: type.join(' '),
           seal_number: c.sealNumber?.trim() || null,
+          gross_weight: c.grossWeight ?? null,
+          package_count: c.packageCount ?? null,
+          package_type: c.packageType?.trim() || null,
           // §34. Nothing is asserted about the carrier's allowance until
           // someone has read it: absent is not the same as split.
           free_time_model: c.freeTimeModel ?? 'NOT_CONFIRMED',

@@ -61,6 +61,15 @@ export interface ImportContainer {
   containerType: string;
   sealNumber: string | null;
   grossWeight: number | null;
+  /**
+   * §11. What the notice counted, and in what.
+   *
+   * Two fields rather than one string: "300" is comparable across documents
+   * and "CASE" is not a number. A count without its unit cannot be checked
+   * against a delivery, which is the reason to record it at all.
+   */
+  packageCount: number | null;
+  packageType: string | null;
   cargoDescription: string | null;
   portTerminal: string | null;
   emptyReturnYard: string | null;

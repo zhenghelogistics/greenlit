@@ -52,7 +52,7 @@ const exportContainer = (over: Partial<ExportContainer> = {}): ExportContainer =
 
 const importContainer = (): ImportContainer => ({
   containerId: 'c', containerNumber: 'ABCU1234567', jobId: 'j',
-  containerSize: '40', containerType: 'HQ', sealNumber: null, grossWeight: 20000,
+  containerSize: '40', containerType: 'HQ', sealNumber: null, grossWeight: 20000, packageCount: null, packageType: null,
   cargoDescription: 'Goods', portTerminal: 'PSA', emptyReturnYard: 'Yard',
   freeTimeModel: 'SPLIT', freeTimeCountsFrom: 'VESSEL_ETA',
   demurrageFreeDays: 7, demurrageLfd: null, detentionFreeDays: 7, detentionLfd: null,
