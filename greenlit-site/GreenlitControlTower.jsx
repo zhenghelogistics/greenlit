@@ -178,28 +178,38 @@ function ActingUser() {
 
 const CARPARK = "ZHL Carpark, Pioneer Road";
 
+/**
+ * Which fields block applying.
+ *
+ * Derived from REQUIRED_JOB_FIELDS rather than marked by hand on each field:
+ * the badge saying a field is needed and the button refusing to apply have to
+ * be answering the same question, and two lists kept in step by hand are two
+ * lists that eventually disagree.
+ */
+const isRequiredField = (key) => REQUIRED_JOB_FIELDS.includes(key);
+
 const DOCUMENT_FIELD_GROUPS = [
   {
     title: "Shipment",
     fields: [
-      { key: "eta", label: "Estimated arrival", type: "date", required: true },
-      { key: "billOfLading", label: "Bill of lading", required: true },
+      { key: "eta", label: "Estimated arrival", type: "date" },
+      { key: "billOfLading", label: "Bill of lading" },
       // Present only when a forwarder is involved, so optional by nature
       // rather than by omission — most direct carrier documents carry none.
       { key: "houseBillOfLading", label: "House bill of lading" },
       { key: "bookingNumber", label: "Booking number" },
-      { key: "vessel", label: "Main vessel", required: true },
+      { key: "vessel", label: "Main vessel" },
       { key: "voyage", label: "Voyage" },
       { key: "portOfLoading", label: "Port of loading" },
-      { key: "portOfDischarge", label: "Port of discharge", required: true },
-      { key: "terminal", label: "Discharging terminal", required: true },
+      { key: "portOfDischarge", label: "Port of discharge" },
+      { key: "terminal", label: "Discharging terminal" },
     ],
   },
   {
     title: "Parties and delivery",
     fields: [
       { key: "shipper", label: "Shipper", multiline: true },
-      { key: "consignee", label: "Consignee", multiline: true, required: true },
+      { key: "consignee", label: "Consignee", multiline: true },
       { key: "notify", label: "Notify party", multiline: true },
       { key: "deliveryAddress", label: "Delivery address", multiline: true },
       { key: "reference", label: "Carrier reference" },
@@ -2587,11 +2597,31 @@ function useFleet() {
 }
 
 
-function documentConfidenceTone(level) {
-  if (level === "high") return "border-emerald-200 bg-emerald-50 text-emerald-800";
-  if (level === "edited") return "border-sky-200 bg-sky-50 text-sky-800";
-  if (level === "review") return "border-amber-200 bg-amber-50 text-amber-900";
-  return "border-rose-200 bg-rose-50 text-rose-900";
+/**
+ * What a field's badge says, and how loudly.
+ *
+ * An absent field is not automatically a problem. Most documents carry no
+ * booking number, and marking that "Missing" in red said the job could not
+ * proceed when it could: red is reserved for the fields that genuinely block
+ * applying, and everything else reads as information.
+ *
+ * The distinction is REQUIRED_JOB_FIELDS, which is the same list that decides
+ * whether the Apply button is disabled — so the badge cannot disagree with the
+ * button, which is how it came to be wrong in the first place.
+ */
+function documentFieldBadge(level, required) {
+  if (level === "high") {
+    return { text: "Extracted", tone: "border-emerald-200 bg-emerald-50 text-emerald-800" };
+  }
+  if (level === "edited") {
+    return { text: "Edited", tone: "border-sky-200 bg-sky-50 text-sky-800" };
+  }
+  if (level === "review") {
+    return { text: "Check this", tone: "border-amber-200 bg-amber-50 text-amber-900" };
+  }
+  return required
+    ? { text: "Needed", tone: "border-rose-200 bg-rose-50 text-rose-900" }
+    : { text: "Not on document", tone: "border-slate-300 bg-slate-100 text-slate-700" };
 }
 
 /**
@@ -2665,16 +2695,19 @@ function FreeTimeFields({ draft, confidence, onChange }) {
 }
 
 function DocumentField({ field, value, confidence, onChange }) {
-  const status = confidence === "high" ? "Extracted" : confidence === "edited" ? "Edited" : confidence === "review" ? "Review" : "Missing";
+  // Required is the field's own flag, which is derived from the same list the
+  // Apply button checks.
+  const required = isRequiredField(field.key);
+  const badge = documentFieldBadge(confidence, required);
   return (
     <label className={`block px-5 py-4 ${field.multiline ? "md:col-span-2" : ""}`}>
       <span className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[15px] font-normal text-slate-600">{field.label}{field.required ? " *" : ""}</span>
-        <span className={`inline-flex min-h-7 items-center rounded-full border px-2 text-[17px] font-semibold ${documentConfidenceTone(confidence)}`}>{status}</span>
+        <span className="text-[15px] font-normal text-slate-600">{field.label}{required ? " *" : ""}</span>
+        <span className={`inline-flex min-h-7 items-center rounded-full border px-2 text-[15px] font-semibold ${badge.tone}`}>{badge.text}</span>
       </span>
       {field.multiline ? (
         <textarea
-          required={field.required}
+          required={required}
           value={value || ""}
           onChange={(event) => onChange(field.key, event.target.value)}
           rows={3}
@@ -2682,7 +2715,7 @@ function DocumentField({ field, value, confidence, onChange }) {
         />
       ) : (
         <input
-          required={field.required}
+          required={required}
           type={field.type || "text"}
           inputMode={field.inputMode}
           value={value || ""}
