@@ -82,6 +82,27 @@ const RULES = [
     message: "White text on a light ground is invisible. Use an ink token.",
   },
   {
+    id: "translucent-dark-badge",
+    clause: "§3",
+    level: "error",
+    applies: (f) => UI_EXT.has(extname(f)),
+    /**
+     * Pale ink on a translucent dark ground.
+     *
+     * A sibling of white-on-light, and it survived the same flip. `bg-sky-950/40`
+     * with `text-sky-100` was legible on v2's navy shell; over v4's white one
+     * the ground resolves to #9cacb6 and the pair measures 2.04:1. Three of
+     * these were still on the intake screen after the flip, because
+     * white-on-light looks only for `text-white` and dark-chrome only for
+     * `bg-slate-700` and up.
+     *
+     * A dark ground at any opacity below full is the tell: it is being blended
+     * with whatever is behind it, and behind it is white.
+     */
+    pattern: /class(?:Name)?="[^"$]*bg-[a-z]+-9[0-9]0\/[0-9]+[^"$]*text-[a-z]+-[123]00[^"$]*"/g,
+    message: "Pale ink on a translucent dark ground resolves to ~2:1 over the white shell. Use a light ground with dark ink.",
+  },
+  {
     id: "uppercase-label",
     clause: "§2",
     level: "warn",

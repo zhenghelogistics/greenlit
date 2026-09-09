@@ -2847,9 +2847,9 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
                 <p className="mt-2 break-all text-[17px] font-medium text-[color:var(--gl-ink-faint)]">{result.fileName} · {result.pages} pages · {(result.fileSize / 1024).toFixed(0)} KB</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <span className="inline-flex min-h-11 items-center rounded-full border border-emerald-500/50 bg-emerald-950/40 px-3 text-[17px] font-semibold text-emerald-100">{result.extractedCount} fields extracted</span>
-                <span className="inline-flex min-h-11 items-center rounded-full border border-sky-400/50 bg-sky-950/40 px-3 text-[17px] font-semibold text-sky-100">{containerDrafts.length} container{containerDrafts.length === 1 ? "" : "s"}</span>
-                <span className="inline-flex min-h-11 items-center rounded-full border border-amber-400/60 bg-amber-950/30 px-3 text-[17px] font-semibold text-amber-100">{reviewCount} need review</span>
+                <span className="inline-flex min-h-11 items-center rounded-full border border-emerald-300 bg-emerald-50 px-3 text-[17px] font-semibold text-emerald-800">{result.extractedCount} fields extracted</span>
+                <span className="inline-flex min-h-11 items-center rounded-full border border-sky-300 bg-sky-50 px-3 text-[17px] font-semibold text-sky-900">{containerDrafts.length} container{containerDrafts.length === 1 ? "" : "s"}</span>
+                <span className="inline-flex min-h-11 items-center rounded-full border border-amber-300 bg-amber-50 px-3 text-[17px] font-semibold text-amber-900">{reviewCount} need review</span>
               </div>
             </div>
 
