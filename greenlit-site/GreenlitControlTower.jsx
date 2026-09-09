@@ -3078,12 +3078,34 @@ export default function GreenlitControlTower() {
     setHighlightTimer(window.setTimeout(() => setHighlight(""), Math.max(...sequence.map((item) => item.delay)) + 1300));
   }
 
+  /**
+   * Open one job, fetching what the board does not carry.
+   *
+   * The board deliberately does not load the audit timeline or open
+   * discrepancies — pulling them for every row was most of the reason it took
+   * two seconds. They belong to the job actually on screen, so they are
+   * fetched when one is opened, and merged into the row already held so the
+   * screen renders immediately rather than waiting.
+   */
   function openJob(id) {
     setReturnScreen(screen === "detail" ? "actions" : screen);
     setSelectedJobId(id);
     setScreen("detail");
     setHighlight("");
     window.scrollTo({ top: 0, behavior: "smooth" });
+
+    const job = jobs.find((j) => j.id === id);
+    if (!job?.apiId) return;
+    fetch(`/api/jobs/${encodeURIComponent(job.apiId)}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((payload) => {
+        if (!payload?.job) return;
+        const full = jobFromApi(payload.job);
+        setJobs((current) => current.map((j) => (j.id === id ? full : j)));
+      })
+      // The board's row still renders; only the timeline is missing, and the
+      // next action stays correct because it was derived server-side already.
+      .catch(() => {});
   }
 
   function goTo(nextScreen) {

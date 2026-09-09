@@ -32,6 +32,24 @@ export interface Repository {
   listMovementsForJob(jobId: string): Promise<Movement[]>;
   listOpenExceptionsForJob(jobId: string): Promise<ExceptionRecord[]>;
 
+  /**
+   * The same three reads for many jobs at once.
+   *
+   * A board derives every job from its containers, movements and exceptions,
+   * and doing that one job at a time cost three round trips each — fine on a
+   * local database, and the dominant cost when the database is a region away.
+   * These exist so a board is a fixed number of queries rather than a number
+   * that grows with the book.
+   *
+   * Each returns every matching row across the given jobs; the caller groups
+   * them. Grouping is cheap and the alternative — a map across the port —
+   * would be a shape every adapter had to build identically.
+   */
+  listContainersForImportJobs(jobIds: readonly string[]): Promise<ImportContainer[]>;
+  listContainersForExportJobs(jobIds: readonly string[]): Promise<ExportContainer[]>;
+  listMovementsForJobs(jobIds: readonly string[]): Promise<Movement[]>;
+  listOpenExceptionsForJobs(jobIds: readonly string[]): Promise<ExceptionRecord[]>;
+
   getThresholds(customerId?: string): Promise<Thresholds>;
 
   /**

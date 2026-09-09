@@ -146,6 +146,39 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       ).map(toException) as ExceptionRecord[];
     },
 
+    // Batched reads. One request each instead of one per job: deriving a board
+    // of eleven jobs made thirty-three round trips, which is the dominant cost
+    // when the database is a region away from the server.
+    async listContainersForImportJobs(jobIds) {
+      if (jobIds.length === 0) return [];
+      return rows(
+        await db.from('containers').select('*').in('job_id', [...jobIds]),
+        'containers',
+      ).map(toImportContainer);
+    },
+    async listContainersForExportJobs(jobIds) {
+      if (jobIds.length === 0) return [];
+      return rows(
+        await db.from('export_containers').select('*')
+          .in('export_job_id', [...jobIds]).order('container_ref'),
+        'export containers',
+      ).map(toExportContainer);
+    },
+    async listMovementsForJobs(jobIds) {
+      if (jobIds.length === 0) return [];
+      return rows(
+        await db.from('movements').select('*').in('job_id', [...jobIds]).order('movement_ref'),
+        'movements',
+      ).map(toMovement);
+    },
+    async listOpenExceptionsForJobs(jobIds) {
+      if (jobIds.length === 0) return [];
+      return rows(
+        await db.from('exceptions').select('*').in('job_id', [...jobIds]).is('resolved_at', null),
+        'exceptions',
+      ).map(toException) as ExceptionRecord[];
+    },
+
     async getThresholds(customerId) {
       // '*' is the global scope; a customer row overrides it for that key.
       const r = await db.from('config_thresholds').select('*')

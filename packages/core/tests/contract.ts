@@ -71,6 +71,50 @@ export function runRepositoryContract(
     assert.equal(after?.portnetReleased, true, 'a write must be readable afterwards');
   });
 
+  test(`[${name}] a batched read returns the same rows as the single-job reads`, async () => {
+    // The board reads every job's containers, movements and exceptions in one
+    // request each rather than three per job. That is only safe while the two
+    // paths agree — a batched read that quietly filtered differently would
+    // change what a board shows without changing what a job detail shows.
+    const repo = await fresh();
+    const ids = [seeded.importJobId];
+
+    const [one, many] = await Promise.all([
+      repo.listContainersForImportJob(seeded.importJobId),
+      repo.listContainersForImportJobs(ids),
+    ]);
+    assert.deepEqual(many.map((c) => c.containerId).sort(), one.map((c) => c.containerId).sort());
+
+    const [oneMove, manyMove] = await Promise.all([
+      repo.listMovementsForJob(seeded.importJobId),
+      repo.listMovementsForJobs(ids),
+    ]);
+    assert.deepEqual(manyMove.map((m) => m.movementId).sort(), oneMove.map((m) => m.movementId).sort());
+
+    const [oneExc, manyExc] = await Promise.all([
+      repo.listOpenExceptionsForJob(seeded.importJobId),
+      repo.listOpenExceptionsForJobs(ids),
+    ]);
+    assert.deepEqual(manyExc.length, oneExc.length);
+  });
+
+  test(`[${name}] a batched read of nothing asks for nothing`, async () => {
+    // An empty board must not become "every row", which is what an unguarded
+    // `in ()` would mean.
+    const repo = await fresh();
+    assert.deepEqual(await repo.listContainersForImportJobs([]), []);
+    assert.deepEqual(await repo.listContainersForExportJobs([]), []);
+    assert.deepEqual(await repo.listMovementsForJobs([]), []);
+    assert.deepEqual(await repo.listOpenExceptionsForJobs([]), []);
+  });
+
+  test(`[${name}] a batched read keeps each job's rows to that job`, async () => {
+    const repo = await fresh();
+    const movements = await repo.listMovementsForJobs([seeded.importJobId, seeded.exportJobId]);
+    assert.ok(movements.every((m) => m.jobId === seeded.importJobId || m.jobId === seeded.exportJobId),
+      'a batched read must not return rows from jobs that were not asked for');
+  });
+
   test(`[${name}] movements returned for a job belong to that job`, async () => {
     const repo = await fresh();
     for (const job of await repo.listExportJobs()) {

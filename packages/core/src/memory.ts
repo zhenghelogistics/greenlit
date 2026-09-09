@@ -394,6 +394,20 @@ export function createMemoryRepository(): Repository {
     async listOpenExceptionsForJob(id) {
       return clone((exceptions[id] ?? []).filter((e) => e.resolvedAt === null));
     },
+    // Batched reads. In memory these are a flatMap; the shape exists for the
+    // adapters where each of these is a network round trip.
+    async listContainersForImportJobs(jobIds) {
+      return clone(jobIds.flatMap((id) => importContainers[id] ?? []));
+    },
+    async listContainersForExportJobs(jobIds) {
+      return clone(jobIds.flatMap((id) => exportContainers[id] ?? []));
+    },
+    async listMovementsForJobs(jobIds) {
+      return clone(jobIds.flatMap((id) => movements[id] ?? []));
+    },
+    async listOpenExceptionsForJobs(jobIds) {
+      return clone(jobIds.flatMap((id) => (exceptions[id] ?? []).filter((e) => e.resolvedAt === null)));
+    },
     async getThresholds() { return { ...DEFAULT_THRESHOLDS }; },
 
     async listCustomers() { return clone(customers); },

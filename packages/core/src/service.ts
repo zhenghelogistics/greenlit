@@ -74,13 +74,70 @@ export class JobService {
   }
 
   /** Every active job, both domains, each carrying its derived values. */
+  /**
+   * Every job with its derived values, for a board.
+   *
+   * Deliberately not `ids.map(getJob)`. That fetched the thresholds once per
+   * job, re-fetched each job the list had already loaded, tried the import
+   * table before the export one for every export job, and pulled the full
+   * audit narrative and open discrepancies for all of them — about seven round
+   * trips each, none of which a board displays. Eleven jobs took the better
+   * part of two seconds.
+   *
+   * The activity timeline and discrepancies belong to one job on screen, so
+   * they are left to getJob. A caller showing a job in detail fetches it.
+   */
   async listJobs(): Promise<DerivedJobView[]> {
-    const [importJobs, exportJobs] = await Promise.all([
-      this.#repo.listImportJobs(), this.#repo.listExportJobs(),
+    const [importJobs, exportJobs, thresholds] = await Promise.all([
+      this.#repo.listImportJobs(),
+      this.#repo.listExportJobs(),
+      this.#repo.getThresholds(),
     ]);
-    const ids = [...importJobs.map((j) => j.jobId), ...exportJobs.map((j) => j.exportJobId)];
-    const views = await Promise.all(ids.map((id) => this.getJob(id)));
-    return views.filter((v): v is DerivedJobView => v !== null);
+    const now = this.#now();
+    const importIds = importJobs.map((j) => j.jobId);
+    const exportIds = exportJobs.map((j) => j.exportJobId);
+    const allIds = [...importIds, ...exportIds];
+
+    // Seven queries for the whole board, whatever its size. One per job made
+    // thirty-three for eleven jobs, and would make three hundred for a hundred.
+    const [importContainers, exportContainers, movements, exceptions] = await Promise.all([
+      this.#repo.listContainersForImportJobs(importIds),
+      this.#repo.listContainersForExportJobs(exportIds),
+      this.#repo.listMovementsForJobs(allIds),
+      this.#repo.listOpenExceptionsForJobs(allIds),
+    ]);
+
+    const groupBy = <T>(items: readonly T[], key: (item: T) => string): Map<string, T[]> => {
+      const map = new Map<string, T[]>();
+      for (const item of items) {
+        const id = key(item);
+        const list = map.get(id);
+        if (list) list.push(item); else map.set(id, [item]);
+      }
+      return map;
+    };
+
+    const importContainersByJob = groupBy(importContainers, (c) => c.jobId);
+    const exportContainersByJob = groupBy(exportContainers, (c) => c.exportJobId);
+    const movementsByJob = groupBy(movements, (m) => m.jobId);
+    const exceptionsByJob = groupBy(exceptions, (e) => e.jobId);
+
+    return [
+      ...importJobs.map((job) => deriveImportJob(
+        job,
+        importContainersByJob.get(job.jobId) ?? [],
+        movementsByJob.get(job.jobId) ?? [],
+        exceptionsByJob.get(job.jobId) ?? [],
+        IMPORT_MANDATORY, thresholds, now,
+      )),
+      ...exportJobs.map((job) => deriveExportJob(
+        job,
+        exportContainersByJob.get(job.exportJobId) ?? [],
+        movementsByJob.get(job.exportJobId) ?? [],
+        exceptionsByJob.get(job.exportJobId) ?? [],
+        EXPORT_MANDATORY, thresholds, now,
+      )),
+    ];
   }
 
   /**
