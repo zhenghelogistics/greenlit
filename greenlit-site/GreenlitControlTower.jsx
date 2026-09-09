@@ -1835,7 +1835,7 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
         <div className="gl-panel__header">
           <h2 className="gl-title">Action required</h2>
           <button type="button" onClick={() => onShowActions("us")}
-            className="gl-body min-h-11 px-2 font-medium text-[color:var(--gl-accent)] underline decoration-1 underline-offset-4">
+            className="gl-body-plain min-h-11 px-2 font-medium text-[color:var(--gl-accent)] underline decoration-1 underline-offset-4">
             View full list
           </button>
         </div>
@@ -1860,13 +1860,13 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
       <section aria-label="Elsewhere" className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2">
         {elsewhere.map((item) => (
           <button key={item.label} type="button" onClick={() => onShowActions(item.filter)}
-            className="gl-body min-h-11 text-slate-600 hover:text-[color:var(--gl-accent)]">
+            className="gl-body-plain min-h-11 text-slate-600 hover:text-[color:var(--gl-accent)]">
             <span className="gl-data gl-strong">{item.value}</span>
             <span className="ml-2">{item.label}</span>
           </button>
         ))}
         <button type="button" onClick={onShowFleet}
-          className="gl-body min-h-11 text-slate-600 hover:text-[color:var(--gl-accent)]">
+          className="gl-body-plain min-h-11 text-slate-600 hover:text-[color:var(--gl-accent)]">
           <span className="gl-data gl-strong">{chassis.available.length}</span>
           <span className="ml-2">chassis available</span>
         </button>
@@ -3769,7 +3769,10 @@ export default function GreenlitControlTower() {
                 >
                   <Icon className="hidden h-5 w-5 shrink-0 sm:block" aria-hidden="true" />
                   <span className="text-center leading-tight">{item.label}</span>
-                  <span className={`gl-data ${active ? "text-white" : "text-white/90"}`}>{item.count}</span>
+                  {/* gl-figures, not gl-data: gl-data carries color:ink and
+                      is defined after Tailwind, so it won over text-white and
+                      rendered these counts near-black on the blue. */}
+                  <span className={`gl-figures ${active ? "text-white" : "text-white/90"}`}>{item.count}</span>
                 </button>
               );
             })}

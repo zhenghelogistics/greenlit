@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @source "../GreenlitControlTower.jsx";
 
-/* Project Greenlit design system v3 — see design-system/project-greenlit/MASTER.md
+/* Project Greenlit design system v4 — see design-system/project-greenlit/MASTER.md
    Quiet, fast, keyboard-first. Density comes from whitespace, not from borders. */
 :root {
   /* Ground. White, not a grey canvas: panels stop needing to be white boxes. */
@@ -121,8 +121,15 @@ body {
 .gl-display { font: 600 26px/34px var(--gl-font-sans); color: var(--gl-ink-strong); letter-spacing: -.018em; }
 .gl-title   { font: 500 19px/26px var(--gl-font-sans); color: var(--gl-ink-strong); letter-spacing: -.008em; }
 .gl-body    { font: 400 17px/28px var(--gl-font-sans); color: var(--gl-ink); }
+/* .gl-body without the colour, for text that sets its own. */
+.gl-body-plain { font: 400 17px/28px var(--gl-font-sans); }
 .gl-label   { font: 500 14px/22px var(--gl-font-sans); color: var(--gl-ink-muted); letter-spacing: 0; text-transform: none; }
+/* Sets a colour, and is defined after Tailwind — so it beats a `text-white`
+   utility on the same element. On the blue bar that rendered the nav counts
+   near-black. `.gl-figures` is the same type without the colour, for anywhere
+   the surface is not white. */
 .gl-data    { font: 450 16px/24px var(--gl-font-mono); font-variant-numeric: tabular-nums; color: var(--gl-ink); letter-spacing: 0; }
+.gl-figures { font: 450 16px/24px var(--gl-font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .gl-caption { font: 400 15px/24px var(--gl-font-sans); color: var(--gl-ink-faint); }
 .gl-metric  { font: 600 30px/36px var(--gl-font-sans); font-variant-numeric: tabular-nums; color: var(--gl-ink-strong); letter-spacing: -.018em; }
 
