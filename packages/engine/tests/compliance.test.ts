@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  freeTimeCountdown,
   appearsOnSchedule, canCollect, canCollectEmpty, canComplete, canCreateMovement,
   canEnterStandby, canStartLaden, canTransition, exportContainerStatus,
   importJobStatus, isVgmPlausible, nextMovementRef, planExportMovements,
@@ -191,7 +192,19 @@ const RULES: Rule[] = [
         'must not read as overdue inside carrier free time');
     } },
   { id: '2.1-10', text: 'A combined-allowance carrier is shown one countdown, never two',
-    gap: 'the free-time model is stored per container but no countdown is computed or rendered' },
+    verify: () => {
+      const both = {
+        freeTimeModel: 'COMBINED' as const,
+        demurrageFreeDays: 3, demurrageLfd: '2026-09-14',
+        detentionFreeDays: 4, detentionLfd: '2026-09-21',
+        combinedFreeDays: 14, combinedLfd: '2026-09-28',
+      };
+      const counts = freeTimeCountdown(both, '2026-09-10', 3);
+      assert.equal(counts.length, 1, 'a combined allowance is one countdown');
+      assert.equal(counts[0]?.label, 'Combined D&D');
+      assert.equal(counts[0]?.daysRemaining, 18,
+        'counted against the combined date, not a stale demurrage one');
+    } },
   { id: '2.1-11', text: 'EMPTY_RETURN is created automatically but held until the customer confirms',
     verify: () => {
       const delivered = [mv({ movementType: 'IMPORT_DELIVERY', movementStatus: 'COMPLETED',
@@ -445,7 +458,23 @@ const RULES: Rule[] = [
       assert.notEqual(c.demurrageLfd, c.detentionLfd, 'the two clocks are stored separately');
     } },
   { id: 'I-25', text: 'The detention clock stops when EMPTY_RETURN reaches COMPLETED',
-    gap: 'free-time computation is not implemented; the stop event is modelled but nothing counts against it' },
+    verify: () => {
+      const c = {
+        freeTimeModel: 'SPLIT' as const,
+        demurrageFreeDays: 3, demurrageLfd: '2026-09-14',
+        detentionFreeDays: 4, detentionLfd: '2026-09-21',
+        combinedFreeDays: null, combinedLfd: null,
+      };
+      // Returned inside its free time, then read six weeks later.
+      const [, settled] = freeTimeCountdown(c, '2026-10-30', 3, '2026-09-18');
+      assert.equal(settled?.standing, 'SETTLED');
+      assert.equal(settled?.chargeableDays, 0,
+        'a container returned on time must not accrue while the job stays open');
+
+      // Still out: the clock runs.
+      const [, running] = freeTimeCountdown(c, '2026-10-30', 3, null);
+      assert.equal(running?.standing, 'OVERDUE');
+    } },
   { id: 'I-26', text: 'A job with any container outstanding is not Completed',
     verify: () => {
       assert.notEqual(importJobStatus(importJob(), ['Delivered', 'Empty Return Pending'], [], [], false), 'Completed');

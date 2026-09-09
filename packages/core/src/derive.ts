@@ -6,7 +6,22 @@ import {
   type ExportCtx, type ExportJobStatus, type ImportContainer, type ImportCtx,
   type ImportContainerStatus, type ImportJob, type ImportJobStatus,
   type MandatoryFieldSet, type Movement, type Thresholds, type WaitingOn,
+  freeTimeCountdown,
+  type FreeTimeCountdown,
 } from '@greenlit/engine';
+
+/**
+ * I-25. The day the empty return actually completed, if it has.
+ *
+ * The date rather than the fact: a settled clock is counted to the day it
+ * stopped, so a container returned inside its free time does not drift into
+ * being overdue while the job stays open.
+ */
+function emptyReturnedOn(movements: readonly Movement[]): string | null {
+  const done = movements.find(
+    (m) => m.movementType === 'EMPTY_RETURN' && m.movementStatus === 'COMPLETED');
+  return done?.actualDeliveryAt?.slice(0, 10) ?? null;
+}
 
 /** What a screen or an API consumer receives. Every field here is computed. */
 export interface DerivedContainerView {
@@ -17,6 +32,15 @@ export interface DerivedContainerView {
   location: ContainerLocation;
   gatePassed: boolean;
   gateFailures: string[];
+  /**
+   * §34.4. The carrier's clocks, counted.
+   *
+   * One entry under a combined allowance, two under a split one, none until
+   * the model is confirmed. Computed here rather than on a screen for the same
+   * reason as every other derived value: a countdown a client calculates is a
+   * countdown that can disagree with the one the next client calculates.
+   */
+  freeTime: FreeTimeCountdown[];
 }
 
 export interface DerivedJobView {
@@ -203,6 +227,13 @@ export function deriveImportJob(
       location: currentLocation(own, 'IMPORT'),
       gatePassed: gate.passed,
       gateFailures: gate.failures,
+      // §34.4. Counted per container: boxes on one job are discharged and
+      // returned separately, so a job-level countdown would be wrong for all
+      // but one of them. I-25: the day the empty went back stops the clock,
+      // so a container returned on time stays on time.
+      freeTime: freeTimeCountdown(
+        c, now.slice(0, 10), thresholds.ddCriticalDays, emptyReturnedOn(own),
+      ),
     };
   });
 
@@ -257,6 +288,11 @@ export function deriveExportJob(
       location: currentLocation(own, 'EXPORT'),
       gatePassed: laden.passed,
       gateFailures: laden.failures,
+      // Export has no last free day in the import sense (Chapter D is explicit
+      // that demurrage and detention logic must not be carried across), so
+      // there is nothing to count. Present and empty rather than absent, so a
+      // screen reads the same field for both domains.
+      freeTime: [],
     };
   });
 

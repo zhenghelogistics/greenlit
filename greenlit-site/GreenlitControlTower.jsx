@@ -1617,19 +1617,6 @@ function TripTable({ trips, flashTripId, onOpenTrip }) {
 }
 
 
-function freeTimeTone(days) {
-  if (days < 0) return "border-rose-800 bg-rose-800 text-white";
-  if (days <= 1) return "border-rose-200 bg-rose-50 text-rose-800";
-  if (days <= 3) return "border-amber-200 bg-amber-50 text-amber-800";
-  return "border-emerald-200 bg-emerald-50 text-emerald-800";
-}
-
-function freeTimeLabel(days) {
-  if (days < 0) return `${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} past`;
-  if (days === 0) return "Today — 0 days left";
-  return `${days} day${days === 1 ? "" : "s"} left`;
-}
-
 
 const WAITING_LABEL = { US: "Us", CUSTOMER: "Customer", CARRIER: "Carrier", NOBODY: "Nobody" };
 
@@ -1880,6 +1867,72 @@ function ActionRequired({ jobs, filter, setFilter, dashboardFilter, clearDashboa
         <ActionTable rows={filtered.map(rowFromSeedJob)} onOpen={onOpen} />
       </section>
     </main>
+  );
+}
+
+/**
+ * §34.4. What the carrier's clock says, in words.
+ *
+ * The number is not the message. A controller scanning a board needs to know
+ * whether this box costs money today, and "3 days left" answers that where
+ * "LFD 14 Sep" asks them to work it out against today's date, forty times a
+ * morning.
+ *
+ * Colour never carries the meaning on its own: every state says its words too,
+ * because a colour is the first thing to go for a reader who has been looking
+ * at a screen since seven.
+ */
+function FreeTimeRow({ clock }) {
+  const tone = {
+    OVERDUE: "border-l-[6px] border-l-[color:var(--gl-state-blocked)] bg-white",
+    LAST_DAY: "border-l-[6px] border-l-[color:var(--gl-state-blocked)] bg-white",
+    DUE_SOON: "border-l-[6px] border-l-[color:var(--gl-state-warn)] bg-white",
+    SETTLED: "border-l-[6px] border-l-[color:var(--gl-state-ready)] bg-white",
+    OK: "border-l-[6px] border-l-[color:var(--gl-state-ready)] bg-white",
+    UNKNOWN: "border-l-[6px] border-l-[color:var(--gl-state-idle)] bg-white",
+  }[clock.standing] ?? "border-l-[6px] border-l-[color:var(--gl-state-idle)] bg-white";
+
+  const ink = {
+    OVERDUE: "text-[color:var(--gl-state-blocked)]",
+    LAST_DAY: "text-[color:var(--gl-state-blocked)]",
+    DUE_SOON: "text-[color:var(--gl-state-warn)]",
+    SETTLED: "text-[color:var(--gl-state-ready)]",
+    OK: "text-[color:var(--gl-ink)]",
+    UNKNOWN: "text-[color:var(--gl-ink-muted)]",
+  }[clock.standing] ?? "text-[color:var(--gl-ink-muted)]";
+
+  return (
+    <div className={`flex flex-wrap items-baseline justify-between gap-3 rounded-md border border-[color:var(--gl-line)] p-4 ${tone}`}>
+      <div>
+        <div className="gl-label">{clock.label}</div>
+        <div className={`mt-1 text-[19px] font-semibold ${ink}`}>{clock.summary}</div>
+      </div>
+      <div className="gl-caption text-right">
+        {clock.freeDays === null ? "Free time not recorded" : `${clock.freeDays} free days`}
+        {clock.lastFreeDay ? <div>Last free day {formatDay(clock.lastFreeDay)}</div> : null}
+        {clock.chargeableDays > 0
+          ? <div className="font-semibold text-[color:var(--gl-state-blocked)]">{clock.chargeableDays} chargeable</div>
+          : null}
+      </div>
+    </div>
+  );
+}
+
+/** Every clock on a container, or a plain sentence when there are none. */
+function FreeTimePanel({ container }) {
+  const clocks = container?.freeTime ?? [];
+  if (!clocks.length) {
+    return (
+      <p className="gl-body">
+        No countdown yet. Confirm the carrier&rsquo;s free-time terms on the job and
+        this will start counting.
+      </p>
+    );
+  }
+  return (
+    <div className="grid gap-3">
+      {clocks.map((clock) => <FreeTimeRow key={clock.label} clock={clock} />)}
+    </div>
   );
 }
 
@@ -2383,19 +2436,21 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
 
       {job.type === "Import" ? (
         <Panel title="Free time" className="mt-7" action={<button type="button" onClick={() => onManage("freeTime")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><CalendarDays className="h-5 w-5" />Confirm dates</button>}>
-          <div className="grid md:grid-cols-2">
-            {[
-              { label: "Demurrage", date: job.demurrageLastFreeDay },
-              { label: "Detention", date: job.detentionLastFreeDay },
-            ].map((clock, index) => {
-              const days = daysUntil(clock.date);
-              return (
-                <div key={clock.label} className={`flex min-h-36 items-center justify-between gap-5 p-6 ${index === 0 ? "border-b border-slate-200 md:border-b-0 md:border-r" : ""}`}>
-                  <div><div className="text-xl font-semibold text-slate-950">{clock.label}</div><div className="mt-2 font-normal text-slate-600">Last free day: {formatDay(clock.date, "Not set — the container has not been discharged yet")}</div></div>
-                  <span className={`inline-flex min-h-14 items-center rounded-md border px-4 py-2 text-[17px] font-semibold ${freeTimeTone(days)}`}>{freeTimeLabel(days)}</span>
-                </div>
-              );
-            })}
+          <div className="p-6">
+            {/*
+              Driven by the engine, not by two hardcoded rows. The old block
+              always showed Demurrage and Detention whatever the carrier
+              issued — which for a combined allowance is the invented deadline
+              §34.3 forbids, shown beside a real one with nothing to tell them
+              apart.
+            */}
+            <FreeTimePanel container={(job.containers ?? [])[0]} />
+            {(job.containers ?? []).length > 1 ? (
+              <p className="gl-caption mt-4">
+                Showing {(job.containers ?? [])[0]?.number || "the first container"}.
+                Each container has its own clocks; open one to see it.
+              </p>
+            ) : null}
           </div>
         </Panel>
       ) : null}

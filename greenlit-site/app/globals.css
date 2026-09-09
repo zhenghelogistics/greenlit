@@ -5,8 +5,8 @@
    Quiet, fast, keyboard-first. Density comes from whitespace, not from borders. */
 :root {
   /* Ground. White, not a grey canvas: panels stop needing to be white boxes. */
-  --gl-bg: #ffffff;
-  --gl-bg-subtle: #fafafa;
+  --gl-bg: #fbfbfa;
+  --gl-bg-subtle: #ffffff;
   --gl-bg-hover: #f1f2f4;
   --gl-bg-selected: #e8effc;
   /* A blue wash for surfaces that lead: the register header, the acting rail. */
@@ -15,10 +15,10 @@
   /* Ink. Near-monochrome, four steps. */
   --gl-ink-strong: #0a0b0c;
   --gl-ink: #1a1c20;
-  --gl-ink-muted: #4a4e56;
+  --gl-ink-muted: #464a52;
   /* 4.57:1 on white. #9ca0a8 measured 2.62 and failed even the large-text
      threshold, while carrying captions, labels and navigation counts. */
-  --gl-ink-faint: #53585f;
+  --gl-ink-faint: #4e535a;
 
   /* Lines. Used sparingly — between sections, rarely around them. */
   --gl-line: #dcdfe3;
@@ -33,10 +33,10 @@
   --gl-focus: #1e40af;
 
   /* State. Carried by a small mark and words, never by a filled block. */
-  --gl-state-blocked: #a11b09;
-  --gl-state-warn: #8a4200;
-  --gl-state-ready: #12631f;
-  --gl-state-idle: #54585f;
+  --gl-state-blocked: #9e1a08;
+  --gl-state-warn: #844000;
+  --gl-state-ready: #115e1d;
+  --gl-state-idle: #50545b;
 
   --gl-font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --gl-font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, monospace;
@@ -53,7 +53,7 @@
      gap between 36 and 44 widens with age. */
   --gl-control-height: 44px;
   --gl-control-height-lg: 48px;
-  --gl-row-height: 48px;
+  --gl-row-height: 56px;
 
   --gl-space-1: 4px;  --gl-space-2: 8px;  --gl-space-3: 12px;
   --gl-space-4: 16px; --gl-space-5: 24px; --gl-space-6: 32px;
@@ -78,7 +78,7 @@ body {
   color: var(--gl-ink);
   font-family: var(--gl-font-sans);
   font-size: var(--gl-text-body);
-  line-height: 26px;
+  line-height: 28px;
   letter-spacing: 0;
   margin: 0;
   -webkit-font-smoothing: antialiased;
@@ -92,10 +92,10 @@ body {
    costs more as near vision declines. */
 .gl-display { font: 600 26px/34px var(--gl-font-sans); color: var(--gl-ink-strong); letter-spacing: -.018em; }
 .gl-title   { font: 500 19px/26px var(--gl-font-sans); color: var(--gl-ink-strong); letter-spacing: -.008em; }
-.gl-body    { font: 400 17px/26px var(--gl-font-sans); color: var(--gl-ink); }
-.gl-label   { font: 500 14px/20px var(--gl-font-sans); color: var(--gl-ink-muted); letter-spacing: 0; text-transform: none; }
+.gl-body    { font: 400 17px/28px var(--gl-font-sans); color: var(--gl-ink); }
+.gl-label   { font: 500 14px/22px var(--gl-font-sans); color: var(--gl-ink-muted); letter-spacing: 0; text-transform: none; }
 .gl-data    { font: 450 16px/24px var(--gl-font-mono); font-variant-numeric: tabular-nums; color: var(--gl-ink); letter-spacing: 0; }
-.gl-caption { font: 400 15px/22px var(--gl-font-sans); color: var(--gl-ink-faint); }
+.gl-caption { font: 400 15px/24px var(--gl-font-sans); color: var(--gl-ink-faint); }
 .gl-metric  { font: 600 30px/36px var(--gl-font-sans); font-variant-numeric: tabular-nums; color: var(--gl-ink-strong); letter-spacing: -.018em; }
 
 .gl-strong { color: var(--gl-ink-strong); }
@@ -105,6 +105,7 @@ body {
 /* ---- Tables. No dark header, no vertical rules, no zebra. ---- */
 .gl-table { width: 100%; border-collapse: collapse; }
 .gl-table thead th {
+  background: var(--gl-bg);
   position: sticky; top: 0; z-index: 2;
   background: var(--gl-bg);
   color: var(--gl-ink-faint);

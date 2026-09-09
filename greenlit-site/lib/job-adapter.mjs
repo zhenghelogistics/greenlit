@@ -103,6 +103,9 @@ export function jobFromApi(view) {
       state: view.containers?.[i]?.status ?? "",
       status: view.containers?.[i]?.status ?? "",
       lastFreeDay: c.demurrageLfd ?? c.combinedLfd ?? null,
+      // §34.4, computed server-side. A countdown a screen works out itself is
+      // a countdown that can disagree with the next screen's.
+      freeTime: view.containers?.[i]?.freeTime ?? [],
     })),
     trips: (view.movements ?? []).map((m) => ({
       id: m.movementRef,
