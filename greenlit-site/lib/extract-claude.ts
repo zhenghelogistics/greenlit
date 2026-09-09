@@ -104,8 +104,13 @@ const SCHEMA = {
           name: { type: "string", enum: Object.keys(FIELDS) },
           value: { type: "string", description: "The value as printed. Numbers as digits, dates as YYYY-MM-DD." },
           confidence: { type: "number", description: "0-1, how clearly you could read it" },
+          page: { type: "integer", description: "Which page you read it from, counting from 1." },
+          quote: {
+            type: "string",
+            description: "The line as it appears on the page, verbatim and including its label — e.g. \"Free demurrage period 3 calendar days\". Long enough for a person to find it, at most about 15 words. Copy it; do not paraphrase.",
+          },
         },
-        required: ["name", "value", "confidence"],
+        required: ["name", "value", "confidence", "page", "quote"],
       },
     },
   },
@@ -123,6 +128,7 @@ Rules:
 - consignee, notifyParty and shipper are company names only. Leave out the street address, postcode and country.
 - Dates as YYYY-MM-DD. If a date is ambiguous between formats (03/04/2026), return null rather than picking one.
 - Container numbers are 4 letters then 7 digits, no spaces.
+- Every field carries the page it came from and the line as printed. The quote is what lets a person check the value against the document without reading all of it, so copy the text exactly, including the label beside it, and never paraphrase or reconstruct it.
 - grossWeight is the cargo weight the document declares. vgm is a separately verified figure and usually appears only on export paperwork; do not copy one into the other.
 - Free time comes in two shapes and they are not interchangeable. Some carriers state demurrage and detention as separate allowances; others state a single combined D&D pool covering both. Report freeTimeModel as SPLIT or COMBINED to say which the document uses, and fill only the matching fields — never both shapes. Splitting a combined allowance in two invents a deadline that does not exist. If the document does not make the shape clear, omit freeTimeModel rather than assuming.
 - A document may carry two bills of lading. The carrier issues the master or ocean bill; a freight forwarder issues the house bill. Put each under its own name and never the house number under blNumber — they identify different contracts, and confusing them misroutes the shipment.
@@ -139,8 +145,14 @@ export interface ExtractedContainer {
   confidence: number;
 }
 
+/** §11.1's envelope, plus where on the page the value was read. */
+export interface ExtractedFieldWithSource extends ExtractedField<unknown> {
+  page: number | null;
+  quote: string | null;
+}
+
 export interface ClaudeExtractionResult {
-  fields: Record<string, ExtractedField<unknown>>;
+  fields: Record<string, ExtractedFieldWithSource>;
   containers: ExtractedContainer[];
   model: string;
   usage: { input: number; output: number };
@@ -199,12 +211,13 @@ export function normalisePlace(raw: string): string {
 
 export function toFields(
   json: string, fileName: string, now: string,
-): Record<string, ExtractedField<unknown>> {
+): Record<string, ExtractedFieldWithSource> {
   const parsed = JSON.parse(json) as {
-    fields?: Array<{ name?: string; value?: unknown; confidence?: number }>;
+    fields?: Array<{ name?: string; value?: unknown; confidence?: number;
+                     page?: number; quote?: string }>;
   };
 
-  const fields: Record<string, ExtractedField<unknown>> = {};
+  const fields: Record<string, ExtractedFieldWithSource> = {};
   for (const entry of parsed.fields ?? []) {
     // An unknown name is dropped rather than stored: the form has nowhere to
     // put it, and a field nothing renders is a field nobody checks.
@@ -216,7 +229,15 @@ export function toFields(
     const value = PLACE_FIELDS.has(entry.name) && typeof entry.value === 'string'
       ? normalisePlace(entry.value)
       : entry.value;
-    fields[entry.name] = field(value, fileName, entry.confidence ?? 0, now);
+    fields[entry.name] = {
+      ...field(value, fileName, entry.confidence ?? 0, now),
+      // §11.1 carries four values; these are the fifth and sixth. A value
+      // whose source is a filename can be attributed but not checked — the
+      // page and the line are what let a controller verify a number in a
+      // dispute without reading a four-page notice to find it.
+      page: typeof entry.page === "number" ? entry.page : null,
+      quote: typeof entry.quote === "string" ? entry.quote.trim() : null,
+    };
   }
   return fields;
 }

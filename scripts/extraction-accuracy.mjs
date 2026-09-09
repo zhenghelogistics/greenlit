@@ -29,6 +29,34 @@ const RUNS = Number(runsArg ?? 1);
 /** Compared on characters that carry meaning: spacing and case do not. */
 const norm = (v) => String(v ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 
+/**
+ * Is this quote actually on the page, rather than composed?
+ *
+ * Not a substring test. A multi-column notice linearises to
+ * "SHIPPER CONSIGNEE PT PERFETTI VAN MELLE" — the label and its value are
+ * adjacent on the page and far apart in the text layer — so a strict check
+ * failed seven true quotes on one document and reported a 19% error rate that
+ * was entirely layout.
+ *
+ * Every word of the quote must appear somewhere in the document. Order is not
+ * required: a table linearises its headers away from its values, so
+ * "ETD 05-Sep-26 ETA 08-Sep-26" reads correctly off the page while the text
+ * layer holds "ETD ETA ATD ATA" and the dates separately. Requiring order
+ * failed that one true quote.
+ *
+ * The trade is deliberate. This no longer catches a quote that rearranges
+ * words genuinely on the page, and it still catches the failure that matters:
+ * a quote containing words that are not in the document at all. A fabricated
+ * quote is worse than none, because it is what someone would rely on in a
+ * dispute precisely because it looks like proof.
+ */
+function quoteIsGrounded(quote, sourceText) {
+  const words = quote.toUpperCase().match(/[A-Z0-9]+/g) ?? [];
+  if (words.length === 0) return false;
+  const haystack = sourceText.toUpperCase();
+  return words.every((word) => haystack.includes(word));
+}
+
 const results = [];
 for (let run = 1; run <= RUNS; run += 1) {
   for (const [name, expect] of Object.entries(truth)) {
@@ -45,6 +73,32 @@ for (let run = 1; run <= RUNS; run += 1) {
       results.push({ doc: name, field: 'the read itself', want: 'a response',
         got: cause.message.slice(0, 90), ok: false });
       continue;
+    }
+
+    // A quote that is not in the document is fabricated evidence, and worse
+    // than no quote at all: it is what a controller would rely on in a dispute
+    // precisely because it looks like proof. Checked wherever a text sidecar
+    // exists beside the PDF.
+    let sourceText = null;
+    try {
+      const raw = readFileSync(`${dir}/${name}.txt`, "utf8").replace(/\s+/g, " ").trim();
+      // A scanned page has a sidecar with nothing in it. Checking quotes
+      // against an empty string fails every one of them and says nothing —
+      // the first run of this check reported a 27% error rate that was
+      // entirely one document with no text layer.
+      sourceText = raw.length > 200 ? raw : null;
+    } catch { /* no sidecar: nothing to check the quotes against */ }
+
+    if (sourceText) {
+      for (const [fieldName, entry] of Object.entries(r.fields)) {
+        if (!entry.quote) continue;
+        results.push({
+          doc: name, field: `${fieldName} quote`,
+          want: "words from the document, in order",
+          got: quoteIsGrounded(entry.quote, sourceText) ? "grounded" : entry.quote.slice(0, 60),
+          ok: quoteIsGrounded(entry.quote, sourceText),
+        });
+      }
     }
 
     for (const [fieldName, want] of Object.entries(expect.fields ?? {})) {

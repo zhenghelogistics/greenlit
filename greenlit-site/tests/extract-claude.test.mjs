@@ -47,3 +47,26 @@ test("an empty parse yields nothing rather than a phantom field", () => {
   assert.deepEqual(toFields(JSON.stringify({ fields: [] }), "x.pdf", NOW), {});
   assert.deepEqual(toFields("{}", "x.pdf", NOW), {});
 });
+
+test("§11.1: a field carries where it was read, not just what", () => {
+  // The envelope is four values; the page and the line are the fifth and
+  // sixth. A value whose source is only a filename can be attributed but not
+  // checked, and checking is the whole point in a demurrage dispute.
+  const f = toFields(list({
+    name: "demurrageFreeDays", value: "3", confidence: 0.93,
+    page: 2, quote: "Free demurrage period 3 calendar days (payable to PSA).",
+  }), "noa.pdf", NOW);
+
+  assert.equal(f.demurrageFreeDays.value, "3");
+  assert.equal(f.demurrageFreeDays.page, 2, "the page the value was read from");
+  assert.match(f.demurrageFreeDays.quote, /Free demurrage period 3 calendar days/);
+});
+
+test("a field with no provenance is still a field", () => {
+  // Provenance is required of the model, so this is the belt-and-braces case:
+  // a value that arrives without it must not throw, and must not claim page 0
+  // or an empty quote, either of which would read as a real answer.
+  const f = toFields(list({ name: "eta", value: "2026-09-14", confidence: 0.9 }), "x.pdf", NOW);
+  assert.equal(f.eta.page, null);
+  assert.equal(f.eta.quote, null);
+});
