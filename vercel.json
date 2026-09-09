@@ -3,5 +3,8 @@
   "framework": "nextjs",
   "installCommand": "npm install",
   "buildCommand": "npm run vercel-build",
-  "outputDirectory": "greenlit-site/.next"
+  "outputDirectory": "greenlit-site/.next",
+  "regions": [
+    "hnd1"
+  ]
 }

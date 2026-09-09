@@ -92,3 +92,37 @@ test("every key the seed shape defines is produced by the adapter", async () => 
   const missing = [...new Set(seedKeys)].filter((k) => !produced.has(k));
   assert.deepEqual(missing, [], `adapter is missing keys the screens expect: ${missing.join(", ")}`);
 });
+
+test("a container carries the facts read off its own row", () => {
+  // Extracted and stored, and then not shown: the adapter produced only
+  // number, seal and tare, so size, weight and packages reached the database
+  // and stopped there. The free-time model matters most — §34 decides which
+  // countdowns a container has, and a screen cannot show the right one
+  // without it.
+  const job = jobFromApi({
+    ...view,
+    storedContainers: [{
+      containerId: "c1", containerNumber: "UETU9346085", sealNumber: "HLK8024493",
+      containerSize: "40'", containerType: "HIGH CUBE",
+      grossWeight: 3228.3, packageCount: 1113, packageType: "CASE",
+      freeTimeModel: "COMBINED", freeTimeRemarks: "14 combined calendar days",
+    }],
+  });
+
+  const [c] = job.containers;
+  assert.equal(c.number, "UETU9346085");
+  assert.equal(c.seal, "HLK8024493");
+  assert.equal(c.sizeType, "40' HIGH CUBE", "size and type are stored apart and read together");
+  assert.equal(c.grossWeight, 3228.3);
+  assert.equal(c.packageCount, 1113);
+  assert.equal(c.packageType, "CASE");
+  assert.equal(c.freeTimeModel, "COMBINED");
+  assert.equal(c.freeTimeRemarks, "14 combined calendar days");
+});
+
+test("a container with nothing recorded yet reads as unconfirmed, not split", () => {
+  const job = jobFromApi({ ...view, storedContainers: [{ containerId: "c1" }] });
+  assert.equal(job.containers[0].freeTimeModel, "NOT_CONFIRMED",
+    "defaulting to SPLIT would show two countdowns for a carrier rule nobody has read");
+  assert.equal(job.containers[0].sizeType, "");
+});

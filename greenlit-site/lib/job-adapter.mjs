@@ -88,6 +88,16 @@ export function jobFromApi(view) {
       number: c.containerNumber ?? "",
       seal: c.sealNumber ?? "",
       tare: c.tareWeightKg ?? null,
+      // Stored split, shown joined: the database keeps size and type apart so
+      // either can be queried, and a person reads "40' HIGH CUBE".
+      sizeType: [c.containerSize, c.containerType].filter(Boolean).join(" ")
+        || c.sizeType || "",
+      grossWeight: c.grossWeight ?? null,
+      packageCount: c.packageCount ?? null,
+      packageType: c.packageType ?? "",
+      // §34. Which clocks this container actually has is the model's to say.
+      freeTimeModel: c.freeTimeModel ?? "NOT_CONFIRMED",
+      freeTimeRemarks: c.freeTimeRemarks ?? "",
       // `state` and `lastFreeDay` are what the container panels read; the
       // state is the engine's derived container status, never recomputed here.
       state: view.containers?.[i]?.status ?? "",
