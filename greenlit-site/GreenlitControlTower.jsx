@@ -143,7 +143,7 @@ function LastUpdated({ at, stale }) {
     );
   }
   if (!label) return null;
-  return <span role="status" className="text-[15px] text-white/90">{label}</span>;
+  return <span role="status" className="hidden whitespace-nowrap text-[15px] text-white/90 sm:inline">{label}</span>;
 }
 
 function ActingUser() {
@@ -166,8 +166,8 @@ function ActingUser() {
     : user.role === "MANAGER" ? "Manager" : "Controller";
 
   return (
-    <div className="flex items-center gap-2 text-[15px] text-white/90">
-      <UserRound className="h-5 w-5 text-white/90" aria-hidden="true" />
+    <div className="flex shrink-0 items-center gap-2 text-[15px] text-white/90">
+      <UserRound className="h-5 w-5 shrink-0 text-white/90" aria-hidden="true" />
       <span>
         <span className="sr-only">Acting as </span>
         {user.displayName} &middot; {role}
@@ -3734,7 +3734,7 @@ export default function GreenlitControlTower() {
           are in. White on it measures 8.72:1. */}
       <header className="sticky top-0 z-40 bg-[color:var(--gl-accent)] text-white">
         <div className="mx-auto flex max-w-[1900px] flex-col lg:flex-row lg:items-stretch">
-          <div className="flex min-h-16 items-center justify-between gap-4 px-4 py-2 sm:px-6 lg:min-w-56 lg:border-r lg:border-white/20 lg:pr-6 xl:min-w-80">
+          <div className="flex min-h-16 items-center justify-between gap-4 px-4 py-2 sm:px-6 lg:min-w-56 lg:border-r lg:border-white/25 lg:pr-6 xl:min-w-80">
             <div>
               <div className="text-[19px] font-medium tracking-[-0.008em] text-white">Greenlit</div>
               <div className="mt-1 text-[15px] font-normal text-white/90">Singapore transport control</div>
@@ -3746,15 +3746,39 @@ export default function GreenlitControlTower() {
               const Icon = item.icon;
               const active = screen === item.id || (screen === "detail" && returnScreen === item.id);
               return (
-                <button key={item.id} type="button" onClick={() => goTo(item.id)} aria-current={active ? "page" : undefined} className={`flex min-h-10 min-w-0 items-center gap-2 rounded-md px-3 text-[16px] transition-colors duration-150 ${active ? "bg-white font-semibold text-[color:var(--gl-accent)]" : "text-white/90 hover:bg-white/20 hover:text-white"}`}>
+                /*
+                  Active is weight and a rule under the label, not a filled
+                  pill. A white pill on a blue bar is a hole punched in the
+                  chrome — it reads as a separate element sitting on top
+                  rather than as the current tab.
+
+                  Both states clear 7:1 on the blue (8.72 and 7.40), so the
+                  difference between them is carried by weight and the rule
+                  rather than by fading one of them toward the ground.
+                */
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => goTo(item.id)}
+                  aria-current={active ? "page" : undefined}
+                  className={`relative flex min-h-14 min-w-0 cursor-pointer items-center justify-center gap-2 px-4 text-[16px] transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white ${
+                    active
+                      ? "font-semibold text-white after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:rounded-t-sm after:bg-white after:content-['']"
+                      : "font-normal text-white/90 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
                   <Icon className="hidden h-5 w-5 shrink-0 sm:block" aria-hidden="true" />
                   <span className="text-center leading-tight">{item.label}</span>
-                  <span className={`gl-data ${active ? "text-[color:var(--gl-accent)]" : "text-white/90"}`}>{item.count}</span>
+                  <span className={`gl-data ${active ? "text-white" : "text-white/90"}`}>{item.count}</span>
                 </button>
               );
             })}
           </nav>
-          <div className="absolute right-3 top-2 flex min-h-12 items-center justify-end sm:right-5 lg:static lg:min-h-16 lg:px-6 lg:py-3 lg:border-l lg:border-[color:var(--gl-line)]">
+          {/* Two separate things — when the board last updated, and who is
+              acting — so they get a gap and a divider rather than sitting
+              against each other. The divider is white at 25%, which reads on
+              the blue without becoming a third element. */}
+          <div className="absolute right-3 top-2 flex min-h-12 items-center justify-end gap-5 sm:right-5 lg:static lg:min-h-16 lg:gap-6 lg:border-l lg:border-white/25 lg:px-6 lg:py-3">
             {/* Reload and Reset used to sit here. A control tower asking to
                 be reloaded is admitting it does not keep itself current, and
                 Reset refused on a Supabase-backed instance anyway, so it was
