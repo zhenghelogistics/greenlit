@@ -31,7 +31,6 @@ import {
   PackageCheck,
   PencilLine,
   Plus,
-  RotateCcw,
   Save,
   ScanText,
   ShieldCheck,
@@ -106,6 +105,47 @@ function operationalToday() {
 const CURRENT_USER = "winnie";
 
 /** Shown, not chosen: the name that will appear on this session's audit trail. */
+/**
+ * When the board last reached the server.
+ *
+ * Quiet by design: it is reassurance, not information, and it earns its place
+ * only because the Reload button it replaced was doing that job badly. It goes
+ * loud in one case — the server could not be reached — because then what is on
+ * screen is genuinely out of date and nothing else says so.
+ */
+function LastUpdated({ at, stale }) {
+  // The label is relative to now, and now is not a prop. It is computed in an
+  // effect rather than during render, because a render may happen at any time
+  // and must produce the same output for the same inputs.
+  const [label, setLabel] = useState("");
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!at) { setLabel(""); return undefined; }
+    // The clock is the external system being synchronised from, which is what
+    // an effect is for; the first call is what puts a label on screen at all.
+    const describe = () => {
+      const seconds = Math.round((Date.now() - at) / 1000);
+      setLabel(seconds < 75 ? "Updated just now" : `Updated ${Math.round(seconds / 60)} min ago`);
+    };
+    describe();
+    const timer = window.setInterval(describe, 30_000);
+    return () => window.clearInterval(timer);
+  }, [at]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  if (stale) {
+    return (
+      <span role="status" className="inline-flex items-center gap-2 rounded-md bg-white/15 px-3 py-1.5 text-[15px] font-medium text-white">
+        <AlertCircle className="h-4 w-4" aria-hidden="true" />
+        Not updating
+      </span>
+    );
+  }
+  if (!label) return null;
+  return <span role="status" className="text-[15px] text-white/90">{label}</span>;
+}
+
 function ActingUser() {
   const [user, setUser] = useState(null);
 
@@ -126,8 +166,8 @@ function ActingUser() {
     : user.role === "MANAGER" ? "Manager" : "Controller";
 
   return (
-    <div className="flex items-center gap-2 text-[15px] text-[color:var(--gl-ink-muted)]">
-      <UserRound className="h-5 w-5 text-[color:var(--gl-ink-faint)]" aria-hidden="true" />
+    <div className="flex items-center gap-2 text-[15px] text-white/90">
+      <UserRound className="h-5 w-5 text-white/90" aria-hidden="true" />
       <span>
         <span className="sr-only">Acting as </span>
         {user.displayName} &middot; {role}
@@ -1648,7 +1688,12 @@ function rowsFromApi(jobs) {
     age: "—",
     requiredBy: "—",
     overdue: false,
-    openable: false,
+    // Openable: the row's id is the job number, which is what openJob looks a
+    // job up by, so a row on the dashboard opens the same job the full list
+    // does. It was false — a leftover from when this panel was fed by
+    // something the job list did not contain — and the effect was a table of
+    // rows that looked clickable, highlighted on hover, and did nothing.
+    openable: true,
   }));
 }
 
@@ -3093,6 +3138,7 @@ export default function GreenlitControlTower() {
   // Source of record. Seed data is the offline fallback only; when the API
   // answers, every screen below reads engine-derived values (§56).
   const [source, setSource] = useState("loading");
+  const [lastLoaded, setLastLoaded] = useState(null);
 
   const loadJobs = React.useCallback(() => {
     setSource("loading");
@@ -3102,6 +3148,7 @@ export default function GreenlitControlTower() {
         const mapped = (data.jobs ?? []).map(jobFromApi);
         setJobs(mapped);
         setSource(mapped.length ? "engine" : "empty");
+        setLastLoaded(Date.now());
       })
       .catch(() => {
         // Stale rows are worse than none: a controller cannot tell that what
@@ -3115,6 +3162,33 @@ export default function GreenlitControlTower() {
   // the external system being synchronised from.
   /* eslint-disable-next-line react-hooks/set-state-in-effect */
   useEffect(() => { loadJobs(); }, [loadJobs]);
+
+  /**
+   * Keep the board current without being asked.
+   *
+   * Every command already reloads, so this covers the other case: what
+   * somebody else changed while this screen sat open. A control tower that
+   * needs a Reload button is one that quietly goes stale between presses, and
+   * a stale board is worse than a slow one — it reads as fact.
+   *
+   * Only while the tab is visible. Polling a screen nobody is looking at
+   * spends a query a minute on every forgotten tab.
+   */
+  useEffect(() => {
+    const REFRESH_MS = 60_000;
+    let timer = null;
+
+    const start = () => { timer ??= window.setInterval(() => { void loadJobs(); }, REFRESH_MS); };
+    const stop = () => { if (timer) { window.clearInterval(timer); timer = null; } };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") { void loadJobs(); start(); } else stop();
+    };
+
+    if (document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => { stop(); document.removeEventListener("visibilitychange", onVisibility); };
+  }, [loadJobs]);
   const [documents, setDocuments] = useState([]);
   // Written in two places and read in none: clearing a unit's maintenance flag
   // records the decision and then nothing consults it, so the unit reappears
@@ -3479,22 +3553,6 @@ export default function GreenlitControlTower() {
    * the extracted fields are sent.
    */
   /** Discards server state and rebuilds from the seeded fixtures. */
-  async function resetData() {
-    try {
-      const response = await fetch("/api/reset", { method: "POST" });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        showToast(payload.error ?? "Reset is unavailable here.");
-        return;
-      }
-      setDocuments([]);
-      await loadJobs();
-      showToast("Rebuilt from the seeded fixtures.");
-    } catch {
-      showToast("Could not reach the server to reset.");
-    }
-  }
-
   async function applyDocument(result) {
     const fields = result.values ?? {};
 
@@ -3616,22 +3674,6 @@ export default function GreenlitControlTower() {
     setReturnScreen("documents");
     setScreen("detail");
   }
-
-  function resetDemo() {
-    loadJobs();
-    setDocuments([]);
-    setClearedMaintenanceUnits([]);
-    setWorkPanel(null);
-    setScreen("dashboard");
-    setReturnScreen("actions");
-    setSelectedJobId(null);
-    setActionFilter("all");
-    setDashboardFilter(null);
-    setHighlight("");
-    showToast("Demo reset to 19 August 2026 seed data.");
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
   const navItems = [
     { id: "dashboard", label: "Dashboard", count: jobs.filter((job) => jobStatus(job) !== "Completed").length, icon: LayoutDashboard },
     { id: "actions", label: "Action Required", count: actionJobs.length, icon: ListTodo },
@@ -3687,43 +3729,39 @@ export default function GreenlitControlTower() {
 
       <a href="#main-content" className="fixed left-3 top-3 z-[100] -translate-y-24 rounded-md bg-white px-5 py-3 font-semibold text-[var(--gl-accent)] shadow-lg focus:translate-y-0 focus:outline focus:outline-4 focus:outline-sky-600">Skip to main content</a>
 
-      <header className="sticky top-0 z-40 border-b border-[color:var(--gl-line)] bg-white/95 text-[color:var(--gl-ink)] backdrop-blur">
+      {/* The one place colour is a wayfinding cue rather than a status: the
+          bar you are always looking at, so you always know which system you
+          are in. White on it measures 8.72:1. */}
+      <header className="sticky top-0 z-40 bg-[color:var(--gl-accent)] text-white">
         <div className="mx-auto flex max-w-[1900px] flex-col lg:flex-row lg:items-stretch">
-          <div className="flex min-h-16 items-center justify-between gap-4 px-4 py-2 sm:px-6 lg:min-w-56 lg:border-r lg:pr-6 xl:min-w-80">
+          <div className="flex min-h-16 items-center justify-between gap-4 px-4 py-2 sm:px-6 lg:min-w-56 lg:border-r lg:border-white/20 lg:pr-6 xl:min-w-80">
             <div>
-              <div className="gl-title">Greenlit</div>
-              <div className="mt-1 text-[17px] font-normal text-[color:var(--gl-ink-faint)]">Singapore transport control</div>
+              <div className="text-[19px] font-medium tracking-[-0.008em] text-white">Greenlit</div>
+              <div className="mt-1 text-[15px] font-normal text-white/90">Singapore transport control</div>
             </div>
-            <Anchor className="hidden h-6 w-6 text-slate-600 lg:block" aria-hidden="true" />
+            <Anchor className="hidden h-6 w-6 text-white/90 lg:block" aria-hidden="true" />
           </div>
           <nav aria-label="Main navigation" className="grid flex-1 grid-cols-4 lg:flex">
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = screen === item.id || (screen === "detail" && returnScreen === item.id);
               return (
-                <button key={item.id} type="button" onClick={() => goTo(item.id)} aria-current={active ? "page" : undefined} className={`flex min-h-10 min-w-0 items-center gap-2 rounded-md px-3 text-[16px] transition-colors duration-150 ${active ? "bg-[color:var(--gl-bg-selected)] font-medium text-[color:var(--gl-ink-strong)]" : "text-[color:var(--gl-ink-muted)] hover:bg-[color:var(--gl-bg-hover)] hover:text-[color:var(--gl-ink)]"}`}>
+                <button key={item.id} type="button" onClick={() => goTo(item.id)} aria-current={active ? "page" : undefined} className={`flex min-h-10 min-w-0 items-center gap-2 rounded-md px-3 text-[16px] transition-colors duration-150 ${active ? "bg-white font-semibold text-[color:var(--gl-accent)]" : "text-white/90 hover:bg-white/20 hover:text-white"}`}>
                   <Icon className="hidden h-5 w-5 shrink-0 sm:block" aria-hidden="true" />
                   <span className="text-center leading-tight">{item.label}</span>
-                  <span className="gl-data gl-faint">{item.count}</span>
+                  <span className={`gl-data ${active ? "text-[color:var(--gl-accent)]" : "text-white/90"}`}>{item.count}</span>
                 </button>
               );
             })}
           </nav>
           <div className="absolute right-3 top-2 flex min-h-12 items-center justify-end sm:right-5 lg:static lg:min-h-16 lg:px-6 lg:py-3 lg:border-l lg:border-[color:var(--gl-line)]">
-            <button type="button" onClick={resetDemo} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-[color:var(--gl-line-strong)] bg-transparent px-3 text-[17px] font-semibold text-[color:var(--gl-ink-muted)] hover:border-slate-400 hover:bg-[var(--gl-bg-selected)] hover:text-[color:var(--gl-ink)] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400 sm:px-4">
-              <RotateCcw className="h-4 w-4" />
-              <span className="sm:hidden">Reset</span>
-              <span className="hidden sm:inline">Reload</span>
-            </button>
-            <button
-              type="button"
-              onClick={resetData}
-              className="inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-[15px] text-[color:var(--gl-ink-muted)] hover:bg-[color:var(--gl-bg-hover)] hover:text-[color:var(--gl-ink)]"
-              title="Discard all data and rebuild from the seeded fixtures"
-            >
-              <RotateCcw className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Reset</span>
-            </button>
+            {/* Reload and Reset used to sit here. A control tower asking to
+                be reloaded is admitting it does not keep itself current, and
+                Reset refused on a Supabase-backed instance anyway, so it was
+                a button whose only outcome was an error. The board refreshes
+                itself; this says when it last did. */}
+            <LastUpdated at={lastLoaded} stale={source === "offline"} />
+
             {/* Until sign-in exists, who is acting is a choice. The server
                 still enforces what that person may do. */}
             <ActingUser />

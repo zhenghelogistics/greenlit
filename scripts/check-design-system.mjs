@@ -78,7 +78,11 @@ const RULES = [
      * Conditional classes are excluded — a ternary branch may legitimately
      * pair white text with a dark ground.
      */
-    pattern: /class(?:Name)?="[^"$]*(?:bg-white|gl-bg-subtle|bg-transparent|bg-slate-[12]00|bg-\[#f[0-9a-f]{5}\])[^"$]*text-white[^"$]*"|class(?:Name)?="[^"$]*text-white[^"$]*(?:bg-white|gl-bg-subtle|bg-transparent|bg-slate-[12]00)[^"$]*"/g,
+    /* `bg-white/15` is a translucent overlay on a coloured surface, not a
+       white ground: white text on it is correct, and flagging it sent a real
+       change back for a bug it did not have. The opacity suffix is excluded
+       here, and only here — a bare `bg-white` still fails. */
+    pattern: /class(?:Name)?="[^"$]*(?:bg-white(?!\/)|gl-bg-subtle|bg-transparent|bg-slate-[12]00(?!\/)|bg-\[#f[0-9a-f]{5}\])[^"$]*text-white(?!\/)[^"$]*"|class(?:Name)?="[^"$]*text-white(?!\/)[^"$]*(?:bg-white(?!\/)|gl-bg-subtle|bg-transparent|bg-slate-[12]00(?!\/))[^"$]*"/g,
     message: "White text on a light ground is invisible. Use an ink token.",
   },
   {
