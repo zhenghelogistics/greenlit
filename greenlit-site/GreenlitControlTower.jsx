@@ -554,6 +554,12 @@ function movementMatchesContainer(trip, container, index, total) {
   return total === 1 || index === 0;
 }
 
+/** A form field is text; the draft wants a number or nothing. */
+function numberOrNull(value) {
+  const n = Number(String(value ?? "").trim());
+  return String(value ?? "").trim() !== "" && Number.isFinite(n) ? n : null;
+}
+
 function parseDay(value) {
   return new Date(`${value}T12:00:00+08:00`);
 }
@@ -3438,6 +3444,20 @@ export default function GreenlitControlTower() {
         voyageNumber: fields.voyage ?? null,
         eta: fields.eta ?? null,
         deliveryAddress: fields.deliveryAddress ?? null,
+        // The containers the controller just reviewed. These were being
+        // discarded: the job was created with none, and because free time is
+        // per container and every container command addresses one, the job
+        // could never progress and the numbers could never be added back.
+        containers: (result.containers ?? []).map((c) => ({
+          containerNumber: c.number || null,
+          sizeType: c.type || null,
+          sealNumber: c.seal || null,
+          freeTimeModel: fields.freeTimeModel || null,
+          demurrageFreeDays: numberOrNull(fields.demurrageFreeDays),
+          detentionFreeDays: numberOrNull(fields.detentionFreeDays),
+          combinedFreeDays: numberOrNull(fields.combinedFreeDays),
+          freeTimeRemarks: fields.freeTimeRemarks || null,
+        })),
       }),
     }).catch(() => null);
 

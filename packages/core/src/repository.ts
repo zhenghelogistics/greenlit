@@ -143,8 +143,34 @@ export interface DateAmendmentInput {
   reasonNote?: string | null;
 }
 
+/**
+ * A container as it arrives from an arrival notice.
+ *
+ * Only the identity: everything else about a container is either derived or
+ * recorded later by a person against a named event.
+ */
+export interface ImportContainerDraft {
+  containerNumber?: string | null;
+  sizeType?: string | null;
+  sealNumber?: string | null;
+  freeTimeModel?: string | null;
+  demurrageFreeDays?: number | null;
+  detentionFreeDays?: number | null;
+  combinedFreeDays?: number | null;
+  freeTimeRemarks?: string | null;
+}
+
 export interface ImportJobDraft {
   customerCode: string;
+  /**
+   * The containers the arrival notice named.
+   *
+   * A job with none cannot progress: free time is per container (§29.1), and
+   * every container command needs one to address. One empty container is
+   * created when none is supplied, so a job entered before its notice arrives
+   * still has somewhere to record the number when it comes.
+   */
+  containers?: ImportContainerDraft[];
   blNumber?: string | null;
   /** The forwarder's bill, where one exists. Optional: a direct carrier booking has none. */
   houseBlNumber?: string | null;

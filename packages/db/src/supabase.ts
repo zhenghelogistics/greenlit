@@ -76,7 +76,18 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
     const r = await db.from('export_containers').select('export_job_id')
       .eq('export_container_id', containerId).maybeSingle();
     if (r.error) throw new Error(`container lookup: ${r.error.message}`);
-    if (!r.data) throw new Error(`Unknown container ${containerId}`);
+    if (!r.data) {
+      // Container ready, VGM and identity capture are export commands: they
+      // record that a shipper has stuffed and weighed a box. An import
+      // container has no equivalent — §36.3's empty-ready confirmation is a
+      // different event. Saying "unknown" sends the caller looking for a
+      // missing record instead of telling them the command does not apply.
+      const asImport = await db.from('containers').select('container_number,job_id')
+        .eq('container_id', containerId).maybeSingle();
+      throw new Error(asImport.data
+        ? `This is an import container (${asImport.data.container_number ?? containerId}). Container ready and VGM are export commands.`
+        : `Unknown container ${containerId}`);
+    }
     return r.data.export_job_id as string;
   };
 
@@ -325,6 +336,53 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         assigned_controller: draft.assignedController ?? null,
       }).select().single(), 'create import job') as Record<string, unknown>;
 
+      // §29.1: free time is per container and every container command needs
+      // one to address, so a job with none is a dead end. One empty row when
+      // the notice named none, so the number has somewhere to go later.
+      // Postgres has the transaction; the REST client does not, so a failed
+      // container insert would leave a job behind with none — the dead end
+      // this whole change exists to remove, created by the fix for it. The
+      // job is removed by hand instead, so a failure leaves nothing.
+      const drafts = draft.containers?.length ? draft.containers : [{}];
+      const inserted = await db.from('containers').insert(drafts.map((c, index) => {
+        const [size, ...type] = String(c.sizeType ?? '').trim().split(/\s+/);
+        return {
+          container_id: `${jobId}-c${index + 1}`,
+          job_id: jobId,
+          container_number: c.containerNumber?.trim() || null,
+          container_size: size || '',
+          container_type: type.join(' '),
+          seal_number: c.sealNumber?.trim() || null,
+          // §34. Nothing is asserted about the carrier's allowance until
+          // someone has read it: absent is not the same as split.
+          free_time_model: c.freeTimeModel ?? 'NOT_CONFIRMED',
+          demurrage_free_days: c.demurrageFreeDays ?? null,
+          detention_free_days: c.detentionFreeDays ?? null,
+          combined_free_days: c.combinedFreeDays ?? null,
+          free_time_remarks: c.freeTimeRemarks ?? null,
+        };
+      }));
+
+      if (inserted.error) {
+        // Safe to remove: the job.created event is written below, after the
+        // containers, so nothing has been audited yet. Deleting an audited job
+        // would be a different matter — audit_events is append-only and would
+        // refuse, correctly.
+        await db.from('import_jobs').delete().eq('job_id', jobId);
+
+        // §29.1 rule 22 is enforced by a unique index, and Postgres reports it
+        // by index name. "duplicate key value violates unique constraint
+        // containers_open_number_idx" tells a controller nothing about which
+        // box is already in use, or where.
+        if (/containers_open_number_idx/.test(inserted.error.message)) {
+          const numbers = drafts.map((c) => c.containerNumber?.trim()).filter(Boolean);
+          throw new Error(numbers.length === 1
+            ? `§29.1: container ${numbers[0]} is already on another open job. Close that job first, or check the number.`
+            : `§29.1: one of ${numbers.join(', ')} is already on another open job.`);
+        }
+        throw new Error(`create import containers: ${inserted.error.message}`);
+      }
+
       await record(jobId, 'job.created', actor, { field: 'jobNumber', to: jobNumber });
       return toImportJob(created);
     },
@@ -369,7 +427,14 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
     // ---- commands ----
     async recordCms(jobId, status, actor, reason) {
       const before = await this.getExportJob(jobId);
-      if (!before) throw new Error(`Unknown export job ${jobId}`);
+      if (!before) {
+        // §40 puts CMS on the export job only. "Unknown" sends the caller
+        // looking for a missing record when the job is simply an import one.
+        const asImport = await this.getImportJob(jobId);
+        throw new Error(asImport
+          ? `§40: CMS applies to export jobs. ${asImport.jobNumber} is an import job`
+          : `Unknown export job ${jobId}`);
+      }
       unwrap(await db.from('export_jobs').update({ cms_status: status })
         .eq('export_job_id', jobId).select().single(), 'record CMS');
       await record(jobId, 'cms.completed', actor,
@@ -406,7 +471,13 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
     },
     async recordTranshipment(jobId, status, actor) {
       const before = await this.getExportJob(jobId);
-      if (!before) throw new Error(`Unknown export job ${jobId}`);
+      if (!before) {
+        // Transhipment is an export check (§47). Same reasoning as CMS.
+        const asImport = await this.getImportJob(jobId);
+        throw new Error(asImport
+          ? `§47: the transhipment check applies to export jobs. ${asImport.jobNumber} is an import job`
+          : `Unknown export job ${jobId}`);
+      }
       unwrap(await db.from('export_jobs').update({
         transhipment_status: status, transhipment_checked_at: new Date().toISOString(),
       }).eq('export_job_id', jobId).select().single(), 'record transhipment');

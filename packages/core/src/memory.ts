@@ -456,7 +456,39 @@ export function createMemoryRepository(): Repository {
         createdAt: new Date().toISOString(),
       };
       importJobs.push(job);
-      importContainers[jobId] = [];
+
+      // §29.1: free time is per container, and every container command needs a
+      // container to address. A job created with none was a dead end — no way
+      // to record the number when it arrived, and every container action
+      // failing with "Unknown container null". One empty row is created when
+      // the notice named none, so there is somewhere to put it.
+      const drafts = draft.containers?.length ? draft.containers : [{}];
+      importContainers[jobId] = drafts.map((c, index) => {
+        const [size, ...type] = String(c.sizeType ?? '').trim().split(/\s+/);
+        return {
+          containerId: `${jobId}-c${index + 1}`,
+          jobId,
+          containerNumber: c.containerNumber?.trim() || null,
+          secondaryContainerId: null,
+          containerSize: size || '',
+          containerType: type.join(' '),
+          sealNumber: c.sealNumber?.trim() || null,
+          grossWeight: null, cargoDescription: null, portTerminal: null,
+          emptyReturnYard: null,
+          // §34. Absent is not the same as split: nothing is asserted about
+          // the carrier's allowance until someone has read it.
+          freeTimeModel: (c.freeTimeModel as ImportContainer['freeTimeModel']) ?? 'NOT_CONFIRMED',
+          freeTimeCountsFrom: 'VESSEL_ETA',
+          demurrageFreeDays: c.demurrageFreeDays ?? null, demurrageLfd: null,
+          detentionFreeDays: c.detentionFreeDays ?? null, detentionLfd: null,
+          combinedFreeDays: c.combinedFreeDays ?? null, combinedLfd: null,
+          freeTimeRemarks: c.freeTimeRemarks ?? null,
+          internalLfd: null, carparkReason: null, carparkArrivedAt: null,
+          emptyReadyConfirmed: false, emptyReadyConfirmedAt: null, emptyReadySource: null,
+          chassisId: null, chassisMountedAt: null, chassisReleasedAt: null,
+          cancelled: false, onHold: false,
+        } as ImportContainer;
+      });
       movements[jobId] = [];
       record(jobId, 'job.created', actor, { field: 'jobNumber', to: jobNumber });
       return clone(job);
@@ -590,7 +622,15 @@ export function createMemoryRepository(): Repository {
 
     async recordCms(jobId, status, actor, reason) {
       const job = exportJobs.find((j) => j.exportJobId === jobId);
-      if (!job) throw new Error(`Unknown export job ${jobId}`);
+      if (!job) {
+        // §40 puts CMS on the export job only. Saying the job is unknown when
+        // it exists as an import job sends the caller looking for a missing
+        // record instead of telling them the command does not apply.
+        const asImport = importJobs.find((j) => j.jobId === jobId);
+        throw new Error(asImport
+          ? `§40: CMS applies to export jobs. ${asImport.jobNumber} is an import job`
+          : `Unknown export job ${jobId}`);
+      }
       const from = job.cmsStatus;
       job.cmsStatus = status;
       record(jobId, 'cms.completed', actor, { field: 'cmsStatus', from, to: status });
@@ -612,9 +652,21 @@ export function createMemoryRepository(): Repository {
       job.portnetReleased = true;
       record(jobId, 'portnet.released', actor, { field: 'portnetReleased', from, to: true });
     },
+    // Why an export-container command found nothing. Container ready, VGM and
+    // identity capture record that a shipper has stuffed and weighed a box —
+    // export events. An import container has no equivalent; §36.3's
+    // empty-ready confirmation is a different thing. Reporting "unknown"
+    // sends the caller hunting for a missing record instead of telling them
+    // the command does not apply.
     async captureContainerIdentity(containerId, details, actor) {
       const c = findExportContainer(containerId);
-      if (!c) throw new Error(`Unknown container ${containerId}`);
+      if (!c) throw new Error((() => {
+        const asImport = Object.values(importContainers).flat()
+          .find((ic) => ic.containerId === containerId);
+        return asImport
+          ? `This is an import container (${asImport.containerNumber ?? containerId}). Container ready and VGM are export commands.`
+          : `Unknown container ${containerId}`;
+      })());
       c.containerNumber = details.containerNumber;
       c.sealNumber = details.sealNumber;
       c.tareWeightKg = details.tareWeightKg;
@@ -623,7 +675,14 @@ export function createMemoryRepository(): Repository {
     },
     async recordTranshipment(jobId, status, actor) {
       const job = exportJobs.find((j) => j.exportJobId === jobId);
-      if (!job) throw new Error(`Unknown export job ${jobId}`);
+      if (!job) {
+        // Transhipment is an export check (§47). Same reasoning as CMS: say
+        // the command does not apply, not that the job is missing.
+        const asImport = importJobs.find((j) => j.jobId === jobId);
+        throw new Error(asImport
+          ? `§47: the transhipment check applies to export jobs. ${asImport.jobNumber} is an import job`
+          : `Unknown export job ${jobId}`);
+      }
       const from = job.transhipmentStatus;
       job.transhipmentStatus = status;
       job.transhipmentCheckedAt = new Date().toISOString();
@@ -632,7 +691,13 @@ export function createMemoryRepository(): Repository {
     },
     async recordContainerReady(containerId, actor) {
       const c = findExportContainer(containerId);
-      if (!c) throw new Error(`Unknown container ${containerId}`);
+      if (!c) throw new Error((() => {
+        const asImport = Object.values(importContainers).flat()
+          .find((ic) => ic.containerId === containerId);
+        return asImport
+          ? `This is an import container (${asImport.containerNumber ?? containerId}). Container ready and VGM are export commands.`
+          : `Unknown container ${containerId}`;
+      })());
       c.containerReady = true;
       c.containerReadyAt = new Date().toISOString();
       record(jobOfContainer(containerId), 'container.readyConfirmed', actor,
@@ -640,7 +705,13 @@ export function createMemoryRepository(): Repository {
     },
     async recordVgm(containerId, vgm, actor) {
       const c = findExportContainer(containerId);
-      if (!c) throw new Error(`Unknown container ${containerId}`);
+      if (!c) throw new Error((() => {
+        const asImport = Object.values(importContainers).flat()
+          .find((ic) => ic.containerId === containerId);
+        return asImport
+          ? `This is an import container (${asImport.containerNumber ?? containerId}). Container ready and VGM are export commands.`
+          : `Unknown container ${containerId}`;
+      })());
       const from = c.vgm;
       c.vgm = vgm;
       c.vgmReceivedAt = new Date().toISOString();

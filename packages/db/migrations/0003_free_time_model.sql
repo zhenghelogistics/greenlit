@@ -10,18 +10,18 @@
 -- entered under the old default and silently rewriting them would discard a
 -- controller's confirmation along with the guesses.
 
-alter table import_containers
-  drop constraint if exists import_containers_free_time_model_check;
+alter table containers
+  drop constraint if exists containers_free_time_model_check;
 
-alter table import_containers
-  add constraint import_containers_free_time_model_check
+alter table containers
+  add constraint containers_free_time_model_check
   check (free_time_model in ('SPLIT', 'COMBINED', 'NOT_CONFIRMED'));
 
-alter table import_containers
+alter table containers
   alter column free_time_model set default 'NOT_CONFIRMED';
 
 -- The allowance as the carrier worded it. "10 combined calendar days from
 -- discharge" is a term no integer can carry, and the wording is what a
 -- controller checks when the derived count looks wrong.
-alter table import_containers
+alter table containers
   add column if not exists free_time_remarks text;
