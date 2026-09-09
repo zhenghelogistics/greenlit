@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
   appendAmendment, nextJobReference, recordChassisChange, userEvent,
+  validateContainerCount,
   validateCustomerDraft,
   type AuditEvent, type Chassis, type ChassisChange, type ChassisChangeRequest,
   type ChassisHolding, type Customer, type CustomerDraft, type DateAmendment,
@@ -318,6 +319,12 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
     async createImportJob(draft: ImportJobDraft, actor) {
       const customer = await this.getCustomerByCode(draft.customerCode);
       if (!customer) throw new Error(`Unknown customer ${draft.customerCode}`);
+      // Checked before the job row is written, so a refusal leaves nothing
+      // behind rather than a job with no containers, which is its own dead end.
+      const drafts = draft.containers?.length ? draft.containers : [{}];
+      const count = validateContainerCount(drafts.length);
+      if (!count.valid) throw new Error(count.reason!);
+
       const jobNumber = nextJobReference(await issuedReferences(), customer.code);
       const jobId = jobNumber.toLowerCase();
 
@@ -343,7 +350,6 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       // container insert would leave a job behind with none — the dead end
       // this whole change exists to remove, created by the fix for it. The
       // job is removed by hand instead, so a failure leaves nothing.
-      const drafts = draft.containers?.length ? draft.containers : [{}];
       const inserted = await db.from('containers').insert(drafts.map((c, index) => {
         const [size, ...type] = String(c.sizeType ?? '').trim().split(/\s+/);
         return {

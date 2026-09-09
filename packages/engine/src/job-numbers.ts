@@ -79,6 +79,32 @@ export interface ContainerUse {
   jobOpen: boolean;
 }
 
+/**
+ * The most containers one job may carry.
+ *
+ * An operational limit rather than a physical one: a job is the unit a
+ * controller works, and a booking larger than this is worked as more than one
+ * job. It lived only in the browser, where a caller reaching the API directly
+ * — or a document listing more — went straight past it.
+ */
+export const MAX_CONTAINERS_PER_JOB = 20;
+
+export function validateContainerCount(count: number): { valid: boolean; reason: string | null } {
+  if (count < 1) {
+    // A job with no container cannot progress: free time is per container and
+    // every container command needs one to address.
+    return { valid: false, reason: 'A job needs at least one container' };
+  }
+  if (count > MAX_CONTAINERS_PER_JOB) {
+    return {
+      valid: false,
+      reason: `A job carries at most ${MAX_CONTAINERS_PER_JOB} containers; this one has ${count}. `
+        + 'Split the booking across more than one job.',
+    };
+  }
+  return { valid: true, reason: null };
+}
+
 export function checkContainerUniqueness(
   containerNumber: string,
   existing: readonly ContainerUse[],

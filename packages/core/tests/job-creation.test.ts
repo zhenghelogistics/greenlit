@@ -96,3 +96,30 @@ test('a genuinely unknown id is still reported as unknown', async () => {
   await assert.rejects(() => repo.recordContainerReady('no-such-container', 'tester'),
     /Unknown container/);
 });
+
+test('§29: twenty containers are accepted, twenty-one refused', async () => {
+  // The limit lived only in the browser. A caller reaching the API directly,
+  // or a notice listing more than twenty, went straight past it.
+  const repo = createMemoryRepository();
+  const boxes = (n: number) => Array.from({ length: n }, (_, i) => ({
+    containerNumber: `HLXU${String(7000000 + i).padStart(7, '0')}`,
+  }));
+
+  const job = await repo.createImportJob({ customerCode: 'ABC', containers: boxes(20) }, 'tester');
+  assert.equal((await repo.listContainersForImportJob(job.jobId)).length, 20);
+
+  await assert.rejects(
+    () => repo.createImportJob({ customerCode: 'ABC', containers: boxes(21) }, 'tester'),
+    /at most 20 containers; this one has 21/);
+});
+
+test('a refused job leaves nothing behind', async () => {
+  const repo = createMemoryRepository();
+  const before = (await repo.listImportJobs()).length;
+  await assert.rejects(() => repo.createImportJob({
+    customerCode: 'ABC',
+    containers: Array.from({ length: 25 }, (_, i) => ({ containerNumber: `AAAU${1000000 + i}` })),
+  }, 'tester'));
+  assert.equal((await repo.listImportJobs()).length, before,
+    'a job refused for too many containers must not be half-created');
+});

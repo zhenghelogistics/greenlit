@@ -13,7 +13,13 @@ export const REQUIRED_JOB_FIELDS = [
   "containerNumber",
 ];
 
-export const MAX_CONTAINERS_PER_JOB = 20;
+// Imported from the engine rather than declared here: the limit is a business
+// rule and is enforced server-side, so a second copy in the browser would be a
+// second thing to keep in step. Re-exported because callers already import it
+// from this module. (A bare `export ... from` would not bring it into scope
+// for the check below, which is what no-undef caught.)
+import { MAX_CONTAINERS_PER_JOB } from "@greenlit/engine";
+export { MAX_CONTAINERS_PER_JOB };
 
 function clean(value = "") {
   return value.replace(/\s+/g, " ").replace(/\s+([,.:])/g, "$1").trim();
@@ -70,7 +76,7 @@ function parseContainers(text) {
   }
 
   if (containers.length > MAX_CONTAINERS_PER_JOB) {
-    throw new Error(`This arrival notice contains ${containers.length} containers. Greenlit supports up to ${MAX_CONTAINERS_PER_JOB} containers per job in this demo.`);
+    throw new Error(`This notice lists ${containers.length} containers. A job carries at most ${MAX_CONTAINERS_PER_JOB}; split the booking across more than one job.`);
   }
   return containers;
 }

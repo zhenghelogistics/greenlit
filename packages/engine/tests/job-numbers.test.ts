@@ -2,8 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   canChangeJobNumber, checkContainerUniqueness, datePart, isContainerNumberValid,
-  nextJobNumber, normaliseContainerNumber, parseJobNumber,
-} from '../src/job-numbers.ts';
+  nextJobNumber, normaliseContainerNumber, parseJobNumber, validateContainerCount } from '../src/job-numbers.ts';
 
 test('§8.1: numbers follow the documented shape', () => {
   assert.equal(nextJobNumber([], 'IMPORT', '2026-08-17'), 'JOB-260817-001');
@@ -81,4 +80,24 @@ test('§29.1: container numbers are normalised then format-checked', () => {
   assert.equal(isContainerNumberValid('abcu1234567'), true);
   assert.equal(isContainerNumberValid('ABC1234567'), false, 'four letters are required');
   assert.equal(isContainerNumberValid('ABCU123456'), false, 'seven digits are required');
+});
+
+test('§29: a job carries at most twenty containers', () => {
+  // The limit lived only in the browser, so a caller reaching the API directly
+  // — or a notice listing more — went straight past it.
+  assert.equal(validateContainerCount(1).valid, true);
+  assert.equal(validateContainerCount(20).valid, true);
+
+  const tooMany = validateContainerCount(21);
+  assert.equal(tooMany.valid, false);
+  assert.match(tooMany.reason ?? '', /at most 20 containers; this one has 21/);
+  assert.match(tooMany.reason ?? '', /Split the booking/);
+});
+
+test('a job with no container is refused', () => {
+  // Free time is per container and every container command addresses one, so
+  // a job with none cannot progress.
+  const none = validateContainerCount(0);
+  assert.equal(none.valid, false);
+  assert.match(none.reason ?? '', /at least one container/);
 });

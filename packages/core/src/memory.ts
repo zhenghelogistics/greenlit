@@ -1,6 +1,6 @@
 import {
   appendAmendment, applyChassisChange, nextJobReference, recordChassisChange,
-  userEvent, validateCustomerDraft,
+  userEvent, validateContainerCount, validateCustomerDraft,
   type AuditEvent, type Chassis, type ChassisHolding, type Customer,
   type ChassisChange, type CustomerDraft, type DateAmendment, type Discrepancy,
   type Principal,
@@ -433,6 +433,12 @@ export function createMemoryRepository(): Repository {
       const customer = customers.find((c) => c.code === draft.customerCode.trim().toUpperCase());
       if (!customer) throw new Error(`Unknown customer ${draft.customerCode}`);
 
+      // Checked before anything is written, so a refusal leaves nothing behind
+      // rather than a job with no containers — which is itself a dead end.
+      const drafts = draft.containers?.length ? draft.containers : [{}];
+      const count = validateContainerCount(drafts.length);
+      if (!count.valid) throw new Error(count.reason!);
+
       const issued = [...importJobs.map((j) => j.jobNumber), ...exportJobs.map((j) => j.jobNumber)];
       const jobNumber = nextJobReference(issued, customer.code);
       const jobId = jobNumber.toLowerCase();
@@ -462,7 +468,6 @@ export function createMemoryRepository(): Repository {
       // to record the number when it arrived, and every container action
       // failing with "Unknown container null". One empty row is created when
       // the notice named none, so there is somewhere to put it.
-      const drafts = draft.containers?.length ? draft.containers : [{}];
       importContainers[jobId] = drafts.map((c, index) => {
         const [size, ...type] = String(c.sizeType ?? '').trim().split(/\s+/);
         return {

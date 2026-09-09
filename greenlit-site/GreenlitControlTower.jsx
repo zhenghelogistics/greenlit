@@ -45,6 +45,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { addIsoDays, MAX_CONTAINERS_PER_JOB, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
+import { validateContainerCount } from "@greenlit/engine";
 import { reconcileExtraction, toExtractedFields } from "@greenlit/engine";
 
 /**
@@ -2595,6 +2596,12 @@ function documentContainerIssues(containers) {
 
 function DocumentContainersEditor({ containers, onChange }) {
   const issues = documentContainerIssues(containers);
+  // Asked of the engine rather than restated here, so the wording a controller
+  // reads before applying is the wording the server would refuse with. A
+  // notice listing more than the limit loads all of its rows; the editor only
+  // stops you adding more, which is no warning at all for a document that
+  // arrived over the line.
+  const countIssue = validateContainerCount(containers.length).reason;
   const update = (index, key, value) => onChange(containers.map((container, containerIndex) => containerIndex === index ? { ...container, [key]: value } : container));
   const add = () => {
     if (containers.length >= MAX_CONTAINERS_PER_JOB) return;
@@ -2612,6 +2619,12 @@ function DocumentContainersEditor({ containers, onChange }) {
         <div><div className="text-[17px] font-semibold text-slate-950">{containers.length} container{containers.length === 1 ? "" : "s"} found</div><div className="mt-1 text-[15px] font-normal text-slate-600">Review each unit independently. A job can contain up to {MAX_CONTAINERS_PER_JOB}.</div></div>
         <button type="button" onClick={add} disabled={containers.length >= MAX_CONTAINERS_PER_JOB} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 font-semibold text-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:border-sky-200 disabled:bg-sky-50 disabled:text-sky-800"><Plus className="h-5 w-5" />{containers.length >= MAX_CONTAINERS_PER_JOB ? "Limit reached" : "Add container"}</button>
       </div>
+      {countIssue ? (
+        <div role="alert" className="border-b border-rose-300 bg-rose-50 px-5 py-4 text-[17px] font-medium text-rose-900">
+          {countIssue}
+        </div>
+      ) : null}
+
       <div className="divide-y divide-slate-200">
         {containers.map((container, index) => (
           <div key={container.id || `${container.ref}-${index}`} className="px-5 py-5">
