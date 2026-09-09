@@ -143,6 +143,10 @@ body {
   border-bottom: 1px solid var(--gl-line);
 }
 .gl-table tbody td { padding: 0 14px; height: var(--gl-row-height); vertical-align: middle; }
+/* The domain edge is drawn inside the first cell, so the cell keeps its
+   padding and the rule sits flush with the row above and below. */
+.gl-table tbody td.gl-edge-import,
+.gl-table tbody td.gl-edge-export { padding-left: 12px; }
 .gl-table tbody tr { border-bottom: 1px solid var(--gl-line); }
 .gl-table tbody tr:last-child { border-bottom: 0; }
 .gl-table tbody tr:hover { background: var(--gl-bg-hover); cursor: pointer; }
@@ -225,17 +229,28 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .gl-ink-doc   { color: var(--gl-doc-ink); }
 .gl-ink-past  { color: var(--gl-past-ink); }
 
-/* A pill is solid and carries white text; the meaning is in the words. */
-.gl-pill {
+/* ---- Two forms of state, and they are not interchangeable ----
+
+   `.gl-pill` above is the quiet form: a dot and the word, no ground. It is
+   what a table of thirteen rows needs — thirteen filled blocks is a fruit
+   salad, and none of them would mean anything.
+
+   `.gl-badge` is the loud form, for the one status a screen is about: solid,
+   white text, used once. It is deliberately NOT called .gl-pill. It was, and
+   because it sat later in this file it won the cascade and set white text on
+   the quiet form's transparent ground — every status word on the board
+   disappeared. */
+.gl-badge {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 6px 13px; border-radius: 999px;
   font: 600 14px/1.3 var(--gl-font-sans); color: #fff;
+  white-space: nowrap;
 }
-.gl-pill-blocked { background: var(--gl-state-blocked); }
-.gl-pill-warn    { background: var(--gl-state-warn); }
-.gl-pill-ready   { background: var(--gl-state-ready); }
-.gl-pill-idle    { background: var(--gl-state-idle); }
-.gl-pill .gl-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.gl-badge-blocked { background: var(--gl-state-blocked); }
+.gl-badge-warn    { background: var(--gl-state-warn); }
+.gl-badge-ready   { background: var(--gl-state-ready); }
+.gl-badge-idle    { background: var(--gl-state-idle); }
+.gl-badge .gl-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 
 /* The domain, as an edge rather than a label competing with the job number. */
 .gl-edge-import { border-left: 6px solid var(--gl-import); }

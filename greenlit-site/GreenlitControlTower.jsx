@@ -1471,6 +1471,9 @@ function rowFromSeedJob(job) {
     waitingOn: waitingOn(job),
     age: ageLabel(job),
     requiredBy: requiredBy(job),
+    // Whether a carrier deadline has passed — the one thing on this board
+    // that is costing money right now, and so the one thing shown loudly.
+    overdue: Boolean(deadlineRisk(job)),
     openable: true,
   };
 }
@@ -1529,7 +1532,12 @@ function ActionTable({ rows, onOpen, compact = false }) {
                 onFocus={() => setActive(index)}
                 onClick={() => job.openable !== false && onOpen(job.id)}
               >
-                <td>
+                {/* v5 §0.1. The one hue a board can carry: which domain this
+                    is. Thirteen rows of five hues is a fruit salad, but a
+                    board with no colour at all gives the eye nothing to land
+                    on — the edge answers "import or export" before the word
+                    below it is read. */}
+                <td className={job.type === "Export" ? "gl-edge-export" : "gl-edge-import"}>
                   <span className="gl-data gl-ref">{job.id}</span>
                   <div className="gl-caption mt-0.5">{job.type}</div>
                 </td>
@@ -1539,7 +1547,15 @@ function ActionTable({ rows, onOpen, compact = false }) {
                 <td className="gl-body gl-muted max-w-[260px]">{job.blocking}</td>
                 {/* The one strong value in the row. */}
                 <td className="gl-body gl-strong max-w-[240px]" style={{ fontWeight: 500 }}>{job.nextAction}</td>
-                <td><WaitingPill owner={job.waitingOn} /></td>
+                <td>
+                  {/* Loud once, and only where it means money is running.
+                      Everything else keeps the quiet dot-and-word: a row of
+                      filled blocks reads as decoration and none of them would
+                      mean anything. */}
+                  {job.overdue
+                    ? <span className="gl-badge gl-badge-blocked"><span className="gl-dot" />{job.requiredBy}</span>
+                    : <WaitingPill owner={job.waitingOn} />}
+                </td>
                 {!compact ? <td><span className="gl-data">{job.age}</span></td> : null}
                 {!compact ? <td><span className="gl-data">{job.requiredBy}</span></td> : null}
               </tr>
@@ -1649,6 +1665,7 @@ function rowsFromApi(jobs) {
     waitingOn: WAITING_LABEL[j.waitingOn] ?? "Nobody",
     age: "—",
     requiredBy: "—",
+    overdue: false,
     openable: false,
   }));
 }
