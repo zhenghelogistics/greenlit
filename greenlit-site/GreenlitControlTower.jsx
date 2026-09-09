@@ -925,27 +925,19 @@ function StatusPill({ status, large = false, flash = false }) {
 }
 
 /**
- * v5. A panel headed by a solid block naming what it holds.
+ * A panel: a white header with the title, and the body below it.
  *
- * `kind` is the sort of information inside — money, containers, movements,
- * documents, history — and it picks the hue. It is not decoration: the five
- * colours never appear anywhere that is not the thing they name, so a
- * controller learns them once and then knows where they are before reading
- * the heading. A panel with no kind keeps a plain white header, which is the
- * right answer for anything that is not one of the five.
+ * v5 tried solid coloured headers, one hue per kind of information. On screen
+ * they were heavy rather than helpful — a wall of saturated bars competing
+ * with the content, and the action links inside them unreadable. Reverted.
+ * `kind` is still accepted and ignored, because the panels still declare what
+ * they hold and that is worth keeping if colour returns in a quieter form.
  */
-const PANEL_HEAD = {
-  money: "gl-head-money", box: "gl-head-box", move: "gl-head-move",
-  doc: "gl-head-doc", past: "gl-head-past",
-};
-
-function Panel({ title, action, children, className = "", kind }) {
-  const head = PANEL_HEAD[kind];
+function Panel({ title, action, children, className = "" }) {
   return (
     <section className={`overflow-hidden rounded-lg border border-slate-200 bg-white ${className}`}>
-      <div className={`flex min-h-16 flex-wrap items-center justify-between gap-3 px-5 py-3 ${
-        head ? head : "border-b border-slate-200 bg-white"}`}>
-        <h2 className={`text-xl font-semibold tracking-[-0.01em] ${head ? "" : "text-slate-900"}`}>{title}</h2>
+      <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-3">
+        <h2 className="text-xl font-semibold tracking-[-0.01em] text-slate-900">{title}</h2>
         {action}
       </div>
       {children}
@@ -962,7 +954,7 @@ function CounterCard({ label, value, note, icon: Icon, tone = "navy", onClick })
     <button
       type="button"
       onClick={onClick}
-      className="gl-panel flex h-[88px] w-full flex-col justify-between p-3 text-left transition-colors duration-150 hover:bg-slate-50"
+      className="gl-panel flex w-full flex-col justify-between gap-2 p-4 text-left transition-colors duration-150 hover:bg-slate-50"
     >
       {/* Count and icon share one baseline row. */}
       <div className="flex items-center justify-between gap-2">
@@ -971,10 +963,13 @@ function CounterCard({ label, value, note, icon: Icon, tone = "navy", onClick })
           <Icon className="h-4 w-4" aria-hidden="true" />
         </span>
       </div>
-      {/* Reserved slots: a three-line label cannot bulge its neighbour. */}
+      {/* Content sets the height; the grid keeps siblings equal. The fixed
+          88px this replaced was sized for v3's type — after v4 raised the
+          scale the caption needed 24px and its slot reserved 16, so the last
+          line was clipped on every card. */}
       <div>
-        <div className="gl-label flex min-h-[32px] items-end">{label}</div>
-        <div className="gl-caption min-h-[16px] truncate">{note ?? ""}</div>
+        <div className="gl-label">{label}</div>
+        <div className="gl-caption">{note ?? ""}</div>
       </div>
     </button>
   );
@@ -1532,12 +1527,7 @@ function ActionTable({ rows, onOpen, compact = false }) {
                 onFocus={() => setActive(index)}
                 onClick={() => job.openable !== false && onOpen(job.id)}
               >
-                {/* v5 §0.1. The one hue a board can carry: which domain this
-                    is. Thirteen rows of five hues is a fruit salad, but a
-                    board with no colour at all gives the eye nothing to land
-                    on — the edge answers "import or export" before the word
-                    below it is read. */}
-                <td className={job.type === "Export" ? "gl-edge-export" : "gl-edge-import"}>
+                <td>
                   <span className="gl-data gl-ref">{job.id}</span>
                   <div className="gl-caption mt-0.5">{job.type}</div>
                 </td>
@@ -1547,15 +1537,7 @@ function ActionTable({ rows, onOpen, compact = false }) {
                 <td className="gl-body gl-muted max-w-[260px]">{job.blocking}</td>
                 {/* The one strong value in the row. */}
                 <td className="gl-body gl-strong max-w-[240px]" style={{ fontWeight: 500 }}>{job.nextAction}</td>
-                <td>
-                  {/* Loud once, and only where it means money is running.
-                      Everything else keeps the quiet dot-and-word: a row of
-                      filled blocks reads as decoration and none of them would
-                      mean anything. */}
-                  {job.overdue
-                    ? <span className="gl-badge gl-badge-blocked"><span className="gl-dot" />{job.requiredBy}</span>
-                    : <WaitingPill owner={job.waitingOn} />}
-                </td>
+                <td><WaitingPill owner={job.waitingOn} /></td>
                 {!compact ? <td><span className="gl-data">{job.age}</span></td> : null}
                 {!compact ? <td><span className="gl-data">{job.requiredBy}</span></td> : null}
               </tr>
@@ -1921,33 +1903,36 @@ function FreeTimeRow({ clock }) {
   // is the loudest thing on the job because it is the only thing on the job
   // with a running meter. Everything else takes the pale money wash, so it
   // still reads as belonging to free time without competing.
-  const solid = clock.standing === "OVERDUE" || clock.standing === "LAST_DAY";
-  const ground = solid
-    ? "bg-[color:var(--gl-state-blocked)] text-white"
-    : clock.standing === "SETTLED"
-      ? "bg-[color:var(--gl-state-ready)] text-white"
-      : "gl-wash-money";
+  // A coloured rail and the words, on white. The solid block this replaced
+  // was louder than the thing it was reporting.
+  const rail = {
+    OVERDUE: "var(--gl-state-blocked)", LAST_DAY: "var(--gl-state-blocked)",
+    DUE_SOON: "var(--gl-state-warn)", SETTLED: "var(--gl-state-ready)",
+    OK: "var(--gl-state-ready)", UNKNOWN: "var(--gl-state-idle)",
+  }[clock.standing] ?? "var(--gl-state-idle)";
 
-  const ink = solid || clock.standing === "SETTLED"
-    ? ""
-    : clock.standing === "DUE_SOON"
-      ? "text-[color:var(--gl-state-warn-ink)]"
-      : clock.standing === "UNKNOWN"
-        ? "text-[color:var(--gl-ink-muted)]"
-        : "text-[color:var(--gl-money-ink)]";
-
-  const quiet = solid || clock.standing === "SETTLED" ? "text-white/85" : "";
+  const ink = {
+    OVERDUE: "text-[color:var(--gl-state-blocked-ink)]",
+    LAST_DAY: "text-[color:var(--gl-state-blocked-ink)]",
+    DUE_SOON: "text-[color:var(--gl-state-warn-ink)]",
+    SETTLED: "text-[color:var(--gl-state-ready-ink)]",
+    OK: "text-[color:var(--gl-ink)]",
+    UNKNOWN: "text-[color:var(--gl-ink-muted)]",
+  }[clock.standing] ?? "text-[color:var(--gl-ink-muted)]";
 
   return (
-    <div className={`flex flex-wrap items-baseline justify-between gap-3 rounded-md p-4 ${ground}`}>
+    <div className="flex flex-wrap items-baseline justify-between gap-3 rounded-md border border-[color:var(--gl-line)] bg-white p-4"
+      style={{ borderLeft: `6px solid ${rail}` }}>
       <div>
-        <div className={`gl-label ${quiet || "gl-ink-money"}`}>{clock.label}</div>
+        <div className="gl-label">{clock.label}</div>
         <div className={`mt-1 text-[19px] font-semibold ${ink}`}>{clock.summary}</div>
       </div>
-      <div className={`gl-caption text-right ${quiet}`}>
+      <div className="gl-caption text-right">
         {clock.freeDays === null ? "Free time not recorded" : `${clock.freeDays} free days`}
         {clock.lastFreeDay ? <div>Last free day {formatDay(clock.lastFreeDay)}</div> : null}
-        {clock.chargeableDays > 0 ? <div className="font-semibold">{clock.chargeableDays} chargeable</div> : null}
+        {clock.chargeableDays > 0
+          ? <div className="font-semibold text-[color:var(--gl-state-blocked-ink)]">{clock.chargeableDays} chargeable</div>
+          : null}
       </div>
     </div>
   );
@@ -2438,7 +2423,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
       ) : null}
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <Panel title="Containers" kind="box" action={<button type="button" disabled={containers.length >= MAX_CONTAINERS_PER_JOB} onClick={() => onManage("container", { mode: "new" })} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600 disabled:text-slate-600 disabled:no-underline"><Plus className="h-5 w-5" />{containers.length >= MAX_CONTAINERS_PER_JOB ? "20 container limit" : "Add container"}</button>}>
+        <Panel title="Containers" action={<button type="button" disabled={containers.length >= MAX_CONTAINERS_PER_JOB} onClick={() => onManage("container", { mode: "new" })} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600 disabled:text-slate-600 disabled:no-underline"><Plus className="h-5 w-5" />{containers.length >= MAX_CONTAINERS_PER_JOB ? "20 container limit" : "Add container"}</button>}>
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[15px] font-normal text-slate-600" aria-live="polite"><span>{containers.length} / {MAX_CONTAINERS_PER_JOB} containers on this job</span><span>{completedContainers} complete</span></div>
           <div className="divide-y divide-slate-200">
             {containers.map((container, index) => {
@@ -2453,7 +2438,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
           </div>
         </Panel>
 
-        <Panel title="Chassis" kind="move" action={<button type="button" onClick={() => chassis.length ? onManage("chassis", { unit: chassis[0].unit, size: chassis[0].size, condition: "assigned" }) : onManage("fleet")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><Truck className="h-5 w-5" />{chassis.length ? "Manage chassis" : "Assign chassis"}</button>}>
+        <Panel title="Chassis" action={<button type="button" onClick={() => chassis.length ? onManage("chassis", { unit: chassis[0].unit, size: chassis[0].size, condition: "assigned" }) : onManage("fleet")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><Truck className="h-5 w-5" />{chassis.length ? "Manage chassis" : "Assign chassis"}</button>}>
           {chassis.length ? (
             <div className="divide-y divide-slate-200">
               {chassis.map((item) => (
@@ -2470,7 +2455,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
       </div>
 
       {job.type === "Import" ? (
-        <Panel title="Free time" kind="money" className="mt-7" action={<button type="button" onClick={() => onManage("freeTime")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><CalendarDays className="h-5 w-5" />Confirm dates</button>}>
+        <Panel title="Free time" className="mt-7" action={<button type="button" onClick={() => onManage("freeTime")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><CalendarDays className="h-5 w-5" />Confirm dates</button>}>
           <div className="p-6">
             {/*
               Driven by the engine, not by two hardcoded rows. The old block
@@ -2495,7 +2480,7 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
       </Panel>
 
       {(job.activity || []).length ? (
-        <Panel title="Recent activity" kind="past" className="mt-7" action={<button type="button" onClick={() => onManage("activity")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><History className="h-5 w-5" />View full history</button>}>
+        <Panel title="Recent activity" className="mt-7" action={<button type="button" onClick={() => onManage("activity")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><History className="h-5 w-5" />View full history</button>}>
           <div className="divide-y divide-slate-200">
             {job.activity.slice(0, 3).map((item) => <div key={item.id} className="grid gap-2 px-5 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"><div className="font-semibold text-slate-950">{item.text}</div><div className="gl-label">{item.at} · {item.actor}</div></div>)}
           </div>
@@ -3061,7 +3046,7 @@ function ChassisFleet({ fleet, onOpen, onUnit }) {
         {[{ id: "available", label: "Available", value: fleet.available.length, tone: "text-emerald-800" }, { id: "inUse", label: "Under containers", value: fleet.inUse.length, tone: "text-slate-950" }, { id: "maintenance", label: "Maintenance or inspection", value: fleet.maintenance.length, tone: "text-amber-800" }].map((item) => <button key={item.id} type="button" onClick={() => setView((current) => current === item.id ? "all" : item.id)} aria-pressed={view === item.id} className={`rounded-lg border bg-white p-5 text-left hover:border-[var(--gl-accent)] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${view === item.id ? "border-[var(--gl-accent)] shadow-[inset_0_-3px_0_var(--gl-accent)]" : "border-slate-200"}`}><div className={`text-4xl font-semibold tabular-nums ${item.tone}`}>{item.value}</div><div className="mt-2 flex items-center justify-between gap-3 text-[17px] font-medium text-slate-600"><span>{item.label}</span><ChevronRight className="h-5 w-5 text-[var(--gl-accent)]" /></div></button>)}
       </div>
 
-      {showInUse ? <Panel title="Units under containers" kind="move" className="mt-7">
+      {showInUse ? <Panel title="Units under containers" className="mt-7">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[850px] border-collapse text-left text-[17px]">
             <thead className="bg-[var(--gl-bg-subtle)] text-[color:var(--gl-ink)]"><tr>{["Unit", "Size", "Job", "Customer", "Days held", ""].map((heading, index) => <th key={`${heading}-${index}`} className="px-4 py-4 text-[17px] font-semibold">{heading}</th>)}</tr></thead>
