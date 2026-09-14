@@ -79,7 +79,7 @@ function operationalToday() {
   return new Date().toISOString().slice(0, 10);
 }
 /**
- * The acting user, until sign-in exists.
+ * The acting user.
  *
  * Held in a module-level variable rather than context so the existing handlers
  * can read it without threading a prop through every screen. §7 roles are
@@ -415,6 +415,284 @@ function AddPerson({ onDone, onCancel }) {
         <button type="submit" disabled={saving}
           className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white disabled:opacity-60">
           {saving ? "Adding…" : "Add to the directory"}
+        </button>
+        <button type="button" onClick={onCancel}
+          className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-5 text-[17px] text-[color:var(--gl-ink)]">
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * §24. The permits on a shipment.
+ *
+ * A permit belongs to the job, not to a container, and this panel is where
+ * that shows: one list at job level, each entry saying which containers it
+ * covers. Copying a permit against every container would make several records
+ * that can disagree, and the same permit routinely covers several boxes.
+ *
+ * Every verdict here was computed by the server against the job as it stands
+ * right now. Nothing is stored, so amending a voyage turns its permits amber
+ * on the next load without anyone touching them.
+ */
+const PERMIT_TONE = {
+  VALID: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  ATTENTION: "border-rose-200 bg-rose-50 text-[color:var(--gl-state-blocked-ink)]",
+  REVIEW: "border-slate-300 bg-slate-100 text-slate-700",
+};
+const PERMIT_WORD = { VALID: "Checks out", ATTENTION: "Needs attention", REVIEW: "Not checked yet" };
+
+function PermitPanel({ jobId, containers, onChanged }) {
+  const [state, setState] = useState({ status: "loading", permits: [], uncovered: [] });
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState("");
+  const [allocating, setAllocating] = useState(null);
+
+  const load = React.useCallback(() => {
+    if (!jobId) return;
+    fetch(`/api/jobs/${encodeURIComponent(jobId)}/permits`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => setState({
+        status: "ready",
+        permits: d.permits ?? [],
+        uncovered: d.uncoveredContainers ?? [],
+      }))
+      .catch(() => setState({ status: "error", permits: [], uncovered: [] }));
+  }, [jobId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function send(path, method, body) {
+    setError("");
+    const response = await fetch(path, {
+      method,
+      headers: { "content-type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    if (!response?.ok) { setError(payload?.error ?? "That did not save."); return null; }
+    load();
+    onChanged?.();
+    return payload;
+  }
+
+  const label = (cid) =>
+    containers.find((c) => c.id === cid)?.number || cid;
+
+  return (
+    <Panel
+      title="Permits"
+      className="mt-7"
+      action={!adding ? (
+        <button type="button" onClick={() => setAdding(true)}
+          className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">
+          <FileSearch className="h-5 w-5" aria-hidden="true" />Add a permit
+        </button>
+      ) : null}
+    >
+      {error ? (
+        <p role="alert" className="gl-body-plain mb-4 rounded-md border border-rose-300 bg-rose-50 p-3 text-[color:var(--gl-state-blocked-ink)]">
+          {error}
+        </p>
+      ) : null}
+
+      {adding ? (
+        <AddPermit
+          onCancel={() => setAdding(false)}
+          onSave={async (draft) => {
+            const r = await send(`/api/jobs/${encodeURIComponent(jobId)}/permits`, "POST", draft);
+            if (r) { setAdding(false); if (r.warning) setError(r.warning); }
+          }}
+        />
+      ) : null}
+
+      {state.permits.length === 0 && !adding ? (
+        <p className="gl-body">
+          No permit recorded. A permit is not needed to work the job — Portnet
+          release is what holds a collection — but it is needed before the
+          delivery order is exchanged.
+        </p>
+      ) : null}
+
+      <div className="grid gap-4">
+        {state.permits.map((permit) => (
+          <article key={permit.permitId} className="rounded-lg border border-[color:var(--gl-line)] bg-white p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="gl-figures text-[19px] font-semibold text-[color:var(--gl-ink)]">
+                  {permit.permitNumber || "Number not entered"}
+                </div>
+                <div className="gl-caption mt-1">
+                  {permit.fileName || "No file attached"}
+                  {permit.expiryDate ? ` · expires ${formatDay(permit.expiryDate)}` : ""}
+                </div>
+              </div>
+              <span className={`inline-flex min-h-7 items-center rounded-full border px-2 text-[15px] font-semibold ${PERMIT_TONE[permit.verdict.overall]}`}>
+                {PERMIT_WORD[permit.verdict.overall]}
+              </span>
+            </div>
+
+            {/* Every issue in the controller's words, not a status code. A
+                permit that needs attention is worth a sentence saying which
+                sailing it covers and which one this job is on. */}
+            {permit.verdict.issues.length ? (
+              <ul className="mt-3 grid gap-2">
+                {permit.verdict.issues.map((issue) => (
+                  <li key={issue} className="gl-body-plain rounded-md border border-rose-200 bg-rose-50 p-3 text-[color:var(--gl-state-blocked-ink)]">
+                    {issue}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+              <span className="gl-body-plain text-[color:var(--gl-ink-muted)]">
+                {permit.linkedContainerIds.length
+                  ? `Covers ${permit.linkedContainerIds.map(label).join(", ")}`
+                  : "Not yet applied to any container"}
+              </span>
+              <button type="button"
+                onClick={() => setAllocating(allocating === permit.permitId ? null : permit.permitId)}
+                className="min-h-11 cursor-pointer px-1 text-[15px] font-semibold text-[var(--gl-accent)] underline underline-offset-4">
+                Choose containers
+              </button>
+              <button type="button"
+                onClick={() => send(`/api/jobs/${encodeURIComponent(jobId)}/permits/${permit.permitId}`, "PUT",
+                  { containerIds: containers.map((c) => c.id) })}
+                className="min-h-11 cursor-pointer px-1 text-[15px] font-semibold text-[var(--gl-accent)] underline underline-offset-4">
+                Apply to all {containers.length}
+              </button>
+              <button type="button"
+                onClick={() => {
+                  if (window.confirm(`Remove permit ${permit.permitNumber || ""}? The containers it covers stay as they are.`)) {
+                    send(`/api/jobs/${encodeURIComponent(jobId)}/permits/${permit.permitId}`, "DELETE");
+                  }
+                }}
+                className="min-h-11 cursor-pointer px-1 text-[15px] font-semibold text-[color:var(--gl-state-blocked-ink)] underline underline-offset-4">
+                Remove
+              </button>
+            </div>
+
+            {allocating === permit.permitId ? (
+              <ContainerAllocation
+                containers={containers}
+                selected={permit.linkedContainerIds}
+                onCancel={() => setAllocating(null)}
+                onApply={async (ids) => {
+                  await send(`/api/jobs/${encodeURIComponent(jobId)}/permits/${permit.permitId}`,
+                    "PUT", { containerIds: ids });
+                  setAllocating(null);
+                }}
+              />
+            ) : null}
+          </article>
+        ))}
+      </div>
+
+      {state.uncovered.length && state.permits.length ? (
+        <p className="gl-body-plain mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">
+          No permit covers {state.uncovered.map(label).join(", ")}.
+        </p>
+      ) : null}
+    </Panel>
+  );
+}
+
+/**
+ * Choosing which containers a permit covers.
+ *
+ * The tick list is the whole relationship, not an addition to it: applying
+ * replaces what the permit covered before, so unticking a container genuinely
+ * uncovers it. Saying so under the buttons, because "apply" could mean either.
+ */
+function ContainerAllocation({ containers, selected, onCancel, onApply }) {
+  const [ticked, setTicked] = useState(() => new Set(selected));
+
+  const toggle = (id) => setTicked((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  return (
+    <div className="mt-4 rounded-lg border border-[color:var(--gl-line-strong)] bg-[color:var(--gl-bg)] p-4">
+      <div className="grid gap-2 sm:grid-cols-2">
+        {containers.map((c) => (
+          <label key={c.id} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md bg-white px-3">
+            <input type="checkbox" checked={ticked.has(c.id)} onChange={() => toggle(c.id)}
+              className="h-5 w-5 cursor-pointer accent-[color:var(--gl-accent)]" />
+            <span className="gl-figures text-[color:var(--gl-ink)]">{c.number || c.id}</span>
+            <span className="gl-caption">{c.type || ""}</span>
+          </label>
+        ))}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button type="button" onClick={() => onApply([...ticked])}
+          className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white">
+          Apply to {ticked.size} {ticked.size === 1 ? "container" : "containers"}
+        </button>
+        <button type="button" onClick={onCancel}
+          className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-5 text-[17px] text-[color:var(--gl-ink)]">
+          Cancel
+        </button>
+      </div>
+      <p className="gl-caption mt-3">
+        This replaces what the permit covers. Anything unticked stops being covered.
+      </p>
+    </div>
+  );
+}
+
+/** Recording a permit. The vessel is asked for because it is what gets checked. */
+function AddPermit({ onCancel, onSave }) {
+  const [form, setForm] = useState({
+    permitNumber: "", expiryDate: "", permitVesselVoyage: "", fileName: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const field = "min-h-12 w-full rounded-md border border-[color:var(--gl-line-strong)] bg-white px-3 text-[17px] text-[color:var(--gl-ink)]";
+
+  return (
+    <form
+      onSubmit={async (event) => {
+        event.preventDefault();
+        setSaving(true);
+        await onSave(form);
+        setSaving(false);
+      }}
+      className="mb-5 rounded-lg border border-[color:var(--gl-line-strong)] bg-[color:var(--gl-bg)] p-4"
+    >
+      <div className="grid gap-4 md:grid-cols-2">
+        <label className="grid gap-2">
+          <span className="gl-label">Permit number</span>
+          <input value={form.permitNumber} onChange={set("permitNumber")}
+            placeholder="IG6I728642H" className={field} />
+          <span className="gl-caption">Two letters, a digit, a letter, six digits, a letter.</span>
+        </label>
+        <label className="grid gap-2">
+          <span className="gl-label">Expiry date</span>
+          <input type="date" value={form.expiryDate} onChange={set("expiryDate")} className={field} />
+          <span className="gl-caption">Must outlast the vessel&rsquo;s arrival, not merely reach it.</span>
+        </label>
+        <label className="grid gap-2">
+          <span className="gl-label">Vessel and voyage on the permit</span>
+          <input value={form.permitVesselVoyage} onChange={set("permitVesselVoyage")}
+            placeholder="CALLAO BRIDGE / 256S" className={field} />
+          <span className="gl-caption">Checked against the job, so a changed voyage shows up.</span>
+        </label>
+        <label className="grid gap-2">
+          <span className="gl-label">File name</span>
+          <input value={form.fileName} onChange={set("fileName")}
+            placeholder="permit.pdf" className={field} />
+          <span className="gl-caption">Held once here, not copied to each container.</span>
+        </label>
+      </div>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button type="submit" disabled={saving}
+          className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white disabled:opacity-60">
+          {saving ? "Saving…" : "Record permit"}
         </button>
         <button type="button" onClick={onCancel}
           className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-5 text-[17px] text-[color:var(--gl-ink)]">
@@ -924,18 +1202,40 @@ function parseDay(value) {
  * instead of leaving a blank cell. A job that has not reached the port yet
  * genuinely has no last free day, so this is the ordinary case, not an error.
  */
+/**
+ * Every date in the application, written the one way.
+ *
+ * DD/MM/YYYY, because that is what the shipping documents say and what the
+ * people reading this screen read all day. "19 September 2026" is prettier and
+ * costs a beat of translation each time, and a controller comparing a screen
+ * against a carrier's notice should not be translating anything.
+ *
+ * Padded to two digits so the column lines up and so 1/9 cannot be misread as
+ * a different length of number than 11/9. The separator is a slash, not a
+ * dash, to keep it distinct from the ISO form the API speaks.
+ */
 function formatDay(value, fallback = "Not set") {
   if (!value) return fallback;
   const date = parseDay(value);
   if (Number.isNaN(date.getTime())) return fallback;
-  return new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "long", year: "numeric" }).format(date);
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${date.getFullYear()}`;
 }
 
+/**
+ * The same date with the weekday in front.
+ *
+ * Used where the question is "when do I have to do this", which a person
+ * answers in weekdays rather than dates: Fri 18/09/2026 says something
+ * 18/09/2026 does not.
+ */
 function formatDayShort(value, fallback = "Not scheduled") {
   if (!value) return fallback;
   const date = parseDay(value);
   if (Number.isNaN(date.getTime())) return fallback;
-  return new Intl.DateTimeFormat("en-SG", { day: "numeric", month: "short", year: "numeric" }).format(date);
+  const weekday = new Intl.DateTimeFormat("en-SG", { weekday: "short" }).format(date);
+  return `${weekday} ${formatDay(value)}`;
 }
 
 function dayDifference(from, to) {
@@ -2118,8 +2418,11 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
         </div>
         <div className="gl-data gl-muted inline-flex min-h-11 items-center gap-2">
           <CalendarDays className="h-4 w-4" aria-hidden="true" />
-          {new Intl.DateTimeFormat("en-SG", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
-            .format(new Date())}
+          {/* The banner still carries the full weekday — it is the one place
+              that answers "what day is it" rather than "when is this due" —
+              but the date beside it is the same DD/MM/YYYY as everywhere
+              else. */}
+          {`${new Intl.DateTimeFormat("en-SG", { weekday: "long" }).format(new Date())} ${formatDay(operationalToday())}`}
         </div>
       </div>
 
@@ -2875,7 +3178,8 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
       </div>
 
       {job.type === "Import" ? (
-        <Panel title="Free time" className="mt-7" action={<button type="button" onClick={() => onManage("freeTime")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><CalendarDays className="h-5 w-5" />Confirm dates</button>}>
+        <>
+          <Panel title="Free time" className="mt-7" action={<button type="button" onClick={() => onManage("freeTime")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><CalendarDays className="h-5 w-5" />Confirm dates</button>}>
           <div className="p-6">
             {/*
               Driven by the engine, not by two hardcoded rows. The old block
@@ -2891,8 +3195,16 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
                 Each container has its own clocks; open one to see it.
               </p>
             ) : null}
-          </div>
-        </Panel>
+            </div>
+          </Panel>
+
+          {/* §24. Permits sit at job level, beside free time rather than
+              inside a container, because that is where they belong: one
+              permit over several boxes is the ordinary case. Both are inside
+              the import branch — an export job has an export clearance, which
+              is a different document with different rules. */}
+          <PermitPanel jobId={job.id} containers={job.containers ?? []} />
+        </>
       ) : null}
 
       <Panel title={`Trip history · ${job.trips.length} trip${job.trips.length === 1 ? "" : "s"} under ${job.id}`} className="mt-7" action={<button type="button" onClick={() => onManage("trip")} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[var(--gl-accent)] px-4 font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><Plus className="h-5 w-5" />Add trip</button>}>
@@ -4199,11 +4511,20 @@ export default function GreenlitControlTower() {
           from `lg` up. Two navs would be two lists to keep in step. */}
       <aside className="sticky top-0 z-40 bg-[color:var(--gl-accent)] text-white lg:h-screen lg:w-[236px] lg:shrink-0">
         <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:block lg:px-5 lg:py-5">
-          <div>
+          {/* The white mark, because the rail is the brand colour. The wordmark
+              already says Zheng He Logistics, so the line under it names the
+              system rather than repeating the company. */}
+          <img
+            src="/logo-cropped.png"
+            alt="Zheng He Logistics"
+            width={2217}
+            height={676}
+            className="h-8 w-auto shrink-0 lg:h-9"
+          />
+          <div className="lg:mt-3">
             <div className="text-[19px] font-medium tracking-[-0.008em] text-white">Greenlit</div>
             <div className="mt-1 text-[15px] font-normal text-white/90">Singapore transport control</div>
           </div>
-          <Anchor className="h-6 w-6 shrink-0 text-white/90 lg:mt-4 lg:hidden" aria-hidden="true" />
         </div>
 
         <nav

@@ -19,11 +19,26 @@ const { formatDay, formatDayShort } = await import(
   "data:text/javascript," + encodeURIComponent(src.slice(start, end) + "\nexport { formatDay, formatDayShort };")
 );
 
-test("a real date formats", () => {
-  assert.equal(formatDay("2026-09-14"), "14 September 2026");
-  // en-SG abbreviates September as "Sept", not "Sep".
-  assert.equal(formatDayShort("2026-09-14"), "14 Sept 2026");
-  assert.equal(formatDayShort("2026-10-03"), "3 Oct 2026");
+test("every date is DD/MM/YYYY, because that is what the documents say", () => {
+  // This used to assert "14 September 2026". Prettier, and a beat of
+  // translation every time a controller compares the screen against a
+  // carrier's notice — which is the whole job.
+  assert.equal(formatDay("2026-09-14"), "14/09/2026");
+  assert.equal(formatDay("2026-10-03"), "03/10/2026");
+});
+
+test("both halves are padded, so the column lines up", () => {
+  // 1/9 and 11/9 are different lengths of number at a glance; 01/09 and 11/09
+  // are not.
+  assert.equal(formatDay("2026-01-05"), "05/01/2026");
+  assert.equal(formatDay("2026-12-31"), "31/12/2026");
+});
+
+test("the weekday form answers when, not merely what date", () => {
+  // Used where the question is "when do I have to do this", which a person
+  // answers in weekdays.
+  assert.equal(formatDayShort("2026-09-14"), "Mon 14/09/2026");
+  assert.equal(formatDayShort("2026-10-03"), "Sat 03/10/2026");
 });
 
 test("an absent date does not throw", () => {

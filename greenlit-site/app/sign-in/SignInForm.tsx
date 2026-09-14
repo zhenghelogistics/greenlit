@@ -50,8 +50,17 @@ export default function SignInForm() {
   return (
     <main className="mx-auto flex min-h-[80vh] max-w-[440px] flex-col justify-center px-6">
       <div>
+        {/* The navy mark here, on the white ground, because this is the page
+            that says whose system this is before anyone is signed in. */}
+        <img
+          src="/logo-blue.png"
+          alt="Zheng He Logistics"
+          width={2217}
+          height={676}
+          className="mb-6 h-11 w-auto"
+        />
         <h1 className="gl-display">Greenlit</h1>
-        <p className="gl-body mt-1 text-[color:var(--gl-ink-muted)]">Singapore transport control</p>
+        <p className="gl-body-plain mt-1 text-[color:var(--gl-ink-muted)]">Singapore transport control</p>
       </div>
 
       <form onSubmit={submit} className="mt-8 grid gap-5">

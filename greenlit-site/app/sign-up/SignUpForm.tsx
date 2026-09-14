@@ -90,6 +90,13 @@ export default function SignUpForm() {
   return (
     <main className="mx-auto flex min-h-[80vh] max-w-[440px] flex-col justify-center px-6 py-10">
       <div>
+        <img
+          src="/logo-blue.png"
+          alt="Zheng He Logistics"
+          width={2217}
+          height={676}
+          className="mb-6 h-11 w-auto"
+        />
         <h1 className="gl-display">Create your account</h1>
         <p className="gl-body-plain mt-1 text-[color:var(--gl-ink-muted)]">
           For Zheng He staff. You start with access to run jobs; an
