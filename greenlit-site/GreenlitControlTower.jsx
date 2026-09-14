@@ -2239,6 +2239,220 @@ function Companies({ onOpenCompany }) {
 }
 
 /** One company, with its jobs newest first. */
+/**
+ * §9.3. Where this customer receives and stuffs.
+ *
+ * Addresses were typed onto each job, so the same warehouse appeared a dozen
+ * ways and none of them matched. Kept here, chosen there. Two facts beyond the
+ * address decide how a job is planned and could never live on a free-text
+ * field: whether a double-mounted chassis can get in, and whether the driver
+ * usually waits.
+ */
+function SitesPanel({ code }) {
+  const [sites, setSites] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = React.useCallback(() => {
+    if (!code) return;
+    fetch(`/api/customers/${encodeURIComponent(code)}/locations`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => setSites(d.locations ?? []))
+      .catch(() => setSites([]));
+  }, [code]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function save(method, body) {
+    setError("");
+    const response = await fetch(`/api/customers/${encodeURIComponent(code)}/locations`, {
+      method,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    }).catch(() => null);
+
+    const payload = await response?.json().catch(() => ({}));
+    if (!response?.ok) { setError(payload?.error ?? "That site was not saved."); return false; }
+    load();
+    return true;
+  }
+
+  if (sites === null) return null;
+
+  return (
+    <Panel
+      title="Sites"
+      className="mt-7"
+      action={!adding ? (
+        <button type="button" onClick={() => setAdding(true)}
+          className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4">
+          <Building2 className="h-5 w-5" aria-hidden="true" />Add a site
+        </button>
+      ) : null}
+    >
+      <div className="p-6">
+        {error ? (
+          <p role="alert" className="gl-body-plain mb-4 rounded-md border border-rose-300 bg-rose-50 p-3 text-[color:var(--gl-state-blocked-ink)]">
+            {error}
+          </p>
+        ) : null}
+
+        {adding ? (
+          <AddSite
+            onCancel={() => setAdding(false)}
+            onSave={async (draft) => { if (await save("POST", draft)) setAdding(false); }}
+          />
+        ) : null}
+
+        {sites.length === 0 && !adding ? (
+          <p className="gl-body">
+            No sites yet. Until one is added, delivery and stuffing addresses are
+            typed onto each job and the same warehouse ends up spelled several ways.
+          </p>
+        ) : null}
+
+        <div className="grid gap-3">
+          {sites.map((site) => (
+            <article key={site.locationId}
+              className="rounded-lg border border-[color:var(--gl-line)] bg-white p-4"
+              style={site.active ? undefined : { opacity: 0.55 }}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="gl-body" style={{ fontWeight: 500 }}>
+                    {site.label}
+                    {site.isDefault ? (
+                      <span className="ml-2 inline-flex min-h-7 items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 text-[15px] font-semibold text-emerald-800">
+                        Default
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="gl-caption mt-1">{site.address}</div>
+                </div>
+              </div>
+
+              {/* The two facts that decide how a job is planned. Said in words
+                  rather than as ticked boxes, because "cannot take a double
+                  mount" is what a planner needs to read at a glance. */}
+              <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
+                {!site.doubleMountingPermitted ? (
+                  <li className="gl-caption">Cannot take a double-mounted chassis</li>
+                ) : null}
+                {site.standbyUsual ? <li className="gl-caption">Driver usually waits here</li> : null}
+                {!site.active ? <li className="gl-caption">Not in use</li> : null}
+              </ul>
+
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+                {!site.isDefault && site.active ? (
+                  <button type="button"
+                    onClick={() => save("PATCH", { locationId: site.locationId, isDefault: true })}
+                    className="min-h-11 cursor-pointer px-1 text-[15px] font-semibold text-[color:var(--gl-accent)] underline underline-offset-4">
+                    Make default
+                  </button>
+                ) : null}
+                <button type="button"
+                  onClick={() => save("PATCH", { locationId: site.locationId, active: !site.active })}
+                  className="min-h-11 cursor-pointer px-1 text-[15px] font-semibold text-[color:var(--gl-accent)] underline underline-offset-4">
+                  {site.active ? "Take out of use" : "Put back in use"}
+                </button>
+                <button type="button"
+                  onClick={() => save("PATCH", {
+                    locationId: site.locationId,
+                    doubleMountingPermitted: !site.doubleMountingPermitted,
+                  })}
+                  className="min-h-11 cursor-pointer px-1 text-[15px] font-semibold text-[color:var(--gl-accent)] underline underline-offset-4">
+                  {site.doubleMountingPermitted ? "Mark as no double mount" : "Allow double mount"}
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        {sites.some((s) => !s.active) ? (
+          <p className="gl-caption mt-4">
+            A site taken out of use stays here. Old jobs point at it, and their
+            history should still say where the container went.
+          </p>
+        ) : null}
+      </div>
+    </Panel>
+  );
+}
+
+/** Adding a site. The label is what someone says on the phone. */
+function AddSite({ onCancel, onSave }) {
+  const [form, setForm] = useState({
+    label: "", address: "", isDefault: false,
+    doubleMountingPermitted: true, standbyUsual: false,
+  });
+  const [saving, setSaving] = useState(false);
+  const field = "min-h-12 w-full rounded-md border border-[color:var(--gl-line-strong)] bg-white px-3 text-[17px] text-[color:var(--gl-ink)]";
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const tick = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.checked }));
+
+  return (
+    <form
+      onSubmit={async (event) => {
+        event.preventDefault();
+        setSaving(true);
+        await onSave(form);
+        setSaving(false);
+      }}
+      className="mb-5 rounded-lg border border-[color:var(--gl-line-strong)] bg-[color:var(--gl-bg)] p-4"
+    >
+      <div className="grid gap-4 md:grid-cols-2">
+        <label className="grid gap-2">
+          <span className="gl-label">What it is called</span>
+          <input required value={form.label} onChange={set("label")}
+            placeholder="Tuas warehouse" className={field} />
+          <span className="gl-caption">What the customer says on the phone.</span>
+        </label>
+        <label className="grid gap-2">
+          <span className="gl-label">Address</span>
+          <input required value={form.address} onChange={set("address")}
+            placeholder="12 Tuas Avenue 10, Singapore 639140" className={field} />
+          <span className="gl-caption">What the driver needs.</span>
+        </label>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        <label className="flex min-h-11 cursor-pointer items-center gap-3">
+          <input type="checkbox" checked={form.isDefault} onChange={tick("isDefault")}
+            className="h-5 w-5 cursor-pointer accent-[color:var(--gl-accent)]" />
+          <span className="gl-body-plain text-[color:var(--gl-ink)]">
+            Use this site by default on new jobs
+          </span>
+        </label>
+        <label className="flex min-h-11 cursor-pointer items-center gap-3">
+          <input type="checkbox" checked={!form.doubleMountingPermitted}
+            onChange={(e) => setForm((f) => ({ ...f, doubleMountingPermitted: !e.target.checked }))}
+            className="h-5 w-5 cursor-pointer accent-[color:var(--gl-accent)]" />
+          <span className="gl-body-plain text-[color:var(--gl-ink)]">
+            This site cannot take a double-mounted chassis
+          </span>
+        </label>
+        <label className="flex min-h-11 cursor-pointer items-center gap-3">
+          <input type="checkbox" checked={form.standbyUsual} onChange={tick("standbyUsual")}
+            className="h-5 w-5 cursor-pointer accent-[color:var(--gl-accent)]" />
+          <span className="gl-body-plain text-[color:var(--gl-ink)]">
+            The driver usually waits here
+          </span>
+        </label>
+      </div>
+
+      <div className="mt-5 flex flex-wrap gap-3">
+        <button type="submit" disabled={saving}
+          className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white disabled:opacity-60">
+          {saving ? "Saving…" : "Add this site"}
+        </button>
+        <button type="button" onClick={onCancel}
+          className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-5 text-[17px] text-[color:var(--gl-ink)]">
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function CompanyDetail({ code, onBack, onOpen }) {
   const [data, setData] = useState(null);
   const [reloadToken, setReloadToken] = useState(0);
@@ -2301,6 +2515,10 @@ function CompanyDetail({ code, onBack, onOpen }) {
           </table>
         )}
       </div>
+
+      {/* §9.3. The sites belong to the customer, so they live on the customer's
+          page rather than being retyped on every job that goes to one. */}
+      <SitesPanel code={code} />
     </main>
   );
 }
