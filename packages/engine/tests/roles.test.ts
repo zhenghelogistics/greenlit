@@ -6,7 +6,7 @@ import {
 } from '../src/roles.ts';
 
 const who = (role: Principal['role'], o: Partial<Principal> = {}): Principal => ({
-  userId: 'u1', displayName: 'Sarah Lim', role, active: true, ...o,
+  userId: 'u1', displayName: 'Sarah Lim', role, email: 'sarah@zhenghe.com.sg', active: true, ...o,
 });
 
 test('§7.1: an administrator may configure and override', () => {

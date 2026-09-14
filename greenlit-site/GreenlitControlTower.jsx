@@ -102,7 +102,14 @@ function operationalToday() {
  * of who is at the keyboard, but it no longer invites the impersonation, and
  * it makes the gap obvious rather than dressing it up as a feature.
  */
-const CURRENT_USER = "winnie";
+/**
+ * §7. Who is acting is no longer decided here.
+ *
+ * This was a constant, and before that a dropdown. Both were the same mistake
+ * in different clothes: the browser deciding who somebody is. The server takes
+ * the actor from a verified session and the screen asks it who that is, so the
+ * name on screen and the name on the audit trail cannot disagree.
+ */
 
 /** Shown, not chosen: the name that will appear on this session's audit trail. */
 /**
@@ -151,11 +158,9 @@ function ActingUser() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/users")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("no users"))))
-      .then((d) => {
-        if (!cancelled) setUser((d.users ?? []).find((u) => u.userId === CURRENT_USER) ?? null);
-      })
+    fetch("/api/me")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("not signed in"))))
+      .then((d) => { if (!cancelled) setUser(d.principal ?? null); })
       .catch(() => { if (!cancelled) setUser(null); });
     return () => { cancelled = true; };
   }, []);
@@ -169,9 +174,17 @@ function ActingUser() {
     <div className="flex shrink-0 items-center gap-2 text-[15px] text-white/90">
       <UserRound className="h-5 w-5 shrink-0 text-white/90" aria-hidden="true" />
       <span>
-        <span className="sr-only">Acting as </span>
+        <span className="sr-only">Signed in as </span>
         {user.displayName} &middot; {role}
       </span>
+      <form action="/api/sign-out" method="post" className="ml-1">
+        <button
+          type="submit"
+          className="min-h-11 cursor-pointer rounded-md px-2 text-[15px] text-white/90 underline underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        >
+          Sign out
+        </button>
+      </form>
     </div>
   );
 }
@@ -1113,7 +1126,6 @@ function UnknownCompanyPrompt({ pending, onCancel, onChange, onCreated }) {
         body: JSON.stringify({
           code: pending.code,
           companyName: pending.companyName,
-          actor: CURRENT_USER,
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -1195,7 +1207,7 @@ function NewCompanyForm({ onCreated }) {
       const response = await fetch("/api/customers", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code, companyName, actor: CURRENT_USER }),
+        body: JSON.stringify({ code, companyName }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) { setError(payload.error ?? `Could not save (HTTP ${response.status}).`); return; }
@@ -1270,7 +1282,7 @@ function NewJobForm({ customerCode, onCreated }) {
       const response = await fetch("/api/jobs", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ domain, customerCode, actor: CURRENT_USER }),
+        body: JSON.stringify({ domain, customerCode }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) { setError(payload.error ?? `Could not save (HTTP ${response.status}).`); return; }
@@ -3470,7 +3482,6 @@ export default function GreenlitControlTower() {
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
-              actor: CURRENT_USER,
               freeTimeModel: draft.freeTimeModel || "NOT_CONFIRMED",
               demurrageFreeDays: split ? numberOrNull(draft.demurrageFreeDays) : undefined,
               demurrageLfd: split ? draft.demurrageLfd || null : undefined,
@@ -3572,7 +3583,7 @@ export default function GreenlitControlTower() {
       const response = await fetch(`/api/jobs/${encodeURIComponent(id)}${path}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...body, actor: CURRENT_USER }),
+        body: JSON.stringify({ ...body }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -3684,7 +3695,7 @@ export default function GreenlitControlTower() {
       const response = await fetch(`/api/jobs/${job.apiId ?? job.id}/discrepancies/resolve`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ field: discrepancy.field, choice, actor: CURRENT_USER }),
+        body: JSON.stringify({ field: discrepancy.field, choice }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       await loadJobs();
@@ -3758,7 +3769,7 @@ export default function GreenlitControlTower() {
         await fetch(`/api/jobs/${encodeURIComponent(existing.apiId ?? existing.id)}/discrepancies`, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ ...d, actor: CURRENT_USER }),
+          body: JSON.stringify({ ...d }),
         }).catch(() => {});
       }
       await loadJobs();
@@ -3784,7 +3795,6 @@ export default function GreenlitControlTower() {
       body: JSON.stringify(isExport ? {
         domain: "EXPORT",
         customerCode: match.code,
-        actor: CURRENT_USER,
         shipper: fields.shipper ?? null,
         bookingReference: fields.bookingNumber ?? null,
         exportClearanceReference: fields.exportClearanceReference ?? null,
@@ -3798,7 +3808,6 @@ export default function GreenlitControlTower() {
       } : {
         domain: "IMPORT",
         customerCode: match.code,
-        actor: CURRENT_USER,
         blNumber: fields.billOfLading ?? null,
         houseBlNumber: fields.houseBillOfLading ?? null,
         vesselName: fields.vessel ?? null,

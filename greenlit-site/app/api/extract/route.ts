@@ -1,3 +1,4 @@
+import { authorize } from "@/lib/command";
 import { ingest, extractionStrategy } from "@/lib/ingest.mjs";
 import { extractWithClaude, claudeExtractionAvailable } from "@/lib/extract-claude";
 
@@ -14,6 +15,12 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(request: Request): Promise<Response> {
+  // Reading a document costs money on every call, so this is gated in its own
+  // right and not only by the middleware: a route that spends is a route worth
+  // checking twice.
+  const auth = await authorize("job.create");
+  if (!auth.ok) return auth.response;
+
   const form = await request.formData();
   const file = form.get("file");
   if (!(file instanceof File)) {

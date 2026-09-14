@@ -71,6 +71,20 @@ export interface Principal {
   /** A named person. §13 forbids attributing a change to a shared account. */
   displayName: string;
   role: Role;
+  /**
+   * §7. What this person signs in with.
+   *
+   * The directory has always said who may do what; it never said who anyone
+   * is. The actor arrived in the request body, so the roles were enforced
+   * against a claim rather than an identity — anyone could send
+   * actor: "john" and be an administrator. A verified session carries an
+   * email, and this is what it resolves against.
+   *
+   * Null for a principal with no account yet: the directory can name someone
+   * before they can sign in, which is how a new controller is set up before
+   * their first day rather than during it.
+   */
+  email: string | null;
   /** §7.3. Optional grants, e.g. letting a manager override a blocked job. */
   extraPermissions?: readonly Permission[];
   active: boolean;

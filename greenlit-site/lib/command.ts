@@ -1,19 +1,52 @@
 import { can, type Permission } from "@greenlit/engine";
+import { authConfigured, currentPrincipal } from "./auth";
 import { getJobService, getRepository, jsonError } from "./greenlit";
 
 /**
  * §7 and §14.1: "Server-side permission validation. Never rely solely on
  * frontend checks."
  *
- * The caller names itself in `actor`, which is not proof of anything — that is
- * what sign-in will add. What this does enforce is that the named user exists,
- * is active, and holds the permission. A caller naming a manager cannot run a
- * controller's command, whatever the interface let them click.
+ * The actor is no longer a parameter. It used to arrive in the request body,
+ * which meant roles were enforced against a claim: anyone reaching the API
+ * could send actor: "john", act as an administrator, and have the audit trail
+ * name John. §13 exists so a change traces to a person, and that only holds
+ * if the person is established rather than asserted.
+ *
+ * The session says who. The directory says what they may do.
+ */
+/**
+ * §7 and §13. What the signed-in person may do.
+ *
+ * The actor is no longer a parameter. It used to arrive in the request body,
+ * which meant the roles were enforced against a claim: anyone who could reach
+ * the API could send actor: "john" and act as an administrator, and the audit
+ * trail would name John. §13 exists so a change can be traced to a person, and
+ * that only holds if the person is established rather than asserted.
+ *
+ * Callers pass nothing. The session says who; the directory says what they may
+ * do; a request body says neither.
  */
 export async function authorize(
-  actor: string, permission: Permission,
+  permission: Permission,
 ): Promise<{ ok: true; displayName: string } | { ok: false; response: Response }> {
-  const principal = await getRepository().getPrincipal(actor);
+  if (!authConfigured()) {
+    return {
+      ok: false,
+      response: Response.json({
+        error: "Sign-in is not configured on this deployment, so no command can be "
+          + "attributed to anyone. Set NEXT_PUBLIC_SUPABASE_URL and "
+          + "NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+      }, { status: 503 }),
+    };
+  }
+
+  const principal = await currentPrincipal();
+  if (!principal) {
+    return {
+      ok: false,
+      response: Response.json({ error: "Sign in to continue" }, { status: 401 }),
+    };
+  }
   const verdict = can(principal, permission);
   if (!verdict.allowed) {
     return {

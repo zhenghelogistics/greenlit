@@ -30,6 +30,7 @@ export const toCustomer = (r: Record<string, unknown>): Customer => ({
 export const toPrincipal = (r: Record<string, unknown>): Principal => ({
   userId: r.user_id as string,
   displayName: r.display_name as string,
+  email: nn(r.email as string),
   role: r.role as Principal['role'],
   extraPermissions: (r.extra_permissions as Principal['extraPermissions']) ?? [],
   active: r.active as boolean,

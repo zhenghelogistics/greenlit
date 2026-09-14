@@ -15,16 +15,14 @@ export async function POST(request: Request, ctx: {
   params: Promise<{ id: string; containerId: string }>;
 }) {
   const { id, containerId } = await ctx.params;
-  const body = await readJson<{
-    actor?: string; freeTimeModel?: string;
+  const body = await readJson<{ freeTimeModel?: string;
     demurrageFreeDays?: number; demurrageLfd?: string;
     detentionFreeDays?: number; detentionLfd?: string;
     combinedFreeDays?: number; combinedLfd?: string;
     freeTimeRemarks?: string;
   }>(request);
-
-  if (!body?.actor) return badRequest("actor is required; §13 forbids anonymous changes");
-  const auth = await authorize(body.actor, "job.edit");
+  if (!body) return badRequest("A JSON body is required");
+  const auth = await authorize("job.edit");
   if (!auth.ok) return auth.response;
 
   const model = body.freeTimeModel;

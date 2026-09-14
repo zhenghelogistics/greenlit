@@ -30,12 +30,11 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await readJson<{
-      domain?: string; customerCode?: string; actor?: string;
+      domain?: string; customerCode?: string;
       [key: string]: unknown;
     }>(request);
-
-    if (!body?.actor) return badRequest("actor is required");
-    const auth = await authorize(body.actor, "job.create");
+  if (!body) return badRequest("A JSON body is required");
+    const auth = await authorize("job.create");
     if (!auth.ok) return auth.response;
 
     if (!body.customerCode?.trim()) return badRequest("customerCode is required");

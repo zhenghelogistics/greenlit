@@ -107,6 +107,15 @@ export interface Repository {
    * caller asserts about itself.
    */
   getPrincipal(userId: string): Promise<Principal | null>;
+  /**
+   * §7. Who is signed in, resolved from the address they signed in with.
+   *
+   * The one lookup authentication needs: a verified session carries an email,
+   * and the directory says what that person may do. Null when the address has
+   * no principal — an account can exist in Supabase without being staff here,
+   * and that has to read as "not one of ours" rather than as an error.
+   */
+  getPrincipalByEmail(email: string): Promise<Principal | null>;
   listPrincipals(): Promise<Principal[]>;
 
   listChassis(): Promise<Chassis[]>;

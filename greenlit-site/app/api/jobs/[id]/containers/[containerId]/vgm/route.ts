@@ -8,9 +8,9 @@ import { isVgmPlausible } from "@greenlit/engine";
  */
 export async function POST(request: Request, ctx: { params: Promise<{ id: string; containerId: string }> }) {
   const { id, containerId } = await ctx.params;
-  const body = await readJson<{ vgm?: number; actor?: string }>(request);
-  if (!body?.actor) return badRequest("actor is required");
-  const auth = await authorize(body.actor, "vgm.record");
+  const body = await readJson<{ vgm?: number }>(request);
+  if (!body) return badRequest("A JSON body is required");
+  const auth = await authorize("vgm.record");
   if (!auth.ok) return auth.response;
   if (typeof body.vgm !== "number" || body.vgm <= 0) return badRequest("vgm must be a positive number");
 

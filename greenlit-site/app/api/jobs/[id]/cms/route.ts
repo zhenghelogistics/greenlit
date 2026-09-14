@@ -3,9 +3,9 @@ import { authorize, badRequest, readJson, runCommand } from "../../../../../lib/
 /** §40.2. NOT_REQUIRED is a permissioned choice and requires a reason. */
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const body = await readJson<{ status?: string; actor?: string; reason?: string }>(request);
-  if (!body?.actor) return badRequest("actor is required; §13 forbids anonymous changes");
-  const auth = await authorize(body.actor, "cms.record");
+  const body = await readJson<{ status?: string; reason?: string }>(request);
+  if (!body) return badRequest("A JSON body is required");
+  const auth = await authorize("cms.record");
   if (!auth.ok) return auth.response;
 
   const status = body.status;

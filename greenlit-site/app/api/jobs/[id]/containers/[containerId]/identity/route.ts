@@ -8,9 +8,9 @@ const CONTAINER_NUMBER = /^[A-Z]{4}[0-9]{7}$/;
 
 export async function POST(request: Request, ctx: { params: Promise<{ id: string; containerId: string }> }) {
   const { id, containerId } = await ctx.params;
-  const body = await readJson<{ containerNumber?: string; sealNumber?: string; tareWeightKg?: number; actor?: string }>(request);
-  if (!body?.actor) return badRequest("actor is required");
-  const auth = await authorize(body.actor, "container.capture");
+  const body = await readJson<{ containerNumber?: string; sealNumber?: string; tareWeightKg?: number }>(request);
+  if (!body) return badRequest("A JSON body is required");
+  const auth = await authorize("container.capture");
   if (!auth.ok) return auth.response;
 
   const containerNumber = body.containerNumber?.toUpperCase().replace(/\s+/g, "") ?? "";

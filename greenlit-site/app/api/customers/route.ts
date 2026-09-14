@@ -21,10 +21,9 @@ export async function POST(request: Request) {
     const body = await readJson<{
       code?: string; companyName?: string; shortName?: string; emailDomains?: string[];
     }>(request);
-    const actor = (body as { actor?: string } | null)?.actor;
-    if (!actor) return badRequest("actor is required");
+  if (!body) return badRequest("A JSON body is required");
 
-    const auth = await authorize(actor, "masterData.manage");
+    const auth = await authorize("masterData.manage");
     if (!auth.ok) return auth.response;
 
     if (!body?.code?.trim()) return badRequest("code is required");

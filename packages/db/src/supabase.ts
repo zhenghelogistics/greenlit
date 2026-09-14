@@ -239,6 +239,12 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       if (r.error) throw new Error(`principal: ${r.error.message}`);
       return r.data ? toPrincipal(r.data) : null;
     },
+    async getPrincipalByEmail(email) {
+      const r = await db.from('principals').select('*')
+        .ilike('email', email.trim()).maybeSingle();
+      if (r.error) throw new Error(`principal by email: ${r.error.message}`);
+      return r.data ? toPrincipal(r.data) : null;
+    },
     async listPrincipals() {
       return rows(await db.from('principals').select('*').order('display_name'), 'principals')
         .map(toPrincipal);

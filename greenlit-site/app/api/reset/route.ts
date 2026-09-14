@@ -1,3 +1,4 @@
+import { authorize } from "../../../lib/command";
 import { resetRepository } from "../../../lib/greenlit";
 
 /**
@@ -9,6 +10,9 @@ import { resetRepository } from "../../../lib/greenlit";
  * Supabase makes it dangerous.
  */
 export async function POST() {
+  const auth = await authorize("masterData.manage");
+  if (!auth.ok) return auth.response;
+
   if (process.env.NODE_ENV === "production") {
     return Response.json(
       { error: "Reset is not available in production" },

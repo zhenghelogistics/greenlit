@@ -303,7 +303,8 @@ const RULES: Rule[] = [
     } },
   { id: 'P-4', text: 'Every gate override requires a named user, a timestamp, a mandatory reason and an audit event',
     verify: () => {
-      const admin = { userId: 'u', displayName: 'John Tan', role: 'ADMINISTRATOR' as const, active: true };
+      const admin = { userId: 'u', displayName: 'John Tan', role: 'ADMINISTRATOR' as const,
+        email: 'john@zhenghe.com.sg', active: true };
       const controller = { ...admin, role: 'CONTROLLER' as const };
 
       // Who: only a principal holding gate.override.
