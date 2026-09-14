@@ -36,6 +36,14 @@ for (const h of ["money", "box", "move", "doc", "past"]) {
 for (const st of ["state-blocked", "state-warn", "state-ready", "state-idle", "import", "export"]) {
   check(`white on ${st}`, "#ffffff", tok(st));
 }
+// The rail. Both states sit on the blue except the current one, which sits on
+// the page ground so the section reads as continuous with the work beside it.
+// Two grounds means two measurements, and the second is the one a list kept
+// beside the stylesheet would have missed.
+check("rail label on accent", "#ffffff", tok("accent"));
+check("rail current on page ground", tok("accent"), tok("bg"));
+check("rail count on page ground", tok("accent"), tok("bg"));
+
 console.log(`  ${n} pairings, read out of globals.css`);
 console.log(`  lowest ${worst.toFixed(2)}:1  ·  ${bad.length ? "BELOW 7: " + bad.join(", ") : "all clear 7:1"}`);
 process.exit(bad.length ? 1 : 0);

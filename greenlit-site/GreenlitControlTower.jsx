@@ -4109,7 +4109,7 @@ export default function GreenlitControlTower() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f4f6f8] font-sans text-[17px] leading-normal text-slate-900">
+    <div className="min-h-screen bg-[color:var(--gl-bg)] font-sans text-[17px] leading-normal text-slate-900 lg:flex lg:items-start">
       <style>{`
         @font-face {
           font-family: "Greenlit Hyperlegible";
@@ -4158,69 +4158,79 @@ export default function GreenlitControlTower() {
       {/* The one place colour is a wayfinding cue rather than a status: the
           bar you are always looking at, so you always know which system you
           are in. White on it measures 8.72:1. */}
-      <header className="sticky top-0 z-40 bg-[color:var(--gl-accent)] text-white">
-        <div className="mx-auto flex max-w-[1900px] flex-col lg:flex-row lg:items-stretch">
-          <div className="flex min-h-16 items-center justify-between gap-4 px-4 py-2 sm:px-6 lg:min-w-56 lg:border-r lg:border-white/25 lg:pr-6 xl:min-w-80">
-            <div>
-              <div className="text-[19px] font-medium tracking-[-0.008em] text-white">Greenlit</div>
-              <div className="mt-1 text-[15px] font-normal text-white/90">Singapore transport control</div>
-            </div>
-            <Anchor className="hidden h-6 w-6 text-white/90 lg:block" aria-hidden="true" />
-          </div>
-          <nav aria-label="Main navigation" className="grid flex-1 grid-cols-4 lg:flex">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = screen === item.id || (screen === "detail" && returnScreen === item.id);
-              return (
-                /*
-                  Active is weight and a rule under the label, not a filled
-                  pill. A white pill on a blue bar is a hole punched in the
-                  chrome — it reads as a separate element sitting on top
-                  rather than as the current tab.
+      {/* The shell: a rail on the left, the work on the right.
+          Tabs across the top ran out of room at six sections and would have
+          run out again — the rail grows downward, which is the direction a
+          list of sections actually grows. It keeps the blue, because the one
+          piece of chrome you are always looking at is what tells you which
+          system you are in.
 
-                  Both states clear 7:1 on the blue (8.72 and 7.40), so the
-                  difference between them is carried by weight and the rule
-                  rather than by fading one of them toward the ground.
-                */
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => goTo(item.id)}
-                  aria-current={active ? "page" : undefined}
-                  className={`relative flex min-h-14 min-w-0 cursor-pointer items-center justify-center gap-2 px-4 text-[16px] transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white ${
-                    active
-                      ? "font-semibold text-white after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:rounded-t-sm after:bg-white after:content-['']"
-                      : "font-normal text-white/90 hover:bg-white/10 hover:text-white"
-                  }`}
-                >
-                  <Icon className="hidden h-5 w-5 shrink-0 sm:block" aria-hidden="true" />
-                  <span className="text-center leading-tight">{item.label}</span>
-                  {/* gl-figures, not gl-data: gl-data carries color:ink and
-                      is defined after Tailwind, so it won over text-white and
-                      rendered these counts near-black on the blue. */}
-                  <span className={`gl-figures ${active ? "text-white" : "text-white/90"}`}>{item.count}</span>
-                </button>
-              );
-            })}
-          </nav>
-          {/* Two separate things — when the board last updated, and who is
-              acting — so they get a gap and a divider rather than sitting
-              against each other. The divider is white at 25%, which reads on
-              the blue without becoming a third element. */}
-          <div className="absolute right-3 top-2 flex min-h-12 items-center justify-end gap-5 sm:right-5 lg:static lg:min-h-16 lg:gap-6 lg:border-l lg:border-white/25 lg:px-6 lg:py-3">
-            {/* Reload and Reset used to sit here. A control tower asking to
-                be reloaded is admitting it does not keep itself current, and
-                Reset refused on a Supabase-backed instance anyway, so it was
-                a button whose only outcome was an error. The board refreshes
-                itself; this says when it last did. */}
-            <LastUpdated at={lastLoaded} stale={source === "offline"} />
-
-            {/* Until sign-in exists, who is acting is a choice. The server
-                still enforces what that person may do. */}
-            <ActingUser />
+          One nav element, not two: a row that scrolls on a phone and a column
+          from `lg` up. Two navs would be two lists to keep in step. */}
+      <aside className="sticky top-0 z-40 bg-[color:var(--gl-accent)] text-white lg:h-screen lg:w-[236px] lg:shrink-0">
+        <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:block lg:px-5 lg:py-5">
+          <div>
+            <div className="text-[19px] font-medium tracking-[-0.008em] text-white">Greenlit</div>
+            <div className="mt-1 text-[15px] font-normal text-white/90">Singapore transport control</div>
           </div>
+          <Anchor className="h-6 w-6 shrink-0 text-white/90 lg:mt-4 lg:hidden" aria-hidden="true" />
         </div>
-      </header>
+
+        <nav
+          aria-label="Main navigation"
+          className="flex overflow-x-auto border-t border-white/20 lg:mt-1 lg:flex-col lg:overflow-visible lg:border-t-0 lg:px-3"
+        >
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = screen === item.id || (screen === "detail" && returnScreen === item.id);
+            return (
+              /*
+                On the rail, the current section is a filled panel the colour
+                of the page, so the section reads as continuous with the work
+                beside it rather than as a tab pointing at it. On the phone
+                row there is no "beside", so it stays the rule under the
+                label that the top bar used.
+
+                Both states clear 7:1 on the blue, so the difference is
+                carried by weight and ground rather than by fading one of
+                them toward the background.
+              */
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => goTo(item.id)}
+                aria-current={active ? "page" : undefined}
+                className={`relative flex min-h-14 min-w-0 shrink-0 cursor-pointer items-center gap-3 px-4 text-[16px] transition-colors duration-150 focus-visible:outline focus-visible:outline-3 focus-visible:-outline-offset-2 focus-visible:outline-white lg:w-full lg:rounded-lg lg:px-3 ${
+                  active
+                    ? "font-semibold text-white after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:rounded-t-sm after:bg-white after:content-[''] lg:bg-[color:var(--gl-bg)] lg:text-[color:var(--gl-accent)] lg:after:hidden"
+                    : "font-normal text-white/90 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                <Icon className="hidden h-5 w-5 shrink-0 sm:block" aria-hidden="true" />
+                <span className="min-w-0 flex-1 text-center leading-tight lg:text-left">{item.label}</span>
+                {/* gl-figures, not gl-data: gl-data carries color:ink and is
+                    defined after Tailwind, so it won over text-white and
+                    rendered these counts near-black on the blue. */}
+                <span className={`gl-figures ${active ? "text-white lg:text-[color:var(--gl-accent)]" : "text-white/90"}`}>{item.count}</span>
+              </button>
+            );
+          })}
+        </nav>
+      </aside>
+
+      <div className="min-w-0 flex-1">
+        {/* When the board last updated, and who is acting. Off the blue now:
+            on a white bar these are two quiet facts rather than two things
+            competing with the brand. */}
+        <header className="sticky top-0 z-30 flex min-h-14 items-center justify-end gap-5 border-b border-[color:var(--gl-line)] bg-[color:var(--gl-bg)] px-4 sm:px-6 lg:min-h-16 lg:gap-6 lg:px-8">
+          {/* Reload and Reset used to sit here. A control tower asking to be
+              reloaded is admitting it does not keep itself current, and Reset
+              refused on a Supabase-backed instance anyway, so it was a button
+              whose only outcome was an error. The board refreshes itself;
+              this says when it last did. */}
+          <LastUpdated at={lastLoaded} stale={source === "offline"} />
+          <ActingUser />
+        </header>
 
       {(screen === "dashboard" || screen === "actions") && source !== "engine" ? (
         <BoardState source={source} onRetry={loadJobs} onAddDocument={() => goTo("documents")} />
@@ -4269,6 +4279,8 @@ export default function GreenlitControlTower() {
           }}
         />
       ) : null}
+
+      </div>
 
       {toast ? (
         <div role="status" aria-live="polite" className="fixed bottom-5 right-5 z-50 flex max-w-[560px] items-start gap-3 rounded-lg border border-emerald-300 bg-white p-5 text-[17px] font-semibold text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.2)]">

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
+const THIRTY_DAYS_IN_SECONDS = 60 * 60 * 24 * 30;
+
 /**
  * Sign in with an email and a password.
  *
@@ -13,6 +15,7 @@ import { createBrowserClient } from "@supabase/ssr";
 export default function SignInForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [stayIn, setStayIn] = useState(true);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -21,9 +24,15 @@ export default function SignInForm() {
     setBusy(true);
     setError("");
 
+    // How long the session cookie outlives the browser. Checked, it is a
+    // month, so a controller signs in once and not every morning; unchecked,
+    // maxAge is left off entirely, which makes it a session cookie that dies
+    // when the browser closes — the behaviour someone wants on the warehouse
+    // machine that four people share.
     const client = createBrowserClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      stayIn ? { cookieOptions: { maxAge: THIRTY_DAYS_IN_SECONDS } } : undefined,
     );
     const { error: failure } = await client.auth.signInWithPassword({ email, password });
 
@@ -64,8 +73,22 @@ export default function SignInForm() {
           />
         </label>
 
+        <label className="flex min-h-11 cursor-pointer items-center gap-3">
+          <input
+            type="checkbox" checked={stayIn}
+            onChange={(event) => setStayIn(event.target.checked)}
+            className="h-5 w-5 cursor-pointer accent-[color:var(--gl-accent)]"
+          />
+          <span className="gl-body-plain text-[color:var(--gl-ink)]">Keep me signed in</span>
+        </label>
+        <p className="gl-caption -mt-3">
+          {stayIn
+            ? "You will stay signed in on this device for a month."
+            : "You will be signed out when you close the browser. Use this on a shared computer."}
+        </p>
+
         {error ? (
-          <p role="alert" className="gl-body rounded-md border border-rose-300 bg-rose-50 p-3 text-[color:var(--gl-state-blocked-ink)]">
+          <p role="alert" className="gl-body-plain rounded-md border border-rose-300 bg-rose-50 p-3 text-[color:var(--gl-state-blocked-ink)]">
             {error}
           </p>
         ) : null}
