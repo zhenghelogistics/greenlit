@@ -55,6 +55,43 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
   });
 
   /** §13. Every command leaves one of these; there is no update or delete. */
+  /**
+   * The shared write path for the three movement commands.
+   *
+   * Absent means leave alone; every change that actually moves something is
+   * audited against the job it belongs to, because §13 asks who did it and a
+   * movement without its job is an event nobody can find.
+   */
+  const patchMovement = async (
+    movementId: string,
+    changes: Record<string, unknown>,
+    event: string,
+    actor: string,
+  ): Promise<void> => {
+    const found = await db.from('movements').select('*')
+      .eq('movement_id', movementId).maybeSingle();
+    if (found.error) throw new Error(`movement lookup: ${found.error.message}`);
+    if (!found.data) throw new Error(`Unknown movement ${movementId}`);
+
+    const before = found.data as Record<string, unknown>;
+    const patch: Record<string, unknown> = {};
+    const changed: Array<{ field: string; from: unknown; to: unknown }> = [];
+
+    for (const [field, to] of Object.entries(changes)) {
+      if (to === undefined) continue;
+      const column = camelToSnake(field);
+      const from = before[column] ?? null;
+      if (String(from ?? '') === String(to ?? '')) continue;
+      patch[column] = to;
+      changed.push({ field, from, to });
+    }
+    if (changed.length === 0) return;
+
+    unwrap(await db.from('movements').update(patch)
+      .eq('movement_id', movementId).select().single(), 'update movement');
+    for (const c of changed) await record(before.job_id as string, event, actor, c);
+  };
+
   const record = async (
     entityId: string, event: string, actor: string,
     change: { field?: string; from?: unknown; to?: unknown } = {},
@@ -291,6 +328,138 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       await record(userId, active ? 'user.reactivated' : 'user.deactivated', actor,
         { field: 'active', from: String(before.active), to: String(active) });
     },
+    async addContainerToJob(jobId, draft, actor) {
+      const onJob = rows(
+        await db.from('containers').select('container_id').eq('job_id', jobId), 'containers');
+      validateContainerCount(onJob.length + 1);
+
+      const containerId = `${jobId}-c${onJob.length + 1}`;
+      const row = unwrap(await db.from('containers').insert({
+        container_id: containerId,
+        job_id: jobId,
+        container_number: draft.containerNumber ?? null,
+        container_size: draft.sizeType ?? null,
+        seal_number: draft.sealNumber ?? null,
+        gross_weight: draft.grossWeight ?? null,
+        package_count: draft.packageCount ?? null,
+        package_type: draft.packageType ?? null,
+        free_time_model: draft.freeTimeModel ?? 'NOT_CONFIRMED',
+        demurrage_free_days: draft.demurrageFreeDays ?? null,
+        detention_free_days: draft.detentionFreeDays ?? null,
+        combined_free_days: draft.combinedFreeDays ?? null,
+      }).select().single(), 'add container') as Record<string, unknown>;
+
+      await record(jobId, 'container.added', actor,
+        { field: 'containerNumber', from: null, to: draft.containerNumber ?? null });
+      return toImportContainer(row);
+    },
+
+    async amendContainer(containerId, changes, actor) {
+      const found = await db.from('containers').select('*')
+        .eq('container_id', containerId).maybeSingle();
+      if (found.error) throw new Error(`container lookup: ${found.error.message}`);
+      if (!found.data) throw new Error(`Unknown container ${containerId}`);
+
+      const before = found.data as Record<string, unknown>;
+      const patch: Record<string, unknown> = {};
+      const changed: Array<{ field: string; from: unknown; to: unknown }> = [];
+      for (const [field, to] of Object.entries(changes)) {
+        if (to === undefined) continue;
+        const column = camelToSnake(field);
+        const from = before[column] ?? null;
+        if (String(from ?? '') === String(to ?? '')) continue;
+        patch[column] = to;
+        changed.push({ field, from, to });
+      }
+      if (changed.length === 0) return;
+
+      unwrap(await db.from('containers').update(patch)
+        .eq('container_id', containerId).select().single(), 'amend container');
+      for (const c of changed) {
+        await record(before.job_id as string, 'container.amended', actor, c);
+      }
+    },
+
+    async removeContainerFromJob(containerId, actor) {
+      const found = await db.from('containers').select('job_id,container_number')
+        .eq('container_id', containerId).maybeSingle();
+      if (found.error) throw new Error(`container lookup: ${found.error.message}`);
+      if (!found.data) throw new Error(`Unknown container ${containerId}`);
+
+      // Refused once anything has happened to it: by then it is part of the
+      // job's history, and deleting it would remove the record of real work.
+      const moved = rows(await db.from('movements').select('movement_id')
+        .eq('container_id', containerId), 'movements');
+      if (moved.length > 0) {
+        throw new Error('That container has movements against it and cannot be removed');
+      }
+
+      unwrap(await db.from('containers').delete()
+        .eq('container_id', containerId).select().single(), 'remove container');
+      await record(found.data.job_id as string, 'container.removed', actor,
+        { field: 'containerNumber', from: found.data.container_number as string, to: null });
+    },
+
+    async createMovement(draft, actor) {
+      const job = await this.getImportJob(draft.jobId)
+        ?? await this.getExportJob(draft.jobId);
+      if (!job) throw new Error(`Unknown job ${draft.jobId}`);
+
+      // §18. MOV-NNN, unique within the job and never reused after a
+      // cancellation, so the next number comes from the highest ever issued
+      // rather than from how many are currently alive.
+      const existing = rows(
+        await db.from('movements').select('movement_ref').eq('job_id', draft.jobId),
+        'movements',
+      );
+      const highest = existing.reduce((best, row) => {
+        const n = Number(String(row.movement_ref).match(/(\d+)$/)?.[1] ?? 0);
+        return Math.max(best, n);
+      }, 0);
+      const movementRef = `MOV-${String(highest + 1).padStart(3, '0')}`;
+
+      const row = unwrap(await db.from('movements').insert({
+        movement_id: `${draft.jobId}-${movementRef}`,
+        movement_ref: movementRef,
+        job_id: draft.jobId,
+        job_domain: 'jobId' in job ? 'IMPORT' : 'EXPORT',
+        job_number: job.jobNumber,
+        container_id: draft.containerId ?? null,
+        movement_type: draft.movementType,
+        cargo_state: 'LADEN',
+        origin_type: draft.originType,
+        origin: draft.origin,
+        destination_type: draft.destinationType,
+        destination: draft.destination,
+        planned_date: draft.plannedDate ?? null,
+        planned_time: draft.plannedTime ?? null,
+        movement_status: 'PLANNED',
+        auto_created: false,
+      }).select().single(), 'create movement') as Record<string, unknown>;
+
+      await record(draft.jobId, 'movement.created', actor,
+        { field: 'movementRef', from: null, to: movementRef });
+      return toMovement(row);
+    },
+
+    async scheduleMovement(movementId, plan, actor) {
+      await patchMovement(movementId, { ...plan }, 'movement.scheduled', actor);
+    },
+
+    async recordMovementProgress(movementId, progress, actor) {
+      await patchMovement(movementId, { ...progress }, 'movement.progressed', actor);
+    },
+
+    async cancelMovement(movementId, reason, actor) {
+      if (!reason.trim()) throw new Error('A cancellation needs a reason');
+      // Not a delete: a cancelled movement is part of what happened to the
+      // job, and its reference is retired rather than reused.
+      await patchMovement(movementId, {
+        movementStatus: 'CANCELLED',
+        cancelledReason: reason.trim(),
+      }, 'movement.cancelled', actor);
+    },
+
     async amendJob(jobId, changes, actor) {
       // Which table the job lives in. An id is unique across both, so this
       // asks rather than making the caller say.

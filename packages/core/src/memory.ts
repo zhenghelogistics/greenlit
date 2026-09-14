@@ -635,6 +635,161 @@ export function createMemoryRepository(): Repository {
       record(userId, active ? 'user.reactivated' : 'user.deactivated', actor,
         { field: 'active', from: String(from), to: String(active) });
     },
+    async addContainerToJob(jobId, draft, actor) {
+      const onJob = importContainers[jobId] ?? [];
+      validateContainerCount(onJob.length + 1);
+
+      const container = {
+        containerId: `${jobId}-c${onJob.length + 1}`,
+        jobId,
+        containerNumber: draft.containerNumber ?? null,
+        containerSize: draft.sizeType ?? null,
+        sealNumber: draft.sealNumber ?? null,
+        grossWeight: draft.grossWeight ?? null,
+        packageCount: draft.packageCount ?? null,
+        packageType: draft.packageType ?? null,
+        freeTimeModel: draft.freeTimeModel ?? 'NOT_CONFIRMED',
+        demurrageFreeDays: draft.demurrageFreeDays ?? null,
+        demurrageLfd: null, detentionFreeDays: draft.detentionFreeDays ?? null,
+        detentionLfd: null, combinedFreeDays: draft.combinedFreeDays ?? null,
+        combinedLfd: null, freeTimeRemarks: null,
+        emptyReturnYard: null, internalLfd: null,
+      } as unknown as ImportContainer;
+
+      (importContainers[jobId] ??= []).push(container);
+      record(jobId, 'container.added', actor,
+        { field: 'containerNumber', from: null, to: container.containerNumber });
+      return clone(container);
+    },
+
+    async amendContainer(containerId, changes, actor) {
+      const container = Object.values(importContainers).flat()
+        .find((c) => c.containerId === containerId);
+      if (!container) throw new Error(`Unknown container ${containerId}`);
+
+      const fields = container as unknown as Record<string, unknown>;
+      for (const [field, to] of Object.entries(changes)) {
+        if (to === undefined) continue;
+        const from = fields[field] ?? null;
+        if (String(from ?? '') === String(to ?? '')) continue;
+        fields[field] = to;
+        record(container.jobId, 'container.amended', actor, { field, from, to });
+      }
+    },
+
+    async removeContainerFromJob(containerId, actor) {
+      const jobId = Object.keys(importContainers)
+        .find((id) => (importContainers[id] ?? []).some((c) => c.containerId === containerId));
+      if (!jobId) throw new Error(`Unknown container ${containerId}`);
+
+      // Refused once anything has happened to it: by then it is part of the
+      // job's history, and deleting it would remove the record of real work.
+      const moved = (movements[jobId] ?? []).some((m) => m.containerId === containerId);
+      if (moved) {
+        throw new Error('That container has movements against it and cannot be removed');
+      }
+
+      const list = importContainers[jobId]!;
+      const index = list.findIndex((c) => c.containerId === containerId);
+      const [gone] = list.splice(index, 1);
+      record(jobId, 'container.removed', actor,
+        { field: 'containerNumber', from: gone?.containerNumber ?? null, to: null });
+    },
+
+    async createMovement(draft, actor) {
+      // §18. MOV-NNN, unique within the job and never reused after a
+      // cancellation — so the next number comes from the highest ever issued,
+      // not from how many are currently alive.
+      // movements is keyed by job, not a flat list.
+      const onJob = movements[draft.jobId] ?? [];
+      const highest = onJob.reduce((best, m) => {
+        const n = Number(String(m.movementRef).match(/(\d+)$/)?.[1] ?? 0);
+        return Math.max(best, n);
+      }, 0);
+      const movementRef = `MOV-${String(highest + 1).padStart(3, '0')}`;
+
+      const job = importJobs.find((j) => j.jobId === draft.jobId)
+        ?? exportJobs.find((j) => j.exportJobId === draft.jobId);
+      if (!job) throw new Error(`Unknown job ${draft.jobId}`);
+
+      const movement = {
+        movementId: `${draft.jobId}-${movementRef}`,
+        movementRef,
+        jobId: draft.jobId,
+        jobDomain: 'jobId' in job ? 'IMPORT' : 'EXPORT',
+        jobNumber: job.jobNumber,
+        containerId: draft.containerId ?? null,
+        containerNumber: null,
+        secondaryContainerId: null,
+        isDoubleMounted: false,
+        movementType: draft.movementType,
+        cargoState: 'LADEN',
+        originType: draft.originType,
+        origin: draft.origin,
+        destinationType: draft.destinationType,
+        destination: draft.destination,
+        plannedDate: draft.plannedDate ?? null,
+        plannedTime: draft.plannedTime ?? null,
+        truck: null,
+        driver: null,
+        chassisId: null,
+        movementStatus: 'PLANNED',
+        actualCollectionAt: null,
+        actualDeliveryAt: null,
+        standbyRequired: false,
+        standbyStartedAt: null,
+        standbyEndedAt: null,
+        autoCreated: false,
+        cancelledReason: null,
+      } as unknown as Movement;
+
+      (movements[draft.jobId] ??= []).push(movement);
+      record(draft.jobId, 'movement.created', actor,
+        { field: 'movementRef', from: null, to: movementRef });
+      return clone(movement);
+    },
+
+    async scheduleMovement(movementId, plan, actor) {
+      const movement = Object.values(movements).flat()
+        .find((m) => m.movementId === movementId);
+      if (!movement) throw new Error(`Unknown movement ${movementId}`);
+      const fields = movement as unknown as Record<string, unknown>;
+      for (const [field, to] of Object.entries(plan)) {
+        if (to === undefined) continue;
+        const from = fields[field] ?? null;
+        if (String(from ?? '') === String(to ?? '')) continue;
+        fields[field] = to;
+        record(movement.jobId, 'movement.scheduled', actor, { field, from, to });
+      }
+    },
+
+    async recordMovementProgress(movementId, progress, actor) {
+      const movement = Object.values(movements).flat()
+        .find((m) => m.movementId === movementId);
+      if (!movement) throw new Error(`Unknown movement ${movementId}`);
+      const fields = movement as unknown as Record<string, unknown>;
+      for (const [field, to] of Object.entries(progress)) {
+        if (to === undefined) continue;
+        const from = fields[field] ?? null;
+        if (String(from ?? '') === String(to ?? '')) continue;
+        fields[field] = to;
+        record(movement.jobId, 'movement.progressed', actor, { field, from, to });
+      }
+    },
+
+    async cancelMovement(movementId, reason, actor) {
+      const movement = Object.values(movements).flat()
+        .find((m) => m.movementId === movementId);
+      if (!movement) throw new Error(`Unknown movement ${movementId}`);
+      if (!reason.trim()) throw new Error('A cancellation needs a reason');
+
+      const fields = movement as unknown as Record<string, unknown>;
+      fields.movementStatus = 'CANCELLED';
+      fields.cancelledReason = reason.trim();
+      record(movement.jobId, 'movement.cancelled', actor,
+        { field: 'movementStatus', from: 'PLANNED', to: 'CANCELLED' });
+    },
+
     async amendJob(jobId, changes, actor) {
       const job = importJobs.find((j) => j.jobId === jobId)
         ?? exportJobs.find((j) => j.exportJobId === jobId);

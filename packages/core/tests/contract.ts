@@ -310,6 +310,161 @@ export function runRepositoryContract(
     assert.deepEqual(ids(c), ids(a));
   });
 
+  test(`[${name}] §29: a container added to a job stays added`, async () => {
+    // The screen added, edited and removed containers in React state and wrote
+    // nothing down — and containers carry the free-time clocks, so the thing
+    // being lost was the deadline.
+    const repo = await fresh();
+    const before = (await repo.listContainersForImportJob(seeded.importJobId)).length;
+
+    const added = await repo.addContainerToJob(seeded.importJobId, {
+      containerNumber: 'TEMU7203610', sizeType: "40'HC", sealNumber: 'SEAL123',
+    }, 'Max Ng');
+
+    assert.equal(added.containerNumber, 'TEMU7203610');
+    assert.equal((await repo.listContainersForImportJob(seeded.importJobId)).length, before + 1);
+  });
+
+  test(`[${name}] §29: a container's details can be corrected`, async () => {
+    const repo = await fresh();
+    const [container] = await repo.listContainersForImportJob(seeded.importJobId);
+    if (!container) return;
+
+    await repo.amendContainer(container.containerId,
+      { sealNumber: 'CORRECTED-SEAL', grossWeight: 21500 }, 'Sarah Lim');
+
+    const after = (await repo.listContainersForImportJob(seeded.importJobId))
+      .find((c) => c.containerId === container.containerId);
+    assert.equal(after?.sealNumber, 'CORRECTED-SEAL');
+    assert.equal(Number(after?.grossWeight), 21500);
+  });
+
+  test(`[${name}] §29: a container entered twice can be removed`, async () => {
+    const repo = await fresh();
+    const added = await repo.addContainerToJob(seeded.importJobId,
+      { containerNumber: 'DUPE1234567' }, 'tester');
+    const before = (await repo.listContainersForImportJob(seeded.importJobId)).length;
+
+    await repo.removeContainerFromJob(added.containerId, 'tester');
+    assert.equal((await repo.listContainersForImportJob(seeded.importJobId)).length, before - 1);
+  });
+
+  test(`[${name}] §29: a container that has moved cannot be removed`, async () => {
+    // By then it is part of what happened to the job, and deleting it would
+    // remove the record of work that was really done.
+    const repo = await fresh();
+    const added = await repo.addContainerToJob(seeded.importJobId,
+      { containerNumber: 'MOVED1234567' }, 'tester');
+    await repo.createMovement({
+      jobId: seeded.importJobId, containerId: added.containerId,
+      movementType: 'IMPORT_DELIVERY',
+      origin: 'PSA', originType: 'TERMINAL',
+      destination: 'Customer', destinationType: 'CUSTOMER',
+    }, 'tester');
+
+    await assert.rejects(
+      () => repo.removeContainerFromJob(added.containerId, 'tester'),
+      /movements against it/);
+  });
+
+  test(`[${name}] §18: a movement can be planned, and it stays planned`, async () => {
+    // The engine has rules about movements being overdue and the role model
+    // has five movement permissions; until now the port could only read them,
+    // so planning a trip rewrote a copy in the browser and persisted nothing.
+    const repo = await fresh();
+    const movement = await repo.createMovement({
+      jobId: seeded.importJobId,
+      movementType: 'IMPORT_DELIVERY',
+      origin: 'PSA Pasir Panjang', originType: 'TERMINAL',
+      destination: '47 Jalan Buroh', destinationType: 'CUSTOMER',
+      plannedDate: '2026-09-20',
+    }, 'Max Ng');
+
+    assert.match(movement.movementRef, /^MOV-\d{3}$/);
+    assert.equal(movement.movementStatus, 'PLANNED');
+
+    const onJob = await repo.listMovementsForJob(seeded.importJobId);
+    assert.ok(onJob.some((m) => m.movementId === movement.movementId),
+      'it survives the write it was created by');
+  });
+
+  test(`[${name}] §18: a reference is never reused after a cancellation`, async () => {
+    // The next number comes from the highest ever issued, not from how many
+    // are currently alive — otherwise cancelling MOV-002 and planning again
+    // would produce a second MOV-002, and two rows in the history would claim
+    // the same name.
+    const repo = await fresh();
+    const draft = {
+      jobId: seeded.importJobId, movementType: 'IMPORT_DELIVERY',
+      origin: 'PSA', originType: 'TERMINAL',
+      destination: 'Customer', destinationType: 'CUSTOMER',
+    };
+    const first = await repo.createMovement(draft, 'tester');
+    const second = await repo.createMovement(draft, 'tester');
+    await repo.cancelMovement(second.movementId, 'Customer rescheduled', 'tester');
+    const third = await repo.createMovement(draft, 'tester');
+
+    assert.notEqual(third.movementRef, second.movementRef);
+    assert.notEqual(third.movementRef, first.movementRef);
+  });
+
+  test(`[${name}] §18.4: cancelling keeps the movement and its reason`, async () => {
+    const repo = await fresh();
+    const movement = await repo.createMovement({
+      jobId: seeded.importJobId, movementType: 'IMPORT_DELIVERY',
+      origin: 'PSA', originType: 'TERMINAL',
+      destination: 'Customer', destinationType: 'CUSTOMER',
+    }, 'tester');
+
+    await repo.cancelMovement(movement.movementId, 'Customer rescheduled', 'Sarah Lim');
+    const after = (await repo.listMovementsForJob(seeded.importJobId))
+      .find((m) => m.movementId === movement.movementId);
+
+    assert.equal(after?.movementStatus, 'CANCELLED', 'cancelled, not deleted');
+    assert.equal(after?.cancelledReason, 'Customer rescheduled');
+  });
+
+  test(`[${name}] §18.4: a cancellation without a reason is refused`, async () => {
+    const repo = await fresh();
+    const movement = await repo.createMovement({
+      jobId: seeded.importJobId, movementType: 'IMPORT_DELIVERY',
+      origin: 'PSA', originType: 'TERMINAL',
+      destination: 'Customer', destinationType: 'CUSTOMER',
+    }, 'tester');
+    await assert.rejects(
+      () => repo.cancelMovement(movement.movementId, '   ', 'tester'), /needs a reason/);
+  });
+
+  test(`[${name}] §19: scheduling and §20 progress are separate claims`, async () => {
+    // A plan is an intention that can move; an outcome is a fact about the
+    // past that should not. Keeping them apart is why there are two methods.
+    const repo = await fresh();
+    const movement = await repo.createMovement({
+      jobId: seeded.importJobId, movementType: 'IMPORT_DELIVERY',
+      origin: 'PSA', originType: 'TERMINAL',
+      destination: 'Customer', destinationType: 'CUSTOMER',
+    }, 'tester');
+
+    await repo.scheduleMovement(movement.movementId,
+      { plannedDate: '2026-09-21', driver: 'Tan BM', truck: 'XD1234A' }, 'tester');
+    await repo.recordMovementProgress(movement.movementId,
+      { movementStatus: 'COMPLETED', actualDeliveryAt: '2026-09-21T14:30:00+08:00' }, 'tester');
+
+    const after = (await repo.listMovementsForJob(seeded.importJobId))
+      .find((m) => m.movementId === movement.movementId);
+    assert.equal(after?.driver, 'Tan BM');
+    assert.equal(after?.plannedDate, '2026-09-21');
+    assert.equal(after?.movementStatus, 'COMPLETED');
+  });
+
+  test(`[${name}] §18: acting on an unknown movement fails loudly`, async () => {
+    const repo = await fresh();
+    await assert.rejects(
+      () => repo.scheduleMovement('no-such', { driver: 'X' }, 'tester'), /Unknown movement/);
+    await assert.rejects(
+      () => repo.cancelMovement('no-such', 'reason', 'tester'), /Unknown movement/);
+  });
+
   test(`[${name}] §30: a job can be corrected after it is created`, async () => {
     // Creation is not the only moment a job is described. Until this existed
     // the screen let someone type a correction, showed it, and persisted

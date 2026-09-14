@@ -55,62 +55,6 @@ export function nextTripReference(trips = []) {
 }
 
 
-export function applyCheckpoint(job, key, value) {
-  const next = clone(job);
-  const labels = {
-    permitReceived: "Permit",
-    portnetReleased: "Portnet release",
-    cmsCompleted: "CMS",
-    detailsSent: "Container-details notification",
-    customerReady: "Customer readiness",
-    transhipment: "Transhipment",
-    deliveryPath: "Delivery path",
-  };
-
-  if (["permitReceived", "portnetReleased", "cmsCompleted", "detailsSent", "customerReady"].includes(key)) {
-    next[key] = Boolean(value);
-  }
-
-  if (next.type === "Export" && ["detailsSent", "customerReady"].includes(key)) {
-    next.containers = ensureContainerRecords(next).map((container) => ({ ...container, [key]: Boolean(value) }));
-    syncExportAggregates(next);
-  }
-
-  if (key === "permitReceived") {
-    next.containers = (next.containers || []).map((container) => ({
-      ...container,
-      state: value && container.state === "Awaiting permit" ? "Ready" : !value && container.state === "Ready" ? "Awaiting permit" : container.state,
-    }));
-  }
-
-  if (key === "cmsCompleted" && value && next.type === "Export") {
-    next.containers = ensureContainerRecords(next);
-    next.trips ||= [];
-    next.containers.forEach((container, index) => {
-      const hasActiveEmptyCollection = next.trips.some((trip) => trip.type === "Empty Collection" && trip.status !== "Cancelled" && tripMatchesContainer(trip, container, index, next.containers.length));
-      if (!hasActiveEmptyCollection) {
-        next.trips.push({
-          id: nextTripReference(next.trips),
-          route: `${next.emptyYard} → ${container.stuffingLocation || next.deliveryAddress}`,
-          type: "Empty Collection",
-          status: "Pending",
-          plannedDate: null,
-          containerRef: container.ref,
-          containerNumber: container.number || undefined,
-          collectedTime: "",
-          deliveredTime: "",
-          createdAutomatically: true,
-        });
-      }
-    });
-  }
-
-  if (key === "transhipment") next.transhipment = value;
-  if (key === "deliveryPath") next.carparkRequested = value === "carpark";
-
-  const display = typeof value === "boolean" ? (value ? "complete" : "not complete") : String(value).replaceAll("_", " ");
-  return addActivity(next, `${labels[key] || "Checkpoint"} marked ${display}.`);
-}
 
 export function applyContainerUpdate(job, index, draft) {
   const next = clone(job);

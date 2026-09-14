@@ -61,7 +61,7 @@ const INTAKE_CRITICAL_FIELDS = [
   "portOfDischarge", "consignee", "vessel", "demurrageFreeDays",
   "detentionFreeDays",
 ];
-import { addContainerRecord, applyCheckpoint, applyContainerUpdate, applyFreeTime, applyTripUpdate, assignChassis, nextTripReference, releaseChassis, removeContainerRecord } from "./lib/operations-actions.mjs";
+import { applyFreeTime, applyTripUpdate, assignChassis, nextTripReference, releaseChassis } from "./lib/operations-actions.mjs";
 import { companyNameFromConsignee, suggestCode } from "./lib/company-from-document.mjs";
 import { toIntakeResult } from "./lib/intake-fields.mjs";
 
@@ -3925,7 +3925,6 @@ export default function GreenlitControlTower() {
   const [toastTimer, setToastTimer] = useState(null);
   // A company the document names that the master does not have yet.
   const [pendingCompany, setPendingCompany] = useState(null);
-  const [highlightTimer, setHighlightTimer] = useState(null);
 
   const actionJobs = jobs.filter(isActionRequired).sort((a, b) => urgency(b) - urgency(a));
   const fleet = useFleet();
@@ -3935,12 +3934,6 @@ export default function GreenlitControlTower() {
     setToast(message);
     window.clearTimeout(toastTimer);
     setToastTimer(window.setTimeout(() => setToast(""), 5200));
-  }
-
-  function flashSequence(sequence) {
-    window.clearTimeout(highlightTimer);
-    sequence.forEach(({ value, delay }) => window.setTimeout(() => setHighlight(value), delay));
-    setHighlightTimer(window.setTimeout(() => setHighlight(""), Math.max(...sequence.map((item) => item.delay)) + 1300));
   }
 
   /**
@@ -4101,24 +4094,94 @@ export default function GreenlitControlTower() {
     const targetJobId = panel.type === "chassis" && panel.condition === "available" ? draft.jobId : panel.jobId;
     if (!targetJobId) return;
     if (panel.type === "container") {
-      const targetJob = jobs.find((job) => job.id === targetJobId);
-      if (!targetJob) return;
-      try {
-        const nextJob = draft._delete
-          ? removeContainerRecord(targetJob, panel.index || 0)
+      // §29. This did all three of add, amend and remove in React state and
+      // wrote nothing down — and containers carry the free-time clocks, so
+      // what vanished on reload was the deadline.
+      const base = `/api/jobs/${encodeURIComponent(targetJobId)}/containers`;
+      const existing = jobContainers(jobs.find((j) => j.id === targetJobId) ?? {})[panel.index || 0];
+
+      void (async () => {
+        const request = draft._delete
+          ? { url: `${base}/${encodeURIComponent(existing?.id ?? "")}`, method: "DELETE", body: null }
           : panel.mode === "new"
-            ? addContainerRecord(targetJob, draft)
-            : applyContainerUpdate(targetJob, panel.index || 0, draft);
-        setJobs((current) => current.map((job) => job.id === targetJobId ? nextJob : job));
+            ? { url: base, method: "POST", body: {
+                containerNumber: draft.number || null,
+                sizeType: draft.sizeType || draft.type || null,
+                sealNumber: draft.seal || null,
+                grossWeight: numberOrNull(draft.grossWeight),
+                packageCount: numberOrNull(draft.packageCount),
+                packageType: draft.packageType || null,
+              } }
+            : { url: `${base}/${encodeURIComponent(existing?.id ?? "")}`, method: "PATCH", body: {
+                containerNumber: draft.number || null,
+                containerSize: draft.sizeType || draft.type || null,
+                sealNumber: draft.seal || null,
+                grossWeight: numberOrNull(draft.grossWeight),
+                packageCount: numberOrNull(draft.packageCount),
+                packageType: draft.packageType || null,
+              } };
+
+        const response = await fetch(request.url, {
+          method: request.method,
+          headers: { "content-type": "application/json" },
+          body: request.body ? JSON.stringify(request.body) : undefined,
+        }).catch(() => null);
+
+        const payload = await response?.json().catch(() => ({}));
+        if (!response?.ok) {
+          showToast(payload?.error ?? "Could not save that container.");
+          return;
+        }
         setWorkPanel(null);
+        await loadJobs();
         setHighlight("container");
         window.setTimeout(() => setHighlight(""), 1400);
-        showToast(draft._delete ? "Container removed. Job progress recalculated." : panel.mode === "new" ? `Container added. ${jobContainers(nextJob).length} of ${MAX_CONTAINERS_PER_JOB} slots are in use.` : "Container updated. Linked movement and readiness state recalculated.");
-      } catch (problem) {
-        showToast(problem instanceof Error ? problem.message : "Greenlit could not update this container.");
-      }
+        showToast(draft._delete
+          ? "Container removed."
+          : panel.mode === "new" ? "Container added." : "Container updated.");
+      })();
       return;
     }
+    if (panel.type === "checkpoint") {
+      // The same bug the job drawer had, in a place where the routes already
+      // existed: the buttons on the job screen persisted these and this drawer
+      // did not, so the same fact saved or vanished depending on which control
+      // you happened to use.
+      const route = panel.key === "cmsCompleted" ? "cms"
+        : panel.key === "transhipment" ? "transhipment"
+        : null;
+
+      if (!route) {
+        // deliveryPath has no command behind it. Saying so beats a toast that
+        // claims a save nothing performed.
+        showToast("That checkpoint cannot be recorded yet.");
+        return;
+      }
+
+      void (async () => {
+        const response = await fetch(
+          `/api/jobs/${encodeURIComponent(targetJobId)}/${route}`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ status: draft.value }),
+          },
+        ).catch(() => null);
+
+        const payload = await response?.json().catch(() => ({}));
+        if (!response?.ok) {
+          showToast(payload?.error ?? "Could not save that checkpoint.");
+          return;
+        }
+        setWorkPanel(null);
+        await loadJobs();
+        setHighlight("readiness");
+        window.setTimeout(() => setHighlight(""), 1400);
+        showToast("Checkpoint saved. Status and next action recalculated.");
+      })();
+      return;
+    }
+
     if (panel.type === "job") {
       // §30. This used to rewrite the job in React state and stop there: the
       // correction appeared, persisted nothing, and survived until the next
@@ -4163,11 +4226,7 @@ export default function GreenlitControlTower() {
     let activityMessage = "Job updated. Status and next action recalculated.";
     let nextHighlight = "status";
     updateJob(targetJobId, (job) => {
-      if (panel.type === "checkpoint") {
-        activityMessage = "Checkpoint saved. The action queue was recalculated.";
-        nextHighlight = "readiness";
-        return applyCheckpoint(job, panel.key, draft.value);
-      }
+
       if (panel.type === "trip") {
         activityMessage = panel.tripId ? `${panel.tripId} updated. Job progress recalculated.` : "New trip created under the same job.";
         nextHighlight = `trip:${panel.tripId || nextTripReference(job.trips)}`;
@@ -4256,64 +4315,32 @@ export default function GreenlitControlTower() {
         : "Transhipment unavailable. Check whether the customer wants the carpark.");
   }
 
-  function carparkDecision(useCarpark) {
-    updateJob("EXP-260819-005", (job) => {
-      const next = applyCheckpoint(job, "deliveryPath", useCarpark ? "carpark" : "other");
-      const container = jobContainers(next)[0];
-      return {
-        ...next,
-        trips: useCarpark ? [...next.trips, {
-          id: "MOV-002",
-          route: `Golden Harvest Foods → ${CARPARK}`,
-          type: "One-Way Loaded",
-          status: "Pending",
-          plannedDate: null,
-          containerRef: container?.ref,
-          containerNumber: container?.number || undefined,
-          collectedTime: "",
-          deliveredTime: "",
-          createdAutomatically: true,
-        }] : next.trips,
-      };
-    });
-    if (useCarpark) {
-      flashSequence([{ value: "trip:MOV-002", delay: 0 }, { value: "status", delay: 700 }, { value: "nextAction", delay: 1400 }]);
-      showToast("MOV-002 One-Way Loaded created. The carpark path remains under EXP-260819-005.");
-    } else {
-      showToast("Carpark declined. The job remains blocked until a delivery path is agreed.");
-    }
-  }
-
-  function carparkAvailable() {
-    updateJob("EXP-260815-004", (job) => {
-      const next = applyCheckpoint(job, "transhipment", "available");
-      const container = jobContainers(next)[0];
-      return {
-        ...next,
-        trips: next.trips.some((trip) => trip.id === "MOV-003") ? next.trips : [...next.trips, {
-          id: "MOV-003",
-          route: `${CARPARK} → PSA Tuas`,
-          type: "Carpark to Port",
-          status: "Pending",
-          plannedDate: null,
-          containerRef: container?.ref,
-          containerNumber: container?.number || undefined,
-          collectedTime: "",
-          deliveredTime: "",
-          createdAutomatically: true,
-        }],
-      };
-    });
-    flashSequence([{ value: "readiness", delay: 0 }, { value: "trip:MOV-003", delay: 700 }, { value: "status", delay: 1400 }, { value: "nextAction", delay: 2100 }]);
-    showToast("Trip MOV-003 Carpark to Port created. Three trips remain under EXP-260815-004.");
+  /**
+   * §21. The two carpark decisions.
+   *
+   * Both of these rewrote a job in React state, and both addressed a hardcoded
+   * fixture id — "EXP-260819-005" and "EXP-260815-004" — so against real data
+   * they silently did nothing: updateJob on an id that is not there changes
+   * nothing and reports success.
+   *
+   * Transhipment already had a command that persists, so this calls it on the
+   * job actually open rather than duplicating it against a constant.
+   */
+  async function carparkAvailable() {
+    await setTranshipment("available");
   }
 
   /**
-   * §12: the controller decides which value becomes current, and the decision
-   * is audited. Resolving goes through the API so the record outlives this
-   * screen; the job is reloaded from the server afterwards rather than patched
-   * locally, so what is displayed is what was actually stored.
+   * Whether the container goes via the carpark.
+   *
+   * §21 has no command behind this yet. Saying so beats a toast claiming a
+   * save that nothing performed, which is what it did before.
    */
+  function carparkDecision() {
+    showToast("Recording the carpark decision is not built yet.");
+  }
+
+
   async function resolveDiscrepancy(discrepancy, choice) {
     const job = jobs.find((j) => (j.discrepancies || []).includes(discrepancy));
     if (!job) return;

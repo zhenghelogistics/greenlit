@@ -31,6 +31,61 @@ export interface Repository {
   listContainersForExportJob(jobId: string): Promise<ExportContainer[]>;
 
   listMovementsForJob(jobId: string): Promise<Movement[]>;
+
+  // ---- §18. Movements ------------------------------------------------------
+  //
+  // The engine has rules about movements being overdue, the role model has
+  // five movement permissions, and until now the port could only read them.
+  // Planning a trip on screen rewrote a copy in the browser and persisted
+  // nothing, which is the same failure the job screen had.
+  //
+  // §18: movementRef is `MOV-NNN`, unique within the job and never reused
+  // after a cancellation, so the reference is allocated by the store rather
+  // than by a caller counting what it can see.
+  // ---- §29. Containers on an existing job -----------------------------------
+  //
+  // A job gains a container when a second one turns out to be on the same
+  // bill, loses one when it was entered twice, and has its details corrected
+  // constantly. None of that could be saved: the screen did all three in React
+  // state and wrote nothing down.
+  addContainerToJob(
+    jobId: string, draft: ImportContainerDraft, actor: string,
+  ): Promise<ImportContainer>;
+  amendContainer(
+    containerId: string, changes: ContainerAmendment, actor: string,
+  ): Promise<void>;
+  /**
+   * §29. Remove a container that should not be on the job.
+   *
+   * Refused once anything has happened to it — a movement, a free-time
+   * confirmation — because by then it is part of the job's history and
+   * deleting it would remove the record of work that was really done. The
+   * mistake this is for is a container entered twice five minutes ago.
+   */
+  removeContainerFromJob(containerId: string, actor: string): Promise<void>;
+
+  createMovement(draft: MovementDraft, actor: string): Promise<Movement>;
+  /** §19. When it is planned for, and who is driving. */
+  scheduleMovement(
+    movementId: string, plan: MovementPlan, actor: string,
+  ): Promise<void>;
+  /**
+   * §20. What actually happened.
+   *
+   * Separate from scheduling because a plan and an outcome are different
+   * claims: one is an intention that can move, the other is a fact about the
+   * past that should not.
+   */
+  recordMovementProgress(
+    movementId: string, progress: MovementProgress, actor: string,
+  ): Promise<void>;
+  /**
+   * §18.4. Cancelling needs a reason, and the reference is retired with it.
+   *
+   * Not a delete: a cancelled movement is part of what happened to the job,
+   * and the next movement gets the next number rather than the dead one.
+   */
+  cancelMovement(movementId: string, reason: string, actor: string): Promise<void>;
   listOpenExceptionsForJob(jobId: string): Promise<ExceptionRecord[]>;
 
   /**
@@ -288,6 +343,45 @@ export interface DateAmendmentInput {
  * Only the identity: everything else about a container is either derived or
  * recorded later by a person against a named event.
  */
+/** §29. What may be corrected on a container. */
+export interface ContainerAmendment {
+  containerNumber?: string | null;
+  containerSize?: string | null;
+  sealNumber?: string | null;
+  grossWeight?: number | null;
+  packageCount?: number | null;
+  packageType?: string | null;
+  emptyReturnYard?: string | null;
+}
+
+/** §18. A movement as a controller plans it. */
+export interface MovementDraft {
+  jobId: string;
+  containerId?: string | null;
+  movementType: string;
+  origin: string;
+  originType: string;
+  destination: string;
+  destinationType: string;
+  plannedDate?: string | null;
+  plannedTime?: string | null;
+}
+
+/** §19. Who is doing it and when. */
+export interface MovementPlan {
+  plannedDate?: string | null;
+  plannedTime?: string | null;
+  truck?: string | null;
+  driver?: string | null;
+}
+
+/** §20. What happened, as it happens. */
+export interface MovementProgress {
+  movementStatus?: string;
+  actualCollectionAt?: string | null;
+  actualDeliveryAt?: string | null;
+}
+
 /**
  * §30. What may be corrected on a job after creation.
  *
