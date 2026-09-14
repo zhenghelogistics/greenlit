@@ -709,6 +709,262 @@ function AddPermit({ onCancel, onSave }) {
   );
 }
 
+/**
+ * §33. Finishing a job, and opening a finished one again.
+ *
+ * The engine answers whether it may be closed; a person decides whether it is.
+ * So this asks for the outstanding list first and shows all of it — somebody
+ * about to close a job wants to know everything left, not to discover it one
+ * refusal at a time.
+ */
+function ClosurePanel({ jobId, onChanged }) {
+  const [state, setState] = useState({ status: "loading", blockers: [], canClose: false, closed: false });
+  const [reopening, setReopening] = useState(false);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+
+  // Takes the id rather than the job, like the panels beside it: an optional
+  // chain in a dependency list is a dependency the compiler cannot track.
+  const load = React.useCallback(() => {
+    if (!jobId) return;
+    fetch(`/api/jobs/${encodeURIComponent(jobId)}/closure`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => setState({ status: "ready", ...d }))
+      .catch(() => setState({ status: "error", blockers: [], canClose: false, closed: false }));
+  }, [jobId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function send(method, body) {
+    setError("");
+    const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/closure`, {
+      method,
+      headers: { "content-type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    }).catch(() => null);
+
+    const payload = await response?.json().catch(() => ({}));
+    if (!response?.ok) {
+      // A 409 carries the outstanding list; showing it beats "could not close".
+      setError([payload?.error, ...(payload?.blockers ?? [])].filter(Boolean).join(" "));
+      return false;
+    }
+    load();
+    onChanged?.();
+    return true;
+  }
+
+  if (state.status !== "ready") return null;
+
+  return (
+    <Panel title={state.closed ? "This job is closed" : "Finishing this job"} className="mt-7">
+      <div className="p-6">
+        {error ? (
+          <p role="alert" className="gl-body-plain mb-4 rounded-md border border-rose-300 bg-rose-50 p-3 text-[color:var(--gl-state-blocked-ink)]">
+            {error}
+          </p>
+        ) : null}
+
+        {state.closed ? (
+          <>
+            <p className="gl-body">
+              Closed, so it is billable. Reopening changes what has already been
+              invoiced, which is why it is management&rsquo;s to do and why it
+              needs a reason.
+            </p>
+            {reopening ? (
+              <div className="mt-5 grid gap-3">
+                <label className="grid gap-2">
+                  <span className="gl-label">Why is this being reopened?</span>
+                  <textarea
+                    rows={3} value={reason} onChange={(event) => setReason(event.target.value)}
+                    placeholder="Detention was billed at 4 days, carrier says 6"
+                    className="w-full rounded-md border border-[color:var(--gl-line-strong)] bg-white p-3 text-[17px] text-[color:var(--gl-ink)]"
+                  />
+                  <span className="gl-caption">
+                    This is the only record of why the invoice moved.
+                  </span>
+                </label>
+                <div className="flex flex-wrap gap-3">
+                  <button type="button"
+                    onClick={async () => { if (await send("DELETE", { reason })) { setReopening(false); setReason(""); } }}
+                    className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white">
+                    Reopen this job
+                  </button>
+                  <button type="button" onClick={() => { setReopening(false); setError(""); }}
+                    className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-5 text-[17px] text-[color:var(--gl-ink)]">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setReopening(true)}
+                className="mt-5 min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-5 text-[17px] font-semibold text-[color:var(--gl-ink)]">
+                Reopen
+              </button>
+            )}
+          </>
+        ) : state.canClose ? (
+          <>
+            <p className="gl-body">
+              Everything is finished: the containers are back, the trips are done
+              and nothing is outstanding.
+            </p>
+            <button type="button" onClick={() => send("POST")}
+              className="mt-5 min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white hover:bg-[color:var(--gl-accent-hover)]">
+              Close this job
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="gl-body">Still outstanding:</p>
+            <ul className="mt-3 grid gap-2">
+              {state.blockers.map((blocker) => (
+                <li key={blocker} className="gl-body-plain rounded-md border border-[color:var(--gl-line)] bg-[color:var(--gl-bg)] p-3 text-[color:var(--gl-ink)]">
+                  {blocker}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+/**
+ * §10. The documents filed against a job.
+ *
+ * Extraction records which page and which line every value came from; this is
+ * where the page and the line can actually be checked. Opening one mints a
+ * short-lived link rather than holding a permanent URL: the bucket is private
+ * because these are customers' commercial papers.
+ */
+const DOCUMENT_LABEL = {
+  ARRIVAL_NOTICE: "Arrival notice",
+  BILL_OF_LADING: "Bill of lading",
+  HOUSE_BILL_OF_LADING: "House bill of lading",
+  PERMIT: "Permit",
+  DELIVERY_ORDER: "Delivery order",
+  BOOKING_CONFIRMATION: "Booking confirmation",
+  EXPORT_CLEARANCE: "Export clearance",
+  PORTNET_RELEASE: "Portnet release",
+  EMPTY_RETURN_CONFIRMATION: "Empty return confirmation",
+  COMMERCIAL_INVOICE: "Commercial invoice",
+  PACKING_LIST: "Packing list",
+  VGM: "VGM",
+  OTHER: "Other",
+};
+
+function DocumentsPanel({ jobId }) {
+  const [documents, setDocuments] = useState(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = React.useCallback(() => {
+    if (!jobId) return;
+    fetch(`/api/jobs/${encodeURIComponent(jobId)}/documents`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => setDocuments(d.documents ?? []))
+      .catch(() => setDocuments([]));
+  }, [jobId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function open(documentId) {
+    setError("");
+    const response = await fetch(
+      `/api/jobs/${encodeURIComponent(jobId)}/documents/${encodeURIComponent(documentId)}`,
+    ).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    if (!response?.ok || !payload?.url) {
+      setError(payload?.error ?? "That document could not be opened.");
+      return;
+    }
+    window.open(payload.url, "_blank", "noopener");
+  }
+
+  async function attach(file) {
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    const body = new FormData();
+    body.append("file", file);
+    const response = await fetch(
+      `/api/jobs/${encodeURIComponent(jobId)}/documents`, { method: "POST", body },
+    ).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    setBusy(false);
+    if (!response?.ok) { setError(payload?.error ?? "That file was not filed."); return; }
+    load();
+  }
+
+  if (documents === null) return null;
+
+  // Superseded versions are kept — the job was worked off the original — but
+  // they are not what someone is looking for, so they sit under the current one.
+  const current = documents.filter((d) => d.isCurrentVersion);
+  const superseded = documents.filter((d) => !d.isCurrentVersion);
+
+  return (
+    <Panel
+      title="Documents"
+      className="mt-7"
+      action={
+        <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4">
+          <FileSearch className="h-5 w-5" aria-hidden="true" />
+          {busy ? "Filing…" : "Attach a file"}
+          <input type="file" className="hidden" disabled={busy}
+            accept="application/pdf,image/png,image/jpeg"
+            onChange={(event) => { attach(event.target.files?.[0]); event.target.value = ""; }} />
+        </label>
+      }
+    >
+      <div className="p-6">
+        {error ? (
+          <p role="alert" className="gl-body-plain mb-4 rounded-md border border-rose-300 bg-rose-50 p-3 text-[color:var(--gl-state-blocked-ink)]">
+            {error}
+          </p>
+        ) : null}
+
+        {current.length === 0 ? (
+          <p className="gl-body">
+            Nothing filed yet. An arrival notice applied through Document Intake
+            is filed here automatically.
+          </p>
+        ) : (
+          <ul className="grid gap-3">
+            {current.map((document) => (
+              <li key={document.documentId}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--gl-line)] bg-white p-4">
+                <div className="min-w-0">
+                  <div className="gl-body" style={{ fontWeight: 500 }}>{document.filename}</div>
+                  <div className="gl-caption mt-1">
+                    {DOCUMENT_LABEL[document.documentType] ?? document.documentType}
+                    {" · "}{formatDay(document.receivedAt)}
+                    {document.version > 1 ? ` · version ${document.version}` : ""}
+                  </div>
+                </div>
+                <button type="button" onClick={() => open(document.documentId)}
+                  className="min-h-11 cursor-pointer rounded-md px-2 text-[15px] font-semibold text-[color:var(--gl-accent)] underline underline-offset-4">
+                  Open
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {superseded.length > 0 ? (
+          <p className="gl-caption mt-4">
+            {superseded.length} earlier {superseded.length === 1 ? "version is" : "versions are"} kept.
+            The job was worked from {superseded.length === 1 ? "it" : "them"}, so {superseded.length === 1 ? "it stays" : "they stay"} on the record.
+          </p>
+        ) : null}
+      </div>
+    </Panel>
+  );
+}
+
 function ActingUser() {
   const [user, setUser] = useState(null);
 
@@ -3255,6 +3511,8 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
               the import branch — an export job has an export clearance, which
               is a different document with different rules. */}
           <PermitPanel jobId={job.id} containers={job.containers ?? []} />
+          <DocumentsPanel jobId={job.id} />
+          <ClosurePanel jobId={job.id} />
         </>
       ) : null}
 
