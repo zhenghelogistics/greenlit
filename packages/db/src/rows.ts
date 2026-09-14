@@ -6,6 +6,7 @@
  * leaking into a service or a screen.
  */
 import type {
+  CustomerLocation,
   Chassis, ChassisChange, ChassisHolding, Customer, DateAmendment, ExceptionRecord,
   ExportContainer, ExportJob, ImportContainer, ImportJob, Movement, Principal,
 } from '@greenlit/engine';
@@ -251,4 +252,16 @@ export const holdingFrom = (
   mountedAt: nn(r.chassis_mounted_at as string),
   releasedAt: nn(r.chassis_released_at as string),
   doubleMountedWith: null,
+});
+
+/** §9.3. A customer's site, out of the store. */
+export const toCustomerLocation = (r: Record<string, unknown>): CustomerLocation => ({
+  locationId: r.location_id as string,
+  customerCode: r.customer_code as string,
+  label: r.label as string,
+  address: r.address as string,
+  isDefault: Boolean(r.is_default),
+  doubleMountingPermitted: Boolean(r.double_mounting_permitted),
+  standbyUsual: Boolean(r.standby_usual),
+  active: Boolean(r.active),
 });

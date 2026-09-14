@@ -1,4 +1,4 @@
-import { suggestedUserId, suggestedDisplayName, normalisePermitNumber,
+import { suggestedUserId, suggestedDisplayName, normalisePermitNumber, locationProblem,
   type PermitRecord } from '@greenlit/engine';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
@@ -19,7 +19,7 @@ import {
 import {
   holdingFrom, toChassis, toChassisChange, toCustomer, toDateAmendment,
   toException, toExportContainer, toExportJob, toImportContainer, toImportJob,
-  toMovement, toPrincipal, nn } from './rows.ts';
+  toCustomerLocation, toMovement, toPrincipal, nn } from './rows.ts';
 
 /**
  * Supabase implementation of the Repository port.
@@ -484,6 +484,82 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         movementStatus: 'CANCELLED',
         cancelledReason: reason.trim(),
       }, 'movement.cancelled', actor);
+    },
+
+    async listCustomerLocations(customerCode) {
+      return rows(
+        await db.from('customer_locations').select('*')
+          .eq('customer_code', customerCode).order('location_id'),
+        'customer locations',
+      ).map(toCustomerLocation);
+    },
+
+    async addCustomerLocation(customerCode, draft, actor) {
+      const problem = locationProblem(draft);
+      if (problem) throw new Error(problem);
+
+      // One default per customer. The partial unique index would refuse a
+      // second, so the old one is cleared first rather than colliding.
+      if (draft.isDefault) {
+        const cleared = await db.from('customer_locations').update({ is_default: false })
+          .eq('customer_code', customerCode).eq('is_default', true);
+        if (cleared.error) throw new Error(`clear default: ${cleared.error.message}`);
+      }
+
+      const row = unwrap(await db.from('customer_locations').insert({
+        location_id: `loc-${crypto.randomUUID()}`,
+        customer_code: customerCode,
+        label: draft.label!.trim(),
+        address: draft.address!.trim(),
+        is_default: draft.isDefault ?? false,
+        double_mounting_permitted: draft.doubleMountingPermitted ?? true,
+        standby_usual: draft.standbyUsual ?? false,
+        active: draft.active ?? true,
+        created_by: actor,
+      }).select().single(), 'add customer location') as Record<string, unknown>;
+
+      await record(customerCode, 'location.added', actor,
+        { field: 'label', from: null, to: draft.label ?? null });
+      return toCustomerLocation(row);
+    },
+
+    async amendCustomerLocation(locationId, changes, actor) {
+      const found = await db.from('customer_locations').select('*')
+        .eq('location_id', locationId).maybeSingle();
+      if (found.error) throw new Error(`location lookup: ${found.error.message}`);
+      if (!found.data) throw new Error(`Unknown location ${locationId}`);
+
+      const before = found.data as Record<string, unknown>;
+      const merged = {
+        label: (changes.label ?? before.label) as string,
+        address: (changes.address ?? before.address) as string,
+      };
+      const problem = locationProblem(merged);
+      if (problem) throw new Error(problem);
+
+      if (changes.isDefault === true) {
+        const cleared = await db.from('customer_locations').update({ is_default: false })
+          .eq('customer_code', before.customer_code as string).eq('is_default', true);
+        if (cleared.error) throw new Error(`clear default: ${cleared.error.message}`);
+      }
+
+      const patch: Record<string, unknown> = {};
+      const changed: Array<{ field: string; from: unknown; to: unknown }> = [];
+      for (const [field, to] of Object.entries(changes)) {
+        if (to === undefined) continue;
+        const column = camelToSnake(field);
+        const from = before[column] ?? null;
+        if (String(from ?? '') === String(to ?? '')) continue;
+        patch[column] = to;
+        changed.push({ field, from, to });
+      }
+      if (changed.length === 0) return;
+
+      unwrap(await db.from('customer_locations').update(patch)
+        .eq('location_id', locationId).select().single(), 'amend customer location');
+      for (const c of changed) {
+        await record(before.customer_code as string, 'location.amended', actor, c);
+      }
     },
 
     async closeJob(jobId, actor) {

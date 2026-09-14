@@ -1,4 +1,5 @@
-import { suggestedUserId, suggestedDisplayName, normalisePermitNumber,
+import { suggestedUserId, suggestedDisplayName, normalisePermitNumber, locationProblem,
+  type CustomerLocation,
   type PermitRecord } from '@greenlit/engine';
 import {
   appendAmendment, applyChassisChange, nextJobReference, recordChassisChange,
@@ -337,6 +338,14 @@ export function createMemoryRepository(): Repository {
   // leaked between instances: one repository's permits appeared in another's,
   // and a removal in one did not remove it from the other.
   const permits: StoredPermit[] = [];
+  const customerLocations: CustomerLocation[] = [];
+
+  /** One default per customer; a second would make "the default" ambiguous. */
+  const clearDefaultFor = (customerCode: string) => {
+    for (const l of customerLocations) {
+      if (l.customerCode === customerCode) l.isDefault = false;
+    }
+  };
   const exportContainers = clone(EXPORT_CONTAINERS);
   const movements = clone(MOVEMENTS);
   const exceptions = clone(EXCEPTIONS);
@@ -800,6 +809,54 @@ export function createMemoryRepository(): Repository {
       fields.cancelledReason = reason.trim();
       record(movement.jobId, 'movement.cancelled', actor,
         { field: 'movementStatus', from: movement.movementStatus, to: 'CANCELLED' });
+    },
+
+    async listCustomerLocations(customerCode) {
+      return clone(customerLocations.filter((l) => l.customerCode === customerCode));
+    },
+
+    async addCustomerLocation(customerCode, draft, actor) {
+      const problem = locationProblem(draft);
+      if (problem) throw new Error(problem);
+
+      const location: CustomerLocation = {
+        locationId: `loc-${customerCode}-${customerLocations.length + 1}`,
+        customerCode,
+        label: draft.label!.trim(),
+        address: draft.address!.trim(),
+        isDefault: draft.isDefault ?? false,
+        doubleMountingPermitted: draft.doubleMountingPermitted ?? true,
+        standbyUsual: draft.standbyUsual ?? false,
+        active: draft.active ?? true,
+      };
+
+      // One default per customer. Setting a new one clears the old rather than
+      // leaving two, which would make "the default" a question with two answers.
+      if (location.isDefault) clearDefaultFor(customerCode);
+      customerLocations.push(location);
+      record(customerCode, 'location.added', actor,
+        { field: 'label', from: null, to: location.label });
+      return clone(location);
+    },
+
+    async amendCustomerLocation(locationId, changes, actor) {
+      const location = customerLocations.find((l) => l.locationId === locationId);
+      if (!location) throw new Error(`Unknown location ${locationId}`);
+
+      const merged = { ...location, ...changes };
+      const problem = locationProblem(merged);
+      if (problem) throw new Error(problem);
+
+      if (changes.isDefault === true) clearDefaultFor(location.customerCode);
+
+      const fields = location as unknown as Record<string, unknown>;
+      for (const [field, to] of Object.entries(changes)) {
+        if (to === undefined) continue;
+        const from = fields[field] ?? null;
+        if (String(from ?? '') === String(to ?? '')) continue;
+        fields[field] = to;
+        record(location.customerCode, 'location.amended', actor, { field, from, to });
+      }
     },
 
     async closeJob(jobId, actor) {

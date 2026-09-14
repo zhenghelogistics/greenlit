@@ -1,4 +1,4 @@
-import type { PermitRecord } from '@greenlit/engine';
+import type { CustomerLocation, PermitRecord } from '@greenlit/engine';
 import type {
   AuditEvent, Chassis, ChassisChange, ChassisChangeRequest, ChassisHolding,
   Customer, CustomerDraft, DateAmendment, Discrepancy, ExceptionRecord, Principal,
@@ -291,6 +291,20 @@ export interface Repository {
    * what makes a job billable, which is why reopening is a different
    * permission and needs a reason.
    */
+  // ---- §9.3. Customer sites -------------------------------------------------
+  //
+  // Delivery and stuffing addresses were free text on each job, so the same
+  // warehouse was typed a dozen ways and none matched. A list per customer,
+  // because a customer may stuff at more than one site and the site is chosen
+  // per booking.
+  listCustomerLocations(customerCode: string): Promise<readonly CustomerLocation[]>;
+  addCustomerLocation(
+    customerCode: string, draft: CustomerLocationDraft, actor: string,
+  ): Promise<CustomerLocation>;
+  amendCustomerLocation(
+    locationId: string, changes: CustomerLocationDraft, actor: string,
+  ): Promise<void>;
+
   closeJob(jobId: string, actor: string): Promise<void>;
   /** §33.2. Open a billed job again, saying why. */
   reopenJob(jobId: string, reason: string, actor: string): Promise<void>;
@@ -363,6 +377,22 @@ export interface ContainerAmendment {
   packageCount?: number | null;
   packageType?: string | null;
   emptyReturnYard?: string | null;
+}
+
+/**
+ * §9.3. A site as somebody enters it.
+ *
+ * Every field optional on an amendment, where absent means leave alone. On a
+ * new site the engine's locationProblem decides what is required, so the rule
+ * lives in one place rather than in every caller.
+ */
+export interface CustomerLocationDraft {
+  label?: string;
+  address?: string;
+  isDefault?: boolean;
+  doubleMountingPermitted?: boolean;
+  standbyUsual?: boolean;
+  active?: boolean;
 }
 
 /** §18. A movement as a controller plans it. */

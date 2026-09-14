@@ -310,6 +310,66 @@ export function runRepositoryContract(
     assert.deepEqual(ids(c), ids(a));
   });
 
+  test(`[${name}] §9.3: a customer's sites are kept, not retyped per job`, async () => {
+    const repo = await fresh();
+    const [customer] = await repo.listCustomers();
+    if (!customer) return;
+
+    const site = await repo.addCustomerLocation(customer.code, {
+      label: 'Tuas warehouse', address: '12 Tuas Ave 10',
+      doubleMountingPermitted: false, standbyUsual: true, isDefault: true,
+    }, 'Max Ng');
+
+    assert.equal(site.label, 'Tuas warehouse');
+    assert.equal(site.doubleMountingPermitted, false);
+    assert.equal(site.standbyUsual, true);
+    assert.equal(site.isDefault, true);
+
+    const all = await repo.listCustomerLocations(customer.code);
+    assert.equal(all.length, 1);
+  });
+
+  test(`[${name}] §9.3: one default per customer, so it is never ambiguous`, async () => {
+    const repo = await fresh();
+    const [customer] = await repo.listCustomers();
+    if (!customer) return;
+
+    await repo.addCustomerLocation(customer.code,
+      { label: 'First', address: '1 Tuas', isDefault: true }, 'tester');
+    await repo.addCustomerLocation(customer.code,
+      { label: 'Second', address: '2 Tuas', isDefault: true }, 'tester');
+
+    const defaults = (await repo.listCustomerLocations(customer.code)).filter((l) => l.isDefault);
+    assert.equal(defaults.length, 1, 'the second default replaces the first');
+    assert.equal(defaults[0]?.label, 'Second');
+  });
+
+  test(`[${name}] §9.3: a site with no address is refused`, async () => {
+    // A site nobody can be sent to, caught here rather than at seven in the
+    // morning.
+    const repo = await fresh();
+    const [customer] = await repo.listCustomers();
+    if (!customer) return;
+    await assert.rejects(
+      () => repo.addCustomerLocation(customer.code, { label: 'Somewhere' }, 'tester'),
+      /needs an address/);
+  });
+
+  test(`[${name}] §9.3: a site is deactivated, not deleted`, async () => {
+    // Old jobs point at it, and a job's history should still say where it went.
+    const repo = await fresh();
+    const [customer] = await repo.listCustomers();
+    if (!customer) return;
+
+    const site = await repo.addCustomerLocation(customer.code,
+      { label: 'Closed site', address: '9 Tuas' }, 'tester');
+    await repo.amendCustomerLocation(site.locationId, { active: false }, 'tester');
+
+    const all = await repo.listCustomerLocations(customer.code);
+    assert.equal(all.length, 1, 'still on the record');
+    assert.equal(all[0]?.active, false);
+  });
+
   test(`[${name}] §33: closing a job makes it read Completed`, async () => {
     // Completed was unreachable: the derivation passed closureSatisfied as a
     // hardcoded false, so a job finished in every respect stayed open forever

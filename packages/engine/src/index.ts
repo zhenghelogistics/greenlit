@@ -30,3 +30,4 @@ export { EXPORT_RULES, type ExportCtx } from './rules-export.ts';
 export * from './joining.ts';
 export * from './permits.ts';
 export * from './closure.ts';
+export * from './locations.ts';

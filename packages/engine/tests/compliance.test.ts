@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  defaultLocation, doubleMountingProblem, selectableLocations,
   freeTimeCountdown,
   appearsOnSchedule, canCollect, canCollectEmpty, canComplete, canCreateMovement,
   canEnterStandby, canStartLaden, canTransition, exportContainerStatus,
@@ -131,7 +132,18 @@ const RULES: Rule[] = [
       assert.equal(canStartLaden(exportJob(), blocked, true).passed, false);
     } },
   { id: '2.1-3', text: 'Double mounting only where every §19.1 constraint holds; hard rule',
-    gap: 'the §19.1 constraint validator is not implemented; the Movement type carries the fields but nothing checks them' },
+    verify: () => {
+      // The site flag is read now. It existed and nothing checked it, so a
+      // double mount could be planned into a site that cannot receive one —
+      // discovered by a driver, at the gate, with two containers on.
+      const site = (o = {}) => ({
+        locationId: 'l', customerCode: 'ABC', label: 'Jurong', address: '1 Jurong',
+        isDefault: false, doubleMountingPermitted: true, standbyUsual: false, active: true, ...o,
+      });
+      assert.equal(doubleMountingProblem(site(), site()), null);
+      assert.match(doubleMountingProblem(site(), site({ doubleMountingPermitted: false })) ?? '',
+        /cannot receive a double-mounted chassis/);
+    } },
   { id: '2.1-4', text: 'A double-mounted pair counts chassis_days once, not twice',
     verify: () => {
       const h = (containerId: string) => ({
@@ -259,7 +271,19 @@ const RULES: Rule[] = [
       assert.ok('temperatureMode' in c && 'temperatureSetpointC' in c);
     } },
   { id: '2.1-15', text: 'Stuffing locations are selected from the customer master, never typed',
-    gap: 'customer location master (§9.3) is not implemented; stuffingLocation is a free string' },
+    verify: () => {
+      // §9.3. The master exists and carries the two facts that decide how a
+      // job is planned, which free text never could.
+      const site = (o = {}) => ({
+        locationId: 'l', customerCode: 'ABC', label: 'Tuas', address: '12 Tuas Ave 10',
+        isDefault: false, doubleMountingPermitted: true, standbyUsual: false, active: true, ...o,
+      });
+      assert.equal(selectableLocations([site(), site({ active: false })]).length, 1,
+        'a closed site stays on the record and stops being offered');
+      assert.equal(defaultLocation([site({ isDefault: true, label: 'Jurong' })])?.label, 'Jurong');
+      assert.equal(defaultLocation([site({ locationId: 'a' }), site({ locationId: 'b' })]), null,
+        'several sites and no default means ask, not guess');
+    } },
   { id: '2.1-16', text: 'Standby is recorded, never inferred from timestamps',
     verify: () => {
       assert.equal(canEnterStandby(mv({ movementStatus: 'DELIVERED' })).allowed, false,
