@@ -610,6 +610,25 @@ export function createMemoryRepository(): Repository {
       record(userId, active ? 'user.reactivated' : 'user.deactivated', actor,
         { field: 'active', from: String(from), to: String(active) });
     },
+    async removePrincipal(userId, actor) {
+      const index = USERS.findIndex((u) => u.userId === userId);
+      if (index === -1) throw new Error(`Unknown user ${userId}`);
+
+      // The last administrator cannot be removed: there would be nobody left
+      // who could add one, and the directory would be permanently frozen.
+      const person = USERS[index]!;
+      if (person.role === 'ADMINISTRATOR'
+        && USERS.filter((u) => u.role === 'ADMINISTRATOR' && u.active).length <= 1) {
+        throw new Error('Refusing to remove the last administrator');
+      }
+
+      USERS.splice(index, 1);
+      // Recorded against the person who did the removing, because the removed
+      // row is precisely what no longer exists to attribute it to.
+      record(userId, 'user.removed', actor,
+        { field: 'displayName', from: person.displayName, to: null });
+    },
+
     async getPrincipalByEmail(email) {
       const wanted = email.trim().toLowerCase();
       return clone(USERS.find((u) => u.email?.toLowerCase() === wanted) ?? null);

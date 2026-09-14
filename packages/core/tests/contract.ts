@@ -310,6 +310,38 @@ export function runRepositoryContract(
     assert.deepEqual(ids(c), ids(a));
   });
 
+  test(`[${name}] §7.1: removing someone leaves the history that names them`, async () => {
+    // Deletion is safe because §13 stores the actor as text, not as a link to
+    // this row. I refused to build removal on the grounds that it would orphan
+    // the trail; the schema says otherwise, and this is the assertion that
+    // says so out loud.
+    const repo = await fresh();
+    const victim = await repo.ensurePrincipal('temp@zhenghe.com.sg', 'Temp Person', 'OPERATIONS');
+    await repo.removePrincipal(victim.userId, 'Max Ng');
+
+    assert.equal(await repo.getPrincipal(victim.userId), null);
+    assert.equal(await repo.getPrincipalByEmail('temp@zhenghe.com.sg'), null);
+
+    const trail = await repo.listAuditEvents(victim.userId);
+    assert.ok(trail.length > 0, 'the removal itself is recorded');
+    assert.equal(trail.at(-1)?.actor, 'Max Ng', 'attributed to whoever did it');
+  });
+
+  test(`[${name}] §7.1: the last administrator cannot be removed`, async () => {
+    // There would be nobody left who could add one, and the directory would
+    // be frozen for good.
+    const repo = await fresh();
+    const admins = (await repo.listPrincipals())
+      .filter((p) => p.role === 'ADMINISTRATOR' && p.active);
+    for (const admin of admins.slice(1)) await repo.removePrincipal(admin.userId, 'tester');
+
+    const last = (await repo.listPrincipals())
+      .find((p) => p.role === 'ADMINISTRATOR' && p.active);
+    if (!last) return;
+    await assert.rejects(() => repo.removePrincipal(last.userId, 'tester'),
+      /last administrator/);
+  });
+
   test(`[${name}] §7: first sign-in provisions a principal, later ones do not`, async () => {
     // Supabase knows a person exists and knows nothing about what they may do.
     // This runs on every sign-in, so only the first may create anything.

@@ -109,3 +109,42 @@ export async function PATCH(request: Request) {
     return jsonError(error);
   }
 }
+
+/**
+ * Remove someone from the directory.
+ *
+ * §13 is unaffected: the audit trail stores the actor as text, so every past
+ * change still names the person after their row is gone. Switching off is for
+ * someone who has left; removal is for a row that should not exist.
+ */
+export async function DELETE(request: Request) {
+  try {
+    const body = await readJson<{ userId?: string }>(request);
+    if (!body) return badRequest("A JSON body is required");
+
+    const auth = await authorize("user.manage");
+    if (!auth.ok) return auth.response;
+    if (!body.userId) return badRequest("userId is required");
+
+    // Removing yourself locks you out of the screen that could undo it.
+    const me = await currentPrincipal();
+    if (me?.userId === body.userId) {
+      return badRequest("You cannot remove your own account");
+    }
+
+    await getRepository().removePrincipal(body.userId, auth.displayName);
+    return Response.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unexpected error";
+    if (/^Unknown /.test(message)) return Response.json({ error: message }, { status: 404 });
+    // The last-administrator guard is the caller asking for something the
+    // directory cannot survive, not a server fault.
+    if (/last administrator/.test(message)) {
+      return Response.json({
+        error: "That is the only administrator left. Make someone else an "
+          + "administrator first, or there would be nobody who could.",
+      }, { status: 409 });
+    }
+    return jsonError(error);
+  }
+}

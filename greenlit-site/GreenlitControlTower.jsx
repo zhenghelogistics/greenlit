@@ -204,6 +204,26 @@ function People() {
     load();
   }
 
+  async function remove(user) {
+    // A removal that cannot be undone deserves the person's name in the
+    // question, not "are you sure".
+    if (!window.confirm(
+      `Remove ${user.displayName} from the directory?\n\n`
+      + `They will no longer be able to sign in. Anything they already did `
+      + `still shows their name in the job history.`
+    )) return;
+
+    setError("");
+    const response = await fetch("/api/users", {
+      method: "DELETE",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ userId: user.userId }),
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    if (!response?.ok) { setError(payload?.error ?? "Could not remove that person."); return; }
+    load();
+  }
+
   async function setActive(userId, active) {
     setError("");
     const response = await fetch("/api/users", {
@@ -282,13 +302,22 @@ function People() {
                 </td>
                 {state.canManage ? (
                   <td>
-                    <button
-                      type="button"
-                      onClick={() => setActive(user.userId, user.active === false)}
-                      className="min-h-11 cursor-pointer rounded-md px-2 text-[15px] font-semibold text-[color:var(--gl-accent)] underline underline-offset-4"
-                    >
-                      {user.active === false ? "Switch on" : "Switch off"}
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setActive(user.userId, user.active === false)}
+                        className="min-h-11 cursor-pointer rounded-md px-2 text-[15px] font-semibold text-[color:var(--gl-accent)] underline underline-offset-4"
+                      >
+                        {user.active === false ? "Switch on" : "Switch off"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => remove(user)}
+                        className="min-h-11 cursor-pointer rounded-md px-2 text-[15px] font-semibold text-[color:var(--gl-state-blocked-ink)] underline underline-offset-4"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </td>
                 ) : null}
               </tr>
@@ -302,11 +331,12 @@ function People() {
 
       {state.canManage ? (
         <p className="gl-caption mt-5 max-w-[70ch]">
-          Adding someone here lets the system know who they are. They also need a
-          Supabase account with the same address before they can sign in —
-          Authentication, Add user, and tick Auto Confirm. Switching someone off
-          keeps their history: §13 requires that every past change still names the
-          person who made it, so nobody is ever deleted.
+          People create their own accounts at the sign-in screen and arrive as
+          Operations; this is where you raise them. Switch someone off when they
+          have left but their jobs are still being closed out — they keep their
+          place in the list. Remove is for a row that should not exist at all.
+          Either way the job history still names them: §13 stores the name
+          itself, not a link to this list.
         </p>
       ) : null}
     </main>

@@ -156,6 +156,20 @@ export interface Repository {
    * because the one that slips through would be the one that matters.
    */
   changePrincipalAccess(userId: string, active: boolean, actor: string): Promise<void>;
+
+  /**
+   * §7.1. Remove someone from the directory outright.
+   *
+   * Safe because §13's audit trail stores the actor as text, not as a
+   * reference: every past change still names the person who made it after
+   * their row is gone. I previously refused to build this on the grounds that
+   * deletion would orphan the trail — it does not, and the schema says so.
+   *
+   * Switching off remains the right move for someone who has left but whose
+   * work is still being closed out; removal is for a row that should never
+   * have existed, which is most of what a seeded directory contains.
+   */
+  removePrincipal(userId: string, actor: string): Promise<void>;
   listPrincipals(): Promise<Principal[]>;
 
   listChassis(): Promise<Chassis[]>;

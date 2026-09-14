@@ -291,6 +291,23 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       await record(userId, active ? 'user.reactivated' : 'user.deactivated', actor,
         { field: 'active', from: String(before.active), to: String(active) });
     },
+    async removePrincipal(userId, actor) {
+      const person = await this.getPrincipal(userId);
+      if (!person) throw new Error(`Unknown user ${userId}`);
+
+      if (person.role === 'ADMINISTRATOR') {
+        const admins = (await this.listPrincipals())
+          .filter((p) => p.role === 'ADMINISTRATOR' && p.active);
+        if (admins.length <= 1) throw new Error('Refusing to remove the last administrator');
+      }
+
+      unwrap(await db.from('principals').delete()
+        .eq('user_id', userId).select().single(), 'remove principal');
+
+      await record(userId, 'user.removed', actor,
+        { field: 'displayName', from: person.displayName, to: null });
+    },
+
     async getPrincipalByEmail(email) {
       const r = await db.from('principals').select('*')
         .ilike('email', email.trim()).maybeSingle();
