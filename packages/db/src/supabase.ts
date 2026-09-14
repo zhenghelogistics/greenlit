@@ -1,3 +1,4 @@
+import { suggestedUserId, suggestedDisplayName } from '@greenlit/engine';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
   appendAmendment, nextJobReference, recordChassisChange, userEvent,
@@ -239,6 +240,34 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       if (r.error) throw new Error(`principal: ${r.error.message}`);
       return r.data ? toPrincipal(r.data) : null;
     },
+    async ensurePrincipal(email, displayName, role) {
+      const address = email.trim().toLowerCase();
+      const found = await this.getPrincipalByEmail(address);
+      if (found) return found;
+
+      // The username is derived and made unique here, because only the store
+      // can see what already exists. The loop terminates because each attempt
+      // is a distinct candidate and a taken one is a unique-violation, not a
+      // silent overwrite.
+      const base = suggestedUserId(address);
+      const taken = new Set((await this.listPrincipals()).map((p) => p.userId));
+      let userId = base;
+      for (let n = 2; taken.has(userId); n += 1) userId = `${base}${n}`;
+
+      const row = unwrap(await db.from('principals').insert({
+        user_id: userId,
+        display_name: displayName.trim() || suggestedDisplayName(address),
+        role,
+        email: address,
+        active: true,
+        extra_permissions: [],
+      }).select().single(), 'register principal') as Record<string, unknown>;
+
+      await record(userId, 'user.registered', row.display_name as string,
+        { field: 'role', from: null, to: role });
+      return toPrincipal(row);
+    },
+
     async upsertPrincipal(draft, actor) {
       const before = await this.getPrincipal(draft.userId);
       const row = unwrap(await db.from('principals').upsert({

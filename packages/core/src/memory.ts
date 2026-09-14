@@ -1,3 +1,4 @@
+import { suggestedUserId, suggestedDisplayName } from '@greenlit/engine';
 import {
   appendAmendment, applyChassisChange, nextJobReference, recordChassisChange,
   userEvent, validateContainerCount, validateCustomerDraft,
@@ -561,6 +562,32 @@ export function createMemoryRepository(): Repository {
     },
 
     async getPrincipal(userId) { return clone(USERS.find((u) => u.userId === userId) ?? null); },
+    async ensurePrincipal(email, displayName, role) {
+      const address = email.trim().toLowerCase();
+      const existing = USERS.find((u) => u.email?.toLowerCase() === address);
+      if (existing) return clone(existing);
+
+      // A username is derived rather than asked for, and made unique here
+      // because only this layer can see what already exists.
+      const base = suggestedUserId(address);
+      let userId = base;
+      for (let n = 2; USERS.some((u) => u.userId === userId); n += 1) {
+        userId = `${base}${n}`;
+      }
+
+      const created = {
+        userId,
+        displayName: displayName.trim() || suggestedDisplayName(address),
+        role: role as Principal['role'],
+        email: address,
+        active: true,
+      };
+      USERS.push(created);
+      record(userId, 'user.registered', created.displayName,
+        { field: 'role', from: null, to: role });
+      return clone(created);
+    },
+
     async upsertPrincipal(draft, actor) {
       const existing = USERS.find((u) => u.userId === draft.userId);
       const next = {

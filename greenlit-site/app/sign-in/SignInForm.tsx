@@ -78,8 +78,15 @@ export default function SignInForm() {
         </button>
       </form>
 
-      <p className="gl-caption mt-6">
-        Trouble signing in? An administrator can reset your password in Supabase.
+      <p className="gl-body-plain mt-6 text-[color:var(--gl-ink-muted)]">
+        First time here?{" "}
+        <a href="/sign-up" className="font-semibold text-[color:var(--gl-accent)] underline underline-offset-4">
+          Create your account
+        </a>
+      </p>
+
+      <p className="gl-caption mt-3">
+        Forgotten your password? An administrator can reset it.
       </p>
     </main>
   );

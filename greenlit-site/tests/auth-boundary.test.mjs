@@ -65,10 +65,30 @@ test("the browser never names the acting user", async () => {
   assert.doesNotMatch(source, /const CURRENT_USER\s*=/);
 });
 
-test("middleware gates everything except the door and the health check", async () => {
+test("middleware gates everything except the two doors and the health check", async () => {
+  // The list is asserted exactly rather than by length, so adding a public
+  // route is a deliberate edit to this test and not a silent one. Anything
+  // else public is a screen somebody forgot to check.
   const source = await readFile("middleware.ts", "utf8");
-  assert.match(source, /const PUBLIC = \["\/sign-in", "\/api\/health"\]/,
-    "anything else public is a screen somebody forgot to check");
+  assert.match(source, /const PUBLIC = \["\/sign-in", "\/sign-up", "\/api\/health"\]/);
   assert.match(source, /auth\.getUser\(\)/,
     "getUser revalidates; getSession would trust a cookie the browser handed us");
+});
+
+test("registration cannot choose its own role", async () => {
+  // The one thing self-service registration must not decide. A person who
+  // could pass a role to the provisioning call would be choosing it.
+  const auth = await readFile("lib/auth.ts", "utf8");
+  assert.match(auth, /ensurePrincipal\(email, name, joiningRole\(email\)\)/,
+    "the role must come from joiningRole, never from the session or the request");
+  assert.match(auth, /if \(!canJoin\(email\)\.ok\) return null;/,
+    "the domain is re-checked server-side on every sign-in, not only at registration");
+
+  // What the browser sends, not what the file mentions: an earlier version of
+  // this assertion matched role="alert" on an error message and the word in a
+  // comment, which would have failed on correct code and passed on a rename.
+  const form = await readFile("app/sign-up/SignUpForm.tsx", "utf8");
+  const payload = form.slice(form.indexOf("auth.signUp("), form.indexOf("setBusy(false)"));
+  assert.doesNotMatch(payload, /\brole\b/,
+    "the registration request must not carry a role for the server to trust");
 });

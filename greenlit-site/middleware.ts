@@ -12,7 +12,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * staff, and what they may do, is the directory's answer and is settled
  * server-side on every command.
  */
-const PUBLIC = ["/sign-in", "/api/health"];
+const PUBLIC = ["/sign-in", "/sign-up", "/api/health"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

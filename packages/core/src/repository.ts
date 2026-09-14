@@ -128,6 +128,24 @@ export interface Repository {
    * change still names the person who made it. A deleted principal would
    * orphan their own audit trail.
    */
+  /**
+   * §7. The principal for someone who has just registered, creating it if this
+   * is their first sign-in.
+   *
+   * Registration happens in Supabase, which knows nothing about roles. This is
+   * where an authenticated stranger becomes a named member of staff — once,
+   * idempotently, because it runs on every sign-in and only the first one may
+   * create anything.
+   *
+   * The role is decided by joiningRole and is never taken from the caller: a
+   * person who could pass their own role to this would be choosing it.
+   */
+  ensurePrincipal(
+    email: string,
+    displayName: string,
+    role: string,
+  ): Promise<Principal>;
+
   upsertPrincipal(draft: PrincipalDraft, actor: string): Promise<Principal>;
   /**
    * Switch an account off, or back on.

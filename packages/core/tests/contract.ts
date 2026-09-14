@@ -310,6 +310,39 @@ export function runRepositoryContract(
     assert.deepEqual(ids(c), ids(a));
   });
 
+  test(`[${name}] §7: first sign-in provisions a principal, later ones do not`, async () => {
+    // Supabase knows a person exists and knows nothing about what they may do.
+    // This runs on every sign-in, so only the first may create anything.
+    const repo = await fresh();
+    const first = await repo.ensurePrincipal('aaron@zhenghe.com.sg', 'Aaron Tan', 'OPERATIONS');
+    assert.equal(first.displayName, 'Aaron Tan');
+    assert.equal(first.role, 'OPERATIONS');
+    assert.equal(first.active, true);
+
+    const second = await repo.ensurePrincipal('aaron@zhenghe.com.sg', 'Someone Else', 'ADMINISTRATOR');
+    assert.equal(second.userId, first.userId, 'signing in again must not create a second person');
+    assert.equal(second.role, 'OPERATIONS',
+      'a later sign-in must never raise a role — that is an administrator\'s act');
+    assert.equal(second.displayName, 'Aaron Tan');
+  });
+
+  test(`[${name}] §7: a registered person is found by the address they signed up with`, async () => {
+    const repo = await fresh();
+    await repo.ensurePrincipal('siti@zhenghe.com.sg', 'Siti Rahman', 'OPERATIONS');
+    const found = await repo.getPrincipalByEmail('Siti@ZhengHe.com.sg');
+    assert.equal(found?.displayName, 'Siti Rahman', 'case is not identity');
+  });
+
+  test(`[${name}] §7: two people whose addresses suggest one username both get one`, async () => {
+    // Derived usernames collide. A collision that overwrote the first person
+    // would hand their audit trail to the second.
+    const repo = await fresh();
+    const a = await repo.ensurePrincipal('sarah@zhenghe.com.sg', 'Sarah Lim', 'OPERATIONS');
+    const b = await repo.ensurePrincipal('sarah@zhenghe.com.sg.', 'Sarah Other', 'OPERATIONS');
+    assert.notEqual(a.userId, b.userId);
+    assert.equal((await repo.getPrincipalByEmail('sarah@zhenghe.com.sg'))?.displayName, 'Sarah Lim');
+  });
+
   test(`[${name}] §34: confirming free time keeps only the model's own figures`, async () => {
     // The one §34 value a person supplies. Storing all six would keep the
     // contradiction §34.3 exists to prevent — a combined carrier with split

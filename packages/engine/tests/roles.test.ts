@@ -4,6 +4,7 @@ import {
   can, canAssignRole, requirePermission, validateOverride,
   MINIMUM_OVERRIDE_REASON_LENGTH, type Principal,
 } from '../src/roles.ts';
+import { canJoin, joiningRole, suggestedUserId, suggestedDisplayName } from '../src/joining.ts';
 
 const who = (role: Principal['role'], o: Partial<Principal> = {}): Principal => ({
   userId: 'u1', displayName: 'Sarah Lim', role, email: 'sarah@zhenghe.com.sg', active: true, ...o,
@@ -163,4 +164,39 @@ test('§7: master data stays with the administrator', () => {
     assert.equal(can(who('MANAGEMENT'), permission).allowed, false);
     assert.equal(can(who('ADMINISTRATOR'), permission).allowed, true);
   }
+});
+
+/**
+ * §7. Registration is self-service; the role is not.
+ */
+test('§7: only company addresses may register', () => {
+  // A signed-in person can see every job, customer and container. There is no
+  // approval step behind registration, so the domain is the gate.
+  assert.equal(canJoin('sarah@zhenghe.com.sg').ok, true);
+  assert.equal(canJoin('SARAH@ZhengHe.com.sg').ok, true, 'case is not identity');
+  assert.equal(canJoin('sarah@gmail.com').ok, false);
+  assert.equal(canJoin('sarah@zhenghe.com.sg.attacker.com').ok, false,
+    'a domain that merely contains ours is not ours');
+  assert.equal(canJoin('not-an-address').ok, false);
+  assert.match(canJoin('sarah@gmail.com').reason ?? '', /work address/);
+});
+
+test('§7: everyone joins as operations except the founding administrator', () => {
+  // Somebody has to be able to promote the first person, and that cannot
+  // itself require a promotion.
+  assert.equal(joiningRole('max-ng@zhenghe.com.sg'), 'ADMINISTRATOR');
+  assert.equal(joiningRole('MAX-NG@zhenghe.com.sg'), 'ADMINISTRATOR');
+  assert.equal(joiningRole('sarah@zhenghe.com.sg'), 'OPERATIONS');
+  assert.equal(joiningRole('mei@zhenghe.com.sg'), 'OPERATIONS',
+    'management is granted by an administrator, never claimed at registration');
+});
+
+test('§7: a username and a name are derived so nobody invents one', () => {
+  assert.equal(suggestedUserId('max-ng@zhenghe.com.sg'), 'max-ng');
+  assert.equal(suggestedUserId('sarah.lim@zhenghe.com.sg'), 'sarah.lim');
+  assert.equal(suggestedDisplayName('sarah.lim@zhenghe.com.sg'), 'Sarah Lim');
+  assert.equal(suggestedDisplayName('max-ng@zhenghe.com.sg'), 'Max Ng');
+  // §13 puts the display name on every change, so it can never be empty.
+  assert.ok(suggestedDisplayName('x@zhenghe.com.sg').length > 0);
+  assert.ok(suggestedUserId('!!!@zhenghe.com.sg').length > 0);
 });

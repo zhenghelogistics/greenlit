@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { getRepository } from "./greenlit";
-import type { Principal } from "@greenlit/engine";
+import { canJoin, joiningRole, suggestedDisplayName, type Principal } from "@greenlit/engine";
 
 /**
  * §7 and §13. Who is acting, established rather than claimed.
@@ -48,11 +48,16 @@ export async function serverAuthClient() {
 /**
  * The signed-in principal, or null.
  *
- * Two ways to be null, and they mean different things: nobody is signed in, or
- * somebody is signed in whose address is not in the directory. The second is
- * an account that exists in Supabase but is not staff here, and it must read
- * as "not one of ours" rather than as an error — otherwise adding a person to
- * Supabase would silently grant them a controller's powers.
+ * Someone signing in for the first time is provisioned here, because Supabase
+ * knows that they exist and knows nothing about what they may do. Their role
+ * comes from joiningRole — never from the session, the request, or anything
+ * else the person controls. Everyone lands on OPERATIONS; an administrator
+ * raises them afterwards.
+ *
+ * Null means nobody is signed in, or the address is not a company one, or the
+ * account has been switched off. All three read the same way from outside: an
+ * outsider learning which of them applies is an outsider learning who works
+ * here.
  */
 export async function currentPrincipal(): Promise<Principal | null> {
   const client = await serverAuthClient();
@@ -61,8 +66,20 @@ export async function currentPrincipal(): Promise<Principal | null> {
   const { data, error } = await client.auth.getUser();
   if (error || !data.user?.email) return null;
 
-  const principal = await getRepository().getPrincipalByEmail(data.user.email);
-  return principal?.active ? principal : null;
+  const email = data.user.email;
+  // Re-checked on every sign-in rather than only at registration: an address
+  // that stops being a company one must stop being able to read the book.
+  if (!canJoin(email).ok) return null;
+
+  const existing = await getRepository().getPrincipalByEmail(email);
+  if (existing) return existing.active ? existing : null;
+
+  // First sign-in. The name they gave at registration is on the auth record.
+  const name = typeof data.user.user_metadata?.display_name === "string"
+    ? data.user.user_metadata.display_name
+    : suggestedDisplayName(email);
+
+  return getRepository().ensurePrincipal(email, name, joiningRole(email));
 }
 
 /** Whether sign-in is configured at all. Without it the app cannot be used. */
