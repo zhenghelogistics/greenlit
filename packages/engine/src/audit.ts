@@ -1,3 +1,4 @@
+import type { Role } from './roles.ts';
 import type { AuditSource } from './enums.ts';
 
 /**
@@ -76,7 +77,7 @@ export function isCriticalAuditEvent(event: string): boolean {
 /** §13. Standard users may never delete or edit a critical event. */
 export function canModifyAuditEvent(
   event: AuditEvent,
-  actorRole: 'ADMINISTRATOR' | 'CONTROLLER' | 'MANAGER',
+  actorRole: Role,
 ): { allowed: boolean; reason: string | null } {
   if (isCriticalAuditEvent(event.event)) {
     return { allowed: false, reason: `${event.event} is a critical audit event and cannot be modified` };

@@ -305,7 +305,7 @@ const RULES: Rule[] = [
     verify: () => {
       const admin = { userId: 'u', displayName: 'John Tan', role: 'ADMINISTRATOR' as const,
         email: 'john@zhenghe.com.sg', active: true };
-      const controller = { ...admin, role: 'CONTROLLER' as const };
+      const controller = { ...admin, role: 'OPERATIONS' as const };
 
       // Who: only a principal holding gate.override.
       assert.equal(can(controller, 'gate.override').allowed, false);
@@ -344,11 +344,11 @@ const RULES: Rule[] = [
       const at = '2026-09-01T00:00:00Z';
       const override = userEvent({ event: 'gate.overridden', entityType: 'job', entityId: 'j' }, 'John Tan', at);
       assert.equal(isCriticalAuditEvent('gate.overridden'), true);
-      assert.equal(canModifyAuditEvent(override, 'CONTROLLER').allowed, false);
+      assert.equal(canModifyAuditEvent(override, 'OPERATIONS').allowed, false);
       assert.equal(canModifyAuditEvent(override, 'ADMINISTRATOR').allowed, false,
         'a critical event is immutable even to an administrator');
       const ordinary = userEvent({ event: 'movement.scheduled', entityType: 'movement', entityId: 'm' }, 'W', at);
-      assert.equal(canModifyAuditEvent(ordinary, 'CONTROLLER').allowed, false,
+      assert.equal(canModifyAuditEvent(ordinary, 'OPERATIONS').allowed, false,
         'standard users may not edit any audit event');
     } },
   { id: 'P-9', text: 'System-generated audit entries name the rule that produced them',

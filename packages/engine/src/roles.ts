@@ -1,13 +1,26 @@
 /**
  * §7. User roles.
  *
- * Three roles. §14.1: "Server-side permission validation. Never rely solely on
- * frontend checks." So this module answers the question, and the answer is
- * used by the server — the interface may hide a control, but hiding it is a
- * courtesy, not the enforcement.
+ * Two roles do the business's work, and one exists for whoever maintains the
+ * system. §14.1: "Server-side permission validation. Never rely solely on
+ * frontend checks." So this module answers the question and the server uses
+ * the answer — the interface may hide a control, but hiding it is a courtesy,
+ * not the enforcement.
+ *
+ * OPERATIONS runs the book: create a job, work it, amend it while it is
+ * running, close it when it is done.
+ *
+ * MANAGEMENT is everything operations can do and one thing more: reopening a
+ * job that has been closed. That is the line, and it is drawn there because
+ * closing is what makes a job billable. Amending a running job changes what
+ * will be invoiced; amending a closed one changes what already has been, and
+ * those are different acts however similar the screen looks.
+ *
+ * The previous model had three roles and had MANAGER read-only, so a manager
+ * could not create a job or close one — which is not what a manager does.
  */
 
-export const ROLE = ['ADMINISTRATOR', 'CONTROLLER', 'MANAGER'] as const;
+export const ROLE = ['ADMINISTRATOR', 'MANAGEMENT', 'OPERATIONS'] as const;
 export type Role = (typeof ROLE)[number];
 
 /**
@@ -40,8 +53,8 @@ const READ_ONLY: readonly Permission[] = [
   'dashboard.view', 'tracker.view', 'queue.view', 'report.export',
 ];
 
-/** §7.2. Controllers do the operational work. */
-const CONTROLLER_PERMISSIONS: readonly Permission[] = [
+/** §7.2. Operations runs the book, start to close. */
+const OPERATIONS_PERMISSIONS: readonly Permission[] = [
   ...READ_ONLY,
   'job.create', 'job.edit', 'job.close',
   'document.upload', 'extraction.review',
@@ -54,16 +67,31 @@ const CONTROLLER_PERMISSIONS: readonly Permission[] = [
 ];
 
 /**
- * §7.3. "Primarily read-only." An optional permission may allow managers to
- * override blocked jobs, which is why override is grantable rather than fixed.
+ * §7.3. Everything operations can do, plus the departures from the rules.
+ *
+ * job.reopen is the one that matters. A closed job has been billed, so
+ * reopening it is a commercial act rather than an operational one, and it is
+ * the reason this role exists as something other than a job title.
+ *
+ * The overrides sit here for the same reason: gate.override releases a
+ * container the rules say is not releasable, and status.override asserts a
+ * status the evidence does not support. Both are legitimate and both should
+ * cost a conversation.
  */
-const MANAGER_PERMISSIONS: readonly Permission[] = [...READ_ONLY, 'audit.view'];
+const MANAGEMENT_PERMISSIONS: readonly Permission[] = [
+  ...OPERATIONS_PERMISSIONS,
+  'audit.view',
+  'job.reopen',
+  'gate.override',
+  'status.override',
+];
 
 const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
-  // §7.1. Administrators may do anything, including override any gate.
+  // §7.1. Administrators may do anything. Held by whoever maintains the
+  // system rather than by anyone running the book.
   ADMINISTRATOR: PERMISSION,
-  CONTROLLER: CONTROLLER_PERMISSIONS,
-  MANAGER: MANAGER_PERMISSIONS,
+  MANAGEMENT: MANAGEMENT_PERMISSIONS,
+  OPERATIONS: OPERATIONS_PERMISSIONS,
 };
 
 export interface Principal {
@@ -110,9 +138,41 @@ export function can(principal: Principal | null, permission: Permission): Author
 
   return {
     allowed: false,
-    reason: `A ${principal.role.toLowerCase()} may not ${permission.replace('.', ' ')}`,
+    reason: `${ROLE_LABEL[principal.role]} may not ${PERMISSION_LABEL[permission] ?? permission}`,
   };
 }
+
+/**
+ * How a role reads in a sentence.
+ *
+ * The message used to be built as `A ${role.toLowerCase()}`, which read fine
+ * for "a controller" and produced "A management may not masterData manage"
+ * the moment the roles were renamed. A refusal a person cannot parse is a
+ * refusal they will escalate.
+ */
+const ROLE_LABEL: Record<Role, string> = {
+  ADMINISTRATOR: 'An administrator',
+  MANAGEMENT: 'Management',
+  OPERATIONS: 'Operations',
+};
+
+/**
+ * What a permission means, for the person being refused.
+ *
+ * Only the ones a person actually hits. Anything unlisted falls back to its
+ * own name, which is ugly but honest — better than a wrong friendly label.
+ */
+const PERMISSION_LABEL: Partial<Record<Permission, string>> = {
+  'job.reopen': 'reopen a completed job — ask management, since reopening changes what has been billed',
+  'gate.override': 'override a blocked gate',
+  'status.override': 'set a status the evidence does not support',
+  'masterData.manage': 'change companies or master data',
+  'user.manage': 'manage users',
+  'thresholds.configure': 'change the configured thresholds',
+  'job.close': 'complete a job',
+  'job.edit': 'amend a job',
+  'job.create': 'create a job',
+};
 
 /** Throwing form, for use at a command boundary where a refusal is an error. */
 export function requirePermission(principal: Principal | null, permission: Permission): void {

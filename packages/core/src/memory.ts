@@ -81,15 +81,15 @@ const CUSTOMERS: Customer[] = [
 ];
 
 const USERS: Principal[] = [
-  { userId: 'sarah', displayName: 'Sarah Lim', role: 'CONTROLLER', email: 'sarah@zhenghe.com.sg', active: true },
-  { userId: 'winnie', displayName: 'Winnie Ong', role: 'CONTROLLER', email: 'winnie@zhenghe.com.sg', active: true },
-  { userId: 'brandon', displayName: 'Brandon Lee', role: 'CONTROLLER', email: 'brandon@zhenghe.com.sg', active: true },
+  { userId: 'sarah', displayName: 'Sarah Lim', role: 'OPERATIONS', email: 'sarah@zhenghe.com.sg', active: true },
+  { userId: 'winnie', displayName: 'Winnie Ong', role: 'OPERATIONS', email: 'winnie@zhenghe.com.sg', active: true },
+  { userId: 'brandon', displayName: 'Brandon Lee', role: 'OPERATIONS', email: 'brandon@zhenghe.com.sg', active: true },
   { userId: 'john', displayName: 'John Tan', role: 'ADMINISTRATOR', email: 'john@zhenghe.com.sg', active: true },
-  { userId: 'mei', displayName: 'Mei Chen', role: 'MANAGER', email: 'mei@zhenghe.com.sg', active: true },
+  { userId: 'mei', displayName: 'Mei Chen', role: 'MANAGEMENT', email: 'mei@zhenghe.com.sg', active: true },
   // §7.3: override is grantable to a manager as a narrow extra permission.
-  { userId: 'raymond', displayName: 'Raymond Koh', role: 'MANAGER', email: 'raymond@zhenghe.com.sg', active: true,
+  { userId: 'raymond', displayName: 'Raymond Koh', role: 'MANAGEMENT', email: 'raymond@zhenghe.com.sg', active: true,
     extraPermissions: ['gate.override'] },
-  { userId: 'former', displayName: 'Former Staff', role: 'CONTROLLER', email: 'former@zhenghe.com.sg', active: false },
+  { userId: 'former', displayName: 'Former Staff', role: 'OPERATIONS', email: 'former@zhenghe.com.sg', active: false },
 ];
 
 function buildFleetRegister(): Chassis[] {

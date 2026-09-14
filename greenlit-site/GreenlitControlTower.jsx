@@ -168,7 +168,7 @@ function ActingUser() {
   if (!user) return null;
 
   const role = user.role === "ADMINISTRATOR" ? "Admin"
-    : user.role === "MANAGER" ? "Manager" : "Controller";
+    : user.role === "MANAGEMENT" ? "Manager" : "Controller";
 
   return (
     <div className="flex shrink-0 items-center gap-2 text-[15px] text-white/90">

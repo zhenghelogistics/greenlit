@@ -60,14 +60,14 @@ test('§13: critical events cannot be modified, by anyone', () => {
   assert.equal(isCriticalAuditEvent(override.event), true);
   assert.equal(canModifyAuditEvent(override, 'ADMINISTRATOR').allowed, false,
     'not even an administrator may edit an override record');
-  assert.equal(canModifyAuditEvent(override, 'CONTROLLER').allowed, false);
+  assert.equal(canModifyAuditEvent(override, 'OPERATIONS').allowed, false);
 });
 
 test('§13: standard users cannot modify even non-critical events', () => {
   const ordinary = userEvent(
     { event: 'movement.scheduled', entityType: 'movement', entityId: 'm1' }, 'Winnie', AT);
-  assert.equal(canModifyAuditEvent(ordinary, 'CONTROLLER').allowed, false);
-  assert.equal(canModifyAuditEvent(ordinary, 'MANAGER').allowed, false);
+  assert.equal(canModifyAuditEvent(ordinary, 'OPERATIONS').allowed, false);
+  assert.equal(canModifyAuditEvent(ordinary, 'MANAGEMENT').allowed, false);
   assert.equal(canModifyAuditEvent(ordinary, 'ADMINISTRATOR').allowed, true);
 });
 
