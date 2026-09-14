@@ -153,6 +153,248 @@ function LastUpdated({ at, stale }) {
   return <span role="status" className="hidden whitespace-nowrap text-[15px] text-white/90 sm:inline">{label}</span>;
 }
 
+/**
+ * §7.1. The directory, and who may change it.
+ *
+ * An administrator adds people and sets what each of them may do. Nobody sets
+ * their own: signing in proves who you are, and what that means is written by
+ * somebody else. A person who can choose their own role has no role.
+ *
+ * Everyone else sees the list read-only, because knowing who covers which
+ * shift is ordinary and useful, while addresses and who is switched off are
+ * not.
+ */
+const ROLE_LABELS = {
+  OPERATIONS: "Operations",
+  MANAGEMENT: "Management",
+  ADMINISTRATOR: "Administrator",
+};
+
+const ROLE_MEANS = {
+  OPERATIONS: "Runs jobs start to finish — create, amend, complete.",
+  MANAGEMENT: "Everything operations does, plus reopening a completed job.",
+  ADMINISTRATOR: "All of that, plus companies, users and settings.",
+};
+
+function People() {
+  const [state, setState] = useState({ status: "loading", users: [], canManage: false });
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = React.useCallback(() => {
+    fetch("/api/users")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => setState({ status: "ready", users: d.users ?? [], canManage: Boolean(d.canManage) }))
+      .catch(() => setState({ status: "error", users: [], canManage: false }));
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function change(userId, patch) {
+    setError("");
+    const user = state.users.find((u) => u.userId === userId);
+    const response = await fetch("/api/users", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...user, ...patch }),
+    }).catch(() => null);
+
+    const payload = await response?.json().catch(() => ({}));
+    if (!response?.ok) { setError(payload?.error ?? "Could not save that change."); return; }
+    load();
+  }
+
+  async function setActive(userId, active) {
+    setError("");
+    const response = await fetch("/api/users", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ userId, active }),
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    if (!response?.ok) { setError(payload?.error ?? "Could not change that account."); return; }
+    load();
+  }
+
+  return (
+    <main id="main-content" className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8">
+      <div className="flex flex-wrap items-end justify-between gap-4 pb-2">
+        <div>
+          <h1 className="gl-display">People</h1>
+          <p className="gl-body-plain mt-1 text-[color:var(--gl-ink-muted)]">
+            {state.canManage
+              ? "Who can sign in, and what each of them may do."
+              : "Who covers which shift. Only an administrator can change this."}
+          </p>
+        </div>
+        {state.canManage && !adding ? (
+          <button type="button" onClick={() => setAdding(true)}
+            className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white hover:bg-[color:var(--gl-accent-hover)]">
+            Add someone
+          </button>
+        ) : null}
+      </div>
+
+      {error ? (
+        <p role="alert" className="gl-body-plain mt-4 rounded-md border border-rose-300 bg-rose-50 p-3 text-[color:var(--gl-state-blocked-ink)]">
+          {error}
+        </p>
+      ) : null}
+
+      {adding ? <AddPerson onDone={() => { setAdding(false); load(); }} onCancel={() => setAdding(false)} /> : null}
+
+      <section className="gl-panel mt-5 overflow-hidden">
+        <table className="gl-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Signs in with</th>
+              <th>Role</th>
+              {state.canManage ? <th>Account</th> : null}
+            </tr>
+          </thead>
+          <tbody>
+            {state.users.map((user) => (
+              <tr key={user.userId} style={user.active === false ? { opacity: 0.55 } : undefined}>
+                <td>
+                  <div className="gl-body" style={{ fontWeight: 500 }}>{user.displayName}</div>
+                  <div className="gl-caption">{user.userId}</div>
+                </td>
+                <td className="gl-body gl-muted">{user.email || "No account yet"}</td>
+                <td>
+                  {state.canManage ? (
+                    <label>
+                      <span className="sr-only">Role for {user.displayName}</span>
+                      <select
+                        value={user.role}
+                        onChange={(event) => change(user.userId, { role: event.target.value })}
+                        className="min-h-11 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-2 text-[17px] text-[color:var(--gl-ink)]"
+                      >
+                        {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : (
+                    <span className="gl-body">{ROLE_LABELS[user.role] ?? user.role}</span>
+                  )}
+                  <div className="gl-caption mt-1 max-w-[42ch]">{ROLE_MEANS[user.role]}</div>
+                </td>
+                {state.canManage ? (
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() => setActive(user.userId, user.active === false)}
+                      className="min-h-11 cursor-pointer rounded-md px-2 text-[15px] font-semibold text-[color:var(--gl-accent)] underline underline-offset-4"
+                    >
+                      {user.active === false ? "Switch on" : "Switch off"}
+                    </button>
+                  </td>
+                ) : null}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {state.status === "ready" && !state.users.length ? (
+          <p className="gl-body p-6">Nobody in the directory yet.</p>
+        ) : null}
+      </section>
+
+      {state.canManage ? (
+        <p className="gl-caption mt-5 max-w-[70ch]">
+          Adding someone here lets the system know who they are. They also need a
+          Supabase account with the same address before they can sign in —
+          Authentication, Add user, and tick Auto Confirm. Switching someone off
+          keeps their history: §13 requires that every past change still names the
+          person who made it, so nobody is ever deleted.
+        </p>
+      ) : null}
+    </main>
+  );
+}
+
+/** Adding a person. The role is chosen here, by an administrator, once. */
+function AddPerson({ onDone, onCancel }) {
+  const [form, setForm] = useState({ displayName: "", email: "", userId: "", role: "OPERATIONS" });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const set = (key) => (event) => setForm((f) => ({ ...f, [key]: event.target.value }));
+
+  async function submit(event) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    const response = await fetch("/api/users", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(form),
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    setSaving(false);
+    if (!response?.ok) { setError(payload?.error ?? "Could not add that person."); return; }
+    onDone();
+  }
+
+  return (
+    <form onSubmit={submit} className="gl-panel mt-5 p-6">
+      <div className="grid gap-5 md:grid-cols-2">
+        <label className="grid gap-2">
+          <span className="gl-label">Name</span>
+          <input required value={form.displayName} onChange={set("displayName")}
+            placeholder="Winnie Ong"
+            className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-3 text-[17px]" />
+          <span className="gl-caption">Goes on every change they make.</span>
+        </label>
+
+        <label className="grid gap-2">
+          <span className="gl-label">Email</span>
+          <input type="email" value={form.email} onChange={set("email")}
+            placeholder="winnie@zhenghe.com.sg"
+            className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-3 text-[17px]" />
+          <span className="gl-caption">What they sign in with. Must match their Supabase account.</span>
+        </label>
+
+        <label className="grid gap-2">
+          <span className="gl-label">Username</span>
+          <input required value={form.userId} onChange={set("userId")}
+            placeholder="winnie" pattern="[a-z0-9][a-z0-9._-]{1,30}"
+            className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-3 text-[17px]" />
+          <span className="gl-caption">Short, lower-case. Cannot be changed later.</span>
+        </label>
+
+        <label className="grid gap-2">
+          <span className="gl-label">Role</span>
+          <select value={form.role} onChange={set("role")}
+            className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-3 text-[17px]">
+            {Object.entries(ROLE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+          <span className="gl-caption">{ROLE_MEANS[form.role]}</span>
+        </label>
+      </div>
+
+      {error ? (
+        <p role="alert" className="gl-body-plain mt-4 rounded-md border border-rose-300 bg-rose-50 p-3 text-[color:var(--gl-state-blocked-ink)]">
+          {error}
+        </p>
+      ) : null}
+
+      <div className="mt-6 flex flex-wrap gap-3">
+        <button type="submit" disabled={saving}
+          className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white disabled:opacity-60">
+          {saving ? "Adding…" : "Add to the directory"}
+        </button>
+        <button type="button" onClick={onCancel}
+          className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-5 text-[17px] text-[color:var(--gl-ink)]">
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function ActingUser() {
   const [user, setUser] = useState(null);
 
@@ -3863,6 +4105,7 @@ export default function GreenlitControlTower() {
     { id: "documents", label: "Document Intake", count: documents.length, icon: FileSearch },
     { id: "companies", label: "Companies", count: null, icon: Building2 },
     { id: "fleet", label: "Chassis Fleet", count: fleet.available.length, icon: Truck },
+    { id: "people", label: "People", count: null, icon: UserRound },
   ];
 
   return (
@@ -3985,6 +4228,7 @@ export default function GreenlitControlTower() {
       {screen === "dashboard" && source === "engine" ? <Dashboard jobs={jobs} actionJobs={actionJobs} chassis={fleet} onOpen={openJob} onShowActions={showActions} onShowFleet={() => goTo("fleet")} /> : null}
       {screen === "actions" && source === "engine" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}
       {screen === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onOpenJob={openJob} /> : null}
+      {screen === "people" ? <People /> : null}
       {screen === "companies" ? (
         <Companies onOpenCompany={(code) => { setSelectedCompany(code); setScreen("company"); }} />
       ) : null}

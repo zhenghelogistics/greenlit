@@ -561,6 +561,28 @@ export function createMemoryRepository(): Repository {
     },
 
     async getPrincipal(userId) { return clone(USERS.find((u) => u.userId === userId) ?? null); },
+    async upsertPrincipal(draft, actor) {
+      const existing = USERS.find((u) => u.userId === draft.userId);
+      const next = {
+        userId: draft.userId,
+        displayName: draft.displayName,
+        role: draft.role as Principal['role'],
+        email: draft.email ?? null,
+        active: existing?.active ?? true,
+      };
+      if (existing) Object.assign(existing, next); else USERS.push(next);
+      record(draft.userId, existing ? 'user.updated' : 'user.created', actor,
+        { field: 'role', from: existing?.role ?? null, to: draft.role });
+      return clone(next);
+    },
+    async changePrincipalAccess(userId, active, actor) {
+      const user = USERS.find((u) => u.userId === userId);
+      if (!user) throw new Error(`Unknown user ${userId}`);
+      const from = user.active;
+      user.active = active;
+      record(userId, active ? 'user.reactivated' : 'user.deactivated', actor,
+        { field: 'active', from: String(from), to: String(active) });
+    },
     async getPrincipalByEmail(email) {
       const wanted = email.trim().toLowerCase();
       return clone(USERS.find((u) => u.email?.toLowerCase() === wanted) ?? null);

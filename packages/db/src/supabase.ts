@@ -239,6 +239,29 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       if (r.error) throw new Error(`principal: ${r.error.message}`);
       return r.data ? toPrincipal(r.data) : null;
     },
+    async upsertPrincipal(draft, actor) {
+      const before = await this.getPrincipal(draft.userId);
+      const row = unwrap(await db.from('principals').upsert({
+        user_id: draft.userId,
+        display_name: draft.displayName,
+        role: draft.role,
+        email: draft.email ?? null,
+        active: before?.active ?? true,
+        extra_permissions: before?.extraPermissions ?? [],
+      }, { onConflict: 'user_id' }).select().single(), 'upsert principal') as Record<string, unknown>;
+
+      await record(draft.userId, before ? 'user.updated' : 'user.created', actor,
+        { field: 'role', from: before?.role ?? null, to: draft.role });
+      return toPrincipal(row);
+    },
+    async changePrincipalAccess(userId, active, actor) {
+      const before = await this.getPrincipal(userId);
+      if (!before) throw new Error(`Unknown user ${userId}`);
+      unwrap(await db.from('principals').update({ active })
+        .eq('user_id', userId).select().single(), 'set principal active');
+      await record(userId, active ? 'user.reactivated' : 'user.deactivated', actor,
+        { field: 'active', from: String(before.active), to: String(active) });
+    },
     async getPrincipalByEmail(email) {
       const r = await db.from('principals').select('*')
         .ilike('email', email.trim()).maybeSingle();

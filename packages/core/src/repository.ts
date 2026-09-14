@@ -116,6 +116,28 @@ export interface Repository {
    * and that has to read as "not one of ours" rather than as an error.
    */
   getPrincipalByEmail(email: string): Promise<Principal | null>;
+
+  /**
+   * §7.1. Add someone to the directory, or change what they may do.
+   *
+   * An administrator's job, and deliberately not a self-service one: a person
+   * who can choose their own role has no role. Signing in proves who you are;
+   * the directory decides what that means, and somebody else writes it.
+   *
+   * Deactivating rather than deleting, because §13 requires that every past
+   * change still names the person who made it. A deleted principal would
+   * orphan their own audit trail.
+   */
+  upsertPrincipal(draft: PrincipalDraft, actor: string): Promise<Principal>;
+  /**
+   * Switch an account off, or back on.
+   *
+   * Not named setPrincipalActive: §54's guard forbids any port method shaped
+   * like a setter, so that derived values cannot be written. The rule is
+   * deliberately blunt — it does not try to judge which setter is innocent,
+   * because the one that slips through would be the one that matters.
+   */
+  changePrincipalAccess(userId: string, active: boolean, actor: string): Promise<void>;
   listPrincipals(): Promise<Principal[]>;
 
   listChassis(): Promise<Chassis[]>;
@@ -194,6 +216,15 @@ export interface DateAmendmentInput {
  * Only the identity: everything else about a container is either derived or
  * recorded later by a person against a named event.
  */
+/** §7.1. A person in the directory. */
+export interface PrincipalDraft {
+  userId: string;
+  displayName: string;
+  role: string;
+  /** What they sign in with. Null for someone named before they have an account. */
+  email?: string | null;
+}
+
 /** §34. What a carrier gives, as a person confirms it. */
 export interface FreeTimeTerms {
   /** SPLIT, COMBINED, or NOT_CONFIRMED to put it back to unknown. */
