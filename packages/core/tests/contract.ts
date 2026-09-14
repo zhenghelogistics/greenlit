@@ -381,7 +381,9 @@ export function runRepositoryContract(
     }, 'Max Ng');
 
     assert.match(movement.movementRef, /^MOV-\d{3}$/);
-    assert.equal(movement.movementStatus, 'PLANNED');
+    // PENDING, the first value of MOVEMENT_STATUS — I had invented 'PLANNED',
+    // which is not in the enum at all.
+    assert.equal(movement.movementStatus, 'PENDING');
 
     const onJob = await repo.listMovementsForJob(seeded.importJobId);
     assert.ok(onJob.some((m) => m.movementId === movement.movementId),

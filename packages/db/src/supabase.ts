@@ -433,7 +433,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         destination: draft.destination,
         planned_date: draft.plannedDate ?? null,
         planned_time: draft.plannedTime ?? null,
-        movement_status: 'PLANNED',
+        movement_status: 'PENDING',
         auto_created: false,
       }).select().single(), 'create movement') as Record<string, unknown>;
 

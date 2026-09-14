@@ -213,7 +213,8 @@ export function applyTripUpdate(job, tripId, draft) {
   let trip = {
     ...(existingIndex >= 0 ? next.trips[existingIndex] : {}),
     id: existingIndex >= 0 ? tripId : nextTripReference(next.trips),
-    route: String(draft.route || "").trim(),
+    origin: String(draft.origin || "").trim(),
+    destination: String(draft.destination || "").trim(),
     type: draft.type,
     status: draft.status,
     plannedDate: draft.plannedDate || null,

@@ -71,3 +71,33 @@ test("amending a job goes through PATCH, and only stored facts", async () => {
       `${derived} is computed and must not be settable`);
   }
 });
+
+test("the screen's words map to values the engine actually has", async () => {
+  // I invented LADEN_TO_PORT, PLANNED and IN_PROGRESS, none of which are in
+  // the enums. They typechecked, because the mapping is a plain object, and
+  // would have failed at the database as a constraint violation — at which
+  // point the trip is already lost and the controller is looking at a toast.
+  const { MOVEMENT_TYPE, MOVEMENT_STATUS } = await import("@greenlit/engine");
+
+  const typeMap = ui.slice(ui.indexOf("const MOVEMENT_TYPE_FOR"));
+  for (const value of typeMap.slice(0, typeMap.indexOf("};")).matchAll(/"([A-Z_]+)"/g)) {
+    assert.ok(MOVEMENT_TYPE.includes(value[1]),
+      `${value[1]} is not a movement type the engine knows`);
+  }
+
+  const statusMap = ui.slice(ui.indexOf("const MOVEMENT_STATUS_FOR"));
+  for (const value of statusMap.slice(0, statusMap.indexOf("};")).matchAll(/"([A-Z_]+)"/g)) {
+    assert.ok(MOVEMENT_STATUS.includes(value[1]),
+      `${value[1]} is not a movement status the engine knows`);
+  }
+});
+
+test("a movement is created with a status the enum contains", async () => {
+  // The adapters opened movements as 'PLANNED', which does not exist. The
+  // first value of MOVEMENT_STATUS is what a new movement is.
+  const { MOVEMENT_STATUS } = await import("@greenlit/engine");
+  const memory = await readFile("../packages/core/src/memory.ts", "utf8");
+  const initial = memory.match(/movementStatus: '([A-Z_]+)'/)?.[1];
+  assert.ok(MOVEMENT_STATUS.includes(initial),
+    `a movement opens as ${initial}, which is not in MOVEMENT_STATUS`);
+});

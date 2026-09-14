@@ -733,7 +733,7 @@ export function createMemoryRepository(): Repository {
         truck: null,
         driver: null,
         chassisId: null,
-        movementStatus: 'PLANNED',
+        movementStatus: 'PENDING',
         actualCollectionAt: null,
         actualDeliveryAt: null,
         standbyRequired: false,
@@ -787,7 +787,7 @@ export function createMemoryRepository(): Repository {
       fields.movementStatus = 'CANCELLED';
       fields.cancelledReason = reason.trim();
       record(movement.jobId, 'movement.cancelled', actor,
-        { field: 'movementStatus', from: 'PLANNED', to: 'CANCELLED' });
+        { field: 'movementStatus', from: movement.movementStatus, to: 'CANCELLED' });
     },
 
     async amendJob(jobId, changes, actor) {

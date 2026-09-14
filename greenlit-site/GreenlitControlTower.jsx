@@ -929,7 +929,8 @@ export const SEED_JOBS = [
       },
       {
         id: "MOV-002",
-        route: `Pacific Rim Textiles → ${CARPARK}`,
+        origin: "Pacific Rim Textiles",
+        destination: CARPARK,
         type: "One-Way Loaded",
         status: "Completed",
         plannedDate: "2026-08-13",
@@ -1435,7 +1436,13 @@ export function location(job) {
   const trips = activeTrips(job);
   const latest = [...trips].reverse().find((trip) => ["Collected", "In Transit", "Delivered", "Completed"].includes(trip.status));
   if (latest?.status === "Collected" || latest?.status === "In Transit") return "On the road";
-  if (latest && ["Delivered", "Completed"].includes(latest.status)) return latest.route.split("→").at(-1).trim();
+  // The destination, read rather than parsed back out of a display string.
+  // This did latest.route.split("→").at(-1) — and the API adapter produces
+  // origin and destination, never a joined route, so on real data it was
+  // calling .split on undefined.
+  if (latest && ["Delivered", "Completed"].includes(latest.status)) {
+    return latest.destination || (job.type === "Import" ? job.terminal : job.emptyYard) || "Unknown";
+  }
   return job.type === "Import" ? job.terminal : job.emptyYard || "Not yet collected";
 }
 
@@ -2249,7 +2256,7 @@ function TripTable({ trips, flashTripId, onOpenTrip }) {
                   {trip.createdAutomatically ? <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[17px] font-semibold text-emerald-800"><CircleDot className="h-4 w-4" />Created automatically</div> : null}
                 </td>
                 <td className="px-4 py-4"><div className="font-semibold text-slate-950">{trip.containerRef || "—"}</div><div className="mt-1 break-all text-[15px] font-normal text-slate-600">{trip.containerNumber || "Identity pending"}</div></td>
-                <td className="max-w-[260px] px-4 py-4 font-semibold text-slate-900">{trip.route}</td>
+                <td className="max-w-[260px] px-4 py-4 font-semibold text-slate-900">{trip.origin && trip.destination ? `${trip.origin} → ${trip.destination}` : trip.origin || trip.destination || "Route not set"}</td>
                 <td className="px-4 py-4 font-semibold text-slate-950">{trip.type}</td>
                 <td className="px-4 py-4">
                   <span className={`inline-flex min-h-11 items-center rounded-full border px-3 py-1 font-semibold ${tripStatusTone(trip)}`}>{trip.status}</span>
@@ -2613,6 +2620,36 @@ function DetailField({ label, value, flash = false }) {
   );
 }
 
+/**
+ * §18. The words on screen, and the values the engine knows.
+ *
+ * The drawer has always spoken in the operator's language — "Empty Return",
+ * "Import Delivery" — while the movement model uses the enum. Translating here
+ * keeps both honest: the screen stays readable and the store stays typed.
+ */
+const MOVEMENT_TYPE_FOR = {
+  "Import Delivery": "IMPORT_DELIVERY",
+  "Empty Return": "EMPTY_RETURN",
+  "Import to Carpark": "IMPORT_TO_CARPARK",
+  "Carpark to Customer": "CARPARK_TO_CUSTOMER",
+  "Empty Collection": "EMPTY_COLLECTION",
+  "Direct Laden to Port": "DIRECT_LADEN_TO_PORT",
+  "One-Way Loaded": "ONE_WAY_LOADED",
+  "Carpark to Port": "CARPARK_TO_PORT",
+};
+
+const MOVEMENT_STATUS_FOR = {
+  Pending: "PENDING",
+  Planned: "SCHEDULED",
+  Scheduled: "SCHEDULED",
+  Assigned: "ASSIGNED",
+  Collected: "COLLECTED",
+  "In Transit": "IN_TRANSIT",
+  Delivered: "DELIVERED",
+  Completed: "COMPLETED",
+  Cancelled: "CANCELLED",
+};
+
 const drawerInputClass = "mt-2 min-h-12 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-[17px] font-medium text-slate-950 outline-none focus:border-[var(--gl-accent)] focus:outline focus:outline-4 focus:outline-offset-1 focus:outline-sky-600";
 
 function DrawerField({ label, children, hint }) {
@@ -2649,7 +2686,8 @@ function suggestedTripDraft(job) {
     return needsReturn ? {
       id: reference,
       type: "Empty Return",
-      route: `${job.deliveryAddress} → ${job.emptyYard || "Empty depot to confirm"}`,
+      origin: job.deliveryAddress,
+      destination: job.emptyYard || "Empty depot to confirm",
       status: "Pending",
       plannedDate: "",
       containerRef: job.containers?.[0]?.ref || "",
@@ -2657,7 +2695,8 @@ function suggestedTripDraft(job) {
     } : {
       id: reference,
       type: "Import Delivery",
-      route: `${job.terminal} → ${job.deliveryAddress}`,
+      origin: job.terminal,
+      destination: job.deliveryAddress,
       status: "Pending",
       plannedDate: "",
       containerRef: targetContainer?.ref || "",
@@ -2669,10 +2708,10 @@ function suggestedTripDraft(job) {
   const target = containers.find((container, index) => !activeTrips(job).some((trip) => movementMatchesContainer(trip, container, index, containers.length) && ["Direct Laden to Port", "One-Way Loaded", "Carpark to Port"].includes(trip.type))) || containers[0];
   const containerFields = { containerRef: target?.ref || "", containerNumber: target?.number || "" };
   const emptyExists = (job.trips || []).some((trip) => trip.type === "Empty Collection" && trip.status !== "Cancelled");
-  if (!emptyExists) return { id: reference, type: "Empty Collection", route: `${job.emptyYard} → ${target?.stuffingLocation || job.deliveryAddress}`, status: "Pending", plannedDate: "", ...containerFields };
-  if (job.atCarparkSince) return { id: reference, type: "Carpark to Port", route: `${CARPARK} → PSA Tuas`, status: "Pending", plannedDate: "", ...containerFields };
-  if (job.transhipment === "not_available" && job.carparkRequested) return { id: reference, type: "One-Way Loaded", route: `${target?.stuffingLocation || job.deliveryAddress} → ${CARPARK}`, status: "Pending", plannedDate: "", ...containerFields };
-  return { id: reference, type: "Direct Laden to Port", route: `${target?.stuffingLocation || job.deliveryAddress} → PSA Tuas`, status: "Pending", plannedDate: "", ...containerFields };
+  if (!emptyExists) return { id: reference, type: "Empty Collection", origin: job.emptyYard, destination: target?.stuffingLocation || job.deliveryAddress, status: "Pending", plannedDate: "", ...containerFields };
+  if (job.atCarparkSince) return { id: reference, type: "Carpark to Port", origin: CARPARK, destination: "PSA Tuas", status: "Pending", plannedDate: "", ...containerFields };
+  if (job.transhipment === "not_available" && job.carparkRequested) return { id: reference, type: "One-Way Loaded", origin: target?.stuffingLocation || job.deliveryAddress, destination: CARPARK, status: "Pending", plannedDate: "", ...containerFields };
+  return { id: reference, type: "Direct Laden to Port", origin: target?.stuffingLocation || job.deliveryAddress, destination: "PSA Tuas", status: "Pending", plannedDate: "", ...containerFields };
 }
 
 function initialDrawerDraft(panel, job) {
@@ -2863,7 +2902,13 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                   <DrawerField label="Status"><select value={draft.status || "Pending"} onChange={(event) => update("status", event.target.value)} className={drawerInputClass}>{["Pending", "Collected", "In Transit", "Delivered", "Completed", "Cancelled"].map((status) => <option key={status}>{status}</option>)}</select></DrawerField>
                 </div>
                 {(job.type === "Import" && draft.type === "Import Delivery") || (job.type === "Export" && draft.type !== "Empty Return") ? <DrawerField label="Container"><select value={draft.containerRef || draft.containerNumber || ""} onChange={(event) => { const container = jobContainers(job).find((item) => item.ref === event.target.value || item.number === event.target.value); update("containerRef", container?.ref || ""); update("containerNumber", container?.number || ""); }} className={drawerInputClass}>{jobContainers(job).map((container) => <option key={container.ref || container.number} value={container.ref || container.number}>{container.ref ? `${container.ref} · ` : ""}{container.number || "Identity pending"}{container.state ? ` · ${container.state}` : ""}</option>)}</select></DrawerField> : null}
-                <DrawerField label="Route"><input required value={draft.route || ""} onChange={(event) => update("route", event.target.value)} className={drawerInputClass} /></DrawerField>
+                {/* From and To, not one "route" string. The movement has an
+                    origin and a destination, and joining them with an arrow
+                    meant the screen held something the store could not. */}
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <DrawerField label="From"><input required value={draft.origin || ""} onChange={(event) => update("origin", event.target.value)} className={drawerInputClass} placeholder="PSA Pasir Panjang" /></DrawerField>
+                  <DrawerField label="To"><input required value={draft.destination || ""} onChange={(event) => update("destination", event.target.value)} className={drawerInputClass} placeholder="47 Jalan Buroh" /></DrawerField>
+                </div>
                 <DrawerField label="Planned date" hint="Leave blank if the transport desk has not scheduled it."><input type="date" value={draft.plannedDate || ""} onChange={(event) => update("plannedDate", event.target.value)} className={drawerInputClass} /></DrawerField>
                 {draft.status === "Cancelled" ? <DrawerField label="Cancellation reason"><textarea required rows={3} value={draft.cancelledReason || ""} onChange={(event) => update("cancelledReason", event.target.value)} className={drawerInputClass} /></DrawerField> : null}
               </div>
@@ -4142,6 +4187,62 @@ export default function GreenlitControlTower() {
       })();
       return;
     }
+    if (panel.type === "trip") {
+      // §18. This rewrote the job in React state, which meant planning a trip
+      // was entirely fictional: the engine has rules about movements being
+      // overdue and there was nothing that could create one.
+      const base = `/api/jobs/${encodeURIComponent(targetJobId)}/movements`;
+
+      void (async () => {
+        const request = draft.status === "Cancelled" && panel.tripId
+          ? {
+              url: `${base}/${encodeURIComponent(panel.tripId)}`,
+              method: "DELETE",
+              body: { reason: draft.cancelledReason || "" },
+            }
+          : panel.tripId
+            ? {
+                url: `${base}/${encodeURIComponent(panel.tripId)}`,
+                method: "PATCH",
+                body: {
+                  plannedDate: draft.plannedDate || null,
+                  ...(draft.status ? { movementStatus: MOVEMENT_STATUS_FOR[draft.status] } : {}),
+                },
+              }
+            : {
+                url: base,
+                method: "POST",
+                body: {
+                  movementType: MOVEMENT_TYPE_FOR[draft.type] ?? null,
+                  containerId: draft.containerRef || null,
+                  origin: draft.origin || null,
+                  destination: draft.destination || null,
+                  plannedDate: draft.plannedDate || null,
+                },
+              };
+
+        const response = await fetch(request.url, {
+          method: request.method,
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(request.body),
+        }).catch(() => null);
+
+        const payload = await response?.json().catch(() => ({}));
+        if (!response?.ok) {
+          showToast(payload?.error ?? "Could not save that trip.");
+          return;
+        }
+        setWorkPanel(null);
+        await loadJobs();
+        setHighlight("trip");
+        window.setTimeout(() => setHighlight(""), 1400);
+        showToast(draft.status === "Cancelled"
+          ? "Trip cancelled. Its reference is retired."
+          : panel.tripId ? "Trip updated." : "Trip planned.");
+      })();
+      return;
+    }
+
     if (panel.type === "checkpoint") {
       // The same bug the job drawer had, in a place where the routes already
       // existed: the buttons on the job screen persisted these and this drawer
