@@ -1,0 +1,24 @@
+YANG MING   BOOKING CONFIRMATION - YMLUI450545305
+Page No : 1 of 1    Run Date : 26/08/2026
+To : MHM RSG (S) PTE LTD      Date : 26/08/2026
+Attn : MHM RSG (S) PTE LTD
+Subject : Booking Confirmation - YMLUI450545305
+Vessel/Voyage : OOCL CALIFORNIA / 177N     Flag : HK
+Connecting Voyage : OOCL CALIFORNIA/ 177N  Lloyds No/Visit ID : 9102289/
+Place of Receipt : SGSIN - SINGAPORE       ETA Singapore : 16/09/2026 02:00
+Departure : SGSIN - SINGAPORE              Trans. ETA : 30/09/2026 05:00
+Transhipment Port : CNTXG - XINGANG,CHINA  ETA Destination : 30/09/2026 05:00
+Port of Discharge : CNTXG - XINGANG,CHINA
+Place of Delivery : CNTXG - XINGANG,CHINA
+Receipt Mode : Y-CY    Delivery Mode : Y-CY
+Case Identifier : IAPS28226000
+Goods : PARTS
+Turn-In Ref : YMLUI450545305
+Turn-In At : PORT OF SINGAPORE AUTHORITY (PSA)
+Slot Owner : YM
+Empty Containers to be picked up as follows:
+1 X 40HQ at ENG KONG CONTAINER AGENCIES (PTE) LTD. (TUAS AVE 13)
+Req. Remarks : Pls provide clean container, non rusty, dry floor board, no holes & no chemical smell
+Heavy Tested : NO
+Pick-up Ref : YMLUI450545305
+BL DRAFT TO BE IN 54 HOURS PRIOR TO CARGO LOADING FOR ALL XMN & SHA CARGOES.

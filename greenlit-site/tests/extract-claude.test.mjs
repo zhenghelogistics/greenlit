@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { toFields } from "../lib/extract-claude.ts";
+import { quantityFromSizeList, toFields } from "../lib/extract-claude.ts";
 
 const NOW = "2026-09-08T00:00:00.000Z";
 const list = (...fields) => JSON.stringify({ fields });
@@ -69,4 +69,31 @@ test("a field with no provenance is still a field", () => {
   const f = toFields(list({ name: "eta", value: "2026-09-14", confidence: 0.9 }), "x.pdf", NOW);
   assert.equal(f.eta.page, null);
   assert.equal(f.eta.quote, null);
+});
+
+test("a container count omitted by the reader is recovered from the sizes", () => {
+  // PIL writes equipment as "20GP-1, 40HC-1" and the count went missing on
+  // roughly one run in three. The sizes came back every time, so the total is
+  // arithmetic rather than a second reading.
+  assert.equal(quantityFromSizeList("20GP-1, 40HC-1"), 2);
+  assert.equal(quantityFromSizeList("1 X 20'"), 1);
+  assert.equal(quantityFromSizeList("3 x 40 DRY"), 3);
+});
+
+test("a size list with no counts yields no count", () => {
+  // "20GP, 40HC" is two sizes and says nothing about how many boxes. Two here
+  // would be a number that looked like a fact.
+  assert.equal(quantityFromSizeList("20GP, 40HC"), null);
+  assert.equal(quantityFromSizeList("40HQ"), null);
+  assert.equal(quantityFromSizeList(""), null);
+});
+
+test("a derived count carries no quote, because it was not read from a line", () => {
+  const f = toFields(list(
+    { name: "containerSizeTypes", value: "20GP-1, 40HC-1", confidence: 0.9,
+      page: 1, quote: "Equipment Type/Q'ty : 20GP-1, 40HC-1" },
+  ), "pil.pdf", NOW);
+  assert.equal(f.containerQuantity.value, 2);
+  assert.equal(f.containerQuantity.quote, null,
+    "a computed value must not claim evidence it does not have");
 });

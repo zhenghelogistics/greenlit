@@ -29,7 +29,10 @@ export const DEFAULT_THRESHOLDS: Thresholds = {
   carparkDwellDays: 3,
   emptyReturnOverdueDays: 3,
   portnetNotProcessedDays: 1,
-  ddCriticalDays: 1,
+  // Two days, not one. At one day a controller hears nothing until the final
+  // day, and a same-day collection needs a driver, a chassis and a slot that
+  // are arranged the day before or not at all. Operations asked for two.
+  ddCriticalDays: 2,
 };
 
 

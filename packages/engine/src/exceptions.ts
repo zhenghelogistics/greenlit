@@ -130,10 +130,23 @@ export function detectImportExceptions(
         waitingOn: 'US', containerId: container.containerId, movementId: null,
       });
     } else if (remaining <= thresholds.ddCriticalDays) {
+      // A ladder, not a single alarm. One threshold meant a controller heard
+      // nothing until the final day, by which time there is no room left to
+      // act: a same-day collection needs a driver, a chassis and a slot, and
+      // those are arranged the day before or not at all.
+      const [severity, urgency] = remaining === 0
+        ? ['CRITICAL' as const, `Last free day is today (${carrierLfd})`]
+        : remaining === 1
+          ? ['HIGH' as const, `Last free day is tomorrow (${carrierLfd})`]
+          : ['MEDIUM' as const, `Last free day ${carrierLfd} is ${remaining} days away`];
+
       push({
-        exceptionType: 'Charge risk', severity: 'HIGH',
-        description: `Carrier last free day ${carrierLfd} is ${remaining} day(s) away`,
-        blocking: false, actionRequired: 'Prioritise collection',
+        exceptionType: 'Charge risk', severity,
+        description: urgency,
+        blocking: false,
+        actionRequired: remaining === 0
+          ? 'Collect today or the charge starts tomorrow'
+          : 'Prioritise collection',
         waitingOn: 'US', containerId: container.containerId, movementId: null,
       });
     }

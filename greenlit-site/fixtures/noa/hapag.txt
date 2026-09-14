@@ -1,0 +1,33 @@
+Arrival Notice
+Date of Issue: 13/SEP/2026
+Place of Issue: SINGAPORE
+Hapag-Lloyd Aktiengesellschaft, Hamburg
+Estimated Date of Arrival 19/SEP/2026
+Bill of Lading Number HLCUSZX2608BXAD7 (SW)
+Booking Number 97632800
+Main Vessel HONG DA XIN 718  V. 634S
+Oncarrying Vessel
+Port of Loading NANSHA
+Port of Discharge SINGAPORE
+Discharging Terminal PSA PASIR PANJANG TERMINAL
+Haulage MERCHANT'S HAULAGE
+Notify PEPSICO INTERNATIONAL PTE. LTD. 3 FRASER STREET, DUO TOWER #08-21, SINGAPORE 189352
+Shipper PEPSICO FOODS (CHINA) CO., LTD  NO.99 DONGXING ROAD SONGJIANG, SHANGHAI CHINA
+Consignee DKSH SINGAPORE PTE LTD  47, JALAN BUROH SINGAPORE 619491 SINGAPORE
+REFERENCE: 260807093963261
+Containers & Goods
+TXTU 4033510
+Container Type: 40' HIGH CUBE
+Seal No(s): HLK6603453
+Packages: 570 CASE (CS)   1881.0 KGM   38.760 M3
+Description: LAYS DR MAXX HOT WING 170G*15
+TXTU 4032108
+Container Type: 40' HIGH CUBE
+Seal No(s): HLG7439233
+Packages: 959 CASE (CS)   3164.7 KGM   65.212 M3
+Description: LAYS DR MAXX FLAMING SPICY 170G*15
+Free Time:
+Free time stated are inclusive of Saturday, Sunday and Public Holidays.
+Free demurrage period 3 calendar days (payable to PSA).
+After expiry of free time demurrage is charged from completion of discharge up to container is gate-out from terminal.
+Effective from 1 October, 2016 Hapag-Lloyd Singapore will revise the Import Detention free period Free detention period - 4 days (payable to respective depot).

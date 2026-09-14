@@ -62,7 +62,9 @@ const FIELDS: Record<string, { type: string; description?: string }> = {
   emptyCollectionYard: { type: "string", description: "Where the empty container is collected from, e.g. a depot name." },
   stuffingLocation: { type: "string", description: "Where the container is stuffed, if the document says." },
   exportClearanceReference: { type: "string", description: "Export permit or clearance reference, e.g. a Singapore Customs OUT permit number." },
-  containerQuantity: { type: "string", description: "How many containers the booking covers, digits only." },
+  containerQuantity: { type: "integer", description: "How many containers the booking covers in total, as a bare count in digits. Always report it when any container is booked, including when the sizes are mixed: \"1 X 20'\" is 1; \"20GP-1, 40HC-1\" is 2, one of each added together; \"3 x 40 DRY\" is 3. Never put a size here — the size goes in containerSizeTypes." },
+  containerSizeTypes: { type: "string", description: "The size and type of the containers booked, as printed, comma-separated when a booking mixes them: \"20GP, 40HC\". Carriers write this many ways — 1X40HC, 1 X 20', 40 DRY 9 6, 40HQ — so copy the substance, not the count." },
+  vgmDeadline: { type: "string", description: "The VGM cut-off, as YYYY-MM-DD HH:MM when a time is given. A separate and usually earlier deadline than the cargo closing; missing it stops the container being loaded even though it is at the port." },
 };
 
 /**
@@ -142,6 +144,7 @@ Rules:
 - Every field you return must carry a confidence between 0 and 1 reflecting how clearly you could read it. Clean printed text is high. Handwriting, a skewed photo, or a partly obscured field is low. Be honest — a low score routes the field to a human, which is the correct outcome when you are unsure.
 - consignee, notifyParty and shipper are company names only. Leave out the street address, postcode and country.
 - Dates as YYYY-MM-DD. If a date is ambiguous between formats (03/04/2026), return null rather than picking one.
+- The cargo closing goes in vesselClosingAt whatever the document calls it: CY cut-off, port cargo cut-off, closing date, or the full-return date of the laden container. Where a booking gives both a cargo closing and an SI or documentation cut-off, vesselClosingAt is the cargo one — that is the deadline the box has to physically meet.
 - vesselClosingAt keeps its time when the document gives one. "CY CUT-OFF: 20 Sep 2026 1700 hrs" is "2026-09-20 17:00", not "2026-09-20". Dropping the time moves the deadline to midnight and buys a container eleven hours it does not have.
 - Always report domain and documentType. The domain is what the document is about, not who sent it: an arrival notice, cartage advice or delivery order is IMPORT because the cargo is arriving; a booking confirmation, container release order, shipping instruction or VGM declaration is EXPORT because the cargo is leaving. If a document genuinely does not say, omit domain rather than guessing — a job opened in the wrong direction is worked against the wrong deadline entirely.
 - Container numbers are 4 letters then 7 digits, no spaces.
@@ -226,6 +229,34 @@ export function normalisePlace(raw: string): string {
   return LOCODES[place.toUpperCase()] ?? place;
 }
 
+/**
+ * How many containers a size list describes, when the list carries its own
+ * counts.
+ *
+ * PIL writes its equipment as "20GP-1, 40HC-1" — a size-and-count pair per
+ * entry — and asking the model to sum that dropped the answer entirely on
+ * roughly one run in three. The sizes come back reliably, so the total is
+ * arithmetic rather than a second reading.
+ *
+ * Returns null unless every entry carries a count. "20GP, 40HC" is two sizes
+ * and says nothing about how many boxes, and guessing two there would be a
+ * number that looked like a fact.
+ */
+export function quantityFromSizeList(sizes: string): number | null {
+  const entries = sizes.split(/,/).map((x) => x.trim()).filter(Boolean);
+  if (entries.length === 0) return null;
+
+  let total = 0;
+  for (const entry of entries) {
+    // "20GP-1", "1 X 20GP", "3 x 40 DRY" — the count is the standalone number
+    // that is not part of the size itself.
+    const match = entry.match(/^(\d+)\s*[xX×]\s*\S/) ?? entry.match(/[-\s](\d+)$/);
+    if (!match) return null;
+    total += Number(match[1]);
+  }
+  return total > 0 ? total : null;
+}
+
 export function toFields(
   json: string, fileName: string, now: string,
 ): Record<string, ExtractedFieldWithSource> {
@@ -256,6 +287,19 @@ export function toFields(
       quote: typeof entry.quote === "string" ? entry.quote.trim() : null,
     };
   }
+  // A count the model omitted, recovered from the sizes it did read.
+  if (!fields.containerQuantity && fields.containerSizeTypes) {
+    const derived = quantityFromSizeList(String(fields.containerSizeTypes.value));
+    if (derived !== null) {
+      fields.containerQuantity = {
+        ...fields.containerSizeTypes,
+        value: derived,
+        // Derived, not read, so it cannot claim a line it never came from.
+        quote: null,
+      };
+    }
+  }
+
   return fields;
 }
 

@@ -15,6 +15,8 @@ export const API_TO_FORM = {
   stuffingLocation: "stuffingLocation",
   exportClearanceReference: "exportClearanceReference",
   containerQuantity: "containerQuantity",
+  containerSizeTypes: "containerSizeTypes",
+  vgmDeadline: "vgmDeadline",
   blNumber: "billOfLading",
   houseBlNumber: "houseBillOfLading",
   bookingReference: "bookingNumber",

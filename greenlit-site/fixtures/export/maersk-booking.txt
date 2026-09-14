@@ -1,0 +1,28 @@
+BOOKING CONFIRMATION
+Booking No.: 275427509    Print Date: 2026-08-07 03:00 UTC
+Booked by Party: JAS FORWARDING (S) PTE LTD    Service Mode: CY/CY
+Contact Name: EUNICE LIAN    From: Singapore,Singapore
+To: Santos,Sao Paulo,Brazil
+Price Owner: JAS FORWARDING (S) PTE LTD   Business Unit: Maersk Singapore Pte. Ltd
+Commodity Description: Optical, photographic, cinematographic
+Price Calculation Date: 2026-08-07
+Equipment
+Quantity  Size/Type/Height (ft.in)  Gross Weight   Pack. Qty/Kind
+3         40 DRY 9 6                30000.000 KGS  3 Piece(s)
+Intended Transport Plan
+Promise on TONSBERG or alternative departure within date range: 15/Aug/2026 - 18/Aug/2026
+Estimated dates of Arrival: 05/Sep/2026 - 08/Sep/2026
+Estimated date of departure: 15/Aug/2026
+Import Detention fees starts at discharge (40 Dry High):
+Day 1-5: Free
+This booking has 26 days of detention free time including extra days purchased online.
+Load Itinerary
+From                     To                      Mode  Vessel     Voy No.  ETD         ETA
+PSA Singapore Terminal   Santos Brasil Terminal  MVS   TONSBERG   631W     2026-08-15  2026-09-05
+Type                   Location                         Release Date  From   Return Date  Time
+Empty Container Depot  Chuan Li Container Pte Ltd
+                       12A Refinery Rd Singapore        2026-08-11    00:00
+Return Equip           PSA Singapore Terminal                                2026-08-14   04:00
+Delivery Terminal      PSA Singapore Terminal 460 Alexandra Road Singapore
+Shipper : JAS FORWARDING (S) PTE LTD
+Freetime Extension 21 days

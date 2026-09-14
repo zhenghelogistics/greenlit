@@ -1,0 +1,44 @@
+ARRIVAL NOTICE
+To : Import Dept. From : SG00 / SAI TEJA Email : sai.teja@pilssc.pilship.com
+128 BEACH ROAD, #14-01 GUOCO MIDTOWN, SINGAPORE 189773 TEL: 64239491
+Load Vessel : KOTA MACHAN / 0551S
+Arrival Vessel : KOTA MACHAN / 551S     O/BL Required : Yes
+B/L No : TXSV60863000   P/O No :
+CONSIGNEE ADDRESS                       NOTIFY ADDRESS
+DKSH SINGAPORE PTE LTD                  DKSH SINGAPORE PTE LTD
+151 LORONG CHUAN, NEW TECH PARK, LOBBY C, #06-03, SINGAPORE 556741.
+ATTENTION:MICHELLE SOO
+Port of Discharging SINGAPORE           SHIPPER ADDRESS
+                                        MARS FOODS (BEIJING) CO., LTD.
+ETA 14-SEP-26 21:30
+Place of Delivery SINGAPORE
+ETA 14-SEP-26 21:30
+Place of Receipt XINGANG
+ETD 02-SEP-26 03:06
+Available Date
+AVAILABLE CONTAINER YARD
+PSA SINGAPORE
+460 ALEXANDRA ROAD, 119963
+EMPTY RETURN CONTAINER YARD
+Total Piece Count 1,116 CS  Total Weight : 7,722.950 KGS  Measure : 53.000 CBM
+CONTAINER#   TP    SEAL#       QTY   P.O No
+FBIU5720357  40RH  CX0808943   1116
+THD SGD 1.000 440.00 40 440.00
+ARRIVAL NOTICE ( RIDER )
+PIL Storing Order - Empty Container Return Information
+Empty Container Return Location
+For dry containers including: 20' GP 40' GP 40' HC / 20' OT / 20' OH / 40' OT / 20' FR / 40' FR
+Please return the above size type container to our appointed depot:
+Chuan Li Container Depot Pte Ltd
+12A Refinery Road
+Singapore 628193
+Tel: 6867 9320 / 6867 9321
+For reefer equipment, including: 20' RF / 20' RH / 40' RH
+Please email to our Logistics Department for return instructions.
+Import Detention information.
+All import containers are entitled to 6 calendar days of free detention, inclusive of Saturdays, Sundays, and Public Holidays.
+The free detention period is calculated from the container discharge date from the vessel until the empty container is returned to the designated depot.
+Equipment Specification:
+D2 = 20GP / D4 = 40 GP / D5 = 40HC
+R2 = 20RF / R3 = 20RH (Reefer High Cube) / R4 = 40RF / R5 = 40RH (Reefer High Cube)
+R5:14 DAYS FREE COMBINED DETENTION INBOUND CONTAINER
