@@ -635,6 +635,26 @@ export function createMemoryRepository(): Repository {
       record(userId, active ? 'user.reactivated' : 'user.deactivated', actor,
         { field: 'active', from: String(from), to: String(active) });
     },
+    async amendJob(jobId, changes, actor) {
+      const job = importJobs.find((j) => j.jobId === jobId)
+        ?? exportJobs.find((j) => j.exportJobId === jobId);
+      if (!job) throw new Error(`Unknown job ${jobId}`);
+
+      // Absent means leave alone; null means erase. A field the caller did not
+      // mention must not be cleared because it was not mentioned.
+      for (const [field, to] of Object.entries(changes)) {
+        if (to === undefined) continue;
+        // Named `fields`, not `record`: that name belongs to the audit
+        // function in this scope, and shadowing it made the audit call
+        // uncallable.
+        const fields = job as unknown as Record<string, unknown>;
+        const from = fields[field] ?? null;
+        if (String(from ?? '') === String(to ?? '')) continue;
+        fields[field] = to;
+        record(jobId, 'job.amended', actor, { field, from, to });
+      }
+    },
+
     async listPermitsForJob(jobId) {
       return clone(permits.filter((p) => p.jobId === jobId).map(toPermitRecord));
     },

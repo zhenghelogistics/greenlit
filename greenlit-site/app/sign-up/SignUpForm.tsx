@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { canJoin, STAFF_EMAIL_DOMAIN } from "@greenlit/engine";
@@ -90,12 +91,13 @@ export default function SignUpForm() {
   return (
     <main className="mx-auto flex min-h-[80vh] max-w-[440px] flex-col justify-center px-6 py-10">
       <div>
-        <img
+        <Image
           src="/logo-blue.png"
           alt="Zheng He Logistics"
           width={2217}
           height={676}
           className="mb-6 h-11 w-auto"
+          priority
         />
         <h1 className="gl-display">Create your account</h1>
         <p className="gl-body-plain mt-1 text-[color:var(--gl-ink-muted)]">

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
@@ -52,12 +53,13 @@ export default function SignInForm() {
       <div>
         {/* The navy mark here, on the white ground, because this is the page
             that says whose system this is before anyone is signed in. */}
-        <img
+        <Image
           src="/logo-blue.png"
           alt="Zheng He Logistics"
           width={2217}
           height={676}
           className="mb-6 h-11 w-auto"
+          priority
         />
         <h1 className="gl-display">Greenlit</h1>
         <p className="gl-body-plain mt-1 text-[color:var(--gl-ink-muted)]">Singapore transport control</p>

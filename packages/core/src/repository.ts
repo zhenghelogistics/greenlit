@@ -212,6 +212,24 @@ export interface Repository {
   amendDate(request: DateAmendmentInput, actor: string): Promise<DateAmendment>;
 
   /**
+   * §30. Correct the facts on a job after it has been created.
+   *
+   * Creation is not the only moment a job is described. A vessel is amended, a
+   * house bill arrives late, a delivery address turns out to be the wrong one
+   * of a customer's three — and until now none of that could be recorded: the
+   * screen let someone type a correction, showed it, and persisted nothing, so
+   * it survived until the next reload.
+   *
+   * Only stored facts. Status, location, next action and blocking reason are
+   * computed from these and stay unwritable (§54), so this cannot be used to
+   * assert a state the evidence does not support.
+   *
+   * Dates keep their own path: §30 wants a reason recorded against a moved
+   * ETA, and amendDate is where that lives.
+   */
+  amendJob(jobId: string, changes: JobAmendment, actor: string): Promise<void>;
+
+  /**
    * Commands. Deliberately narrow: only the milestones that move a gate.
    *
    * §54 requires derived values to be read-only through the API, so there is
@@ -270,6 +288,31 @@ export interface DateAmendmentInput {
  * Only the identity: everything else about a container is either derived or
  * recorded later by a person against a named event.
  */
+/**
+ * §30. What may be corrected on a job after creation.
+ *
+ * Every key is optional and absent means "leave it alone", which is different
+ * from null. Null is a deliberate erasure — a house bill that turns out not to
+ * exist — and a field the caller did not mention must not be cleared because
+ * it was not mentioned.
+ */
+export interface JobAmendment {
+  blNumber?: string | null;
+  houseBlNumber?: string | null;
+  vesselName?: string | null;
+  voyageNumber?: string | null;
+  deliveryAddress?: string | null;
+  terminal?: string | null;
+  emptyReturnYard?: string | null;
+
+  // Export.
+  shipper?: string | null;
+  bookingReference?: string | null;
+  exportClearanceReference?: string | null;
+  emptyCollectionYard?: string | null;
+  vesselClosingAt?: string | null;
+}
+
 /** §24. A permit as a person enters it. */
 export interface PermitDraft {
   permitNumber?: string | null;

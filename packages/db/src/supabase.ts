@@ -291,6 +291,44 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       await record(userId, active ? 'user.reactivated' : 'user.deactivated', actor,
         { field: 'active', from: String(before.active), to: String(active) });
     },
+    async amendJob(jobId, changes, actor) {
+      // Which table the job lives in. An id is unique across both, so this
+      // asks rather than making the caller say.
+      const asImport = await db.from('import_jobs').select('*')
+        .eq('job_id', jobId).maybeSingle();
+      if (asImport.error) throw new Error(`job lookup: ${asImport.error.message}`);
+
+      const table = asImport.data ? 'import_jobs' : 'export_jobs';
+      const key = asImport.data ? 'job_id' : 'export_job_id';
+      const existing = asImport.data ?? (await (async () => {
+        const r = await db.from('export_jobs').select('*').eq('export_job_id', jobId).maybeSingle();
+        if (r.error) throw new Error(`job lookup: ${r.error.message}`);
+        return r.data;
+      })());
+      if (!existing) throw new Error(`Unknown job ${jobId}`);
+
+      const before = existing as Record<string, unknown>;
+      const patch: Record<string, unknown> = {};
+      const changed: Array<{ field: string; from: unknown; to: unknown }> = [];
+
+      // Absent means leave alone; null means erase. A field the caller did not
+      // mention must not be cleared because it was not mentioned.
+      for (const [field, to] of Object.entries(changes)) {
+        if (to === undefined) continue;
+        const column = camelToSnake(field);
+        const from = before[column] ?? null;
+        if (String(from ?? '') === String(to ?? '')) continue;
+        patch[column] = to;
+        changed.push({ field, from, to });
+      }
+      if (changed.length === 0) return;
+
+      unwrap(await db.from(table).update(patch).eq(key, jobId).select().single(), 'amend job');
+      for (const c of changed) {
+        await record(jobId, 'job.amended', actor, c);
+      }
+    },
+
     async listPermitsForJob(jobId) {
       return (await this.listPermitsForJobs([jobId]))[0]?.permits ?? [];
     },

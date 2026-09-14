@@ -7,6 +7,7 @@ FORM: Maritime operations console — restrained, data-led, and shift-ready. Sig
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 */
 
+import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
 import { jobFromApi, WAITING_LABEL_API } from "./lib/job-adapter.mjs";
 import {
@@ -60,7 +61,7 @@ const INTAKE_CRITICAL_FIELDS = [
   "portOfDischarge", "consignee", "vessel", "demurrageFreeDays",
   "detentionFreeDays",
 ];
-import { addContainerRecord, applyCheckpoint, applyContainerUpdate, applyFreeTime, applyJobFacts, applyTripUpdate, assignChassis, nextTripReference, releaseChassis, removeContainerRecord } from "./lib/operations-actions.mjs";
+import { addContainerRecord, applyCheckpoint, applyContainerUpdate, applyFreeTime, applyTripUpdate, assignChassis, nextTripReference, releaseChassis, removeContainerRecord } from "./lib/operations-actions.mjs";
 import { companyNameFromConsignee, suggestCode } from "./lib/company-from-document.mjs";
 import { toIntakeResult } from "./lib/intake-fields.mjs";
 
@@ -492,6 +493,10 @@ function PermitPanel({ jobId, containers, onChanged }) {
         </button>
       ) : null}
     >
+      {/* Panel renders its children bare — every other caller supplies its own
+          padding, and this one did not, so the whole panel sat flush against
+          the border. */}
+      <div className="p-6">
       {error ? (
         <p role="alert" className="gl-body-plain mb-4 rounded-md border border-rose-300 bg-rose-50 p-3 text-[color:var(--gl-state-blocked-ink)]">
           {error}
@@ -510,9 +515,9 @@ function PermitPanel({ jobId, containers, onChanged }) {
 
       {state.permits.length === 0 && !adding ? (
         <p className="gl-body">
-          No permit recorded. A permit is not needed to work the job — Portnet
-          release is what holds a collection — but it is needed before the
-          delivery order is exchanged.
+          No permit recorded yet. The job can still be worked: Portnet release
+          is what holds a collection, not the permit. The permit is needed
+          before the delivery order is exchanged.
         </p>
       ) : null}
 
@@ -591,11 +596,12 @@ function PermitPanel({ jobId, containers, onChanged }) {
         ))}
       </div>
 
-      {state.uncovered.length && state.permits.length ? (
+      {state.uncovered.length > 0 && state.permits.length > 0 ? (
         <p className="gl-body-plain mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">
           No permit covers {state.uncovered.map(label).join(", ")}.
         </p>
       ) : null}
+      </div>
     </Panel>
   );
 }
@@ -4113,14 +4119,50 @@ export default function GreenlitControlTower() {
       }
       return;
     }
+    if (panel.type === "job") {
+      // §30. This used to rewrite the job in React state and stop there: the
+      // correction appeared, persisted nothing, and survived until the next
+      // reload — which is worse than not offering the edit, because the
+      // controller believed it.
+      // Looked up here rather than relying on an outer `job`: this runs
+      // inside the commit handler, where the only thing identifying the job is
+      // the panel's id.
+      const edited = jobs.find((candidate) => candidate.id === targetJobId);
+
+      void (async () => {
+        const response = await fetch(`/api/jobs/${encodeURIComponent(targetJobId)}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            vesselName: draft.vessel ?? null,
+            blNumber: draft.booking ?? null,
+            deliveryAddress: draft.deliveryAddress ?? null,
+            // The same drawer field means the terminal on an import and the
+            // collection yard on an export, because operationally it is the
+            // same question: where does this container sit.
+            ...(edited?.type === "Import"
+              ? { terminal: draft.operatingLocation ?? null }
+              : { emptyCollectionYard: draft.operatingLocation ?? null }),
+          }),
+        }).catch(() => null);
+
+        const payload = await response?.json().catch(() => ({}));
+        if (!response?.ok) {
+          showToast(payload?.error ?? "Could not save those changes.");
+          return;
+        }
+        setWorkPanel(null);
+        await loadJobs();
+        setHighlight("readiness");
+        window.setTimeout(() => setHighlight(""), 1400);
+        showToast("Job information saved. Status and next action recalculated.");
+      })();
+      return;
+    }
+
     let activityMessage = "Job updated. Status and next action recalculated.";
     let nextHighlight = "status";
     updateJob(targetJobId, (job) => {
-      if (panel.type === "job") {
-        activityMessage = "Job information saved. Readiness recalculated.";
-        nextHighlight = "readiness";
-        return applyJobFacts(job, draft);
-      }
       if (panel.type === "checkpoint") {
         activityMessage = "Checkpoint saved. The action queue was recalculated.";
         nextHighlight = "readiness";
@@ -4514,12 +4556,13 @@ export default function GreenlitControlTower() {
           {/* The white mark, because the rail is the brand colour. The wordmark
               already says Zheng He Logistics, so the line under it names the
               system rather than repeating the company. */}
-          <img
+          <Image
             src="/logo-cropped.png"
             alt="Zheng He Logistics"
             width={2217}
             height={676}
             className="h-8 w-auto shrink-0 lg:h-9"
+            priority
           />
           <div className="lg:mt-3">
             <div className="text-[19px] font-medium tracking-[-0.008em] text-white">Greenlit</div>

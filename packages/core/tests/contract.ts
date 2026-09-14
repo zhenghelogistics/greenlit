@@ -310,6 +310,69 @@ export function runRepositoryContract(
     assert.deepEqual(ids(c), ids(a));
   });
 
+  test(`[${name}] §30: a job can be corrected after it is created`, async () => {
+    // Creation is not the only moment a job is described. Until this existed
+    // the screen let someone type a correction, showed it, and persisted
+    // nothing — it survived until the next reload.
+    const repo = await fresh();
+    await repo.amendJob(seeded.importJobId, {
+      vesselName: 'AMENDED VESSEL',
+      voyageNumber: '999X',
+      houseBlNumber: 'HBL-LATE-ARRIVAL',
+    }, 'Max Ng');
+
+    const job = await repo.getImportJob(seeded.importJobId);
+    assert.equal(job?.vesselName, 'AMENDED VESSEL');
+    assert.equal(job?.voyageNumber, '999X');
+    assert.equal(job?.houseBlNumber, 'HBL-LATE-ARRIVAL');
+  });
+
+  test(`[${name}] §30: absent leaves a field alone, null erases it`, async () => {
+    // The distinction that matters. A field the caller did not mention must
+    // not be cleared because it was not mentioned, and a house bill that turns
+    // out not to exist must be erasable.
+    const repo = await fresh();
+    await repo.amendJob(seeded.importJobId, { houseBlNumber: 'HBL-1' }, 'tester');
+
+    await repo.amendJob(seeded.importJobId, { vesselName: 'OTHER' }, 'tester');
+    assert.equal((await repo.getImportJob(seeded.importJobId))?.houseBlNumber, 'HBL-1',
+      'unmentioned is not erased');
+
+    await repo.amendJob(seeded.importJobId, { houseBlNumber: null }, 'tester');
+    assert.equal((await repo.getImportJob(seeded.importJobId))?.houseBlNumber, null,
+      'null is a deliberate erasure');
+  });
+
+  test(`[${name}] §13: every amendment names who made it and what moved`, async () => {
+    const repo = await fresh();
+    const before = (await repo.listAuditEvents(seeded.importJobId)).length;
+    await repo.amendJob(seeded.importJobId, { vesselName: 'AMENDED VESSEL' }, 'Sarah Lim');
+
+    const after = await repo.listAuditEvents(seeded.importJobId);
+    assert.ok(after.length > before);
+    const entry = after.at(-1);
+    assert.equal(entry?.actor, 'Sarah Lim');
+    assert.equal(entry?.field, 'vesselName');
+    assert.equal(entry?.newValue, 'AMENDED VESSEL');
+  });
+
+  test(`[${name}] §30: amending nothing records nothing`, async () => {
+    // Saving a form without changing anything is not an event, and an audit
+    // trail full of them is one nobody reads.
+    const repo = await fresh();
+    const job = await repo.getImportJob(seeded.importJobId);
+    const before = (await repo.listAuditEvents(seeded.importJobId)).length;
+
+    await repo.amendJob(seeded.importJobId, { vesselName: job?.vesselName ?? null }, 'tester');
+    assert.equal((await repo.listAuditEvents(seeded.importJobId)).length, before);
+  });
+
+  test(`[${name}] §30: amending an unknown job fails loudly`, async () => {
+    const repo = await fresh();
+    await assert.rejects(
+      () => repo.amendJob('no-such-job', { vesselName: 'X' }, 'tester'), /Unknown job/);
+  });
+
   test(`[${name}] §24: a permit is held at job level and covers containers by reference`, async () => {
     const repo = await fresh();
     const containers = await repo.listContainersForImportJob(seeded.importJobId);

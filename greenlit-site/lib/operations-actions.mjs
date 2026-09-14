@@ -54,25 +54,6 @@ export function nextTripReference(trips = []) {
   return `MOV-${String(next).padStart(3, "0")}`;
 }
 
-export function applyJobFacts(job, draft) {
-  const next = {
-    ...clone(job),
-    customer: String(draft.customer || "").trim(),
-    booking: String(draft.booking || "").trim(),
-    vessel: String(draft.vessel || "").trim(),
-    deliveryAddress: String(draft.deliveryAddress || "").trim(),
-    ...(job.type === "Import"
-      ? { terminal: String(draft.operatingLocation || "").trim() }
-      : { emptyYard: String(draft.operatingLocation || "").trim() }),
-  };
-  next.infoComplete = Boolean(next.customer && next.deliveryAddress && (job.type === "Import" ? next.terminal : next.emptyYard));
-  next.missingInformation = next.infoComplete ? [] : [
-    ...(!next.customer ? ["Customer"] : []),
-    ...(!next.deliveryAddress ? ["Delivery address"] : []),
-    ...(!(job.type === "Import" ? next.terminal : next.emptyYard) ? [job.type === "Import" ? "Terminal" : "Empty yard"] : []),
-  ];
-  return addActivity(next, "Updated the job information and recalculated readiness.");
-}
 
 export function applyCheckpoint(job, key, value) {
   const next = clone(job);
