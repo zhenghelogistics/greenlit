@@ -167,6 +167,24 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
     return r.data.export_job_id as string;
   };
 
+  /**
+   * §6. The next job number for a customer, issued by the database.
+   *
+   * Not computed from a read. nextJobReference takes the highest reference it
+   * can see and adds one, so two jobs created at the same moment ask for the
+   * same number and the unique constraint refuses them both — submitting ten
+   * notices at once failed almost entirely.
+   *
+   * next_job_sequence increments a per-customer counter in one statement. The
+   * row lock is what makes ten concurrent callers take ten different numbers.
+   */
+  const issueJobNumber = async (customerCode: string): Promise<string> => {
+    const code = customerCode.trim().toUpperCase();
+    const r = await db.rpc('next_job_sequence', { p_customer_code: code });
+    if (r.error) throw new Error(`issue job number: ${r.error.message}`);
+    return `${code}-${String(r.data).padStart(3, '0')}`;
+  };
+
   const issuedReferences = async (): Promise<string[]> => {
     const [imp, exp] = await Promise.all([
       db.from('import_jobs').select('job_number'),
@@ -306,6 +324,8 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
     },
     async listJobReferences() { return issuedReferences(); },
     async nextReferenceFor(customerCode) {
+      // Read-only: what the next number would be, without taking it. Creation
+      // uses issueJobNumber, which actually reserves one.
       return nextJobReference(await issuedReferences(), customerCode);
     },
 
@@ -961,7 +981,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       const count = validateContainerCount(drafts.length);
       if (!count.valid) throw new Error(count.reason!);
 
-      const jobNumber = nextJobReference(await issuedReferences(), customer.code);
+      const jobNumber = await issueJobNumber(customer.code);
       const jobId = jobNumber.toLowerCase();
 
       const created = unwrap(await db.from('import_jobs').insert({
@@ -1034,7 +1054,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
     async createExportJob(draft: ExportJobDraft, actor) {
       const customer = await this.getCustomerByCode(draft.customerCode);
       if (!customer) throw new Error(`Unknown customer ${draft.customerCode}`);
-      const jobNumber = nextJobReference(await issuedReferences(), customer.code);
+      const jobNumber = await issueJobNumber(customer.code);
       const jobId = jobNumber.toLowerCase();
       const quantity = Math.max(1, draft.containerQuantity ?? 1);
 
