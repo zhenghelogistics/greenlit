@@ -1,4 +1,5 @@
 import { suggestedUserId, suggestedDisplayName, normalisePermitNumber, locationProblem,
+  documentProblem, storagePathFor, type DocumentRecord,
   type PermitRecord } from '@greenlit/engine';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
@@ -50,6 +51,16 @@ const rows = (r: { data: unknown[] | null; error: { message: string } | null }, 
   unwrap(r, what) as Record<string, unknown>[];
 
 export function createSupabaseRepository(options: SupabaseRepositoryOptions): Repository {
+  // §10. The same client's file storage. Named separately because the two are
+  // different stores with different failure modes, and a reader should see
+  // which one a line is talking to.
+  const storage = (() => {
+    const client: SupabaseClient = createClient(options.url, options.serviceRoleKey, {
+      auth: { persistSession: false },
+    });
+    return client.storage;
+  })();
+
   const db: SupabaseClient = createClient(options.url, options.serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -484,6 +495,82 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         movementStatus: 'CANCELLED',
         cancelledReason: reason.trim(),
       }, 'movement.cancelled', actor);
+    },
+
+    async listDocumentsForJob(jobId) {
+      return rows(
+        await db.from('documents').select('*').eq('job_id', jobId).order('received_at'),
+        'documents',
+      ).map(toDocumentRecord);
+    },
+
+    async storeDocument(draft, bytes, actor) {
+      const problem = documentProblem(draft);
+      if (problem) throw new Error(problem);
+
+      // A second upload of the same document supersedes the first. The job was
+      // worked off the original, so it stays and stops being current — and the
+      // partial unique index would refuse a second current row anyway.
+      const lineage = rows(
+        await db.from('documents').select('document_id')
+          .eq('job_id', draft.jobId)
+          .eq('document_type', draft.documentType)
+          .eq('filename', draft.filename),
+        'documents',
+      );
+      if (lineage.length > 0) {
+        const superseded = await db.from('documents').update({ is_current_version: false })
+          .eq('job_id', draft.jobId)
+          .eq('document_type', draft.documentType)
+          .eq('filename', draft.filename);
+        if (superseded.error) throw new Error(`supersede: ${superseded.error.message}`);
+      }
+      const version = lineage.length + 1;
+      const storagePath = storagePathFor(draft.jobId, version, draft.filename);
+
+      // The bytes first. A row pointing at a file that was never written is a
+      // row that lies, and the other order cannot be undone cleanly.
+      const uploaded = await storage.from('documents').upload(storagePath, bytes, {
+        contentType: guessContentType(draft.filename),
+        upsert: false,
+      });
+      if (uploaded.error) throw new Error(`store document: ${uploaded.error.message}`);
+
+      const row = unwrap(await db.from('documents').insert({
+        document_id: `doc-${crypto.randomUUID()}`,
+        job_id: draft.jobId,
+        container_id: draft.containerId ?? null,
+        movement_id: draft.movementId ?? null,
+        document_type: draft.documentType,
+        filename: draft.filename,
+        storage_path: storagePath,
+        byte_size: bytes.byteLength,
+        source: draft.source ?? 'MANUAL_UPLOAD',
+        received_from: draft.receivedFrom ?? null,
+        version,
+        is_current_version: true,
+        extraction_status: draft.extractionStatus ?? 'PENDING',
+        uploaded_by: actor,
+      }).select().single(), 'record document') as Record<string, unknown>;
+
+      await record(draft.jobId, 'document.stored', actor,
+        { field: 'filename', from: null, to: draft.filename });
+      return toDocumentRecord(row);
+    },
+
+    async documentUrl(documentId, seconds) {
+      const found = await db.from('documents').select('storage_path')
+        .eq('document_id', documentId).maybeSingle();
+      if (found.error) throw new Error(`document lookup: ${found.error.message}`);
+      if (!found.data) throw new Error(`Unknown document ${documentId}`);
+
+      // Signed on demand and short-lived. The bucket is private because these
+      // are customers' commercial papers, and a stored link would outlive the
+      // reason somebody was allowed to see it.
+      const signed = await storage.from('documents')
+        .createSignedUrl(found.data.storage_path as string, seconds);
+      if (signed.error) throw new Error(`sign document: ${signed.error.message}`);
+      return signed.data?.signedUrl ?? null;
     },
 
     async listCustomerLocations(customerCode) {
@@ -1171,4 +1258,40 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
 /** `truckInDate` becomes `truck_in_date`. */
 function camelToSnake(name: string): string {
   return name.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+}
+
+/** §10. A stored document, out of the store. */
+function toDocumentRecord(r: Record<string, unknown>): DocumentRecord {
+  return {
+    documentId: r.document_id as string,
+    jobId: r.job_id as string,
+    containerId: nn(r.container_id as string),
+    movementId: nn(r.movement_id as string),
+    documentType: r.document_type as DocumentRecord['documentType'],
+    filename: r.filename as string,
+    storagePath: r.storage_path as string,
+    byteSize: nn(r.byte_size as number),
+    source: r.source as DocumentRecord['source'],
+    receivedAt: r.received_at as string,
+    receivedFrom: nn(r.received_from as string),
+    version: Number(r.version),
+    isCurrentVersion: Boolean(r.is_current_version),
+    extractionStatus: r.extraction_status as DocumentRecord['extractionStatus'],
+    uploadedBy: r.uploaded_by as string,
+  };
+}
+
+/**
+ * What to tell the browser a file is.
+ *
+ * Stored on upload, because a PDF served as application/octet-stream is a PDF
+ * the browser downloads instead of showing — and the point of keeping the
+ * document is being able to look at it.
+ */
+function guessContentType(filename: string): string {
+  const name = filename.toLowerCase();
+  if (name.endsWith('.pdf')) return 'application/pdf';
+  if (name.endsWith('.png')) return 'image/png';
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+  return 'application/octet-stream';
 }

@@ -310,6 +310,58 @@ export function runRepositoryContract(
     assert.deepEqual(ids(c), ids(a));
   });
 
+  test(`[${name}] §10: a document is kept, not read and discarded`, async () => {
+    // Extraction records which page and line every value came from and then
+    // threw the file away, so a controller in a demurrage dispute had a quote
+    // and nothing to check it against.
+    const repo = await fresh();
+    const bytes = new TextEncoder().encode('%PDF-1.4 pretend arrival notice');
+
+    const stored = await repo.storeDocument({
+      jobId: seeded.importJobId,
+      documentType: 'ARRIVAL_NOTICE',
+      filename: 'noa.pdf',
+      source: 'EMAIL',
+      receivedFrom: 'sareenajoyce.swarna@one-line.com',
+      extractionStatus: 'PARSED',
+    }, bytes, 'Winnie Ong');
+
+    assert.equal(stored.filename, 'noa.pdf');
+    assert.equal(stored.version, 1);
+    assert.equal(stored.isCurrentVersion, true);
+    assert.equal(stored.byteSize, bytes.byteLength);
+    assert.equal(stored.uploadedBy, 'Winnie Ong');
+    assert.match(stored.storagePath, /v1-noa\.pdf$/);
+
+    const onJob = await repo.listDocumentsForJob(seeded.importJobId);
+    assert.equal(onJob.length, 1);
+  });
+
+  test(`[${name}] §10: a corrected notice supersedes rather than replaces`, async () => {
+    // The job was worked off the original, and the history has to still say so.
+    const repo = await fresh();
+    const draft = {
+      jobId: seeded.importJobId, documentType: 'ARRIVAL_NOTICE', filename: 'noa.pdf',
+    };
+    await repo.storeDocument(draft, new TextEncoder().encode('first'), 'tester');
+    const second = await repo.storeDocument(draft, new TextEncoder().encode('corrected'), 'tester');
+
+    const all = await repo.listDocumentsForJob(seeded.importJobId);
+    assert.equal(all.length, 2, 'the original is still there');
+    assert.equal(all.filter((d) => d.isCurrentVersion).length, 1,
+      '"the current arrival notice" must have one answer');
+    assert.equal(second.version, 2);
+    assert.notEqual(all[0]?.storagePath, all[1]?.storagePath,
+      'the correction cannot overwrite the file the job was worked from');
+  });
+
+  test(`[${name}] §10: a file with no name is refused`, async () => {
+    const repo = await fresh();
+    await assert.rejects(() => repo.storeDocument(
+      { jobId: seeded.importJobId, documentType: 'OTHER', filename: '  ' },
+      new Uint8Array(), 'tester'), /needs a name/);
+  });
+
   test(`[${name}] §9.3: a customer's sites are kept, not retyped per job`, async () => {
     const repo = await fresh();
     const [customer] = await repo.listCustomers();

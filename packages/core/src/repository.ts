@@ -1,4 +1,4 @@
-import type { CustomerLocation, PermitRecord } from '@greenlit/engine';
+import type { CustomerLocation, DocumentRecord, PermitRecord } from '@greenlit/engine';
 import type {
   AuditEvent, Chassis, ChassisChange, ChassisChangeRequest, ChassisHolding,
   Customer, CustomerDraft, DateAmendment, Discrepancy, ExceptionRecord, Principal,
@@ -297,6 +297,32 @@ export interface Repository {
   // warehouse was typed a dozen ways and none matched. A list per customer,
   // because a customer may stuff at more than one site and the site is chosen
   // per booking.
+  // ---- §10. Documents -------------------------------------------------------
+  //
+  // Extraction reads a notice, records which page and line every value came
+  // from, and discarded the file — so a controller in a demurrage dispute had
+  // a quote and nothing to check it against.
+  listDocumentsForJob(jobId: string): Promise<readonly DocumentRecord[]>;
+  /**
+   * Store a file against a job.
+   *
+   * The bytes go to the store's own file storage; this row is what makes them
+   * findable. A second upload of the same document type and filename supersedes
+   * the first rather than replacing it: the job was worked off the original,
+   * and the history has to still say so.
+   */
+  storeDocument(
+    draft: DocumentDraft, bytes: Uint8Array, actor: string,
+  ): Promise<DocumentRecord>;
+  /**
+   * A link to read one, valid briefly.
+   *
+   * Minted on demand rather than stored: a stored link expires, and a row
+   * pointing at a dead URL is worse than a row that knows how to make a live
+   * one. Null where the adapter has no file storage.
+   */
+  documentUrl(documentId: string, seconds: number): Promise<string | null>;
+
   listCustomerLocations(customerCode: string): Promise<readonly CustomerLocation[]>;
   addCustomerLocation(
     customerCode: string, draft: CustomerLocationDraft, actor: string,
@@ -377,6 +403,18 @@ export interface ContainerAmendment {
   packageCount?: number | null;
   packageType?: string | null;
   emptyReturnYard?: string | null;
+}
+
+/** §10. A document as it arrives. */
+export interface DocumentDraft {
+  jobId: string;
+  containerId?: string | null;
+  movementId?: string | null;
+  documentType: string;
+  filename: string;
+  source?: string;
+  receivedFrom?: string | null;
+  extractionStatus?: string;
 }
 
 /**

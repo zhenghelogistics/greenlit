@@ -1,5 +1,6 @@
 import { suggestedUserId, suggestedDisplayName, normalisePermitNumber, locationProblem,
-  type CustomerLocation,
+  documentProblem, storagePathFor,
+  type CustomerLocation, type DocumentRecord,
   type PermitRecord } from '@greenlit/engine';
 import {
   appendAmendment, applyChassisChange, nextJobReference, recordChassisChange,
@@ -339,6 +340,9 @@ export function createMemoryRepository(): Repository {
   // and a removal in one did not remove it from the other.
   const permits: StoredPermit[] = [];
   const customerLocations: CustomerLocation[] = [];
+  const documents: DocumentRecord[] = [];
+  /** The bytes, so a test can prove a file was kept and not merely recorded. */
+  const documentBytes = new Map<string, Uint8Array>();
 
   /** One default per customer; a second would make "the default" ambiguous. */
   const clearDefaultFor = (customerCode: string) => {
@@ -809,6 +813,54 @@ export function createMemoryRepository(): Repository {
       fields.cancelledReason = reason.trim();
       record(movement.jobId, 'movement.cancelled', actor,
         { field: 'movementStatus', from: movement.movementStatus, to: 'CANCELLED' });
+    },
+
+    async listDocumentsForJob(jobId) {
+      return clone(documents.filter((d) => d.jobId === jobId));
+    },
+
+    async storeDocument(draft, bytes, actor) {
+      const problem = documentProblem(draft);
+      if (problem) throw new Error(problem);
+
+      // A second upload of the same document supersedes the first. The job was
+      // worked off the original, so it stays and stops being current.
+      const lineage = documents.filter((d) =>
+        d.jobId === draft.jobId
+        && d.documentType === draft.documentType
+        && d.filename === draft.filename);
+      for (const previous of lineage) previous.isCurrentVersion = false;
+      const version = lineage.length + 1;
+
+      const document: DocumentRecord = {
+        documentId: `doc-${draft.jobId}-${documents.length + 1}`,
+        jobId: draft.jobId,
+        containerId: draft.containerId ?? null,
+        movementId: draft.movementId ?? null,
+        documentType: draft.documentType as DocumentRecord['documentType'],
+        filename: draft.filename,
+        storagePath: storagePathFor(draft.jobId, version, draft.filename),
+        byteSize: bytes.byteLength,
+        source: (draft.source ?? 'MANUAL_UPLOAD') as DocumentRecord['source'],
+        receivedAt: new Date().toISOString(),
+        receivedFrom: draft.receivedFrom ?? null,
+        version,
+        isCurrentVersion: true,
+        extractionStatus: (draft.extractionStatus ?? 'PENDING') as DocumentRecord['extractionStatus'],
+        uploadedBy: actor,
+      };
+
+      documents.push(document);
+      documentBytes.set(document.documentId, bytes);
+      record(draft.jobId, 'document.stored', actor,
+        { field: 'filename', from: null, to: draft.filename });
+      return clone(document);
+    },
+
+    async documentUrl(documentId) {
+      // In-memory has no file storage and no URL to give. Null rather than a
+      // fabricated link, because a link that 404s is worse than none.
+      return documentBytes.has(documentId) ? null : null;
     },
 
     async listCustomerLocations(customerCode) {

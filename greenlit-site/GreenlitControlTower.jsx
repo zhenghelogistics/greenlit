@@ -3627,7 +3627,11 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
 
       const parsed = toIntakeResult(payload);
       setProgress("");
-      setResult({ ...parsed, fileName: file.name, fileSize: file.size });
+      // §10. The File itself, not only its name. Extraction records which
+      // page and line every value came from and the file was then dropped, so
+      // a controller in a demurrage dispute had a quote and nothing to check
+      // it against.
+      setResult({ ...parsed, fileName: file.name, fileSize: file.size, file });
       setDraft(parsed.values);
       setConfidence(parsed.confidence);
       setContainerDrafts(parsed.containers.length ? parsed.containers : [{ id: "container-1", ref: "C1", number: "", type: "", seal: "" }]);
@@ -4595,6 +4599,27 @@ export default function GreenlitControlTower() {
     }
 
     const { job } = await response.json();
+
+    // §10. File the document against the job it just created. Best-effort and
+    // deliberately after: the job is the thing that had to succeed, and losing
+    // the file is a smaller failure than refusing a job that is already
+    // correct. If it fails the controller is told, and can attach it later.
+    if (result.file) {
+      const filing = new FormData();
+      filing.append("file", result.file);
+      filing.append("documentType", "ARRIVAL_NOTICE");
+      filing.append("source", "MANUAL_UPLOAD");
+
+      const filed = await fetch(
+        `/api/jobs/${encodeURIComponent(job.jobId)}/documents`,
+        { method: "POST", body: filing },
+      ).catch(() => null);
+
+      if (!filed?.ok) {
+        showToast("The job was created, but the document was not filed against it.");
+      }
+    }
+
     setDocuments((current) => [{
       id: `DOC-${Date.now()}`,
       jobId: job.jobNumber,

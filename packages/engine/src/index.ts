@@ -31,3 +31,4 @@ export * from './joining.ts';
 export * from './permits.ts';
 export * from './closure.ts';
 export * from './locations.ts';
+export * from './documents.ts';
