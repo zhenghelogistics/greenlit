@@ -80,6 +80,24 @@ export interface Repository {
    * because a job legitimately starts before its mandatory information is
    * known. What creation requires is a customer and an actor, not completeness.
    */
+  /**
+   * §34. Confirm what free time the carrier actually gives this container.
+   *
+   * The one §34 value a person sets rather than the engine deriving: the
+   * carrier's terms are a fact about the booking, not something computable
+   * from it. Everything after — which clocks exist, how many days remain,
+   * whether a charge is running — follows from this and is derived.
+   *
+   * Without it a container was stuck: a document that did not state free time
+   * left the model NOT_CONFIRMED forever, and NOT_CONFIRMED shows no
+   * countdown, so the clock could never start.
+   */
+  recordFreeTime(
+    containerId: string,
+    terms: FreeTimeTerms,
+    actor: string,
+  ): Promise<void>;
+
   createImportJob(draft: ImportJobDraft, actor: string): Promise<ImportJob>;
   createExportJob(draft: ExportJobDraft, actor: string): Promise<ExportJob>;
 
@@ -167,6 +185,20 @@ export interface DateAmendmentInput {
  * Only the identity: everything else about a container is either derived or
  * recorded later by a person against a named event.
  */
+/** §34. What a carrier gives, as a person confirms it. */
+export interface FreeTimeTerms {
+  /** SPLIT, COMBINED, or NOT_CONFIRMED to put it back to unknown. */
+  freeTimeModel: string;
+  demurrageFreeDays?: number | null;
+  demurrageLfd?: string | null;
+  detentionFreeDays?: number | null;
+  detentionLfd?: string | null;
+  combinedFreeDays?: number | null;
+  combinedLfd?: string | null;
+  /** The terms as the carrier worded them, where a number cannot carry them. */
+  freeTimeRemarks?: string | null;
+}
+
 export interface ImportContainerDraft {
   containerNumber?: string | null;
   sizeType?: string | null;

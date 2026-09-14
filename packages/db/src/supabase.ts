@@ -124,8 +124,13 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       return r.data ? toExportJob(r.data) : null;
     },
     async listContainersForImportJob(jobId) {
-      return rows(await db.from('containers').select('*').eq('job_id', jobId), 'containers')
-        .map(toImportContainer);
+      // Ordered, because unordered means a different order each read: the
+      // containers on a job reshuffled between loads, and "the first
+      // container" meant a different box each time it was asked for.
+      return rows(
+        await db.from('containers').select('*').eq('job_id', jobId).order('container_id'),
+        'containers',
+      ).map(toImportContainer);
     },
     async listContainersForExportJob(jobId) {
       return rows(
@@ -152,7 +157,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
     async listContainersForImportJobs(jobIds) {
       if (jobIds.length === 0) return [];
       return rows(
-        await db.from('containers').select('*').in('job_id', [...jobIds]),
+        await db.from('containers').select('*').in('job_id', [...jobIds]).order('container_id'),
         'containers',
       ).map(toImportContainer);
     },
@@ -502,6 +507,35 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       await record(jobId, 'portnet.released', actor,
         { field: 'portnetReleased', from: before.portnetReleased, to: true });
     },
+    async recordFreeTime(containerId, terms, actor) {
+      const existing = await db.from('containers').select('job_id,free_time_model')
+        .eq('container_id', containerId).maybeSingle();
+      if (existing.error) throw new Error(`container lookup: ${existing.error.message}`);
+      if (!existing.data) throw new Error(`Unknown container ${containerId}`);
+
+      // Only the chosen model's fields are kept; the others are cleared. §34.3
+      // forbids showing two countdowns for one allowance, and the surest way
+      // to honour that is not to store the figures that would produce them.
+      const split = terms.freeTimeModel === 'SPLIT';
+      const combined = terms.freeTimeModel === 'COMBINED';
+      unwrap(await db.from('containers').update({
+        free_time_model: terms.freeTimeModel,
+        demurrage_free_days: split ? terms.demurrageFreeDays ?? null : null,
+        demurrage_lfd: split ? terms.demurrageLfd ?? null : null,
+        detention_free_days: split ? terms.detentionFreeDays ?? null : null,
+        detention_lfd: split ? terms.detentionLfd ?? null : null,
+        combined_free_days: combined ? terms.combinedFreeDays ?? null : null,
+        combined_lfd: combined ? terms.combinedLfd ?? null : null,
+        free_time_remarks: terms.freeTimeRemarks ?? null,
+      }).eq('container_id', containerId).select().single(), 'record free time');
+
+      await record(existing.data.job_id as string, 'freetime.confirmed', actor, {
+        field: 'freeTimeModel',
+        from: existing.data.free_time_model as string,
+        to: terms.freeTimeModel,
+      });
+    },
+
     async captureContainerIdentity(containerId, details, actor) {
       const jobId = await jobOfExportContainer(containerId);
       unwrap(await db.from('export_containers').update({

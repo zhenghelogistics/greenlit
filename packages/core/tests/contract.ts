@@ -295,6 +295,65 @@ export function runRepositoryContract(
     await assert.rejects(() => repo.resolveDiscrepancy(seeded.importJobId, 'nope', 'stored', 'W'));
   });
 
+  test(`[${name}] a job's containers come back in the same order every time`, async () => {
+    // Unordered meant a different order each read: the list reshuffled between
+    // loads, and "the first container" was a different box each time anyone
+    // asked for it — including the code that writes to it.
+    const repo = await fresh();
+    const [a, b, c] = await Promise.all([
+      repo.listContainersForImportJob(seeded.importJobId),
+      repo.listContainersForImportJob(seeded.importJobId),
+      repo.listContainersForImportJob(seeded.importJobId),
+    ]);
+    const ids = (list: readonly { containerId: string }[]) => list.map((x) => x.containerId);
+    assert.deepEqual(ids(b), ids(a));
+    assert.deepEqual(ids(c), ids(a));
+  });
+
+  test(`[${name}] §34: confirming free time keeps only the model's own figures`, async () => {
+    // The one §34 value a person supplies. Storing all six would keep the
+    // contradiction §34.3 exists to prevent — a combined carrier with split
+    // figures beside it and nothing to say which applies.
+    const repo = await fresh();
+    const [container] = await repo.listContainersForImportJob(seeded.importJobId);
+    if (!container) return;
+
+    await repo.recordFreeTime(container.containerId, {
+      freeTimeModel: 'COMBINED', combinedFreeDays: 14, combinedLfd: '2026-09-28',
+      demurrageFreeDays: 3, demurrageLfd: '2026-09-14',
+      freeTimeRemarks: '14 combined calendar days from discharge',
+    }, 'tester');
+
+    const [after] = await repo.listContainersForImportJob(seeded.importJobId);
+    assert.equal(after?.freeTimeModel, 'COMBINED');
+    assert.equal(after?.combinedFreeDays, 14);
+    assert.equal(after?.demurrageFreeDays, null,
+      'split figures must not survive under a combined allowance');
+    assert.equal(after?.demurrageLfd, null);
+    assert.equal(after?.freeTimeRemarks, '14 combined calendar days from discharge');
+  });
+
+  test(`[${name}] §13: confirming free time is audited`, async () => {
+    const repo = await fresh();
+    const [container] = await repo.listContainersForImportJob(seeded.importJobId);
+    if (!container) return;
+
+    const before = (await repo.listAuditEvents(seeded.importJobId)).length;
+    await repo.recordFreeTime(container.containerId,
+      { freeTimeModel: 'SPLIT', demurrageFreeDays: 3, detentionFreeDays: 4 }, 'Sarah Lim');
+
+    const after = await repo.listAuditEvents(seeded.importJobId);
+    assert.ok(after.length > before, 'a carrier rule change must leave a record');
+    assert.equal(after.at(-1)?.actor, 'Sarah Lim');
+  });
+
+  test(`[${name}] confirming free time on an unknown container fails loudly`, async () => {
+    const repo = await fresh();
+    await assert.rejects(
+      () => repo.recordFreeTime('no-such-container', { freeTimeModel: 'SPLIT' }, 'tester'),
+      /Unknown container/);
+  });
+
   test(`[${name}] writing a derived value is impossible by construction`, async () => {
     const repo = await fresh();
     for (const forbidden of ['setJobStatus', 'setNextAction', 'setLocation',

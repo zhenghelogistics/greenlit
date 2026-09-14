@@ -2118,7 +2118,19 @@ function initialDrawerDraft(panel, job) {
     return trip ? { ...trip } : suggestedTripDraft(job);
   }
   if (panel.type === "chassis") return { jobId: panel.jobId || "", action: panel.condition === "assigned" ? "release" : panel.condition === "maintenance" ? "return" : "assign" };
-  if (panel.type === "freeTime" && job) return { demurrageLastFreeDay: job.demurrageLastFreeDay, detentionLastFreeDay: job.detentionLastFreeDay };
+  if (panel.type === "freeTime" && job) {
+    // §34 lives on the container: boxes on one job are discharged and returned
+    // separately, so the terms are confirmed per container.
+    const c = (job.containers ?? [])[0] ?? {};
+    return {
+      containerId: c.id ?? null,
+      freeTimeModel: c.freeTimeModel && c.freeTimeModel !== "NOT_CONFIRMED" ? c.freeTimeModel : "SPLIT",
+      demurrageFreeDays: "", demurrageLfd: "",
+      detentionFreeDays: "", detentionLfd: "",
+      combinedFreeDays: "", combinedLfd: "",
+      freeTimeRemarks: c.freeTimeRemarks ?? "",
+    };
+  }
   return {};
 }
 
@@ -2275,8 +2287,77 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
 
             {panel.type === "freeTime" ? (
               <div className="grid gap-5">
-                <DrawerField label="Demurrage last free day"><input required type="date" value={draft.demurrageLastFreeDay || ""} onChange={(event) => update("demurrageLastFreeDay", event.target.value)} className={drawerInputClass} /></DrawerField>
-                <DrawerField label="Detention last free day"><input required type="date" value={draft.detentionLastFreeDay || ""} onChange={(event) => update("detentionLastFreeDay", event.target.value)} className={drawerInputClass} /></DrawerField>
+                {/* §34.3. The model chooses the fields. Asking for a demurrage
+                    and a detention date regardless of what the carrier issues
+                    is how a combined allowance ends up shown as two
+                    countdowns, which is the deadline that does not exist
+                    sitting beside the one that does. */}
+                <DrawerField label="What the carrier gives">
+                  <select
+                    value={draft.freeTimeModel || "SPLIT"}
+                    onChange={(event) => setDraft((d) => ({ ...d, freeTimeModel: event.target.value }))}
+                    className={drawerInputClass}
+                  >
+                    <option value="SPLIT">Separate demurrage and detention</option>
+                    <option value="COMBINED">One combined D&amp;D allowance</option>
+                    <option value="NOT_CONFIRMED">Not confirmed yet</option>
+                  </select>
+                </DrawerField>
+
+                {draft.freeTimeModel === "COMBINED" ? (
+                  <>
+                    <DrawerField label="Combined free days">
+                      <input type="number" min="0" value={draft.combinedFreeDays || ""}
+                        onChange={(event) => setDraft((d) => ({ ...d, combinedFreeDays: event.target.value }))}
+                        className={drawerInputClass} />
+                    </DrawerField>
+                    <DrawerField label="Last free day">
+                      <input type="date" value={draft.combinedLfd || ""}
+                        onChange={(event) => setDraft((d) => ({ ...d, combinedLfd: event.target.value }))}
+                        className={drawerInputClass} />
+                    </DrawerField>
+                  </>
+                ) : null}
+
+                {(draft.freeTimeModel || "SPLIT") === "SPLIT" ? (
+                  <>
+                    <DrawerField label="Demurrage free days">
+                      <input type="number" min="0" value={draft.demurrageFreeDays || ""}
+                        onChange={(event) => setDraft((d) => ({ ...d, demurrageFreeDays: event.target.value }))}
+                        className={drawerInputClass} />
+                    </DrawerField>
+                    <DrawerField label="Demurrage last free day">
+                      <input type="date" value={draft.demurrageLfd || ""}
+                        onChange={(event) => setDraft((d) => ({ ...d, demurrageLfd: event.target.value }))}
+                        className={drawerInputClass} />
+                    </DrawerField>
+                    <DrawerField label="Detention free days">
+                      <input type="number" min="0" value={draft.detentionFreeDays || ""}
+                        onChange={(event) => setDraft((d) => ({ ...d, detentionFreeDays: event.target.value }))}
+                        className={drawerInputClass} />
+                    </DrawerField>
+                    <DrawerField label="Detention last free day">
+                      <input type="date" value={draft.detentionLfd || ""}
+                        onChange={(event) => setDraft((d) => ({ ...d, detentionLfd: event.target.value }))}
+                        className={drawerInputClass} />
+                    </DrawerField>
+                  </>
+                ) : null}
+
+                {draft.freeTimeModel === "NOT_CONFIRMED" ? (
+                  <p className="gl-body">
+                    No countdown is shown until the terms are confirmed. A deadline
+                    derived from an unchecked carrier rule is worse than none,
+                    because it will be trusted.
+                  </p>
+                ) : null}
+
+                <DrawerField label="Free-time remarks">
+                  <input value={draft.freeTimeRemarks || ""}
+                    onChange={(event) => setDraft((d) => ({ ...d, freeTimeRemarks: event.target.value }))}
+                    placeholder="e.g. 10 combined calendar days from discharge"
+                    className={drawerInputClass} />
+                </DrawerField>
               </div>
             ) : null}
 
@@ -3374,6 +3455,45 @@ export default function GreenlitControlTower() {
       setClearedMaintenanceUnits((current) => current.includes(panel.unit) ? current : [...current, panel.unit]);
       setWorkPanel(null);
       showToast(`Chassis ${panel.unit} passed inspection and returned to the available fleet.`);
+      return;
+    }
+
+    if (panel.type === "freeTime") {
+      // §34. Only the chosen model's figures are sent; the server refuses a
+      // mismatch rather than storing one shape under another's name.
+      const split = draft.freeTimeModel === "SPLIT";
+      const combined = draft.freeTimeModel === "COMBINED";
+      void (async () => {
+        const response = await fetch(
+          `/api/jobs/${encodeURIComponent(panel.jobId)}/containers/${encodeURIComponent(draft.containerId)}/free-time`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              actor: CURRENT_USER,
+              freeTimeModel: draft.freeTimeModel || "NOT_CONFIRMED",
+              demurrageFreeDays: split ? numberOrNull(draft.demurrageFreeDays) : undefined,
+              demurrageLfd: split ? draft.demurrageLfd || null : undefined,
+              detentionFreeDays: split ? numberOrNull(draft.detentionFreeDays) : undefined,
+              detentionLfd: split ? draft.detentionLfd || null : undefined,
+              combinedFreeDays: combined ? numberOrNull(draft.combinedFreeDays) : undefined,
+              combinedLfd: combined ? draft.combinedLfd || null : undefined,
+              freeTimeRemarks: draft.freeTimeRemarks || null,
+            }),
+          },
+        ).catch(() => null);
+
+        const payload = await response?.json().catch(() => ({}));
+        if (!response?.ok) {
+          showToast(payload?.error ?? "Could not save the free-time terms.");
+          return;
+        }
+        setWorkPanel(null);
+        await loadJobs();
+        showToast(draft.freeTimeModel === "NOT_CONFIRMED"
+          ? "Free-time terms cleared. No countdown until they are confirmed."
+          : "Free-time terms confirmed. The countdown starts from these.");
+      })();
       return;
     }
 

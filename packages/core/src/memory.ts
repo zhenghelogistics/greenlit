@@ -680,6 +680,32 @@ export function createMemoryRepository(): Repository {
     // empty-ready confirmation is a different thing. Reporting "unknown"
     // sends the caller hunting for a missing record instead of telling them
     // the command does not apply.
+    async recordFreeTime(containerId, terms, actor) {
+      const container = Object.values(importContainers).flat()
+        .find((c) => c.containerId === containerId);
+      if (!container) throw new Error(`Unknown container ${containerId}`);
+
+      const from = container.freeTimeModel;
+      container.freeTimeModel = terms.freeTimeModel as ImportContainer['freeTimeModel'];
+
+      // Only the fields the chosen model uses are kept. Writing all six would
+      // store the contradiction §34.3 exists to prevent — a combined carrier
+      // with split figures beside it, and nothing to say which applies.
+      const split = terms.freeTimeModel === 'SPLIT';
+      const combined = terms.freeTimeModel === 'COMBINED';
+      container.demurrageFreeDays = split ? terms.demurrageFreeDays ?? null : null;
+      container.demurrageLfd = split ? terms.demurrageLfd ?? null : null;
+      container.detentionFreeDays = split ? terms.detentionFreeDays ?? null : null;
+      container.detentionLfd = split ? terms.detentionLfd ?? null : null;
+      container.combinedFreeDays = combined ? terms.combinedFreeDays ?? null : null;
+      container.combinedLfd = combined ? terms.combinedLfd ?? null : null;
+      container.freeTimeRemarks = terms.freeTimeRemarks ?? null;
+
+      record(container.jobId, 'freetime.confirmed', actor, {
+        field: 'freeTimeModel', from, to: terms.freeTimeModel,
+      });
+    },
+
     async captureContainerIdentity(containerId, details, actor) {
       const c = findExportContainer(containerId);
       if (!c) throw new Error((() => {
