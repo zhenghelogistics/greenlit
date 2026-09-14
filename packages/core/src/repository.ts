@@ -285,6 +285,17 @@ export interface Repository {
   amendJob(jobId: string, changes: JobAmendment, actor: string): Promise<void>;
 
   /**
+   * §33. Close a finished job.
+   *
+   * The caller checks closureBlockers first; this records the act. Closing is
+   * what makes a job billable, which is why reopening is a different
+   * permission and needs a reason.
+   */
+  closeJob(jobId: string, actor: string): Promise<void>;
+  /** §33.2. Open a billed job again, saying why. */
+  reopenJob(jobId: string, reason: string, actor: string): Promise<void>;
+
+  /**
    * Commands. Deliberately narrow: only the milestones that move a gate.
    *
    * §54 requires derived values to be read-only through the API, so there is

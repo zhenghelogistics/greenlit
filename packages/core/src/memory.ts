@@ -159,6 +159,8 @@ const IMPORT_JOBS: ImportJob[] = [
     portnetRequired: true, portnetReleased: false,
     assignedController: 'Sarah', cancelled: false, onHold: false,
     createdAt: '2026-08-18T08:00:00Z',
+    closedAt: null,
+    closedBy: null,
   },
   {
     jobId: 'ij2', jobNumber: 'JOB-260816-004', customer: 'Lion City Traders',
@@ -168,6 +170,8 @@ const IMPORT_JOBS: ImportJob[] = [
     portnetRequired: true, portnetReleased: true,
     assignedController: 'Brandon', cancelled: false, onHold: false,
     createdAt: '2026-08-16T02:00:00Z',
+    closedAt: null,
+    closedBy: null,
   },
 ];
 
@@ -212,6 +216,7 @@ const EXPORT_JOBS: ExportJob[] = [
     transhipmentStatus: 'PENDING', transhipmentCheckedAt: '2026-08-22T04:00:00Z',
     carparkRequested: true, assignedController: 'Winnie',
     cancelled: false, onHold: false, createdAt: '2026-08-18T01:00:00Z',
+    closedAt: null, closedBy: null,
   },
   /** §58.3 — the exception path: empty delivered, identity never captured. */
   {
@@ -226,6 +231,7 @@ const EXPORT_JOBS: ExportJob[] = [
     transhipmentStatus: 'PENDING', transhipmentCheckedAt: null,
     carparkRequested: false, assignedController: 'Winnie',
     cancelled: false, onHold: false, createdAt: '2026-08-19T01:00:00Z',
+    closedAt: null, closedBy: null,
   },
   /** Awaiting CMS: the gate §41 exists to enforce. */
   {
@@ -240,6 +246,7 @@ const EXPORT_JOBS: ExportJob[] = [
     transhipmentStatus: 'PENDING', transhipmentCheckedAt: null,
     carparkRequested: false, assignedController: 'Brandon',
     cancelled: false, onHold: false, createdAt: '2026-08-19T00:30:00Z',
+    closedAt: null, closedBy: null,
   },
 ];
 
@@ -484,6 +491,10 @@ export function createMemoryRepository(): Repository {
       const jobId = jobNumber.toLowerCase();
 
       const job: ImportJob = {
+        // A new job is open. Stated rather than left to be inferred, because
+        // §33 makes closure a stored fact and an absent one would read as
+        // closed to Boolean().
+        closedAt: null, closedBy: null,
         jobId, jobNumber, customer: customer.companyName,
         blNumber: draft.blNumber ?? null,
         houseBlNumber: draft.houseBlNumber ?? null,
@@ -552,6 +563,7 @@ export function createMemoryRepository(): Repository {
       const quantity = Math.max(1, draft.containerQuantity ?? 1);
 
       const job: ExportJob = {
+        closedAt: null, closedBy: null,
         exportJobId: jobId, jobNumber, customer: customer.companyName,
         shipper: draft.shipper ?? customer.companyName,
         bookingReference: draft.bookingReference ?? null,
@@ -788,6 +800,33 @@ export function createMemoryRepository(): Repository {
       fields.cancelledReason = reason.trim();
       record(movement.jobId, 'movement.cancelled', actor,
         { field: 'movementStatus', from: movement.movementStatus, to: 'CANCELLED' });
+    },
+
+    async closeJob(jobId, actor) {
+      const job = importJobs.find((j) => j.jobId === jobId)
+        ?? exportJobs.find((j) => j.exportJobId === jobId);
+      if (!job) throw new Error(`Unknown job ${jobId}`);
+
+      const fields = job as unknown as Record<string, unknown>;
+      if (fields.closedAt) throw new Error('That job is already closed');
+      fields.closedAt = new Date().toISOString();
+      fields.closedBy = actor;
+      record(jobId, 'job.closed', actor, { field: 'closedAt', from: null, to: fields.closedAt });
+    },
+
+    async reopenJob(jobId, reason, actor) {
+      const job = importJobs.find((j) => j.jobId === jobId)
+        ?? exportJobs.find((j) => j.exportJobId === jobId);
+      if (!job) throw new Error(`Unknown job ${jobId}`);
+
+      const fields = job as unknown as Record<string, unknown>;
+      if (!fields.closedAt) throw new Error('That job is not closed');
+      const was = fields.closedAt;
+      fields.closedAt = null;
+      fields.closedBy = null;
+      // The reason goes on the audit trail, which is the only record of why an
+      // invoice moved.
+      record(jobId, 'job.reopened', actor, { field: 'closedAt', from: was, to: reason });
     },
 
     async amendJob(jobId, changes, actor) {

@@ -310,6 +310,51 @@ export function runRepositoryContract(
     assert.deepEqual(ids(c), ids(a));
   });
 
+  test(`[${name}] §33: closing a job makes it read Completed`, async () => {
+    // Completed was unreachable: the derivation passed closureSatisfied as a
+    // hardcoded false, so a job finished in every respect stayed open forever
+    // and the board filled with work that was done.
+    const repo = await fresh();
+    const before = await repo.getImportJob(seeded.importJobId);
+    assert.equal(before?.closedAt, null, 'a job starts open');
+
+    await repo.closeJob(seeded.importJobId, 'Winnie Ong');
+    const after = await repo.getImportJob(seeded.importJobId);
+    assert.ok(after?.closedAt, 'the closure is stored, not derived');
+    assert.equal(after?.closedBy, 'Winnie Ong');
+  });
+
+  test(`[${name}] §33: closing twice is refused`, async () => {
+    const repo = await fresh();
+    await repo.closeJob(seeded.importJobId, 'tester');
+    await assert.rejects(
+      () => repo.closeJob(seeded.importJobId, 'tester'), /already closed/);
+  });
+
+  test(`[${name}] §33.2: reopening clears the closure and records why`, async () => {
+    // The only record of why an invoice moved.
+    const repo = await fresh();
+    await repo.closeJob(seeded.importJobId, 'Winnie Ong');
+    await repo.reopenJob(seeded.importJobId,
+      'Detention was billed at 4 days, carrier says 6', 'Mei Chen');
+
+    const after = await repo.getImportJob(seeded.importJobId);
+    assert.equal(after?.closedAt, null);
+    assert.equal(after?.closedBy, null);
+
+    const trail = await repo.listAuditEvents(seeded.importJobId);
+    const entry = trail.at(-1);
+    assert.equal(entry?.actor, 'Mei Chen');
+    assert.match(String(entry?.newValue), /carrier says 6/);
+  });
+
+  test(`[${name}] §33.2: reopening a job that is not closed is refused`, async () => {
+    const repo = await fresh();
+    await assert.rejects(
+      () => repo.reopenJob(seeded.importJobId, 'A perfectly good reason', 'tester'),
+      /not closed/);
+  });
+
   test(`[${name}] §29: a container added to a job stays added`, async () => {
     // The screen added, edited and removed containers in React state and wrote
     // nothing down — and containers carry the free-time clocks, so the thing

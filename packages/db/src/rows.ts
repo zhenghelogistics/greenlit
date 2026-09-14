@@ -38,6 +38,9 @@ export const toPrincipal = (r: Record<string, unknown>): Principal => ({
 });
 
 export const toImportJob = (r: Record<string, unknown>): ImportJob => ({
+  // §33. Closure is a stored fact, so it comes back with the row.
+  closedAt: nn(r.closed_at as string),
+  closedBy: nn(r.closed_by as string),
   jobId: r.job_id as string,
   jobNumber: r.job_number as string,
   customer: r.customer as string,
@@ -95,6 +98,8 @@ export const toImportContainer = (r: Record<string, unknown>): ImportContainer =
 });
 
 export const toExportJob = (r: Record<string, unknown>): ExportJob => ({
+  closedAt: nn(r.closed_at as string),
+  closedBy: nn(r.closed_by as string),
   exportJobId: r.export_job_id as string,
   jobNumber: r.job_number as string,
   customer: r.customer as string,

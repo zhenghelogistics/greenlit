@@ -49,6 +49,7 @@ const mv = (o: Partial<Movement> = {}): Movement => ({
 });
 
 const importJob = (o: Partial<ImportJob> = {}): ImportJob => ({
+  closedAt: null, closedBy: null,
   jobId: 'j', jobNumber: 'JOB-260901-001', customer: 'ABC', blNumber: 'BL', houseBlNumber: null,
   vesselName: 'V', voyageNumber: '1E', eta: '2026-09-01', jobType: 'std',
   deliveryAddress: '12 Tuas', permitRequired: true, permitReceived: true,
@@ -70,6 +71,7 @@ const importContainer = (o: Partial<ImportContainer> = {}): ImportContainer => (
 });
 
 const exportJob = (o: Partial<ExportJob> = {}): ExportJob => ({
+  closedAt: null, closedBy: null,
   exportJobId: 'e', jobNumber: 'EXP-260901-001', customer: 'ABC', shipper: 'XYZ',
   bookingReference: 'BK', exportClearanceReference: 'OP', carrier: 'ONE',
   vesselName: 'V', voyageNumber: '1E', etaSingapore: '2026-09-03',

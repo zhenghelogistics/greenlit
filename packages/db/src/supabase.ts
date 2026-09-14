@@ -56,6 +56,32 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
 
   /** §13. Every command leaves one of these; there is no update or delete. */
   /**
+   * Which table a job lives in.
+   *
+   * An id is unique across both, so this asks rather than making every caller
+   * say which domain it is. A closure, like patchMovement, because db is
+   * already in scope here and typing it at module level was fighting the
+   * client's generics for nothing.
+   */
+  const locateJob = async (jobId: string) => {
+    const asImport = await db.from('import_jobs').select('*')
+      .eq('job_id', jobId).maybeSingle();
+    if (asImport.error) throw new Error(`job lookup: ${asImport.error.message}`);
+    if (asImport.data) {
+      return { table: 'import_jobs', key: 'job_id', row: asImport.data as Record<string, unknown> };
+    }
+
+    const asExport = await db.from('export_jobs').select('*')
+      .eq('export_job_id', jobId).maybeSingle();
+    if (asExport.error) throw new Error(`job lookup: ${asExport.error.message}`);
+    if (!asExport.data) throw new Error(`Unknown job ${jobId}`);
+    return {
+      table: 'export_jobs', key: 'export_job_id',
+      row: asExport.data as Record<string, unknown>,
+    };
+  };
+
+  /**
    * The shared write path for the three movement commands.
    *
    * Absent means leave alone; every change that actually moves something is
@@ -458,6 +484,40 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         movementStatus: 'CANCELLED',
         cancelledReason: reason.trim(),
       }, 'movement.cancelled', actor);
+    },
+
+    async closeJob(jobId, actor) {
+      const { table, key, row } = await locateJob(jobId);
+      if (row.closed_at) throw new Error('That job is already closed');
+
+      unwrap(await db.from(table).update({
+        closed_at: new Date().toISOString(),
+        closed_by: actor,
+      }).eq(key, jobId).select().single(), 'close job');
+
+      await record(jobId, 'job.closed', actor,
+        { field: 'closedAt', from: null, to: new Date().toISOString() });
+    },
+
+    async reopenJob(jobId, reason, actor) {
+      const { table, key, row } = await locateJob(jobId);
+      if (!row.closed_at) throw new Error('That job is not closed');
+
+      unwrap(await db.from(table).update({ closed_at: null, closed_by: null })
+        .eq(key, jobId).select().single(), 'reopen job');
+
+      // Kept as a row of its own as well as on the audit trail: §33.2 wants
+      // the history of why a billed job moved, and that is a question people
+      // ask of the job rather than of the audit log.
+      unwrap(await db.from('job_reopenings').insert({
+        reopening_id: `reopen-${crypto.randomUUID()}`,
+        job_id: jobId,
+        reason,
+        reopened_by: actor,
+      }).select().single(), 'record reopening');
+
+      await record(jobId, 'job.reopened', actor,
+        { field: 'closedAt', from: row.closed_at, to: reason });
     },
 
     async amendJob(jobId, changes, actor) {

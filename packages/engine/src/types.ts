@@ -110,6 +110,16 @@ export interface ImportContainer {
 
 /** §28 */
 export interface ImportJob {
+  /**
+   * §33. When someone closed this job, and who.
+   *
+   * A stored fact, not a derivation: the engine can see every container is
+   * back, but only a controller knows the paperwork is out. jobStatus reads
+   * Completed because this is set.
+   */
+  closedAt: IsoInstant | null;
+  closedBy: string | null;
+
   jobId: string;
   jobNumber: string;
   customer: string;
@@ -173,6 +183,16 @@ export interface ExportContainer {
 
 /** §38.1. The commercial header. Container detail lives on ExportContainer. */
 export interface ExportJob {
+  /**
+   * §33. When someone closed this job, and who.
+   *
+   * A stored fact, not a derivation: the engine can see every container is
+   * back, but only a controller knows the paperwork is out. jobStatus reads
+   * Completed because this is set.
+   */
+  closedAt: IsoInstant | null;
+  closedBy: string | null;
+
   exportJobId: string;
   jobNumber: string;
   customer: string;

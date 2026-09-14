@@ -251,7 +251,11 @@ export function deriveImportJob(
     jobNumber: job.jobNumber,
     domain: 'IMPORT',
     customer: job.customer,
-    jobStatus: importJobStatus(job, views.map((v) => v.status as ImportContainerStatus), movements, exceptions, false),
+    // §33. Was false, so Completed was unreachable and a finished job stayed
+    // open forever. It reads the stored fact: somebody closed this, and there
+    // is an audit row naming them. The status is still derived — it says
+    // Completed *because* that is true, not instead of it.
+    jobStatus: importJobStatus(job, views.map((v) => v.status as ImportContainerStatus), movements, exceptions, Boolean(job.closedAt)),
     location: views[0]?.location ?? currentLocation(movements, 'IMPORT'),
     nextActionRequired: action.nextActionRequired,
     blockingReason: action.blockingReason,
@@ -310,7 +314,7 @@ export function deriveExportJob(
     jobNumber: job.jobNumber,
     domain: 'EXPORT',
     customer: job.customer,
-    jobStatus: exportJobStatus(job, views.map((v) => v.status as ExportJobStatus), exceptions, false),
+    jobStatus: exportJobStatus(job, views.map((v) => v.status as ExportJobStatus), exceptions, Boolean(job.closedAt)),
     location: views[0]?.location ?? currentLocation(movements, 'EXPORT'),
     nextActionRequired: action.nextActionRequired,
     blockingReason: action.blockingReason,
