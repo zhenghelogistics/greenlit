@@ -10,7 +10,8 @@ import type {
   ExportContainer, ExportJob, ImportContainer, ImportJob, Movement, Principal,
 } from '@greenlit/engine';
 
-const nn = <T>(v: T | null | undefined): T | null => (v === undefined ? null : v);
+/** Undefined and null both mean "no value"; the store only has the one. */
+export const nn = <T>(v: T | null | undefined): T | null => (v === undefined ? null : v);
 
 export const toCustomer = (r: Record<string, unknown>): Customer => ({
   customerId: r.customer_id as string,

@@ -1,3 +1,4 @@
+import type { PermitRecord } from '@greenlit/engine';
 import type {
   AuditEvent, Chassis, ChassisChange, ChassisChangeRequest, ChassisHolding,
   Customer, CustomerDraft, DateAmendment, Discrepancy, ExceptionRecord, Principal,
@@ -170,6 +171,27 @@ export interface Repository {
    * have existed, which is most of what a seeded directory contains.
    */
   removePrincipal(userId: string, actor: string): Promise<void>;
+
+  // ---- §24. Permits ---------------------------------------------------------
+  //
+  // Held at job level, referenced by containers. No method writes a validation
+  // verdict: whether a permit matches its sailing is derived from the job on
+  // every read, because a stored verdict survives the amendment that
+  // invalidates it.
+  listPermitsForJob(jobId: string): Promise<readonly PermitRecord[]>;
+  listPermitsForJobs(jobIds: readonly string[]): Promise<readonly JobPermits[]>;
+  recordPermit(jobId: string, draft: PermitDraft, actor: string): Promise<PermitRecord>;
+  /**
+   * Which containers this permit covers, replacing whatever it covered before.
+   *
+   * Replacing rather than adding, because "copy to selected" states the
+   * intended relationship for the whole permit: a container the controller has
+   * unticked must stop being covered, and an add-only call could never say so.
+   */
+  linkPermitToContainers(
+    permitId: string, containerIds: readonly string[], actor: string,
+  ): Promise<void>;
+  removePermit(permitId: string, actor: string): Promise<void>;
   listPrincipals(): Promise<Principal[]>;
 
   listChassis(): Promise<Chassis[]>;
@@ -248,6 +270,22 @@ export interface DateAmendmentInput {
  * Only the identity: everything else about a container is either derived or
  * recorded later by a person against a named event.
  */
+/** §24. A permit as a person enters it. */
+export interface PermitDraft {
+  permitNumber?: string | null;
+  expiryDate?: string | null;
+  permitVesselVoyage?: string | null;
+  fileName?: string | null;
+  /** Containers it covers. Empty is legitimate: a permit can arrive untagged. */
+  containerIds?: readonly string[];
+}
+
+/** Permits grouped by the job they belong to, for a batched read. */
+export interface JobPermits {
+  jobId: string;
+  permits: readonly PermitRecord[];
+}
+
 /** §7.1. A person in the directory. */
 export interface PrincipalDraft {
   userId: string;

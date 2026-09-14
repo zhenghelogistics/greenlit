@@ -1,4 +1,5 @@
-import { suggestedUserId, suggestedDisplayName } from '@greenlit/engine';
+import { suggestedUserId, suggestedDisplayName, normalisePermitNumber,
+  type PermitRecord } from '@greenlit/engine';
 import {
   appendAmendment, applyChassisChange, nextJobReference, recordChassisChange,
   userEvent, validateContainerCount, validateCustomerDraft,
@@ -83,6 +84,23 @@ const CUSTOMERS: Customer[] = [
     emailDomains: ['straitscargo.sg'], accountStatus: 'ACTIVE', notes: null,
     createdAt: '2026-02-11T00:00:00Z' },
 ];
+
+/** §24. A stored permit, before it is shaped for a caller. */
+interface StoredPermit {
+  permitId: string; jobId: string;
+  permitNumber: string | null; expiryDate: string | null;
+  permitVesselVoyage: string | null; fileName: string | null;
+  containerIds: string[];
+}
+
+const toPermitRecord = (p: StoredPermit): PermitRecord => ({
+  permitId: p.permitId,
+  permitNumber: p.permitNumber,
+  expiryDate: p.expiryDate,
+  permitVesselVoyage: p.permitVesselVoyage,
+  fileName: p.fileName,
+  linkedContainerIds: [...p.containerIds],
+});
 
 const USERS: Principal[] = [
   { userId: 'sarah', displayName: 'Sarah Lim', role: 'OPERATIONS', email: 'sarah@zhenghe.com.sg', active: true },
@@ -308,6 +326,10 @@ export function createMemoryRepository(): Repository {
   const importJobs = clone(IMPORT_JOBS);
   const exportJobs = clone(EXPORT_JOBS);
   const importContainers = clone(IMPORT_CONTAINERS);
+  // Per repository, like every other collection here. At module scope this
+  // leaked between instances: one repository's permits appeared in another's,
+  // and a removal in one did not remove it from the other.
+  const permits: StoredPermit[] = [];
   const exportContainers = clone(EXPORT_CONTAINERS);
   const movements = clone(MOVEMENTS);
   const exceptions = clone(EXCEPTIONS);
@@ -613,6 +635,55 @@ export function createMemoryRepository(): Repository {
       record(userId, active ? 'user.reactivated' : 'user.deactivated', actor,
         { field: 'active', from: String(from), to: String(active) });
     },
+    async listPermitsForJob(jobId) {
+      return clone(permits.filter((p) => p.jobId === jobId).map(toPermitRecord));
+    },
+    async listPermitsForJobs(jobIds) {
+      const wanted = new Set(jobIds);
+      const byJob = new Map();
+      for (const p of permits) {
+        if (!wanted.has(p.jobId)) continue;
+        if (!byJob.has(p.jobId)) byJob.set(p.jobId, []);
+        byJob.get(p.jobId).push(toPermitRecord(p));
+      }
+      return clone([...byJob].map(([jobId, list]) => ({ jobId, permits: list })));
+    },
+    async recordPermit(jobId, draft, actor) {
+      const permitId = `permit-${jobId}-${permits.length + 1}`;
+      const stored = {
+        permitId,
+        jobId,
+        permitNumber: draft.permitNumber ? normalisePermitNumber(draft.permitNumber) : null,
+        expiryDate: draft.expiryDate ?? null,
+        permitVesselVoyage: draft.permitVesselVoyage ?? null,
+        fileName: draft.fileName ?? null,
+        containerIds: [...(draft.containerIds ?? [])],
+      };
+      permits.push(stored);
+      record(jobId, 'permit.recorded', actor,
+        { field: 'permitNumber', from: null, to: stored.permitNumber });
+      return clone(toPermitRecord(stored));
+    },
+    async linkPermitToContainers(permitId, containerIds, actor) {
+      const permit = permits.find((p) => p.permitId === permitId);
+      if (!permit) throw new Error(`Unknown permit ${permitId}`);
+      const from = permit.containerIds.length;
+      permit.containerIds = [...new Set(containerIds)];
+      record(permit.jobId, 'permit.allocated', actor, {
+        field: 'linkedContainers',
+        from: String(from),
+        to: String(permit.containerIds.length),
+      });
+    },
+    async removePermit(permitId, actor) {
+      const index = permits.findIndex((p) => p.permitId === permitId);
+      if (index === -1) throw new Error(`Unknown permit ${permitId}`);
+      const gone = permits[index]!;
+      permits.splice(index, 1);
+      record(gone.jobId, 'permit.removed', actor,
+        { field: 'permitNumber', from: gone.permitNumber, to: null });
+    },
+
     async removePrincipal(userId, actor) {
       const index = USERS.findIndex((u) => u.userId === userId);
       if (index === -1) throw new Error(`Unknown user ${userId}`);

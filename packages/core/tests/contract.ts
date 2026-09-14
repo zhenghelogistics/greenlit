@@ -310,6 +310,106 @@ export function runRepositoryContract(
     assert.deepEqual(ids(c), ids(a));
   });
 
+  test(`[${name}] §24: a permit is held at job level and covers containers by reference`, async () => {
+    const repo = await fresh();
+    const containers = await repo.listContainersForImportJob(seeded.importJobId);
+    if (containers.length < 2) return;
+
+    const permit = await repo.recordPermit(seeded.importJobId, {
+      permitNumber: 'IG6I728642H',
+      expiryDate: '2026-09-30',
+      permitVesselVoyage: 'CALLAO BRIDGE / 256S',
+      fileName: 'permit.pdf',
+      containerIds: [containers[0]!.containerId],
+    }, 'tester');
+
+    assert.equal(permit.permitNumber, 'IG6I728642H');
+    assert.deepEqual(permit.linkedContainerIds, [containers[0]!.containerId]);
+
+    const onJob = await repo.listPermitsForJob(seeded.importJobId);
+    assert.equal(onJob.length, 1, 'the permit belongs to the job, not to the container');
+  });
+
+  test(`[${name}] §24: allocation replaces, so unticking a container uncovers it`, async () => {
+    // "Copy to selected" states the whole relationship. An add-only call could
+    // never express a container the controller has just removed.
+    const repo = await fresh();
+    const containers = await repo.listContainersForImportJob(seeded.importJobId);
+    if (containers.length < 2) return;
+    const [a, b] = containers;
+
+    const permit = await repo.recordPermit(seeded.importJobId,
+      { permitNumber: 'IG6I728642H', containerIds: [a!.containerId, b!.containerId] }, 'tester');
+    assert.equal(permit.linkedContainerIds.length, 2);
+
+    await repo.linkPermitToContainers(permit.permitId, [b!.containerId], 'tester');
+    const after = (await repo.listPermitsForJob(seeded.importJobId))[0];
+    assert.deepEqual(after?.linkedContainerIds, [b!.containerId],
+      'the unticked container must stop being covered');
+  });
+
+  test(`[${name}] §24: one container can be covered by more than one permit`, async () => {
+    // The many-to-many case a permit_number column on the container could not
+    // express, and the reason the link table exists.
+    const repo = await fresh();
+    const containers = await repo.listContainersForImportJob(seeded.importJobId);
+    if (containers.length < 1) return;
+    const shared = containers[0]!.containerId;
+
+    await repo.recordPermit(seeded.importJobId,
+      { permitNumber: 'IG6I728642H', containerIds: [shared] }, 'tester');
+    await repo.recordPermit(seeded.importJobId,
+      { permitNumber: 'ME1A123456B', containerIds: [shared] }, 'tester');
+
+    const permits = await repo.listPermitsForJob(seeded.importJobId);
+    assert.equal(permits.length, 2);
+    assert.ok(permits.every((p) => p.linkedContainerIds.includes(shared)));
+  });
+
+  test(`[${name}] §24: a permit can arrive before anyone has decided what it covers`, async () => {
+    const repo = await fresh();
+    const permit = await repo.recordPermit(seeded.importJobId,
+      { permitNumber: 'IG6I728642H' }, 'tester');
+    assert.deepEqual(permit.linkedContainerIds, [],
+      'untagged is a real state, not a missing one');
+  });
+
+  test(`[${name}] §24: permit numbers are stored in one shape`, async () => {
+    const repo = await fresh();
+    const permit = await repo.recordPermit(seeded.importJobId,
+      { permitNumber: ' ig6i-728642 h ' }, 'tester');
+    assert.equal(permit.permitNumber, 'IG6I728642H');
+  });
+
+  test(`[${name}] §24: removing a permit leaves the job and its containers intact`, async () => {
+    const repo = await fresh();
+    const containers = await repo.listContainersForImportJob(seeded.importJobId);
+    if (containers.length < 1) return;
+
+    const permit = await repo.recordPermit(seeded.importJobId,
+      { permitNumber: 'IG6I728642H', containerIds: [containers[0]!.containerId] }, 'tester');
+    await repo.removePermit(permit.permitId, 'tester');
+
+    assert.deepEqual(await repo.listPermitsForJob(seeded.importJobId), []);
+    assert.equal((await repo.listContainersForImportJob(seeded.importJobId)).length,
+      containers.length, 'the containers it covered still exist');
+  });
+
+  test(`[${name}] §24: permits for several jobs come back in one read`, async () => {
+    const repo = await fresh();
+    await repo.recordPermit(seeded.importJobId, { permitNumber: 'IG6I728642H' }, 'tester');
+    const grouped = await repo.listPermitsForJobs([seeded.importJobId, 'no-such-job']);
+    assert.equal(grouped.length, 1, 'a job with no permits contributes no group');
+    assert.equal(grouped[0]?.jobId, seeded.importJobId);
+  });
+
+  test(`[${name}] §24: acting on an unknown permit fails loudly`, async () => {
+    const repo = await fresh();
+    await assert.rejects(() => repo.removePermit('no-such-permit', 'tester'), /Unknown permit/);
+    await assert.rejects(
+      () => repo.linkPermitToContainers('no-such-permit', [], 'tester'), /Unknown permit/);
+  });
+
   test(`[${name}] §7.1: removing someone leaves the history that names them`, async () => {
     // Deletion is safe because §13 stores the actor as text, not as a link to
     // this row. I refused to build removal on the grounds that it would orphan

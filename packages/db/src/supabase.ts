@@ -1,4 +1,5 @@
-import { suggestedUserId, suggestedDisplayName } from '@greenlit/engine';
+import { suggestedUserId, suggestedDisplayName, normalisePermitNumber,
+  type PermitRecord } from '@greenlit/engine';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
   appendAmendment, nextJobReference, recordChassisChange, userEvent,
@@ -18,8 +19,7 @@ import {
 import {
   holdingFrom, toChassis, toChassisChange, toCustomer, toDateAmendment,
   toException, toExportContainer, toExportJob, toImportContainer, toImportJob,
-  toMovement, toPrincipal,
-} from './rows.ts';
+  toMovement, toPrincipal, nn } from './rows.ts';
 
 /**
  * Supabase implementation of the Repository port.
@@ -291,6 +291,99 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       await record(userId, active ? 'user.reactivated' : 'user.deactivated', actor,
         { field: 'active', from: String(before.active), to: String(active) });
     },
+    async listPermitsForJob(jobId) {
+      return (await this.listPermitsForJobs([jobId]))[0]?.permits ?? [];
+    },
+    async listPermitsForJobs(jobIds) {
+      if (jobIds.length === 0) return [];
+      const permitRows = rows(
+        await db.from('permits').select('*').in('job_id', [...jobIds]).order('permit_id'),
+        'permits',
+      );
+      if (permitRows.length === 0) return [];
+
+      // One query for every link rather than one per permit: a job with five
+      // permits should cost two reads, not six.
+      const links = rows(
+        await db.from('permit_containers').select('*')
+          .in('permit_id', permitRows.map((p) => p.permit_id as string)),
+        'permit containers',
+      );
+      const covered = new Map<string, string[]>();
+      for (const link of links) {
+        const key = link.permit_id as string;
+        if (!covered.has(key)) covered.set(key, []);
+        covered.get(key)!.push(link.container_id as string);
+      }
+
+      const byJob = new Map<string, PermitRecord[]>();
+      for (const row of permitRows) {
+        const jobId = row.job_id as string;
+        if (!byJob.has(jobId)) byJob.set(jobId, []);
+        byJob.get(jobId)!.push({
+          permitId: row.permit_id as string,
+          permitNumber: nn(row.permit_number as string),
+          expiryDate: nn(row.expiry_date as string),
+          permitVesselVoyage: nn(row.permit_vessel_voyage as string),
+          fileName: nn(row.file_name as string),
+          linkedContainerIds: (covered.get(row.permit_id as string) ?? []).sort(),
+        });
+      }
+      return [...byJob].map(([jobId, permits]) => ({ jobId, permits }));
+    },
+    async recordPermit(jobId, draft, actor) {
+      const permitId = `permit-${crypto.randomUUID()}`;
+      unwrap(await db.from('permits').insert({
+        permit_id: permitId,
+        job_id: jobId,
+        permit_number: draft.permitNumber ? normalisePermitNumber(draft.permitNumber) : null,
+        expiry_date: draft.expiryDate ?? null,
+        permit_vessel_voyage: draft.permitVesselVoyage ?? null,
+        file_name: draft.fileName ?? null,
+        created_by: actor,
+      }).select().single(), 'record permit');
+
+      if (draft.containerIds?.length) {
+        await this.linkPermitToContainers(permitId, draft.containerIds, actor);
+      }
+      await record(jobId, 'permit.recorded', actor,
+        { field: 'permitNumber', from: null, to: draft.permitNumber ?? null });
+
+      return (await this.listPermitsForJob(jobId)).find((p) => p.permitId === permitId)!;
+    },
+    async linkPermitToContainers(permitId, containerIds, actor) {
+      const existing = await db.from('permits').select('job_id')
+        .eq('permit_id', permitId).maybeSingle();
+      if (existing.error) throw new Error(`permit lookup: ${existing.error.message}`);
+      if (!existing.data) throw new Error(`Unknown permit ${permitId}`);
+
+      // Replace, never add: "copy to selected" states the whole relationship,
+      // so a container the controller unticked must stop being covered.
+      const cleared = await db.from('permit_containers').delete().eq('permit_id', permitId);
+      if (cleared.error) throw new Error(`clear permit links: ${cleared.error.message}`);
+
+      const wanted = [...new Set(containerIds)];
+      if (wanted.length > 0) {
+        unwrap(await db.from('permit_containers').insert(
+          wanted.map((containerId) => ({ permit_id: permitId, container_id: containerId })),
+        ).select(), 'link permit to containers');
+      }
+
+      await record(existing.data.job_id as string, 'permit.allocated', actor,
+        { field: 'linkedContainers', from: null, to: String(wanted.length) });
+    },
+    async removePermit(permitId, actor) {
+      const existing = await db.from('permits').select('job_id,permit_number')
+        .eq('permit_id', permitId).maybeSingle();
+      if (existing.error) throw new Error(`permit lookup: ${existing.error.message}`);
+      if (!existing.data) throw new Error(`Unknown permit ${permitId}`);
+
+      unwrap(await db.from('permits').delete()
+        .eq('permit_id', permitId).select().single(), 'remove permit');
+      await record(existing.data.job_id as string, 'permit.removed', actor,
+        { field: 'permitNumber', from: existing.data.permit_number as string, to: null });
+    },
+
     async removePrincipal(userId, actor) {
       const person = await this.getPrincipal(userId);
       if (!person) throw new Error(`Unknown user ${userId}`);
