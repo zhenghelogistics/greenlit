@@ -156,6 +156,142 @@ function collapse(steps: readonly JourneyStep[]): JourneyStep[] {
   });
 }
 
+export interface ExportJourneyCtx {
+  mandatoryComplete: boolean;
+  missingFields: readonly string[];
+  cmsRequired: boolean;
+  cmsCompleted: boolean;
+  emptyGatePassed: boolean;
+  emptyScheduled: boolean;
+  emptyCollected: boolean;
+  emptyDelivered: boolean;
+  containerNumberCaptured: boolean;
+  detailsSent: boolean;
+  containerReady: boolean;
+  vgmReceived: boolean;
+  transhipmentStatus: 'PENDING' | 'AVAILABLE' | 'NOT_AVAILABLE';
+  carparkRequested: boolean;
+  atCarpark: boolean;
+  ladenGatePassed: boolean;
+  hasLadenMovement: boolean;
+  deliveredToPort: boolean;
+  jobClosed: boolean;
+}
+
+/**
+ * §45. The export journey, which is not the import one backwards.
+ *
+ * An import arrives and is taken apart: clear it, collect it, deliver it, send
+ * the empty back. An export is assembled: fetch an empty, take it to the
+ * customer, tell them what it is, wait while they fill it, weigh it, and only
+ * then is there anything to deliver. The long wait is in the middle rather
+ * than at the start, and three of the steps are the customer's.
+ *
+ * §42's notification is a step in its own right because it is the one the
+ * operation forgets: the empty is delivered, the customer does not know the
+ * container number, and nothing happens for a week while each side believes it
+ * is waiting for the other.
+ */
+export function exportJourney(c: ExportJourneyCtx): JourneyStep[] {
+  const steps: JourneyStep[] = [];
+
+  steps.push(c.mandatoryComplete
+    ? step('info', 'Booking information', 'DONE', 'Everything mandatory is recorded')
+    : step('info', 'Booking information', 'CURRENT',
+      `Missing ${c.missingFields.join(', ')}`, 'job.edit'));
+
+  if (!c.cmsRequired) {
+    steps.push(step('cms', 'CMS', 'SKIPPED', 'Not required for this booking'));
+  } else if (c.cmsCompleted) {
+    steps.push(step('cms', 'CMS', 'DONE', 'Done'));
+  } else {
+    steps.push(step('cms', 'CMS', 'CURRENT',
+      'Not done. The empty cannot be collected until it is.', 'cms.record'));
+  }
+
+  steps.push(
+    c.emptyCollected ? step('empty-out', 'Collect empty', 'DONE', 'Collected from the yard')
+      : c.emptyScheduled ? step('empty-out', 'Collect empty', 'CURRENT', 'Trip scheduled')
+        : c.emptyGatePassed
+          ? step('empty-out', 'Collect empty', 'CURRENT',
+            'Cleared to collect. No trip arranged yet.', 'movement.create')
+          : step('empty-out', 'Collect empty', 'BLOCKED', 'The gate above has to clear first'),
+  );
+
+  steps.push(c.emptyDelivered
+    ? step('empty-in', 'Deliver empty to customer', 'DONE', 'At the stuffing location')
+    : step('empty-in', 'Deliver empty to customer',
+      c.emptyCollected ? 'CURRENT' : 'UPCOMING',
+      c.emptyCollected ? 'On the road to the stuffing location' : 'After collection',
+      c.emptyCollected ? 'movement.update' : null));
+
+  // §39. There is nothing to tell the customer until the box has a number.
+  steps.push(c.containerNumberCaptured
+    ? step('identity', 'Container, seal and tare', 'DONE', 'Captured')
+    : step('identity', 'Container, seal and tare',
+      c.emptyDelivered ? 'CURRENT' : 'UPCOMING',
+      c.emptyDelivered ? 'Not captured, and the customer cannot be told without it' : 'After the empty is delivered',
+      c.emptyDelivered ? 'container.capture' : null));
+
+  // §42. The silent delay: the box is there and nobody told them which one.
+  steps.push(c.detailsSent
+    ? step('notify', 'Tell the customer', 'DONE', 'Details sent')
+    : step('notify', 'Tell the customer',
+      c.containerNumberCaptured ? 'CURRENT' : 'UPCOMING',
+      c.containerNumberCaptured
+        ? 'They cannot begin stuffing until they know the container number'
+        : 'After the details are captured',
+      c.containerNumberCaptured ? 'container.notify' : null));
+
+  steps.push(c.containerReady
+    ? step('stuffing', 'Customer stuffing', 'DONE', 'Confirmed ready')
+    : step('stuffing', 'Customer stuffing',
+      c.detailsSent ? 'WAITING' : 'UPCOMING',
+      c.detailsSent ? 'With the customer. Chase if it runs long.' : 'After they are told',
+      c.detailsSent ? 'readiness.record' : null));
+
+  steps.push(c.vgmReceived
+    ? step('vgm', 'VGM', 'DONE', 'Received')
+    : step('vgm', 'VGM',
+      c.containerReady ? 'WAITING' : 'UPCOMING',
+      c.containerReady ? 'The box cannot be loaded without it' : 'After stuffing',
+      c.containerReady ? 'vgm.record' : null));
+
+  if (c.transhipmentStatus === 'PENDING') {
+    steps.push(step('tt', 'Transhipment', 'WAITING',
+      'The carrier has not said whether a slot is available', 'transhipment.record'));
+  } else {
+    steps.push(step('tt', 'Transhipment', 'DONE',
+      c.transhipmentStatus === 'AVAILABLE'
+        ? 'Available — the laden box can go straight to port'
+        : 'Not available — the carpark route applies'));
+  }
+
+  if (c.carparkRequested) {
+    steps.push(c.atCarpark
+      ? step('carpark', 'At the carpark', 'DONE', 'Holding until a slot opens')
+      : step('carpark', 'Via the carpark', 'UPCOMING', 'The customer asked for the carpark route'));
+  }
+
+  steps.push(c.deliveredToPort
+    ? step('port', 'Deliver to port', 'DONE', 'Delivered')
+    : c.hasLadenMovement
+      ? step('port', 'Deliver to port', 'CURRENT', 'Trip arranged', 'movement.update')
+      : c.ladenGatePassed
+        ? step('port', 'Deliver to port', 'CURRENT',
+          'Cleared to go. No trip arranged yet.', 'movement.create')
+        : step('port', 'Deliver to port', 'UPCOMING', 'After the box is ready and weighed'));
+
+  steps.push(c.jobClosed
+    ? step('close', 'Job closed', 'DONE', 'Closed and billable')
+    : step('close', 'Job closed',
+      c.deliveredToPort ? 'CURRENT' : 'UPCOMING',
+      c.deliveredToPort ? 'The box is at the port. This can be closed.' : 'After delivery to port',
+      c.deliveredToPort ? 'job.close' : null));
+
+  return collapse(steps);
+}
+
 /** The step a person should be looking at, or null on a finished job. */
 export function currentStep(steps: readonly JourneyStep[]): JourneyStep | null {
   return steps.find((s) => s.state === 'CURRENT')

@@ -167,6 +167,12 @@ const DO_LABEL = {
   "movement.create": "Plan movement",
   "movement.update": "Update trip",
   "job.close": "Close job",
+  "cms.record": "Record CMS",
+  "container.capture": "Capture details",
+  "container.notify": "Send to customer",
+  "readiness.record": "Mark ready",
+  "vgm.record": "Record VGM",
+  "transhipment.record": "Set transhipment",
 };
 
 function Journey({ steps, onAct }) {
@@ -220,6 +226,8 @@ export default function ZhtJobDetail({
 }) {
   /** Opened by the journey's closing step, and by hand otherwise. */
   const [showClosing, setShowClosing] = useState(false);
+  /** §42. Brings the notification form into view from the journey's step. */
+  const [showNotify, setShowNotify] = useState(false);
 
   // After the hook: hooks must run in the same order on every render, and an
   // early return above one is how that order changes between renders.
@@ -286,6 +294,14 @@ export default function ZhtJobDetail({
             if (action === "portnet.confirm") return onManage("checkpoint", { key: "portnetReleased" });
             if (action === "permit.confirm") return onManage("checkpoint", { key: "permitReceived" });
             if (action === "movement.create" || action === "movement.update") return onManage("trip");
+            // §40.2, §39, §42, §43, §44.1. The export-only commands. Each is a
+            // control that already exists on this screen; the journey is where
+            // a person is looking when they decide to use it.
+            if (action === "cms.record") return onRecordCms();
+            if (action === "container.capture") return onRecordDetails();
+            if (action === "container.notify") return setShowNotify(true);
+            if (action === "transhipment.record") return onManage("checkpoint", { key: "transhipment" });
+            if (action === "readiness.record" || action === "vgm.record") return onManage("container");
             return onManage("job");
           }} />
 
@@ -322,7 +338,11 @@ export default function ZhtJobDetail({
 
           {/* §42. The step that lets stuffing start. */}
           {job.type === "Export" && container.number && !job.detailsSent ? (
-            <SendDetails container={container} customer={job.customer} onSend={onSendDetails} />
+            <div ref={(el) => {
+              if (showNotify && el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); setShowNotify(false); }
+            }}>
+              <SendDetails container={container} customer={job.customer} onSend={onSendDetails} />
+            </div>
           ) : null}
 
           {job.type === "Export" && job.detailsSent ? (

@@ -144,3 +144,24 @@ test("every checkpoint a control opens has a route that records it", () => {
   assert.deepEqual(unroutable, [],
     `these open a checkpoint drawer nothing can save: ${unroutable.join(", ")}`);
 });
+
+test("every action the journey can raise is one the screen routes", async () => {
+  // The journey names commands; the screen turns them into controls. A step
+  // naming an action the screen has no branch for renders a button that does
+  // nothing — the same silent failure as the rest of this file, arriving
+  // through the engine instead of through a typo.
+  const journeySrc = await readFile("../packages/engine/src/journey.ts", "utf8");
+  // Every quoted command name in the module, however the call happens to end.
+  // The first version only matched actions followed by `')`, which silently
+  // skipped half of them — a guard that passes because it is not looking.
+  const raised = new Set(
+    [...journeySrc.matchAll(/'([a-z]+\.[a-zA-Z]+)'/g)].map((m) => m[1]));
+
+  const detail = sources.get("components/ZhtJobDetail.jsx") ?? "";
+  const routed = new Set(
+    [...detail.matchAll(/action === "([a-z]+\.[a-zA-Z]+)"/g)].map((m) => m[1]));
+
+  const unrouted = [...raised].filter((a) => !routed.has(a));
+  assert.deepEqual(unrouted, [],
+    `the journey offers actions the screen cannot perform: ${unrouted.join(", ")}`);
+});
