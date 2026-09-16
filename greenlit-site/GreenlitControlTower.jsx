@@ -44,6 +44,7 @@ import {
   Building2,
   UserRound,
 } from "lucide-react";
+import { groupByCustomer, matchCustomer } from "@greenlit/engine";
 import { addIsoDays, MAX_CONTAINERS_PER_JOB, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
 import { validateContainerCount } from "@greenlit/engine";
 import { reconcileExtraction, toExtractedFields } from "@greenlit/engine";
@@ -962,6 +963,148 @@ function DocumentsPanel({ jobId }) {
         ) : null}
       </div>
     </Panel>
+  );
+}
+
+/**
+ * §9. Twenty notices, grouped by the company they belong to.
+ *
+ * The question here is not "is this field right" — that is the single-document
+ * review, and asking it twenty times in a row is how a batch becomes slower
+ * than one at a time. The question is "do these belong where I think they do",
+ * which is answered by looking at four groups rather than twenty rows.
+ *
+ * A document whose consignee matches no customer is not a failure: it is a
+ * company that has not been set up. It groups under that name so the operator
+ * creates the company once and every notice for it follows.
+ */
+function BatchReview({ batch, customers, onApplyAll, onDiscard, applying }) {
+  const read = batch.filter((b) => b.state === "read");
+  const failed = batch.filter((b) => b.state === "failed");
+  const reading = batch.filter((b) => b.state === "reading");
+
+  const grouped = groupByCustomer(
+    read,
+    (b) => String(b.result?.values?.consignee ?? ""),
+    customers,
+  );
+
+  return (
+    <main id="main-content" className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8">
+      <h1 className="gl-display">{batch.length} documents</h1>
+      <p className="gl-body-plain mt-1 text-[color:var(--gl-ink-muted)]">
+        {reading.length > 0
+          ? `Reading ${reading.length} of ${batch.length}. They are read together, so this takes about as long as the slowest one.`
+          : "Grouped by the company each names as consignee."}
+      </p>
+
+      {reading.length > 0 ? (
+        <Panel title="Reading" className="mt-7">
+          <div className="p-6">
+            <ul className="grid gap-2">
+              {batch.map((item) => (
+                <li key={item.fileName} className="flex items-center justify-between gap-3">
+                  <span className="gl-body-plain text-[color:var(--gl-ink)]">{item.fileName}</span>
+                  <span className="gl-caption">
+                    {item.state === "reading" ? "reading…" : item.state === "failed" ? "could not read" : "read"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Panel>
+      ) : null}
+
+      {grouped.matched.map((group) => (
+        <Panel
+          key={group.customer.code}
+          title={`${group.customer.companyName} · ${group.documents.length}`}
+          className="mt-7"
+        >
+          <div className="p-6">
+            {/* How the match was made, because "matched on the company name"
+                and "matched on an email domain" deserve different amounts of
+                trust when twenty are confirmed at once. */}
+            <p className="gl-caption mb-3">
+              {group.matchedOn === "name" ? "Matched on the company name."
+                : group.matchedOn === "shortName" ? "Matched on the short name."
+                : "Matched on an email domain — worth a second look."}
+            </p>
+            <ul className="grid gap-2">
+              {group.documents.map((item) => (
+                <li key={item.fileName} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[color:var(--gl-line)] bg-white p-3">
+                  <span className="gl-body-plain text-[color:var(--gl-ink)]">{item.fileName}</span>
+                  <span className="gl-caption">
+                    {item.result?.values?.billOfLading || "no B/L read"}
+                    {" · "}
+                    {(item.result?.containers ?? []).length} container(s)
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Panel>
+      ))}
+
+      {grouped.unmatched.map((group) => (
+        <Panel key={group.named} title={`${group.named} · ${group.documents.length}`} className="mt-7">
+          <div className="p-6">
+            <p className="gl-body-plain rounded-md border border-amber-200 bg-amber-50 p-3 text-amber-900">
+              No company matches this consignee yet. Create it once on the
+              Companies page and every notice here will attach to it.
+            </p>
+            <ul className="mt-3 grid gap-2">
+              {group.documents.map((item) => (
+                <li key={item.fileName} className="gl-body-plain text-[color:var(--gl-ink)]">{item.fileName}</li>
+              ))}
+            </ul>
+          </div>
+        </Panel>
+      ))}
+
+      {failed.length > 0 || grouped.unnamed.length > 0 ? (
+        <Panel title="Needs a look" className="mt-7">
+          <div className="p-6">
+            <ul className="grid gap-2">
+              {failed.map((item) => (
+                <li key={item.fileName} className="gl-body-plain rounded-md border border-rose-200 bg-rose-50 p-3 text-[color:var(--gl-state-blocked-ink)]">
+                  <strong>{item.fileName}</strong> — {item.error}
+                </li>
+              ))}
+              {grouped.unnamed.map((item) => (
+                <li key={item.fileName} className="gl-body-plain rounded-md border border-[color:var(--gl-line)] bg-white p-3 text-[color:var(--gl-ink)]">
+                  <strong>{item.fileName}</strong> — names no consignee, so there is nothing to match a company against.
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Panel>
+      ) : null}
+
+      {reading.length === 0 ? (
+        <div className="mt-7 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={applying || grouped.matched.length === 0}
+            onClick={() => onApplyAll(grouped.matched)}
+            className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white disabled:opacity-60"
+          >
+            {applying
+              ? "Creating jobs…"
+              : `Create ${grouped.matched.reduce((n, g) => n + g.documents.length, 0)} jobs`}
+          </button>
+          <button type="button" onClick={onDiscard}
+            className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-5 text-[17px] text-[color:var(--gl-ink)]">
+            Discard
+          </button>
+          {grouped.unmatched.length > 0 ? (
+            <span className="gl-caption">
+              {grouped.unmatched.reduce((n, g) => n + g.documents.length, 0)} document(s) waiting on a company.
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </main>
   );
 }
 
@@ -3101,6 +3244,21 @@ function DetailField({ label, value, flash = false }) {
  * "Import Delivery" — while the movement model uses the enum. Translating here
  * keeps both honest: the screen stays readable and the store stays typed.
  */
+/**
+ * How many documents go in one request, and how many in one go.
+ *
+ * Matched to the server's cap, which is measured: a notice takes between 12
+ * and 93 seconds, documents read in parallel, and a chunk therefore costs its
+ * slowest member. Five against a 300-second ceiling leaves about three times
+ * the headroom on the worst document seen.
+ *
+ * The total is capped as well, so an operator who selects an entire folder is
+ * told the number rather than discovering it through a request that never
+ * comes back. Twenty is a morning's post; beyond that it is a mistake.
+ */
+const DOCUMENTS_PER_REQUEST = 5;
+const MAX_DOCUMENTS_PER_BATCH = 20;
+
 const MOVEMENT_TYPE_FOR = {
   "Import Delivery": "IMPORT_DELIVERY",
   "Empty Return": "EMPTY_RETURN",
@@ -4065,7 +4223,40 @@ function DiscrepancyReview({ job, onResolve }) {
   );
 }
 
-function DocumentIntake({ documents, onApply, onOpenJob }) {
+function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
+  // §9. The companies a batch is grouped against. Loaded here because
+  // grouping happens before anything is applied — the operator sees where
+  // twenty notices are going before any of them becomes a job.
+  const [customers, setCustomers] = useState([]);
+  const [applyingBatch, setApplyingBatch] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/customers")
+      .then((r) => (r.ok ? r.json() : { customers: [] }))
+      .then((d) => { if (!cancelled) setCustomers(d.customers ?? []); })
+      .catch(() => { if (!cancelled) setCustomers([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  async function applyBatch(groups) {
+    setApplyingBatch(true);
+    // One at a time rather than at once. Job numbers are issued atomically now
+    // so concurrency would be safe, but a failure halfway through a batch is
+    // far easier to report when the order is known.
+    let created = 0;
+    for (const group of groups) {
+      for (const item of group.documents) {
+        const ok = await onApplyBatch(item.result, group.customer.code);
+        if (ok) created += 1;
+      }
+    }
+    setApplyingBatch(false);
+    setBatch([]);
+    setStage("idle");
+    return created;
+  }
+
   const [stage, setStage] = useState("idle");
   const [progress, setProgress] = useState("");
   const [result, setResult] = useState(null);
@@ -4075,6 +4266,8 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
   const [error, setError] = useState("");
   const [sourceUrl, setSourceUrl] = useState("");
   const [dragging, setDragging] = useState(false);
+  // §9. A morning's post: one row per document, resolving as each is read.
+  const [batch, setBatch] = useState([]);
   const fileInputRef = useRef(null);
 
   useEffect(() => () => {
@@ -4124,8 +4317,78 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
   function handleDrop(event) {
     event.preventDefault();
     setDragging(false);
-    const file = event.dataTransfer.files?.[0];
-    if (file) acceptFile(file);
+    acceptFiles([...(event.dataTransfer.files ?? [])]);
+  }
+
+  /**
+   * One document or a morning's post.
+   *
+   * A single file keeps the review screen it has always had, because reading
+   * one notice and checking it is the common case and a list of one is a worse
+   * way to do it. Several go to the batch screen, where the question is not
+   * "is this field right" but "do these twenty belong where I think they do".
+   */
+  function acceptFiles(files) {
+    const chosen = files.filter(Boolean);
+    if (chosen.length === 0) return;
+
+    // Said before anything is read, with the number, so selecting a folder by
+    // accident costs a sentence rather than four minutes and a failure.
+    if (chosen.length > MAX_DOCUMENTS_PER_BATCH) {
+      setError(
+        `${chosen.length} documents at once is more than this reads in one go. `
+        + `Take up to ${MAX_DOCUMENTS_PER_BATCH} — about a morning's post — and the rest after.`,
+      );
+      setStage("error");
+      return;
+    }
+
+    if (chosen.length === 1) { acceptFile(chosen[0]); return; }
+    acceptBatch(chosen);
+  }
+
+  async function acceptBatch(files) {
+    setError("");
+    setStage("batch");
+    // Named before they are read, so the operator watches twenty rows resolve
+    // rather than a spinner that says nothing for four minutes.
+    setBatch(files.map((file) => ({ fileName: file.name, file, state: "reading" })));
+
+    // Sent in chunks, because a request has a time limit and a document takes
+    // about twenty-five seconds. Four together finish inside it; twenty in one
+    // request is a gateway timeout, which reads to the operator as the whole
+    // batch failing rather than as it being too big.
+    //
+    // Chunks go one after another so each row resolves visibly. It is no
+    // slower than the limit allows, and a morning's post shows its progress
+    // instead of a spinner that says nothing for four minutes.
+    for (let from = 0; from < files.length; from += DOCUMENTS_PER_REQUEST) {
+      const chunk = files.slice(from, from + DOCUMENTS_PER_REQUEST);
+      const body = new FormData();
+      for (const file of chunk) body.append("file", file);
+
+      const response = await fetch("/api/extract", { method: "POST", body }).catch(() => null);
+      const payload = await response?.json().catch(() => ({}));
+
+      if (!response?.ok) {
+        // This chunk failed; the ones already read are kept. Losing four
+        // documents is better than losing twenty.
+        setBatch((current) => current.map((item) => chunk.some((f) => f.name === item.fileName)
+          ? { ...item, state: "failed", error: payload?.error ?? "Could not be read" }
+          : item));
+        continue;
+      }
+
+      const byName = new Map((payload.documents ?? [payload]).map((d) => [d.fileName, d]));
+      setBatch((current) => current.map((item) => {
+        if (!chunk.some((f) => f.name === item.fileName)) return item;
+        const read = byName.get(item.fileName);
+        if (!read || read.error) {
+          return { ...item, state: "failed", error: read?.error ?? "Not read" };
+        }
+        return { ...item, state: "read", result: toIntakeResult(read) };
+      }));
+    }
   }
 
   function updateField(key, value) {
@@ -4167,6 +4430,16 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
         </div>
       </div>
 
+      {stage === "batch" ? (
+        <BatchReview
+          batch={batch}
+          customers={customers}
+          applying={applyingBatch}
+          onDiscard={() => { setBatch([]); setStage("idle"); }}
+          onApplyAll={applyBatch}
+        />
+      ) : null}
+
       {stage === "processing" ? (
         <section className="mt-7 flex min-h-80 flex-col items-center justify-center rounded-lg border border-slate-200 bg-white px-6 py-12 text-center" aria-live="polite">
           <LoaderCircle className="h-12 w-12 animate-spin text-[var(--gl-accent)]" aria-hidden="true" />
@@ -4191,11 +4464,11 @@ function DocumentIntake({ documents, onApply, onOpenJob }) {
             <input
               ref={fileInputRef}
               type="file"
+              multiple
               accept="application/pdf,.pdf,image/*,.eml,.msg"
               className="hidden"
               onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) acceptFile(file);
+                acceptFiles([...(event.target.files ?? [])]);
                 event.target.value = "";
               }}
             />
@@ -4951,7 +5224,19 @@ export default function GreenlitControlTower() {
    * the extracted fields are sent.
    */
   /** Discards server state and rebuilds from the seeded fixtures. */
-  async function applyDocument(result) {
+  /**
+   * §9. Apply one document to a company the batch has already chosen.
+   *
+   * applyDocument works out the company itself, which is right for a single
+   * notice and wrong for a batch: the operator confirmed the grouping on the
+   * review screen, and looking it up again would let a job land somewhere the
+   * screen did not say.
+   */
+  async function applyDocumentFor(result, customerCode) {
+    return applyDocument(result, customerCode);
+  }
+
+  async function applyDocument(result, forcedCustomerCode) {
     const fields = result.values ?? {};
 
     // §11.2 detects the customer rather than asking for it. The master is the
@@ -4963,13 +5248,13 @@ export default function GreenlitControlTower() {
       .then((d) => d.customers ?? [])
       .catch(() => []);
 
-    const match = customers.find((c) => {
-      const haystack = named.toLowerCase();
-      if (!haystack) return false;
-      if (haystack.includes(c.companyName.toLowerCase())) return true;
-      if (c.shortName && haystack.includes(c.shortName.toLowerCase())) return true;
-      return (c.emailDomains || []).some((d) => haystack.includes(String(d).replace(/^@/, "").split(".")[0]));
-    });
+    // The batch screen has already decided and shown the operator; honouring
+    // that beats matching a second time and possibly landing somewhere the
+    // screen did not say. Otherwise the same rule the batch screen uses,
+    // lifted into the engine so one document and twenty cannot disagree.
+    const match = forcedCustomerCode
+      ? customers.find((c) => c.code === forcedCustomerCode)
+      : matchCustomer(named, customers)?.customer;
 
     if (!match) {
       // Sending the operator to another screen to type a name the document
@@ -5260,7 +5545,7 @@ export default function GreenlitControlTower() {
       ) : null}
       {screen === "dashboard" && source === "engine" ? <Dashboard jobs={jobs} actionJobs={actionJobs} chassis={fleet} onOpen={openJob} onShowActions={showActions} onShowFleet={() => goTo("fleet")} /> : null}
       {screen === "actions" && source === "engine" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}
-      {screen === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onOpenJob={openJob} /> : null}
+      {screen === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onApplyBatch={applyDocumentFor} onOpenJob={openJob} /> : null}
       {screen === "people" ? <People /> : null}
       {screen === "companies" ? (
         <Companies onOpenCompany={(code) => { setSelectedCompany(code); setScreen("company"); }} />

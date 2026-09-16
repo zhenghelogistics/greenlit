@@ -101,3 +101,31 @@ test("a movement is created with a status the enum contains", async () => {
   assert.ok(MOVEMENT_STATUS.includes(initial),
     `a movement opens as ${initial}, which is not in MOVEMENT_STATUS`);
 });
+
+test("the batch cap is derived from the time limit, not chosen", async () => {
+  // Four documents measured at 92.6s against a 60s maxDuration — a batch of
+  // four timed out on a deployment that had five minutes available and was
+  // only asking for one. Both numbers have to move together or the cap means
+  // nothing.
+  const route = await readFile("app/api/extract/route.ts", "utf8");
+  const ceiling = Number(route.match(/maxDuration = (\d+)/)?.[1]);
+  const perRequest = Number(route.match(/MAX_DOCUMENTS_PER_BATCH = (\d+)/)?.[1]);
+
+  assert.ok(ceiling >= 300, "the plan allows 300s; asking for less is self-limiting");
+
+  // A chunk costs its slowest document, not the sum: two together took 95.5s
+  // when one alone took 92.4s. The worst document seen is the unit of risk.
+  const SLOWEST_DOCUMENT_SECONDS = 93;
+  assert.ok(ceiling / SLOWEST_DOCUMENT_SECONDS >= 3,
+    "a request that uses its whole allowance is one slow document from failing");
+  assert.ok(perRequest <= 5, `${perRequest} per request has not been measured`);
+});
+
+test("the browser and the server agree on the chunk size", async () => {
+  // Two numbers that must match. If the browser sends more than the server
+  // accepts, every batch fails on a refusal nobody expected.
+  const route = await readFile("app/api/extract/route.ts", "utf8");
+  const perRequest = route.match(/MAX_DOCUMENTS_PER_BATCH = (\d+)/)?.[1];
+  const perChunk = ui.match(/DOCUMENTS_PER_REQUEST = (\d+)/)?.[1];
+  assert.equal(perChunk, perRequest);
+});

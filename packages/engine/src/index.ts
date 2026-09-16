@@ -32,3 +32,4 @@ export * from './permits.ts';
 export * from './closure.ts';
 export * from './locations.ts';
 export * from './documents.ts';
+export * from './customer-matching.ts';
