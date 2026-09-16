@@ -25,7 +25,15 @@ test("server-renders the Greenlit control tower", async () => {
   assert.match(html, /Greenlit/);
   assert.match(html, /Action Required/);
   assert.match(html, /Document Intake/);
-  assert.match(html, /Chassis Fleet/);
+  // The rail carries the PM's section names now. "Chassis Fleet" became his
+  // "Chassis Master", so asserting the old label would fail on a rename rather
+  // than on a regression — what is worth pinning is that the rail still ships
+  // its sections server-rendered.
+  assert.match(html, /Chassis Master/);
+  assert.match(html, /Jobs/);
+  assert.match(html, /Planning Board/);
+  assert.match(html, /Customer Master/);
+  assert.match(html, /Billing Ready/);
   assert.match(html, /Skip to main content/);
   assert.doesNotMatch(html, /Your site is taking shape|codex-preview/);
 });

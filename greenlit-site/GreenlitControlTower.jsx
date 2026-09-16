@@ -30,14 +30,22 @@ import {
   Trash2,
   Truck,
   Upload,
-  Wrench,
   X,
   Building2,
   UserRound,
+  ClipboardList,
+  CalendarRange,
+  Container,
+  Undo2,
+  Receipt,
 } from "lucide-react";
 import { groupByCustomer, matchCustomer } from "@greenlit/engine";
 import ZhtDashboard from "./components/ZhtDashboard.jsx";
 import ZhtJobDetail from "./components/ZhtJobDetail.jsx";
+import {
+  ZhtJobs, ZhtPlanning, ZhtDrivers, ZhtChassis, ZhtBilling,
+  ZhtEmptyReturns, ZhtSearchResults,
+} from "./components/ZhtScreens.jsx";
 import { addIsoDays, MAX_CONTAINERS_PER_JOB, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
 import { validateContainerCount } from "@greenlit/engine";
 import { reconcileExtraction, toExtractedFields } from "@greenlit/engine";
@@ -3436,71 +3444,6 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
 
 
 
-/**
- * §21.3.2. Trucks that cannot take other work, and why.
- *
- * Separate from the chassis table above it because it is a different and far
- * more expensive capacity: a chassis day is cheap and a truck hour is not.
- *
- * An engagement with no recorded end is shown as open-ended rather than given
- * an estimated finish. §21.3.2: "the truck's remaining capacity that day is
- * genuinely unknown until the driver is let go. The schedule shows that as
- * open-ended rather than guessing a figure."
- */
-function VehiclesEngaged({ vehicles, clashes }) {
-  if (!vehicles.length) return null;
-
-  const hours = (minutes) => minutes >= 60
-    ? `${Math.floor(minutes / 60)}h ${minutes % 60}m`
-    : `${minutes}m`;
-
-  return (
-    <Panel title="Vehicles engaged" className="mt-7">
-      <div className="p-6">
-        {clashes.length ? (
-          <div className="mb-5 rounded-md border border-rose-300 bg-rose-50 p-4">
-            <div className="text-[17px] font-semibold text-[color:var(--gl-state-blocked-ink)]">
-              {clashes.length} truck{clashes.length === 1 ? " is" : "s are"} booked twice at once
-            </div>
-            <ul className="mt-2 grid gap-1">
-              {clashes.map((c, i) => (
-                <li key={i} className="gl-body-plain text-[color:var(--gl-state-blocked-ink)]">
-                  {c.reason}, and {c.second.movementRef} is assigned to it as well.
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        <div className="grid gap-3">
-          {vehicles.map((v) => (
-            <div key={`${v.truck}-${v.movementRef}`}
-              className="flex flex-wrap items-baseline justify-between gap-3 rounded-md border border-[color:var(--gl-line)] bg-white p-4"
-              style={{ borderLeft: `6px solid ${v.reason === "ON_STANDBY" ? "var(--gl-state-warn)" : "var(--gl-state-idle)"}` }}>
-              <div>
-                <div className="gl-label">{v.truck}{v.driver ? ` · ${v.driver}` : ""}</div>
-                <div className="mt-1 text-[19px] font-semibold text-slate-950">
-                  {v.reason === "ON_STANDBY" ? "Held on standby" : "In transit"} · {hours(v.minutes)}
-                </div>
-              </div>
-              <div className="gl-caption text-right">
-                <div>{v.movementRef}</div>
-                {v.openEnded
-                  ? <div className="font-semibold text-[color:var(--gl-state-warn-ink)]">No release recorded — open-ended</div>
-                  : <div>Free again after this trip</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <p className="gl-caption mt-4">
-          Standby stops no other clock. Demurrage, detention and chassis
-          occupancy all keep running.
-        </p>
-      </div>
-    </Panel>
-  );
-}
 
 /**
  * Maps the server's fleet view into the shape the fleet screen consumes.
@@ -4184,65 +4127,6 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
   );
 }
 
-function ChassisFleet({ fleet, onOpen, onUnit }) {
-  const [view, setView] = useState("all");
-  const showInUse = view === "all" || view === "inUse";
-  const showAvailable = view === "all" || view === "available";
-  const showMaintenance = view === "all" || view === "maintenance";
-  return (
-    <main id="main-content" className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="pb-2">
-        <h1 className="text-3xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-[2rem]">Chassis Fleet</h1>
-        <p className="mt-2 text-[17px] font-normal text-slate-600">89 units · 47 twenty-foot · 42 forty-foot. A chassis stays under its container for the whole job.</p>
-      </div>
-
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
-        {[{ id: "available", label: "Available", value: fleet.available.length, tone: "text-emerald-800" }, { id: "inUse", label: "Under containers", value: fleet.inUse.length, tone: "text-slate-950" }, { id: "maintenance", label: "Maintenance or inspection", value: fleet.maintenance.length, tone: "text-amber-800" }].map((item) => <button key={item.id} type="button" onClick={() => setView((current) => current === item.id ? "all" : item.id)} aria-pressed={view === item.id} className={`rounded-lg border bg-white p-5 text-left hover:border-[var(--gl-accent)] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${view === item.id ? "border-[var(--gl-accent)] shadow-[inset_0_-3px_0_var(--gl-accent)]" : "border-slate-200"}`}><div className={`text-4xl font-semibold tabular-nums ${item.tone}`}>{item.value}</div><div className="mt-2 flex items-center justify-between gap-3 text-[17px] font-medium text-slate-600"><span>{item.label}</span><ChevronRight className="h-5 w-5 text-[var(--gl-accent)]" /></div></button>)}
-      </div>
-
-      {/* §21.3.2. A truck and driver held on standby are not available for
-          other work, and until now nothing said so — the vehicle appeared free
-          and could be double-booked. §21.3: "A chassis under a container at a
-          customer for six days costs us one chassis. A truck and driver held
-          for six hours costs us a truck, a driver, and every other job that
-          vehicle could have run that day." */}
-      <VehiclesEngaged vehicles={fleet.vehicles} clashes={fleet.vehicleClashes} />
-
-      {showInUse ? <Panel title="Units under containers" className="mt-7">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[850px] border-collapse text-left text-[17px]">
-            <thead className="bg-[var(--gl-bg-subtle)] text-[color:var(--gl-ink)]"><tr>{["Unit", "Size", "Job", "Customer", "Days held", ""].map((heading, index) => <th key={`${heading}-${index}`} className="px-4 py-4 text-[17px] font-semibold">{heading}</th>)}</tr></thead>
-            <tbody>
-              {[...fleet.inUse].sort((a, b) => b.days - a.days).map((item) => (
-                <tr key={item.unit} className="border-b border-slate-200 even:bg-slate-50/70">
-                  <td className="px-4 py-4"><button type="button" onClick={() => onUnit({ ...item, condition: "assigned" })} className="min-h-11 text-xl font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">{item.unit}</button></td>
-                  <td className="px-4 py-4 font-semibold text-slate-900">{item.size}</td>
-                  <td className="px-4 py-4 font-semibold text-[var(--gl-accent)]">{item.jobId}</td>
-                  <td className="px-4 py-4 font-semibold text-slate-900">{item.customer}</td>
-                  <td className={`px-4 py-4 text-[17px] font-semibold ${item.days > 5 ? "text-red-900" : "text-slate-950"}`}>{item.days} days {item.days > 5 ? "— ATTENTION" : ""}</td>
-                  <td className="px-4 py-4"><button type="button" onClick={() => onOpen(item.jobId)} className="min-h-11 rounded-md border border-slate-300 px-4 font-semibold text-[var(--gl-accent)] hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">Open job</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Panel> : null}
-
-      {showAvailable ? <div className="mt-7 grid gap-7 xl:grid-cols-2">
-        <Panel title="20ft available">
-          <div className="flex flex-wrap gap-3 p-5">{fleet.available.filter((item) => item.size === "20ft").map((item) => <button key={item.unit} type="button" onClick={() => onUnit({ ...item, condition: "available" })} className="inline-flex min-h-11 min-w-20 items-center justify-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 font-semibold text-[var(--gl-accent)] hover:border-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">{item.unit}<Plus className="h-4 w-4" /></button>)}</div>
-        </Panel>
-        <Panel title="40ft available">
-          <div className="flex flex-wrap gap-3 p-5">{fleet.available.filter((item) => item.size === "40ft").map((item) => <button key={item.unit} type="button" onClick={() => onUnit({ ...item, condition: "available" })} className="inline-flex min-h-11 min-w-20 items-center justify-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 font-semibold text-[var(--gl-accent)] hover:border-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">{item.unit}<Plus className="h-4 w-4" /></button>)}</div>
-        </Panel>
-      </div> : null}
-
-      {showMaintenance ? <Panel title="Maintenance or inspection" className="mt-7">
-        <div className="flex flex-wrap gap-3 p-5">{fleet.maintenance.length ? fleet.maintenance.map((item) => <button type="button" onClick={() => onUnit({ ...item, condition: "maintenance" })} key={item.unit} className="inline-flex min-h-11 min-w-28 items-center justify-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 font-semibold text-amber-800 hover:border-amber-500 hover:bg-amber-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><Wrench className="h-5 w-5" />{item.unit} · {item.size}<ChevronRight className="h-4 w-4" /></button>) : <div className="p-5 text-[17px] font-semibold text-amber-950">All maintenance units have returned to service.</div>}</div>
-      </Panel> : null}
-    </main>
-  );
-}
 
 
 
@@ -4319,6 +4203,7 @@ export default function GreenlitControlTower() {
   const [returnScreen, setReturnScreen] = useState("actions");
   /** Which container tab is open on the job detail screen. */
   const [containerIndex, setContainerIndex] = useState(0);
+  const [searchQuery] = useState("");
   const [selectedJobId, setSelectedJobId] = useState(null);
   // Held in the URL, so a reload keeps the filter and the view is shareable.
   const [actionFilter, setActionFilter] = useUrlState("filter", "all");
@@ -4978,9 +4863,14 @@ export default function GreenlitControlTower() {
   const navItems = [
     { id: "dashboard", label: "Dashboard", count: jobs.filter((job) => jobStatus(job) !== "Completed").length, icon: LayoutDashboard },
     { id: "actions", label: "Action Required", count: actionJobs.length, icon: ListTodo },
+    { id: "jobs", label: "Jobs", count: jobs.length, icon: ClipboardList },
     { id: "documents", label: "Document Intake", count: documents.length, icon: FileSearch },
-    { id: "companies", label: "Companies", count: null, icon: Building2 },
-    { id: "fleet", label: "Chassis Fleet", count: fleet.available.length, icon: Truck },
+    { id: "planning", label: "Planning Board", count: null, icon: CalendarRange },
+    { id: "drivers", label: "Drivers & Vehicles", count: fleet.vehicles?.length ?? null, icon: Truck },
+    { id: "fleet", label: "Chassis Master", count: fleet.available.length, icon: Container },
+    { id: "emptyReturns", label: "Empty Returns", count: null, icon: Undo2 },
+    { id: "companies", label: "Customer Master", count: null, icon: Building2 },
+    { id: "billing", label: "Billing Ready", count: null, icon: Receipt },
     { id: "people", label: "People", count: null, icon: UserRound },
   ];
 
@@ -5121,7 +5011,7 @@ export default function GreenlitControlTower() {
       {(screen === "dashboard" || screen === "actions") && source !== "engine" ? (
         <BoardState source={source} onRetry={loadJobs} onAddDocument={() => goTo("documents")} />
       ) : null}
-      {screen === "dashboard" && source === "engine" ? <ZhtDashboard jobs={jobs} today={operationalToday()} onOpenJob={openJob} onNewJob={() => goTo("intake")} onShowActions={showActions} /> : null}
+      {screen === "dashboard" && source === "engine" ? <ZhtDashboard jobs={jobs} today={operationalToday()} onOpenJob={openJob} onNewJob={() => goTo("documents")} onShowActions={showActions} /> : null}
       {screen === "actions" && source === "engine" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}
       {screen === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onApplyBatch={applyDocumentFor} onOpenJob={openJob} /> : null}
       {screen === "people" ? <People /> : null}
@@ -5135,7 +5025,13 @@ export default function GreenlitControlTower() {
           onOpen={openJob}
         />
       ) : null}
-      {screen === "fleet" ? <ChassisFleet fleet={fleet} onOpen={openJob} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
+      {screen === "fleet" ? <ZhtChassis fleet={fleet} onOpenJob={(job) => openJob(job.id)} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
+      {screen === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => goTo("documents")} /> : null}
+      {screen === "planning" ? <ZhtPlanning jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
+      {screen === "drivers" ? <ZhtDrivers fleet={fleet} /> : null}
+      {screen === "emptyReturns" ? <ZhtEmptyReturns jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
+      {screen === "billing" ? <ZhtBilling jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
+      {screen === "search" ? <ZhtSearchResults jobs={jobs} query={searchQuery} onOpenJob={(job) => openJob(job.id)} onBack={() => goTo(returnScreen)} /> : null}
       {screen === "detail" && selectedJob ? (
         <ZhtJobDetail
           job={selectedJob}

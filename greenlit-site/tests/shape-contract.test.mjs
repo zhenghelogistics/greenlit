@@ -187,3 +187,20 @@ test("a job field compared against a literal is a field the adapter produces", a
   assert.deepEqual(missing, [],
     `compared against a literal but never produced, so the branch is dead: ${missing.join(", ")}`);
 });
+
+test("every screen a button navigates to is a screen that exists", async () => {
+  // `+ New Job` called goTo("intake"). There is no "intake" screen — the id is
+  // "documents" — so the button rendered, took the click, set the screen to a
+  // value nothing matches, and put up a blank page.
+  //
+  // The same shape as the dead-branch bug above: a string compared against a
+  // set it is not in fails silently. Here the set is the screens the router
+  // actually handles.
+  const src = await readFile(SOURCE, "utf8");
+  const screens = new Set([...src.matchAll(/screen === "([a-zA-Z]+)"/g)].map((m) => m[1]));
+  const targets = [...src.matchAll(/goTo\("([a-zA-Z]+)"\)/g)].map((m) => m[1]);
+
+  const dead = [...new Set(targets)].filter((t) => !screens.has(t));
+  assert.deepEqual(dead, [],
+    `goTo targets no screen renders, so the click blanks the page: ${dead.join(", ")}`);
+});
