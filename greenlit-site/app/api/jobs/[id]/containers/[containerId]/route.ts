@@ -36,8 +36,18 @@ export async function PATCH(request: Request, ctx: {
     );
   }
 
-  return runCommand(id, (repo) =>
-    repo.amendContainer(containerId, changes, auth.displayName));
+  // §46. An export container is a different record with different amendable
+  // fields, so the job decides which one is being corrected.
+  return runCommand(id, async (repo) => {
+    if (await repo.getExportJob(id)) {
+      await repo.amendExportContainer(containerId, {
+        sizeType: changes.sizeType as string | undefined,
+        stuffingLocation: changes.stuffingLocation as string | null | undefined,
+      }, auth.displayName);
+      return;
+    }
+    await repo.amendContainer(containerId, changes, auth.displayName);
+  });
 }
 
 /** §29. Remove a container that should not be on the job. */
@@ -48,6 +58,11 @@ export async function DELETE(request: Request, ctx: {
   const auth = await authorize("job.edit");
   if (!auth.ok) return auth.response;
 
-  return runCommand(id, (repo) =>
-    repo.removeContainerFromJob(containerId, auth.displayName));
+  return runCommand(id, async (repo) => {
+    if (await repo.getExportJob(id)) {
+      await repo.removeExportContainer(containerId, auth.displayName);
+      return;
+    }
+    await repo.removeContainerFromJob(containerId, auth.displayName);
+  });
 }

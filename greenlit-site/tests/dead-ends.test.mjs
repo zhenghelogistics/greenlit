@@ -165,3 +165,23 @@ test("every action the journey can raise is one the screen routes", async () => 
   assert.deepEqual(unrouted, [],
     `the journey offers actions the screen cannot perform: ${unrouted.join(", ")}`);
 });
+
+test("a container route serves both domains, not whichever it was written for", async () => {
+  // The container routes called addContainerToJob / amendContainer /
+  // removeContainerFromJob whatever the job was, and those write to the import
+  // `containers` table. On an export booking they addressed a job id that
+  // table has never heard of, so Add Container was broken on every export job
+  // from the day the route was written — and nothing said so, because the
+  // failure is a foreign key deep in the adapter rather than a refusal.
+  const files = [
+    "app/api/jobs/[id]/containers/route.ts",
+    "app/api/jobs/[id]/containers/[containerId]/route.ts",
+  ];
+  for (const f of files) {
+    const src = await readFile(f, "utf8");
+    assert.match(src, /getExportJob\(/,
+      `${f} must decide which kind of container it is handling`);
+    assert.match(src, /ExportContainer\(/,
+      `${f} must reach the export container commands for an export job`);
+  }
+});
