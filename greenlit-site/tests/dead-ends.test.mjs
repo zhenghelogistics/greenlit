@@ -113,3 +113,17 @@ test("every section in the rail is a screen, and every screen is reachable", () 
   assert.deepEqual(unknown, [],
     `a role is offered sections the rail does not define: ${unknown.join(", ")}`);
 });
+
+test("every ported screen renders inside the scope its stylesheet needs", async () => {
+  // app/zht.css is scoped to `.zht` so it cannot restyle the screens that have
+  // not been ported. A component that forgets the wrapper therefore renders as
+  // completely unstyled markup — no cards, no grid, the sidebar overlapping
+  // the text — and nothing throws, so no other check sees it.
+  const offenders = [];
+  for (const [file, src] of sources) {
+    if (!file.startsWith("components/Zht")) continue;
+    if (!/className="zht"/.test(src)) offenders.push(file);
+  }
+  assert.deepEqual(offenders, [],
+    `these use his class names with none of his stylesheet: ${offenders.join(", ")}`);
+});

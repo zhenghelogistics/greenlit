@@ -91,8 +91,12 @@ export default function ZhtController({ jobs, fleet, onOpenJob }) {
   const opportunities = fleet?.routeOpportunities ?? [];
   const chainsFor = (truck) => opportunities.filter((o) => o.finishing.truck === truck);
 
+  // Every rule in the ported stylesheet is scoped to `.zht`. Without this
+  // wrapper the screen renders as unstyled markup — which is exactly what it
+  // did: a wall of text with the sidebar overlapping it.
   return (
-    <>
+    <div className="zht">
+      <div className="content">
       <div className="clean-metrics control-tower-metrics">
         {tabs.map(([id, label, n]) => (
           <div className={`clean-metric${n > 0 && id !== "planned" ? " attention-soft" : ""}`} key={id}>
@@ -186,6 +190,7 @@ export default function ZhtController({ jobs, fleet, onOpenJob }) {
           </div>
         )}
       </div>
-    </>
+      </div>
+    </div>
   );
 }
