@@ -8,6 +8,8 @@ import {
   type MandatoryFieldSet, type Movement, type Thresholds, type WaitingOn,
   freeTimeCountdown,
   chargeEstimate,
+  importJourney,
+  type JourneyStep,
   type FreeTimeCountdown,
   type ChargeEstimate,
 } from '@greenlit/engine';
@@ -86,6 +88,14 @@ export interface DerivedJobView {
   missingInformation: string[];
   containers: DerivedContainerView[];
   movements: Movement[];
+  /**
+   * §31, §32. The job as the trip the box actually makes.
+   *
+   * Derived here with everything else, so the sequence a screen shows and the
+   * next action it names cannot drift apart — they are the same answer read
+   * two ways. Empty on an export job until the export journey is written.
+   */
+  journey: JourneyStep[];
   /** §13. The job's audit stream as a chronological narrative. */
   activity: AuditEventView[];
   /** §12. Conflicts awaiting a controller's decision. */
@@ -270,6 +280,20 @@ export function deriveImportJob(
   return {
     record: job,
     storedContainers: [...containers],
+    journey: ctx ? importJourney({
+      mandatoryComplete: ctx.mandatoryComplete,
+      missingFields: missing,
+      permitRequired: ctx.permitRequired,
+      permitReceived: ctx.permitReceived,
+      portnetRequired: ctx.portnetRequired,
+      portnetReleased: ctx.portnetReleased,
+      collectionEligible: ctx.collectionEligible,
+      scheduled: ctx.hasScheduledDelivery,
+      collected: ctx.collected,
+      delivered: ctx.delivered,
+      emptyReturned: ctx.emptyReturned,
+      jobClosed: Boolean(job.closedAt),
+    }) : [],
     jobId: job.jobId,
     jobNumber: job.jobNumber,
     domain: 'IMPORT',
@@ -334,6 +358,11 @@ export function deriveExportJob(
   return {
     record: job,
     storedContainers: [...containers],
+    // The export journey is a different sequence — empty out, stuffing,
+    // details sent, VGM, laden to port — and is not written yet. Empty rather
+    // than the import one reshaped, which would name steps an export job
+    // never has.
+    journey: [],
     jobId: job.exportJobId,
     jobNumber: job.jobNumber,
     domain: 'EXPORT',

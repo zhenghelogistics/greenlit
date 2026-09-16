@@ -116,7 +116,7 @@ function Drawer({ title, count, children, open = false }) {
  * Nothing decorative gets in here. If a job is healthy the band does not
  * render, so its presence alone means something is wrong.
  */
-function Alarms({ job, container }) {
+function Alarms({ container }) {
   const alarms = [];
 
   for (const clock of container?.freeTime ?? []) {
@@ -133,18 +133,9 @@ function Alarms({ job, container }) {
     }
   }
 
-  if (job.permitRequired && !job.permitReceived) {
-    alarms.push({ what: "No permit recorded", why: "Needed before the delivery order is exchanged" });
-  }
-  if (job.type === "Import" && !job.portnetReleased) {
-    alarms.push({ what: "Portnet not released", why: "This is what holds the collection" });
-  }
-  if (job.missingInformation?.length) {
-    alarms.push({
-      what: `Missing ${job.missingInformation.join(", ")}`,
-      why: "The job cannot be completed until these are filled in",
-    });
-  }
+  // Permits, Portnet and missing fields used to be repeated here. They are
+  // steps on the journey above, and saying them twice was how one fact became
+  // three cards. This band is money only.
 
   if (!alarms.length) return null;
   return (
@@ -159,6 +150,66 @@ function Alarms({ job, container }) {
   );
 }
 
+/**
+ * §31, §32. The job as the trip the box makes.
+ *
+ * One line, read top to bottom, with each step saying where it stands and
+ * carrying its own action. The alternative — which this replaces — was a set
+ * of panels that left the reader to assemble the sequence themselves.
+ *
+ * The state is on the node's shape as well as its colour, so the sequence
+ * survives a colourblind reader.
+ */
+const DO_LABEL = {
+  "job.edit": "Fill it in",
+  "portnet.confirm": "Mark released",
+  "permit.confirm": "Add permit",
+  "movement.create": "Plan movement",
+  "movement.update": "Update trip",
+  "job.close": "Close job",
+};
+
+function Journey({ steps, onAct }) {
+  if (!steps.length) return null;
+  return (
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div className="section-title">Where this job is</div>
+      <div className="journey">
+        {steps.map((s) => (
+          <div className={`leg leg--${s.state.toLowerCase()}`} key={s.id}>
+            {/* The mark is drawn in CSS: it is presentation, and the
+                state is already said in words beside it. */}
+            <div className="leg-node" aria-hidden="true" />
+            <div>
+              <div className="leg-label">
+                {s.label}
+                {/* Colour and shape both carry the state, so the word is here
+                    too — nothing is said by appearance alone. */}
+                <span className="gl-caption" style={{ marginLeft: 8, fontWeight: 500 }}>
+                  {s.state === "CURRENT" ? "now"
+                    : s.state === "WAITING" ? "waiting on them"
+                      : s.state === "BLOCKED" ? "blocked"
+                        : s.state === "SKIPPED" ? "not needed"
+                          : s.state === "DONE" ? "done" : ""}
+                </span>
+              </div>
+              <div className="leg-detail">{s.detail}</div>
+            </div>
+            <div className="leg-do">
+              {s.action ? (
+                <button className={`btn ${s.state === "CURRENT" ? "primary" : "secondary"}`}
+                  type="button" onClick={() => onAct(s.action)}>
+                  {DO_LABEL[s.action] ?? "Open"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const Field = ({ label, value }) => (
   <div className="field"><span className="field-label">{label}</span><b>{value || "—"}</b></div>
 );
@@ -167,6 +218,11 @@ export default function ZhtJobDetail({
   job, containerIndex = 0, onSelectContainer, onBack, onManage,
   onRecordCms, onSendDetails, onSetTranshipment, onRecordDetails, extras, permitPanel,
 }) {
+  /** Opened by the journey's closing step, and by hand otherwise. */
+  const [showClosing, setShowClosing] = useState(false);
+
+  // After the hook: hooks must run in the same order on every render, and an
+  // early return above one is how that order changes between renders.
   if (!job) return null;
 
   const containers = job.containers ?? [];
@@ -214,45 +270,69 @@ export default function ZhtJobDetail({
             <span>{job.derived?.status}</span>
           </div>
 
-          {/* §31. The one thing that is never closed: what to do next, why,
-              and who it is waiting on. His demo derives this from a chain of
-              ifs in the browser; this is the rules engine's answer. */}
-          <div className={`lede${job.derived?.blocking ? " lede--blocked" : ""}`}>
-            <div className="lede-action">{job.derived?.nextAction || "Nothing outstanding"}</div>
-            {job.derived?.blocking ? <div className="lede-why">{job.derived.blocking}</div> : null}
-            <div className="lede-why">
-              Waiting on {job.derived?.waitingOn ?? "nobody"} · {job.derived?.status ?? "—"}
-            </div>
-            <div className="action-row" style={{ marginTop: 10, gap: 8, flexWrap: "wrap" }}>
-              {!job.cmsCompleted ? (
-                <button className="btn success" type="button" onClick={onRecordCms}>
-                  Record CMS completed
-                </button>
-              ) : null}
-              {job.type === "Export" && !container.number ? (
-                <button className="btn primary" type="button" onClick={onRecordDetails}>
-                  Record container, seal and tare
-                </button>
-              ) : null}
-              <button className="btn secondary" type="button"
-                onClick={() => onManage("checkpoint")}>Update a checkpoint</button>
+          {/* §31, §32. The trip the box makes, and the only place on this
+              screen that answers "where are we" and "what now". The lede and
+              the alarm band both said a piece of this and disagreed about the
+              order; there is one sequence now. */}
+          {/* `job.close` has no drawer panel of its own — closure is the
+              ClosurePanel at the foot of this screen — so the step opens that
+              section rather than naming a panel nothing renders. */}
+          <Journey steps={job.journey ?? []} onAct={(action) => {
+            if (action === "job.close") { setShowClosing(true); return; }
+            if (action === "job.edit") return onManage("job");
+            if (action === "portnet.confirm" || action === "permit.confirm") return onManage("checkpoint");
+            if (action === "movement.create" || action === "movement.update") return onManage("trip");
+            return onManage("job");
+          }} />
 
-              {job.type === "Export" && job.transhipment === "PENDING" ? (
-                <>
-                  <button className="btn primary" type="button"
-                    onClick={() => onSetTranshipment("available")}>Transhipment available</button>
-                  <button className="btn secondary" type="button"
-                    onClick={() => onSetTranshipment("not_available")}>Not available</button>
-                </>
-              ) : null}
+          {/* The commands the import journey has no step for. CMS and
+              transhipment are job-level facts, and §42's notification belongs
+              to the container rather than to the trip. Shown only when the
+              thing they record has genuinely not been done. */}
+          {(!job.cmsCompleted
+            || (job.type === "Export" && !container.number)
+            || (job.type === "Export" && job.transhipment === "PENDING")) ? (
+            <div className="card" style={{ marginBottom: 12 }}>
+              <div className="action-row" style={{ gap: 8, flexWrap: "wrap" }}>
+                {!job.cmsCompleted ? (
+                  <button className="btn success" type="button" onClick={onRecordCms}>
+                    Record CMS completed
+                  </button>
+                ) : null}
+                {job.type === "Export" && !container.number ? (
+                  <button className="btn primary" type="button" onClick={onRecordDetails}>
+                    Record container, seal and tare
+                  </button>
+                ) : null}
+                {job.type === "Export" && job.transhipment === "PENDING" ? (
+                  <>
+                    <button className="btn primary" type="button"
+                      onClick={() => onSetTranshipment("available")}>Transhipment available</button>
+                    <button className="btn secondary" type="button"
+                      onClick={() => onSetTranshipment("not_available")}>Not available</button>
+                  </>
+                ) : null}
+              </div>
             </div>
-          </div>
+          ) : null}
 
+          {/* §42. The step that lets stuffing start. */}
           {job.type === "Export" && container.number && !job.detailsSent ? (
             <SendDetails container={container} customer={job.customer} onSend={onSendDetails} />
           ) : null}
 
-          <Alarms job={job} container={container} />
+          {job.type === "Export" && job.detailsSent ? (
+            <div className="muted" style={{ marginBottom: 12 }}>
+              Container details sent to {job.detailsSentTo || "the customer"}
+              {job.detailsSentBy ? ` by ${job.detailsSentBy}` : ""}
+              {job.detailsSentAt ? ` on ${formatDay(job.detailsSentAt)}` : ""}.
+            </div>
+          ) : null}
+
+          {/* What the journey cannot say, because it is not a step: money
+              already running. Only ever shown when a clock is actually past
+              or about to pass its last free day. */}
+          <Alarms container={container} />
 
           {/* §17. The job is its movements. Everything else on this screen
               is the paperwork around them — this is the work itself, so it is
@@ -454,7 +534,7 @@ export default function ZhtJobDetail({
               onClick={() => onManage("source")}>Open source document</button>
           </Drawer>
 
-          <Drawer title="Permits, documents, free time and closure">
+          <Drawer title="Permits, documents, free time and closure" open={showClosing}>
             {extras}
           </Drawer>
         </section>

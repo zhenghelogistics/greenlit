@@ -85,6 +85,8 @@ export function jobFromApi(view) {
     // §13 activity timeline, rendered from the audit stream. A system entry
     // always carries the rule that produced it, so the narrative explains
     // itself without opening anything else.
+    // §31/§32. The trip the box makes, derived server-side.
+    journey: view.journey ?? [],
     activity: (view.activity ?? []).map((e, i) => ({
       id: `${e.at}-${i}`,
       text: e.description,

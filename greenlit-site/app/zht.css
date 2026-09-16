@@ -2762,3 +2762,64 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 .zht .crew-now small { display: block; color: var(--muted); }
 .zht .crew-idle { font-size: 12px; color: var(--muted); padding: 10px 12px; }
 @media (max-width: 900px) { .zht .crew { grid-template-columns: 1fr; } }
+
+/* ------------------------------------------------------------------
+   The journey.
+
+   A job as the trip the box makes, down one line. The rail on the left is
+   what carries the reading: a filled node is behind you, a ringed one is
+   where you are, a hollow one is ahead. Shape rather than colour alone, so
+   the sequence survives a colourblind reader and a black-and-white print.
+   ------------------------------------------------------------------ */
+.zht .journey { display: grid; gap: 0; }
+.zht .leg {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 14px; align-items: start;
+  padding: 12px 2px;
+  position: relative;
+}
+/* The line between the nodes, stopping short at both ends of the list. */
+.zht .leg::before {
+  content: ""; position: absolute;
+  left: 10px; top: 0; bottom: 0; width: 2px; background: var(--line);
+}
+.zht .leg:first-child::before { top: 22px; }
+.zht .leg:last-child::before { bottom: calc(100% - 22px); }
+
+.zht .leg-node {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--line); background: var(--card);
+  margin-top: 1px; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: var(--muted);
+}
+.zht .leg-label { font-size: 14px; font-weight: 700; color: var(--text); }
+.zht .leg-detail { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+.zht .leg--done .leg-node { background: var(--green); border-color: var(--green); color: #fff; }
+.zht .leg--done .leg-label { color: var(--muted); font-weight: 600; }
+
+.zht .leg--current { background: var(--soft); border-radius: 10px; }
+.zht .leg--current .leg-node { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47,120,208,.18); }
+.zht .leg--current .leg-label { font-size: 16px; }
+
+.zht .leg--waiting .leg-node { border-color: var(--orange); color: var(--orange); }
+.zht .leg--blocked .leg-node { border-color: var(--red); color: var(--red); }
+.zht .leg--skipped .leg-label,
+.zht .leg--skipped .leg-detail { color: #a6b2bd; }
+.zht .leg--upcoming .leg-label { color: var(--muted); font-weight: 600; }
+
+/* The step's own action sits on the step, not in a toolbar somewhere else. */
+.zht .leg-do { align-self: center; }
+@media (max-width: 760px) {
+  .zht .leg { grid-template-columns: 22px minmax(0, 1fr); }
+  .zht .leg-do { grid-column: 2; margin-top: 8px; }
+}
+
+/* The node's mark. Presentation, so it lives here rather than in the markup —
+   and the state is said in words beside it either way. */
+.zht .leg--done .leg-node::after    { content: "\2713"; }
+.zht .leg--blocked .leg-node::after { content: "!"; }
+.zht .leg--waiting .leg-node::after { content: "\2026"; }
+.zht .leg--skipped .leg-node::after { content: "\2013"; }
