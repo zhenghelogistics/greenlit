@@ -2990,12 +2990,14 @@ function fleetFromApi(view) {
     // §21.3.2. Trucks, not chassis — a different and more expensive capacity.
     vehicles: view?.vehicles ?? [],
     vehicleClashes: view?.vehicleClashes ?? [],
+    // §17. Empty legs another job could fill.
+    routeOpportunities: view?.routeOpportunities ?? [],
   };
 }
 
 const EMPTY_FLEET = { inUse: [], available: [], maintenance: [], availability: null,
   averageJobDays: null, monthlyCapacity20ft: null, monthlyCapacity40ft: null,
-  vehicles: [], vehicleClashes: [] };
+  vehicles: [], vehicleClashes: [], routeOpportunities: [] };
 
 /** §35. Reads the fleet from the server, where its status is derived. */
 function useFleet() {
@@ -4538,7 +4540,7 @@ export default function GreenlitControlTower() {
       ) : null}
       {screen === "fleet" ? <ZhtChassis fleet={fleet} onOpenJob={(job) => openJob(job.id)} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
       {screen === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => goTo("documents")} /> : null}
-      {screen === "planning" ? <ZhtPlanning jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
+      {screen === "planning" ? <ZhtPlanning jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)} /> : null}
       {screen === "drivers" ? <ZhtDrivers fleet={fleet} /> : null}
       {screen === "emptyReturns" ? <ZhtEmptyReturns jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
       {screen === "billing" ? <ZhtBilling jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}

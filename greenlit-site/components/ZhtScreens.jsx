@@ -89,7 +89,7 @@ export function ZhtJobs({ jobs, onOpenJob, onNewJob }) {
  * movements actually assigned, grouped by the truck carrying them, so a vehicle
  * appears here exactly when something is booked on it.
  */
-export function ZhtPlanning({ jobs, onOpenJob }) {
+export function ZhtPlanning({ jobs, fleet, onOpenJob }) {
   const byVehicle = new Map();
   for (const job of jobs) {
     for (const trip of job.trips ?? []) {
@@ -102,6 +102,37 @@ export function ZhtPlanning({ jobs, onOpenJob }) {
 
   return (
     <Shell title="Planning Board">
+      {/* §17. The thing a controller reading job by job cannot see: a truck
+          already committed to finish where some other job needs one to start.
+          An empty leg is a truck, a driver and a slot on the day, paid for and
+          carrying nothing.
+
+          Offered, never taken. Whether the chain works depends on timing, the
+          customer's window and the driver's shift, and those are the
+          controller's to weigh. */}
+      {(fleet?.routeOpportunities ?? []).length ? (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="section-title">Route Opportunities</div>
+          <div className="muted">
+            A committed movement ends where another is waiting to start. Same
+            location only — a near match sends a truck to the wrong gate.
+          </div>
+          <div style={{ marginTop: 10 }}>
+            {fleet.routeOpportunities.slice(0, 8).map((o, i) => (
+              <div className="movement" key={i}>
+                <strong>{o.finishing.truck || "Truck TBA"}</strong>
+                {o.finishing.origin} → {o.finishing.destination}
+                <br />
+                <span className="muted">
+                  {o.finishing.movementRef} ends at {o.at}, where{" "}
+                  {o.waiting.movementRef} starts ({o.waiting.origin} → {o.waiting.destination})
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="card">
         <div className="section-title">Movement-Based Planning</div>
         {vehicles.length ? (

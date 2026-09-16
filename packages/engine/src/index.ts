@@ -34,3 +34,4 @@ export * from './locations.ts';
 export * from './documents.ts';
 export * from './customer-matching.ts';
 export * from './occupancy.ts';
+export * from './routing.ts';

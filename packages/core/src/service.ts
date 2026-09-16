@@ -2,8 +2,8 @@ import type { MandatoryFieldSet } from '@greenlit/engine';
 import type { Repository } from './repository.ts';
 import {
   asNarrative, chassisDays, chassisStatus, describe, fleetAvailability,
-  vehicleOccupancy, doubleBookings,
-  type VehicleEngagement, type DoubleBooking,
+  vehicleOccupancy, doubleBookings, routeOpportunities,
+  type VehicleEngagement, type DoubleBooking, type RouteOpportunity,
   monthlyCapacity, type ChassisStatus, type FleetAvailability,
 } from '@greenlit/engine';
 import { deriveExportJob, deriveImportJob, type AuditEventView, type DerivedJobView } from './derive.ts';
@@ -232,6 +232,10 @@ export class JobService {
       vehicles,
       // §21.3.2: "Otherwise the vehicle appears free and is double-booked."
       vehicleClashes: doubleBookings(vehicles),
+      // §17. Where a committed truck finishes at a place some other job needs
+      // one to start. Computed across every job, because that is the whole
+      // point: a controller reading job by job cannot see it.
+      routeOpportunities: routeOpportunities(movements),
       // §35.6. Occupancy equals job duration, so fleet size sets the ceiling.
       monthlyCapacity20ft: monthlyCapacity(
         units.filter((u) => u.size === '20FT').length, averageJobDays),
@@ -268,6 +272,8 @@ export interface FleetView {
   vehicles: VehicleEngagement[];
   /** §21.3.2. One truck engaged twice at the same moment. */
   vehicleClashes: DoubleBooking[];
+  /** §17. Empty legs that another job could fill. */
+  routeOpportunities: RouteOpportunity[];
   monthlyCapacity20ft: number;
   monthlyCapacity40ft: number;
 }
