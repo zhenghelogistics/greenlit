@@ -3017,24 +3017,37 @@ function fleetFromApi(view) {
     vehicleClashes: view?.vehicleClashes ?? [],
     // §17. Empty legs another job could fill.
     routeOpportunities: view?.routeOpportunities ?? [],
+    loaded: true,
   };
 }
 
 const EMPTY_FLEET = { inUse: [], available: [], maintenance: [], availability: null,
   averageJobDays: null, monthlyCapacity20ft: null, monthlyCapacity40ft: null,
-  vehicles: [], vehicleClashes: [], routeOpportunities: [] };
+  vehicles: [], vehicleClashes: [], routeOpportunities: [], loaded: false };
 
-/** §35. Reads the fleet from the server, where its status is derived. */
-function useFleet() {
+/**
+ * §35. Reads the fleet from the server, where its status is derived.
+ *
+ * Only when a screen actually needs it. The fleet view costs five queries —
+ * chassis, holdings, both job tables and every movement — and it was fetched
+ * on every page load to supply two numbers in the navigation rail. On a
+ * deployment whose database is a round trip away that is most of the wait
+ * before anything appears, spent on counts nobody is looking at.
+ *
+ * The counts are simply absent until the fleet is loaded, which the rail
+ * already renders as no number rather than a zero. A zero would be a claim.
+ */
+function useFleet(enabled) {
   const [fleet, setFleet] = useState(EMPTY_FLEET);
   useEffect(() => {
+    if (!enabled) return undefined;
     let cancelled = false;
     fetch("/api/fleet")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((data) => { if (!cancelled) setFleet(fleetFromApi(data.fleet)); })
       .catch(() => { if (!cancelled) setFleet(EMPTY_FLEET); });
     return () => { cancelled = true; };
-  }, []);
+  }, [enabled]);
   return fleet;
 }
 
@@ -3772,7 +3785,9 @@ export default function GreenlitControlTower() {
   const [pendingCompany, setPendingCompany] = useState(null);
 
   const actionJobs = jobs.filter(isActionRequired).sort((a, b) => urgency(b) - urgency(a));
-  const fleet = useFleet();
+  // The screens that read it. Everything else pays nothing for it.
+  const FLEET_SCREENS = ["controller", "planning", "drivers", "fleet"];
+  const fleet = useFleet(FLEET_SCREENS.includes(current));
   const selectedJob = jobs.find((job) => job.id === selectedJobId);
 
   function showToast(message) {
@@ -4449,8 +4464,8 @@ export default function GreenlitControlTower() {
     { id: "jobs", label: "Jobs", count: jobs.length, icon: ClipboardList },
     { id: "documents", label: "Document Intake", count: documents.length, icon: FileSearch },
     { id: "planning", label: "Planning Board", count: null, icon: CalendarRange },
-    { id: "drivers", label: "Drivers & Vehicles", count: fleet.vehicles?.length ?? null, icon: Truck },
-    { id: "fleet", label: "Chassis Master", count: fleet.available.length, icon: Container },
+    { id: "drivers", label: "Drivers & Vehicles", count: fleet.loaded ? fleet.vehicles.length : null, icon: Truck },
+    { id: "fleet", label: "Chassis Master", count: fleet.loaded ? fleet.available.length : null, icon: Container },
     { id: "emptyReturns", label: "Empty Returns", count: null, icon: Undo2 },
     { id: "companies", label: "Customer Master", count: null, icon: Building2 },
     { id: "billing", label: "Billing Ready", count: null, icon: Receipt },
