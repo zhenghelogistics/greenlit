@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IMPORT_CONTAINER_STATUS, EXPORT_JOB_STATUS, MAX_CONTAINERS_PER_JOB } from "@greenlit/engine";
+import { IMPORT_CONTAINER_STATUS, EXPORT_JOB_STATUS } from "@greenlit/engine";
 
 /**
  * The job detail screen, in the PM's markup.
@@ -185,14 +185,9 @@ export default function ZhtJobDetail({
                 </button>
               ))}
             </div>
-            {/* §29. The cap is the engine's number, not a literal typed here,
-                so the button and validateContainerCount can never disagree. */}
             <button className="btn ghost" type="button"
-              disabled={containers.length >= MAX_CONTAINERS_PER_JOB}
               onClick={() => onManage("container", { mode: "new" })}>
-              {containers.length >= MAX_CONTAINERS_PER_JOB
-                ? `${MAX_CONTAINERS_PER_JOB} container limit`
-                : "+ Add Container"}
+              + Add Container
             </button>
           </div>
 

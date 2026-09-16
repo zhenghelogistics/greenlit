@@ -9,10 +9,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
-import { jobFromApi, WAITING_LABEL_API } from "./lib/job-adapter.mjs";
+import { jobFromApi } from "./lib/job-adapter.mjs";
 import {
   AlertCircle,
-  ArrowLeft,
   CheckCircle2,
   ChevronRight,
   CircleDot,
@@ -44,9 +43,9 @@ import ZhtDashboard from "./components/ZhtDashboard.jsx";
 import ZhtJobDetail from "./components/ZhtJobDetail.jsx";
 import {
   ZhtJobs, ZhtPlanning, ZhtDrivers, ZhtChassis, ZhtBilling,
-  ZhtEmptyReturns, ZhtSearchResults,
+  ZhtEmptyReturns, ZhtSearchResults, ZhtCustomers, ZhtCustomerDetail,
 } from "./components/ZhtScreens.jsx";
-import { addIsoDays, MAX_CONTAINERS_PER_JOB, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
+import { addIsoDays, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
 import { validateContainerCount } from "@greenlit/engine";
 import { reconcileExtraction, toExtractedFields } from "@greenlit/engine";
 
@@ -2108,495 +2107,11 @@ function UnknownCompanyPrompt({ pending, onCancel, onChange, onCreated }) {
   );
 }
 
-function NewCompanyForm({ onCreated }) {
-  const [open, setOpen] = useState(false);
-  const [code, setCode] = useState("");
-  const [companyName, setCompanyName] = useState("");
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  async function submit(event) {
-    event.preventDefault();
-    setSaving(true);
-    setError("");
-    try {
-      const response = await fetch("/api/customers", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code, companyName }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) { setError(payload.error ?? `Could not save (HTTP ${response.status}).`); return; }
-      setCode(""); setCompanyName(""); setOpen(false);
-      onCreated();
-    } catch {
-      setError("Could not reach the server. Nothing was saved.");
-    } finally {
-      setSaving(false);
-    }
-  }
 
-  if (!open) {
-    return (
-      <button type="button" onClick={() => setOpen(true)}
-        className="h-11 rounded border-0 bg-[color:var(--gl-accent)] px-4 text-[17px] font-medium text-white hover:bg-[color:var(--gl-accent-hover)]">
-        Add company
-      </button>
-    );
-  }
 
-  return (
-    <form onSubmit={submit} className="gl-panel mt-4 p-4">
-      <div className="flex flex-wrap items-end gap-4">
-        <label className="flex flex-col gap-1">
-          <span className="gl-label">Code</span>
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            maxLength={6}
-            placeholder="ABC"
-            aria-describedby="code-hint"
-            className="gl-data h-11 w-28 rounded border border-slate-300 px-3"
-          />
-          <span id="code-hint" className="gl-caption">2–6 letters. Cannot be changed later.</span>
-        </label>
-        <label className="flex min-w-[16rem] flex-1 flex-col gap-1">
-          <span className="gl-label">Company name</span>
-          <input
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            placeholder="ABC Company"
-            className="h-11 rounded border border-slate-300 px-3 text-[17px]"
-          />
-        </label>
-        <button type="submit" disabled={saving}
-          className="h-11 rounded border-0 bg-[color:var(--gl-accent)] px-4 text-[17px] font-medium text-white hover:bg-[color:var(--gl-accent-hover)]">
-          {saving ? "Saving…" : "Create"}
-        </button>
-        <button type="button" onClick={() => { setOpen(false); setError(""); }}
-          className="h-11 rounded border border-slate-300 bg-white px-4 text-[17px] font-medium text-slate-700 hover:bg-slate-50">
-          Cancel
-        </button>
-      </div>
-      {error ? <p className="gl-body mt-3 text-rose-800" role="alert">{error}</p> : null}
-    </form>
-  );
-}
 
-/** Creating a job against a company. The reference is issued by the server. */
-function NewJobForm({ customerCode, onCreated }) {
-  const [open, setOpen] = useState(false);
-  const [domain, setDomain] = useState("IMPORT");
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  async function submit(event) {
-    event.preventDefault();
-    setSaving(true);
-    setError("");
-    try {
-      const response = await fetch("/api/jobs", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ domain, customerCode }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) { setError(payload.error ?? `Could not save (HTTP ${response.status}).`); return; }
-      setOpen(false);
-      onCreated();
-    } catch {
-      setError("Could not reach the server. Nothing was saved.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  if (!open) {
-    return (
-      <button type="button" onClick={() => setOpen(true)}
-        className="h-11 rounded border border-slate-300 bg-white px-4 text-[17px] font-medium text-slate-700 hover:bg-slate-50">
-        New job
-      </button>
-    );
-  }
-
-  return (
-    <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
-      <label className="flex flex-col gap-1">
-        <span className="gl-label">Direction</span>
-        <select value={domain} onChange={(e) => setDomain(e.target.value)}
-          className="h-11 rounded border border-slate-300 px-3 text-[17px]">
-          <option value="IMPORT">Import</option>
-          <option value="EXPORT">Export</option>
-        </select>
-      </label>
-      <button type="submit" disabled={saving}
-        className="h-11 rounded border-0 bg-[color:var(--gl-accent)] px-4 text-[17px] font-medium text-white hover:bg-[color:var(--gl-accent-hover)]">
-        {saving ? "Creating…" : "Create job"}
-      </button>
-      <button type="button" onClick={() => { setOpen(false); setError(""); }}
-        className="h-11 rounded border border-slate-300 bg-white px-4 text-[17px] font-medium text-slate-700 hover:bg-slate-50">
-        Cancel
-      </button>
-      {error ? <p className="gl-body w-full text-rose-800" role="alert">{error}</p> : null}
-    </form>
-  );
-}
-
-function Companies({ onOpenCompany }) {
-  const [customers, setCustomers] = useState(null);
-  const [reloadToken, setReloadToken] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/customers")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((d) => { if (!cancelled) setCustomers(d.customers ?? []); })
-      .catch(() => { if (!cancelled) setCustomers([]); });
-    return () => { cancelled = true; };
-  }, [reloadToken]);
-
-  return (
-    <main id="main-content" className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
-      <h1 className="gl-display">Companies</h1>
-      <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
-        <p className="gl-body gl-muted">
-          Every job belongs to a company and is numbered within it.
-        </p>
-        <NewCompanyForm onCreated={() => setReloadToken((n) => n + 1)} />
-      </div>
-
-      {customers === null ? (
-        <div className="gl-panel mt-6 divide-y divide-slate-200" aria-busy="true">
-          {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="flex h-14 items-center gap-4 px-4">
-              <div className="h-3 w-16 animate-pulse rounded bg-slate-200" />
-              <div className="h-3 w-48 animate-pulse rounded bg-slate-100" />
-            </div>
-          ))}
-        </div>
-      ) : customers.length === 0 ? (
-        <div className="gl-panel mt-6 p-8 text-center">
-          <Building2 className="mx-auto h-11 w-9 text-slate-600" aria-hidden="true" />
-          <p className="gl-title mt-3">No companies yet</p>
-          <p className="gl-body gl-muted mt-1">Add one to start recording jobs against it.</p>
-        </div>
-      ) : (
-        <div className="gl-panel mt-6 overflow-hidden">
-          <table className="gl-table">
-            <thead>
-              <tr>
-                <th>Code</th><th>Company</th><th>Contact</th><th>Since</th><th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {customers.map((c) => (
-                <tr key={c.customerId} onClick={() => onOpenCompany(c.code)}>
-                  <td><span className="gl-data gl-ref">{c.code}</span></td>
-                  <td className="gl-body">{c.companyName}</td>
-                  <td className="gl-body gl-muted">{c.defaultContact ?? "—"}</td>
-                  <td><span className="gl-data gl-muted">{String(c.createdAt).slice(0, 10)}</span></td>
-                  <td>
-                    <span className={`gl-pill ${c.accountStatus === "ACTIVE"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                      : "border-amber-200 bg-amber-50 text-amber-800"}`}>
-                      {c.accountStatus === "ACTIVE" ? "Active" : c.accountStatus}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </main>
-  );
-}
-
-/** One company, with its jobs newest first. */
-/**
- * §9.3. Where this customer receives and stuffs.
- *
- * Addresses were typed onto each job, so the same warehouse appeared a dozen
- * ways and none of them matched. Kept here, chosen there. Two facts beyond the
- * address decide how a job is planned and could never live on a free-text
- * field: whether a double-mounted chassis can get in, and whether the driver
- * usually waits.
- */
-function SitesPanel({ code }) {
-  const [sites, setSites] = useState(null);
-  const [adding, setAdding] = useState(false);
-  const [error, setError] = useState("");
-
-  const load = React.useCallback(() => {
-    if (!code) return;
-    fetch(`/api/customers/${encodeURIComponent(code)}/locations`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((d) => setSites(d.locations ?? []))
-      .catch(() => setSites([]));
-  }, [code]);
-
-  useEffect(() => { load(); }, [load]);
-
-  async function save(method, body) {
-    setError("");
-    const response = await fetch(`/api/customers/${encodeURIComponent(code)}/locations`, {
-      method,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    }).catch(() => null);
-
-    const payload = await response?.json().catch(() => ({}));
-    if (!response?.ok) { setError(payload?.error ?? "That site was not saved."); return false; }
-    load();
-    return true;
-  }
-
-  if (sites === null) return null;
-
-  return (
-    <Panel
-      title="Sites"
-      className="mt-7"
-      action={!adding ? (
-        <button type="button" onClick={() => setAdding(true)}
-          className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4">
-          <Building2 className="h-5 w-5" aria-hidden="true" />Add a site
-        </button>
-      ) : null}
-    >
-      <div className="p-6">
-        {error ? (
-          <p role="alert" className="gl-body-plain mb-4 rounded-md border border-rose-300 bg-rose-50 p-3 text-[color:var(--gl-state-blocked-ink)]">
-            {error}
-          </p>
-        ) : null}
-
-        {adding ? (
-          <AddSite
-            onCancel={() => setAdding(false)}
-            onSave={async (draft) => { if (await save("POST", draft)) setAdding(false); }}
-          />
-        ) : null}
-
-        {sites.length === 0 && !adding ? (
-          <p className="gl-body">
-            No sites yet. Until one is added, delivery and stuffing addresses are
-            typed onto each job and the same warehouse ends up spelled several ways.
-          </p>
-        ) : null}
-
-        <div className="grid gap-3">
-          {sites.map((site) => (
-            <article key={site.locationId}
-              className="rounded-lg border border-[color:var(--gl-line)] bg-white p-4"
-              style={site.active ? undefined : { opacity: 0.55 }}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="gl-body" style={{ fontWeight: 500 }}>
-                    {site.label}
-                    {site.isDefault ? (
-                      <span className="ml-2 inline-flex min-h-7 items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 text-[15px] font-semibold text-emerald-800">
-                        Default
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="gl-caption mt-1">{site.address}</div>
-                </div>
-              </div>
-
-              {/* The two facts that decide how a job is planned. Said in words
-                  rather than as ticked boxes, because "cannot take a double
-                  mount" is what a planner needs to read at a glance. */}
-              <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-1">
-                {!site.doubleMountingPermitted ? (
-                  <li className="gl-caption">Cannot take a double-mounted chassis</li>
-                ) : null}
-                {site.standbyUsual ? <li className="gl-caption">Driver usually waits here</li> : null}
-                {!site.active ? <li className="gl-caption">Not in use</li> : null}
-              </ul>
-
-              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
-                {!site.isDefault && site.active ? (
-                  <button type="button"
-                    onClick={() => save("PATCH", { locationId: site.locationId, isDefault: true })}
-                    className="min-h-11 cursor-pointer px-1 text-[15px] font-semibold text-[color:var(--gl-accent)] underline underline-offset-4">
-                    Make default
-                  </button>
-                ) : null}
-                <button type="button"
-                  onClick={() => save("PATCH", { locationId: site.locationId, active: !site.active })}
-                  className="min-h-11 cursor-pointer px-1 text-[15px] font-semibold text-[color:var(--gl-accent)] underline underline-offset-4">
-                  {site.active ? "Take out of use" : "Put back in use"}
-                </button>
-                <button type="button"
-                  onClick={() => save("PATCH", {
-                    locationId: site.locationId,
-                    doubleMountingPermitted: !site.doubleMountingPermitted,
-                  })}
-                  className="min-h-11 cursor-pointer px-1 text-[15px] font-semibold text-[color:var(--gl-accent)] underline underline-offset-4">
-                  {site.doubleMountingPermitted ? "Mark as no double mount" : "Allow double mount"}
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        {sites.some((s) => !s.active) ? (
-          <p className="gl-caption mt-4">
-            A site taken out of use stays here. Old jobs point at it, and their
-            history should still say where the container went.
-          </p>
-        ) : null}
-      </div>
-    </Panel>
-  );
-}
-
-/** Adding a site. The label is what someone says on the phone. */
-function AddSite({ onCancel, onSave }) {
-  const [form, setForm] = useState({
-    label: "", address: "", isDefault: false,
-    doubleMountingPermitted: true, standbyUsual: false,
-  });
-  const [saving, setSaving] = useState(false);
-  const field = "min-h-12 w-full rounded-md border border-[color:var(--gl-line-strong)] bg-white px-3 text-[17px] text-[color:var(--gl-ink)]";
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
-  const tick = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.checked }));
-
-  return (
-    <form
-      onSubmit={async (event) => {
-        event.preventDefault();
-        setSaving(true);
-        await onSave(form);
-        setSaving(false);
-      }}
-      className="mb-5 rounded-lg border border-[color:var(--gl-line-strong)] bg-[color:var(--gl-bg)] p-4"
-    >
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="grid gap-2">
-          <span className="gl-label">What it is called</span>
-          <input required value={form.label} onChange={set("label")}
-            placeholder="Tuas warehouse" className={field} />
-          <span className="gl-caption">What the customer says on the phone.</span>
-        </label>
-        <label className="grid gap-2">
-          <span className="gl-label">Address</span>
-          <input required value={form.address} onChange={set("address")}
-            placeholder="12 Tuas Avenue 10, Singapore 639140" className={field} />
-          <span className="gl-caption">What the driver needs.</span>
-        </label>
-      </div>
-
-      <div className="mt-4 grid gap-3">
-        <label className="flex min-h-11 cursor-pointer items-center gap-3">
-          <input type="checkbox" checked={form.isDefault} onChange={tick("isDefault")}
-            className="h-5 w-5 cursor-pointer accent-[color:var(--gl-accent)]" />
-          <span className="gl-body-plain text-[color:var(--gl-ink)]">
-            Use this site by default on new jobs
-          </span>
-        </label>
-        <label className="flex min-h-11 cursor-pointer items-center gap-3">
-          <input type="checkbox" checked={!form.doubleMountingPermitted}
-            onChange={(e) => setForm((f) => ({ ...f, doubleMountingPermitted: !e.target.checked }))}
-            className="h-5 w-5 cursor-pointer accent-[color:var(--gl-accent)]" />
-          <span className="gl-body-plain text-[color:var(--gl-ink)]">
-            This site cannot take a double-mounted chassis
-          </span>
-        </label>
-        <label className="flex min-h-11 cursor-pointer items-center gap-3">
-          <input type="checkbox" checked={form.standbyUsual} onChange={tick("standbyUsual")}
-            className="h-5 w-5 cursor-pointer accent-[color:var(--gl-accent)]" />
-          <span className="gl-body-plain text-[color:var(--gl-ink)]">
-            The driver usually waits here
-          </span>
-        </label>
-      </div>
-
-      <div className="mt-5 flex flex-wrap gap-3">
-        <button type="submit" disabled={saving}
-          className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white disabled:opacity-60">
-          {saving ? "Saving…" : "Add this site"}
-        </button>
-        <button type="button" onClick={onCancel}
-          className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-5 text-[17px] text-[color:var(--gl-ink)]">
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
-
-function CompanyDetail({ code, onBack, onOpen }) {
-  const [data, setData] = useState(null);
-  const [reloadToken, setReloadToken] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/customers/${encodeURIComponent(code)}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((d) => { if (!cancelled) setData(d); })
-      .catch(() => { if (!cancelled) setData({ customer: null, jobs: [] }); });
-    return () => { cancelled = true; };
-  }, [code, reloadToken]);
-
-  const customer = data?.customer;
-  const jobs = data?.jobs ?? [];
-
-  return (
-    <main id="main-content" className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
-      <button type="button" onClick={onBack} className="inline-flex min-h-11 items-center gap-2 rounded border border-slate-300 bg-white px-3 text-[17px] font-medium text-[var(--gl-accent)] hover:bg-slate-50">
-        <ArrowLeft className="h-5 w-5" aria-hidden="true" /> Companies
-      </button>
-
-      <div className="mt-4 flex flex-wrap items-baseline gap-3">
-        <span className="gl-data gl-strong text-2xl">{code}</span>
-        <h1 className="gl-display">{customer?.companyName ?? code}</h1>
-      </div>
-      {customer ? (
-        <p className="gl-body gl-muted mt-1">
-          {customer.defaultContact ?? "No contact recorded"}
-          {customer.defaultDeliveryAddress ? ` · ${customer.defaultDeliveryAddress}` : ""}
-        </p>
-      ) : null}
-
-      <div className="gl-panel mt-6 overflow-hidden">
-        <div className="gl-panel__header">
-          <h2 className="gl-title">{jobs.length} {jobs.length === 1 ? "job" : "jobs"}</h2>
-          <div className="flex items-center gap-3">
-            <span className="gl-caption">Newest first</span>
-            <NewJobForm customerCode={code} onCreated={() => setReloadToken((n) => n + 1)} />
-          </div>
-        </div>
-        {jobs.length === 0 ? (
-          <p className="gl-body gl-muted p-6 text-center">No jobs recorded for this company yet.</p>
-        ) : (
-          <table className="gl-table">
-            <thead>
-              <tr><th>Ref</th><th>Direction</th><th>Status</th><th>Next action</th><th>Waiting on</th></tr>
-            </thead>
-            <tbody>
-              {jobs.map((j) => (
-                <tr key={j.jobId} onClick={() => onOpen(j.jobNumber)}>
-                  <td><span className="gl-data gl-ref">{j.jobNumber}</span></td>
-                  <td className="gl-body">{j.domain === "IMPORT" ? "Import" : "Export"}</td>
-                  <td><StatusPill status={j.jobStatus} /></td>
-                  <td className="gl-body gl-strong" style={{ fontWeight: 500 }}>{j.nextActionRequired}</td>
-                  <td><WaitingPill owner={WAITING_LABEL_API[j.waitingOn] ?? "Nobody"} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* §9.3. The sites belong to the customer, so they live on the customer's
-          page rather than being retyped on every job that goes to one. */}
-      <SitesPanel code={code} />
-    </main>
-  );
-}
 
 /**
  * Keyboard operation for the action register.
@@ -3170,7 +2685,7 @@ function panelHeading(panel, job) {
   };
   if (panel.type === "job") return { title: "Edit job information", note: "These facts drive readiness, location, and the next action." };
   if (panel.type === "checkpoint") return { title: checkpointNames[panel.key] || "Update checkpoint", note: "Saving this recalculates the job status and action queue." };
-  if (panel.type === "container") return { title: panel.mode === "new" ? "Add container" : "Manage container", note: `Container progress and movements remain under the same job. Maximum ${MAX_CONTAINERS_PER_JOB} containers.` };
+  if (panel.type === "container") return { title: panel.mode === "new" ? "Add container" : "Manage container", note: "Container progress and movements remain under the same job." };
   if (panel.type === "trip") return { title: panel.tripId ? `Update ${panel.tripId}` : "Create a trip", note: "Trip progress updates location, container state, and chassis availability." };
   if (panel.type === "chassis") return { title: `Chassis ${panel.unit}`, note: panel.condition === "available" ? "Assign this available unit to active work." : panel.condition === "maintenance" ? "Return this unit to the available fleet after inspection." : "Release this unit when the job no longer needs it." };
   if (panel.type === "freeTime") return { title: "Confirm free-time dates", note: "Confirmed dates replace provisional document-based estimates." };
@@ -3253,7 +2768,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
 
             {panel.type === "container" && job?.type === "Export" ? (
               <div className="grid gap-5">
-                <div className="flex items-center justify-between gap-4 rounded-md border border-slate-200 bg-white px-4 py-3"><div><div className="gl-label">Container reference</div><div className="mt-1 text-xl font-semibold text-slate-950">{panel.mode === "new" ? `C${containerRecords.length + 1}` : selectedContainer?.ref || `C${(panel.index || 0) + 1}`}</div></div><div className="text-right text-[15px] font-medium text-slate-600">{containerRecords.length} / {MAX_CONTAINERS_PER_JOB} on job</div></div>
+                <div className="flex items-center justify-between gap-4 rounded-md border border-slate-200 bg-white px-4 py-3"><div><div className="gl-label">Container reference</div><div className="mt-1 text-xl font-semibold text-slate-950">{panel.mode === "new" ? `C${containerRecords.length + 1}` : selectedContainer?.ref || `C${(panel.index || 0) + 1}`}</div></div><div className="text-right text-[15px] font-medium text-slate-600">{containerRecords.length} on job</div></div>
                 <div className="grid gap-5 sm:grid-cols-2">
                   <DrawerField label="Container number" hint="May remain blank until the empty is collected."><input maxLength={11} pattern="[A-Za-z]{4}[0-9]{7}" value={draft.number || ""} onChange={(event) => update("number", event.target.value)} className={drawerInputClass} /></DrawerField>
                   <DrawerField label="Size / type"><input required value={draft.sizeType || ""} onChange={(event) => update("sizeType", event.target.value)} className={drawerInputClass} placeholder="40 HQ" /></DrawerField>
@@ -3657,7 +3172,6 @@ function DocumentContainersEditor({ containers, onChange }) {
   const countIssue = validateContainerCount(containers.length).reason;
   const update = (index, key, value) => onChange(containers.map((container, containerIndex) => containerIndex === index ? { ...container, [key]: value } : container));
   const add = () => {
-    if (containers.length >= MAX_CONTAINERS_PER_JOB) return;
     onChange([...containers, { id: `manual-container-${Date.now()}`, ref: `C${containers.length + 1}`, number: "", type: "", seal: "" }]);
   };
   const remove = (index) => {
@@ -3669,8 +3183,8 @@ function DocumentContainersEditor({ containers, onChange }) {
     <fieldset>
       <legend className="w-full bg-slate-100 px-5 py-3 text-[17px] font-semibold text-slate-950">Containers</legend>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-5 py-4">
-        <div><div className="text-[17px] font-semibold text-slate-950">{containers.length} container{containers.length === 1 ? "" : "s"} found</div><div className="mt-1 text-[15px] font-normal text-slate-600">Review each unit independently. A job can contain up to {MAX_CONTAINERS_PER_JOB}.</div></div>
-        <button type="button" onClick={add} disabled={containers.length >= MAX_CONTAINERS_PER_JOB} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 font-semibold text-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:border-sky-200 disabled:bg-sky-50 disabled:text-sky-800"><Plus className="h-5 w-5" />{containers.length >= MAX_CONTAINERS_PER_JOB ? "Limit reached" : "Add container"}</button>
+        <div><div className="text-[17px] font-semibold text-slate-950">{containers.length} container{containers.length === 1 ? "" : "s"} found</div><div className="mt-1 text-[15px] font-normal text-slate-600">Review each unit independently.</div></div>
+        <button type="button" onClick={add} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 font-semibold text-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:border-sky-200 disabled:bg-sky-50 disabled:text-sky-800"><Plus className="h-5 w-5" />Add container</button>
       </div>
       {countIssue ? (
         <div role="alert" className="border-b border-rose-300 bg-rose-50 px-5 py-4 text-[17px] font-medium text-rose-900">
@@ -4019,7 +3533,7 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
             >
               <span className="flex h-14 w-14 items-center justify-center rounded-md bg-[var(--gl-accent)] text-white"><Upload className="h-7 w-7" aria-hidden="true" /></span>
               <span className="mt-5 text-2xl font-semibold text-slate-950">Drop documents here</span>
-              <span className="mt-2 max-w-[58ch] text-[17px] font-normal text-slate-600">PDFs, scans, photographs and email files, from any carrier. One at a time, or up to {MAX_DOCUMENTS_PER_BATCH} together — a morning&rsquo;s post. Up to {MAX_CONTAINERS_PER_JOB} containers per job, 15 MB each.</span>
+              <span className="mt-2 max-w-[58ch] text-[17px] font-normal text-slate-600">PDFs, scans, photographs and email files, from any carrier. One at a time, or up to {MAX_DOCUMENTS_PER_BATCH} together — a morning&rsquo;s post. Any number of containers per job, 15 MB each.</span>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -5016,14 +4530,11 @@ export default function GreenlitControlTower() {
       {screen === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onApplyBatch={applyDocumentFor} onOpenJob={openJob} /> : null}
       {screen === "people" ? <People /> : null}
       {screen === "companies" ? (
-        <Companies onOpenCompany={(code) => { setSelectedCompany(code); setScreen("company"); }} />
+        <ZhtCustomers onOpenCustomer={(code) => { setSelectedCompany(code); setScreen("company"); }} />
       ) : null}
       {screen === "company" && selectedCompany ? (
-        <CompanyDetail
-          code={selectedCompany}
-          onBack={() => { setSelectedCompany(null); setScreen("companies"); }}
-          onOpen={openJob}
-        />
+        <ZhtCustomerDetail code={selectedCompany}
+          onBack={() => { setSelectedCompany(null); setScreen("companies"); }} />
       ) : null}
       {screen === "fleet" ? <ZhtChassis fleet={fleet} onOpenJob={(job) => openJob(job.id)} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
       {screen === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => goTo("documents")} /> : null}

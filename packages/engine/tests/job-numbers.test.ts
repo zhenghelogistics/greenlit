@@ -82,16 +82,15 @@ test('§29.1: container numbers are normalised then format-checked', () => {
   assert.equal(isContainerNumberValid('ABCU123456'), false, 'seven digits are required');
 });
 
-test('§29: a job carries at most twenty containers', () => {
-  // The limit lived only in the browser, so a caller reaching the API directly
-  // — or a notice listing more — went straight past it.
+test('§29: a long manifest is a real job, not a refusal', () => {
+  // There used to be a ceiling of twenty. Operations says a single arrival
+  // notice routinely lists thirty to forty containers, and one measured at 38
+  // was read end to end by the extractor — so the cap refused exactly the job
+  // that document creates, after the reading had already succeeded.
   assert.equal(validateContainerCount(1).valid, true);
   assert.equal(validateContainerCount(20).valid, true);
-
-  const tooMany = validateContainerCount(21);
-  assert.equal(tooMany.valid, false);
-  assert.match(tooMany.reason ?? '', /at most 20 containers; this one has 21/);
-  assert.match(tooMany.reason ?? '', /Split the booking/);
+  assert.equal(validateContainerCount(38).valid, true);
+  assert.equal(validateContainerCount(120).valid, true);
 });
 
 test('a job with no container is refused', () => {

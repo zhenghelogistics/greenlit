@@ -19,7 +19,7 @@ const importJob = {
 
 
 
-test("container collection enforces uniqueness, movement safety, and the 20-container ceiling", () => {
+test("container collection enforces uniqueness and movement safety", () => {
   let job = { ...importJob, trips: [] };
   job = addContainerRecord(job, { number: "OOLU8841250", state: "Ready", lastFreeDay: "2026-08-22" });
   assert.equal(job.containers.length, 2);
@@ -28,11 +28,13 @@ test("container collection enforces uniqueness, movement safety, and the 20-cont
   job = removeContainerRecord(job, 1);
   assert.equal(job.containers.length, 1);
 
-  for (let index = 2; index <= 20; index += 1) {
+  // No ceiling. A single arrival notice routinely lists thirty to forty
+  // containers, and the cap that used to sit here refused exactly the job such
+  // a document creates — after the extractor had read it correctly.
+  for (let index = 2; index <= 40; index += 1) {
     job = addContainerRecord(job, { number: `TCNU${String(1234567 + index).padStart(7, "0")}` });
   }
-  assert.equal(job.containers.length, 20);
-  assert.throws(() => addContainerRecord(job, { number: "MSKU7654321" }), /up to 20 containers/i);
+  assert.equal(job.containers.length, 40);
 });
 
 test("delivering the final import container completes delivery and creates empty return", () => {

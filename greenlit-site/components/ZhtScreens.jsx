@@ -327,19 +327,19 @@ export function ZhtEmptyReturns({ jobs, onOpenJob }) {
   );
 }
 
-/** §9. The customer master. */
+/** §9. The customer master, in his markup. Ours can also create one. */
 export function ZhtCustomers({ onOpenCustomer }) {
   const [state, setState] = useState({ loading: true, customers: [] });
   const [query, setQuery] = useState("");
+  const [adding, setAdding] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  function load() {
     fetch("/api/customers")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((d) => { if (!cancelled) setState({ loading: false, customers: d.customers ?? [] }); })
-      .catch(() => { if (!cancelled) setState({ loading: false, customers: [] }); });
-    return () => { cancelled = true; };
-  }, []);
+      .then((d) => setState({ loading: false, customers: d.customers ?? [] }))
+      .catch(() => setState({ loading: false, customers: [] }));
+  }
+  useEffect(load, []);
 
   const needle = query.trim().toLowerCase();
   const rows = state.customers.filter((c) => !needle
@@ -347,7 +347,8 @@ export function ZhtCustomers({ onOpenCustomer }) {
       .filter(Boolean).some((v) => String(v).toLowerCase().includes(needle)));
 
   return (
-    <Shell title="Customer Master">
+    <Shell title="Customer Master"
+      action={<button className="btn primary" type="button" onClick={() => setAdding(true)}>+ Add Customer</button>}>
       <div className="customer-master-search card">
         <div className="customer-search-main">
           <div>
@@ -364,6 +365,12 @@ export function ZhtCustomers({ onOpenCustomer }) {
           {state.loading ? "Loading…" : `${rows.length} of ${state.customers.length} customers`}
         </div>
       </div>
+
+      {adding ? (
+        <AddCustomer onCancel={() => setAdding(false)}
+          onSaved={() => { setAdding(false); load(); }} />
+      ) : null}
+
       <div className="card">
         <table>
           <thead>
@@ -377,9 +384,7 @@ export function ZhtCustomers({ onOpenCustomer }) {
                 <td>{c.defaultDeliveryAddress || "—"}</td>
                 <td>{c.accountStatus}</td>
                 <td>
-                  <button className="btn secondary" type="button" onClick={() => onOpenCustomer(c.code)}>
-                    Open
-                  </button>
+                  <button className="btn secondary" type="button" onClick={() => onOpenCustomer(c.code)}>Open</button>
                 </td>
               </tr>
             )) : (
@@ -394,22 +399,88 @@ export function ZhtCustomers({ onOpenCustomer }) {
   );
 }
 
+/** §9.1. The code is chosen by a person and immutable once issued. */
+function AddCustomer({ onCancel, onSaved }) {
+  const [form, setForm] = useState({ code: "", companyName: "", shortName: "" });
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function submit(event) {
+    event.preventDefault();
+    setSaving(true); setError("");
+    const response = await fetch("/api/customers", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        code: form.code.trim().toUpperCase(),
+        companyName: form.companyName.trim(),
+        shortName: form.shortName.trim() || null,
+      }),
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    setSaving(false);
+    if (!response?.ok) { setError(payload?.error ?? "That customer was not saved."); return; }
+    onSaved();
+  }
+
+  return (
+    <form className="card" style={{ marginTop: 12 }} onSubmit={submit}>
+      <div className="section-title">Add Customer</div>
+      <div className="formgrid">
+        <div className="field">
+          <label htmlFor="zht-cust-code">Code</label>
+          <input id="zht-cust-code" required value={form.code} onChange={set("code")}
+            placeholder="ABC" maxLength={6} />
+        </div>
+        <div className="field">
+          <label htmlFor="zht-cust-name">Company name</label>
+          <input id="zht-cust-name" required value={form.companyName}
+            onChange={set("companyName")} placeholder="ABC Pte Ltd" />
+        </div>
+        <div className="field">
+          <label htmlFor="zht-cust-short">Short name</label>
+          <input id="zht-cust-short" value={form.shortName} onChange={set("shortName")} />
+        </div>
+      </div>
+      {error ? <div className="callout" style={{ marginTop: 8 }}>{error}</div> : null}
+      <div className="action-row" style={{ marginTop: 10, gap: 8 }}>
+        <button className="btn primary" type="submit" disabled={saving}>
+          {saving ? "Saving…" : "Save customer"}
+        </button>
+        <button className="btn ghost" type="button" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
 /** §9 and §9.3. One customer: profile, its locations, instructions, history. */
 export function ZhtCustomerDetail({ code, onBack }) {
   const [tab, setTab] = useState("profile");
   const [state, setState] = useState({ loading: true, customer: null, locations: [] });
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
+  function load() {
     Promise.all([
       fetch(`/api/customers/${encodeURIComponent(code)}`).then((r) => (r.ok ? r.json() : null)),
       fetch(`/api/customers/${encodeURIComponent(code)}/locations`).then((r) => (r.ok ? r.json() : null)),
-    ]).then(([c, l]) => {
-      if (cancelled) return;
-      setState({ loading: false, customer: c?.customer ?? null, locations: l?.locations ?? [] });
-    }).catch(() => { if (!cancelled) setState({ loading: false, customer: null, locations: [] }); });
-    return () => { cancelled = true; };
-  }, [code]);
+    ]).then(([c, l]) => setState({
+      loading: false, customer: c?.customer ?? null, locations: l?.locations ?? [],
+    })).catch(() => setState({ loading: false, customer: null, locations: [] }));
+  }
+  useEffect(load, [code]);
+
+  async function save(method, body) {
+    setError("");
+    const response = await fetch(`/api/customers/${encodeURIComponent(code)}/locations`, {
+      method, headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    if (!response?.ok) { setError(payload?.error ?? "That site was not saved."); return false; }
+    load();
+    return true;
+  }
 
   const c = state.customer;
   const tabs = [["profile", "Profile"], ["locations", "Delivery Companies & Addresses"],
@@ -446,14 +517,42 @@ export function ZhtCustomerDetail({ code, onBack }) {
 
       {tab === "locations" ? (
         <div className="card" style={{ marginTop: 16 }}>
-          <div className="section-title">Delivery Companies &amp; Addresses</div>
+          <div className="header-row">
+            <div className="section-title">Delivery Companies &amp; Addresses</div>
+            <button className="btn secondary" type="button" onClick={() => setAdding(true)}>
+              + Add Location
+            </button>
+          </div>
+          {error ? <div className="callout">{error}</div> : null}
+
+          {adding ? (
+            <AddLocation onCancel={() => setAdding(false)}
+              onSave={async (draft) => { if (await save("POST", draft)) setAdding(false); }} />
+          ) : null}
+
           <div className="location-card-list">
             {state.locations.length ? state.locations.map((loc) => (
               <div className="location-card" key={loc.locationId}>
-                <b>{loc.companyName}</b>
+                <b>{loc.label}</b>
                 {loc.isDefault ? <span className="tag green" style={{ marginLeft: 8 }}>Default</span> : null}
+                {!loc.active ? <span className="tag gray" style={{ marginLeft: 8 }}>Out of use</span> : null}
                 <br />{loc.address}
-                {loc.notes ? <><br /><span className="muted">{loc.notes}</span></> : null}
+                <div className="muted" style={{ marginTop: 4 }}>
+                  {loc.doubleMountingPermitted ? "Double mounting permitted" : "No double mounting"}
+                  {loc.standbyUsual ? " · standby usual" : ""}
+                </div>
+                <div className="action-row" style={{ marginTop: 6, gap: 8 }}>
+                  {!loc.isDefault ? (
+                    <button className="btn ghost" type="button"
+                      onClick={() => save("PATCH", { locationId: loc.locationId, isDefault: true })}>
+                      Make default
+                    </button>
+                  ) : null}
+                  <button className="btn ghost" type="button"
+                    onClick={() => save("PATCH", { locationId: loc.locationId, active: !loc.active })}>
+                    {loc.active ? "Take out of use" : "Put back in use"}
+                  </button>
+                </div>
               </div>
             )) : <Empty>
               {state.loading ? "Loading…" : "No delivery locations recorded for this customer."}
@@ -472,13 +571,63 @@ export function ZhtCustomerDetail({ code, onBack }) {
       {tab === "history" ? (
         <div className="card" style={{ marginTop: 16 }}>
           <div className="section-title">Change History</div>
-          {/* §13. Customer-level audit is not exposed by the API yet, so this
+          {/* §13. Customer-level audit is not published by the API yet, so this
               says so rather than showing an empty list that reads as "nothing
-              has ever changed". */}
+              has ever changed here". */}
           <Empty>Customer change history is not published by the API yet.</Empty>
         </div>
       ) : null}
     </Shell>
+  );
+}
+
+/** §9.3. A delivery location. Double mounting defaults on; §57 gap 2.1-3. */
+function AddLocation({ onCancel, onSave }) {
+  const [form, setForm] = useState({
+    label: "", address: "", isDefault: false,
+    doubleMountingPermitted: true, standbyUsual: false,
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (k) => (e) => setForm((f) => ({
+    ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value,
+  }));
+
+  return (
+    <form className="card" style={{ marginTop: 10 }} onSubmit={async (event) => {
+      event.preventDefault(); setSaving(true); await onSave(form); setSaving(false);
+    }}>
+      <div className="section-title">Add Location</div>
+      <div className="formgrid">
+        <div className="field">
+          <label htmlFor="zht-loc-label">Company at this address</label>
+          <input id="zht-loc-label" required value={form.label} onChange={set("label")} />
+        </div>
+        <div className="field">
+          <label htmlFor="zht-loc-address">Address</label>
+          <input id="zht-loc-address" required value={form.address} onChange={set("address")} />
+        </div>
+      </div>
+      <div className="action-row" style={{ marginTop: 8, gap: 14, flexWrap: "wrap" }}>
+        <label htmlFor="zht-loc-default">
+          <input id="zht-loc-default" type="checkbox" checked={form.isDefault}
+            onChange={set("isDefault")} /> Default for this customer
+        </label>
+        <label htmlFor="zht-loc-dm">
+          <input id="zht-loc-dm" type="checkbox" checked={form.doubleMountingPermitted}
+            onChange={set("doubleMountingPermitted")} /> Double mounting permitted
+        </label>
+        <label htmlFor="zht-loc-standby">
+          <input id="zht-loc-standby" type="checkbox" checked={form.standbyUsual}
+            onChange={set("standbyUsual")} /> Standby usual here
+        </label>
+      </div>
+      <div className="action-row" style={{ marginTop: 10, gap: 8 }}>
+        <button className="btn primary" type="submit" disabled={saving}>
+          {saving ? "Saving…" : "Save location"}
+        </button>
+        <button className="btn ghost" type="button" onClick={onCancel}>Cancel</button>
+      </div>
+    </form>
   );
 }
 

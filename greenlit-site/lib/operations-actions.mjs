@@ -1,5 +1,4 @@
 const DEMO_ACTIVITY_AT = "19 Aug 2026, 16:30";
-const MAX_CONTAINERS_PER_JOB = 20;
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -141,9 +140,6 @@ export function applyContainerUpdate(job, index, draft) {
 export function addContainerRecord(job, draft = {}) {
   const next = clone(job);
   next.containers = ensureContainerRecords(next);
-  if (next.containers.length >= MAX_CONTAINERS_PER_JOB) {
-    throw new Error(`A job can contain up to ${MAX_CONTAINERS_PER_JOB} containers.`);
-  }
 
   const number = normaliseNumber(draft.number);
   if (number && next.containers.some((container) => normaliseNumber(container.number) === number)) {

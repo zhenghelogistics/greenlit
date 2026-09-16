@@ -80,27 +80,22 @@ export interface ContainerUse {
 }
 
 /**
- * The most containers one job may carry.
+ * How many containers a job may carry.
  *
- * An operational limit rather than a physical one: a job is the unit a
- * controller works, and a booking larger than this is worked as more than one
- * job. It lived only in the browser, where a caller reaching the API directly
- * — or a document listing more — went straight past it.
+ * There used to be a ceiling of 20 here, described as an operational limit
+ * rather than a physical one — a booking larger than that was to be worked as
+ * more than one job. Operations says that is not how the documents arrive: a
+ * single arrival notice routinely lists thirty to forty containers, and one
+ * measured at 38 was read end to end by the extractor. The cap would have
+ * refused exactly the job that document creates, after the reading succeeded.
+ *
+ * So the ceiling is gone. The floor is real and stays: free time is counted
+ * per container and every container command needs one to address, so a job
+ * with none cannot progress.
  */
-export const MAX_CONTAINERS_PER_JOB = 20;
-
 export function validateContainerCount(count: number): { valid: boolean; reason: string | null } {
   if (count < 1) {
-    // A job with no container cannot progress: free time is per container and
-    // every container command needs one to address.
     return { valid: false, reason: 'A job needs at least one container' };
-  }
-  if (count > MAX_CONTAINERS_PER_JOB) {
-    return {
-      valid: false,
-      reason: `A job carries at most ${MAX_CONTAINERS_PER_JOB} containers; this one has ${count}. `
-        + 'Split the booking across more than one job.',
-    };
   }
   return { valid: true, reason: null };
 }

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createMemoryRepository } from '../src/memory.ts';
+import { validateContainerCount } from '@greenlit/engine';
 
 /**
  * A job created without a container was a permanent dead end.
@@ -97,31 +98,39 @@ test('a genuinely unknown id is still reported as unknown', async () => {
     /Unknown container/);
 });
 
-test('§29: twenty containers are accepted, twenty-one refused', async () => {
-  // The limit lived only in the browser. A caller reaching the API directly,
-  // or a notice listing more than twenty, went straight past it.
+test('§29: a forty-container notice creates a forty-container job', async () => {
+  // There used to be a ceiling of twenty here. Operations says a single
+  // arrival notice routinely lists thirty to forty, and one measured at 38 was
+  // read end to end by the extractor — so the cap refused exactly the job that
+  // document creates, after the reading had already succeeded.
   const repo = createMemoryRepository();
   const boxes = (n: number) => Array.from({ length: n }, (_, i) => ({
     containerNumber: `HLXU${String(7000000 + i).padStart(7, '0')}`,
   }));
 
-  const job = await repo.createImportJob({ customerCode: 'ABC', containers: boxes(20) }, 'tester');
-  assert.equal((await repo.listContainersForImportJob(job.jobId)).length, 20);
+  const job = await repo.createImportJob({ customerCode: 'ABC', containers: boxes(40) }, 'tester');
+  assert.equal((await repo.listContainersForImportJob(job.jobId)).length, 40);
+});
 
-  await assert.rejects(
-    () => repo.createImportJob({ customerCode: 'ABC', containers: boxes(21) }, 'tester'),
-    /at most 20 containers; this one has 21/);
+test('§29: a job still needs at least one container', async () => {
+  // The floor is real and stays: free time is counted per container and every
+  // container command needs one to address.
+  assert.equal(validateContainerCount(0).valid, false);
+  assert.equal(validateContainerCount(1).valid, true);
+  assert.equal(validateContainerCount(40).valid, true);
 });
 
 test('a refused job leaves nothing behind', async () => {
+  // Atomicity, which outlives the reason for any one refusal: this used to
+  // refuse on the container cap, and now refuses on the customer.
   const repo = createMemoryRepository();
   const before = (await repo.listImportJobs()).length;
   await assert.rejects(() => repo.createImportJob({
-    customerCode: 'ABC',
-    containers: Array.from({ length: 25 }, (_, i) => ({ containerNumber: `AAAU${1000000 + i}` })),
+    customerCode: 'NOSUCHCUSTOMER',
+    containers: [{ containerNumber: 'AAAU1000000' }],
   }, 'tester'));
   assert.equal((await repo.listImportJobs()).length, before,
-    'a job refused for too many containers must not be half-created');
+    'a refused job must not be half-created');
 });
 
 /**

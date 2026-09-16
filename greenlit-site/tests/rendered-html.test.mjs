@@ -59,12 +59,12 @@ test("ships the document-intake contract", async () => {
   assert.match(component, /Apply to control tower/);
   assert.match(component, /Planning dates require confirmation/);
   assert.match(component, /Choose documents/);
-  // §29. The cap moved to the ported job detail screen with the container
-  // tabs; it is asserted where it now lives rather than deleted, because the
-  // thing worth guarding is that the limit is still shown to a person.
-  assert.match(jobDetail, /container limit/);
-  assert.match(jobDetail, /MAX_CONTAINERS_PER_JOB/,
-    "the cap must come from the engine, not be retyped as a literal");
+  // §29. There is no container cap any more — a single notice routinely lists
+  // thirty to forty, and the old ceiling of twenty refused exactly the job
+  // such a document creates. What is asserted instead is that nothing
+  // reintroduces one in the screen that adds containers.
+  assert.doesNotMatch(jobDetail, /container limit|MAX_CONTAINERS_PER_JOB/,
+    "a cap here would refuse the long manifests operations actually receives");
   assert.match(component, /containerDrafts/);
   assert.match(component, /Save and recalculate/);
 
