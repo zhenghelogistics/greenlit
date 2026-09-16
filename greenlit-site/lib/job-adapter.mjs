@@ -58,6 +58,10 @@ export function jobFromApi(view) {
     // be reached. It is a plain boolean in the record — there is no undecided
     // state — so the screen tests it as one.
     carparkRequested: Boolean(r.carparkRequested),
+    // §24. Both halves, because "needs a permit and has not got one" cannot be
+    // asked with only the second: a job that never needed one would read as
+    // outstanding forever.
+    permitRequired: Boolean(r.permitRequired),
     permitReceived: Boolean(r.permitReceived),
     portnetReleased: Boolean(r.portnetReleased),
     demurrageLastFreeDay: first.demurrageLfd ?? first.combinedLfd ?? null,

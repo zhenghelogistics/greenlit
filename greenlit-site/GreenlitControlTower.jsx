@@ -12,7 +12,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { jobFromApi, WAITING_LABEL_API } from "./lib/job-adapter.mjs";
 import {
   AlertCircle,
-  AlertTriangle,
   Anchor,
   ArrowLeft,
   CalendarDays,
@@ -1994,32 +1993,33 @@ function Panel({ title, action, children, className = "" }) {
   );
 }
 
-function CounterCard({ label, value, note, icon: Icon, tone = "navy", onClick }) {
-  const iconTone = tone === "red" ? "bg-rose-50 text-rose-700"
-    : tone === "amber" ? "bg-amber-50 text-amber-700"
-    : tone === "green" ? "bg-emerald-50 text-emerald-700"
-    : "bg-slate-100 text-[color:var(--gl-accent)]";
+/**
+ * A dashboard counter, in the PM's shape.
+ *
+ * The demo puts the label first, the number second and the note third, and
+ * that ordering is better than ours was: a tile that opens with a bare "1"
+ * makes the reader travel to the next line to learn what one of anything it
+ * means. Label first, and the number lands on a question already asked.
+ *
+ * The icons are gone with it. The demo carries none, and a red triangle
+ * beside the words "Waiting on us" is decoration — the number and the label
+ * have already said it, and colour that repeats text is noise at best.
+ *
+ * What is not copied is the demo's type: 9px at #96a1a9 is about 2.5:1, and
+ * this system holds a 7:1 floor measured in CI. The people this is being
+ * built for are the ones who would lose that text first, so the hue is kept
+ * and the size and value are ours.
+ */
+function CounterCard({ label, value, note, attention = false, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="gl-panel flex w-full flex-col justify-between gap-2 p-4 text-left transition-colors duration-150 hover:bg-slate-50"
+      className={`gl-tile${attention ? " gl-tile--attention" : ""}`}
     >
-      {/* Count and icon share one baseline row. */}
-      <div className="flex items-center justify-between gap-2">
-        <span className="gl-metric">{value}</span>
-        <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded ${iconTone}`}>
-          <Icon className="h-4 w-4" aria-hidden="true" />
-        </span>
-      </div>
-      {/* Content sets the height; the grid keeps siblings equal. The fixed
-          88px this replaced was sized for v3's type — after v4 raised the
-          scale the caption needed 24px and its slot reserved 16, so the last
-          line was clipped on every card. */}
-      <div>
-        <div className="gl-label">{label}</div>
-        <div className="gl-caption">{note ?? ""}</div>
-      </div>
+      <span className="gl-tile__label">{label}</span>
+      <span className="gl-tile__value">{value}</span>
+      <span className="gl-tile__note">{note ?? ""}</span>
     </button>
   );
 }
@@ -3016,21 +3016,39 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
    * active jobs, chassis available, carpark occupancy — has its own screens
    * and is linked below rather than competing here.
    */
+  const permitAttention = activeJobs.filter((job) => job.permitRequired && !job.permitReceived);
+
+  /**
+   * §48: "The dashboard answers one question: what requires attention right
+   * now?"
+   *
+   * Four, in the PM's shape rather than ours. His demo runs four slots — one
+   * that says how much work is live, three that say what is wrong with it —
+   * and names permits explicitly, which ours never surfaced despite §24 being
+   * built. He is the one who reads this every morning.
+   *
+   * Exceptions moved down to the context line. That is a real loss and worth
+   * saying out loud: it was a counter that meant ACT. But the demo does not
+   * carry it, four slots is what the layout holds, and a permit that has not
+   * come back is the more common of the two by a distance.
+   */
   const attention = [
-    { label: "Waiting on us", value: waitingUs.length, icon: AlertTriangle,
-      tone: waitingUs.length ? "red" : "green", filter: "us",
+    { label: "Active jobs", value: activeJobs.length, filter: "active",
+      note: "being prepared or monitored" },
+    { label: "Waiting on us", value: waitingUs.length, filter: "us",
+      attention: waitingUs.length > 0,
       note: waitingUs.length ? "work these first" : "nothing outstanding" },
-    { label: "At deadline risk", value: freeRisk.length, icon: CalendarDays,
-      tone: freeRisk.length ? "red" : "green", filter: "freeTime",
+    { label: "Permit attention", value: permitAttention.length, filter: "blocked",
+      attention: permitAttention.length > 0,
+      note: permitAttention.length ? "missing or not yet returned" : "all permits in" },
+    { label: "At deadline risk", value: freeRisk.length, filter: "freeTime",
+      attention: freeRisk.length > 0,
       note: freeRisk.length ? "free time running out" : "all inside free time" },
-    { label: "Exceptions open", value: exceptions.length, icon: XCircle,
-      tone: exceptions.length ? "red" : "green", filter: "exceptions",
-      note: exceptions.length ? "need a person" : "none open" },
   ];
 
   /** Context, not attention. One line, not eight cards. */
   const elsewhere = [
-    { label: "Active jobs", value: activeJobs.length, filter: "active" },
+    { label: "Exceptions open", value: exceptions.length, filter: "exceptions" },
     { label: "Blocked", value: blockedJobs.length, filter: "blocked" },
     { label: "Waiting on customer", value: waitingCustomer.length, filter: "customer" },
     { label: "At the carpark", value: atCarpark.length, filter: "carpark" },
@@ -3078,7 +3096,7 @@ function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFle
       </section>
 
       {/* SECONDARY. Three counters that mean ACT, not eight that mean look. */}
-      <section aria-label="Attention" className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <section aria-label="Attention" className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
         {attention.map((card) => (
           <CounterCard key={card.label} {...card} onClick={() => onShowActions(card.filter)} />
         ))}

@@ -36,6 +36,12 @@ for (const h of ["money", "box", "move", "doc", "past"]) {
 for (const st of ["state-blocked", "state-warn", "state-ready", "state-idle", "import", "export"]) {
   check(`white on ${st}`, "#ffffff", tok(st));
 }
+// The attention wash on the dashboard tiles. A new ground that nothing
+// measures is exactly the gap this file exists to close, so both inks that
+// land on it are checked rather than assumed to be safe because it is pale.
+check("warn ink on warn wash", tok("state-warn-ink"), tok("state-warn-soft"));
+check("muted on warn wash", muted, tok("state-warn-soft"));
+check("ink on warn wash", tok("ink"), tok("state-warn-soft"));
 // The rail. Both states sit on the blue except the current one, which sits on
 // the page ground so the section reads as continuous with the work beside it.
 // Two grounds means two measurements, and the second is the one a list kept

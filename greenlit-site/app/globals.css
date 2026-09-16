@@ -40,6 +40,12 @@
   --gl-state-ready: #0c643b;
   --gl-state-idle: #3f4a5a;
 
+  /* v5. The one wash the state colours lacked. The PM's demo tints a whole
+     attention tile warm rather than badging it with a red icon, which is
+     quieter and says the same thing — but it does it in raw hex at 2.5:1, so
+     the hue is kept and the value is not. Measured in CI like every other. */
+  --gl-state-warn-soft: #fdf5e9;
+
   --gl-state-blocked-ink: #9e1a08;
   --gl-state-warn-ink: #844000;
   --gl-state-ready-ink: #115e1d;
@@ -165,6 +171,50 @@ body {
 .gl-table tbody tr:focus-visible { outline: 3px solid var(--gl-focus); outline-offset: -3px; }
 
 /* ---- Panels. A panel is a region, not a box. ---- */
+/* ---- Dashboard counter tiles, in the PM's shape ----
+
+   Copied from his demo, because he is the one who reads this every morning:
+   uppercase tracked label first, the number under it, the note last, and the
+   whole tile washed warm when it wants attention rather than badged with an
+   icon in the corner.
+
+   Two things are ours rather than his. The weight is 600 where his is 750,
+   which the system does not carry. And the label and note sit at 11px and
+   12px against his 9px, at inks that hold 7:1 — his are #71808b and #96a1a9,
+   about 4.6:1 and 2.5:1. At a glance the tiles read the same; the difference
+   only shows up for the people this is being built for. */
+.gl-tile {
+  display: flex; flex-direction: column; width: 100%;
+  min-height: 92px; padding: 14px 15px; text-align: left;
+  background: var(--gl-bg-subtle);
+  border: 1px solid var(--gl-line);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(27, 45, 58, .035);
+  transition: transform .15s ease, border-color .15s ease;
+}
+button.gl-tile { cursor: pointer; }
+button.gl-tile:hover { border-color: var(--gl-line-strong); transform: translateY(-1px); }
+
+.gl-tile__label {
+  font: 600 11px/16px var(--gl-font-sans);
+  text-transform: uppercase; letter-spacing: .05em;
+  color: var(--gl-ink-muted);
+}
+.gl-tile__value {
+  font: 600 30px/34px var(--gl-font-sans);
+  font-variant-numeric: tabular-nums; letter-spacing: -.018em;
+  color: var(--gl-ink-strong);
+  margin: 7px 0 5px;
+}
+.gl-tile__note { font: 400 12px/17px var(--gl-font-sans); color: var(--gl-ink-muted); }
+
+/* His `attention-soft`: the tile itself carries the state. */
+.gl-tile--attention {
+  background: var(--gl-state-warn-soft);
+  border-color: var(--gl-state-warn);
+}
+.gl-tile--attention .gl-tile__value { color: var(--gl-state-warn-ink); }
+
 .gl-panel { background: var(--gl-bg); border: 0; border-radius: 0; box-shadow: none; }
 .gl-panel__header {
   display: flex; align-items: center; justify-content: space-between;
