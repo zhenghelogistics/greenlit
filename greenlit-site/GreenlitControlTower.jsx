@@ -4562,12 +4562,23 @@ export default function GreenlitControlTower() {
              next pass, not a reason to drop them now. */
           extras={(
             <>
-              <PermitPanel job={selectedJob} onManage={(type, details) => manageJob(selectedJob.id, type, details)} />
+              {/* Each of these takes the ids and callbacks it declares. They
+                  were being handed a whole `job` and an `onManage` they do not
+                  accept, so TripTable read `trips.length` off undefined and
+                  took the screen down with it. */}
+              <PermitPanel
+                jobId={selectedJob.apiId}
+                containers={selectedJob.containers ?? []}
+                onChanged={loadJobs}
+              />
               <FreeTimePanel container={(selectedJob.containers ?? [])[containerIndex] ?? (selectedJob.containers ?? [])[0]} />
-              <DocumentsPanel job={selectedJob} />
-              <TripTable job={selectedJob} />
+              <DocumentsPanel jobId={selectedJob.apiId} />
+              <TripTable
+                trips={selectedJob.trips ?? []}
+                onOpenTrip={(tripId) => manageJob(selectedJob.id, "trip", { tripId })}
+              />
               <DiscrepancyReview job={selectedJob} onResolve={resolveDiscrepancy} />
-              <ClosurePanel job={selectedJob} onManage={(type, details) => manageJob(selectedJob.id, type, details)} />
+              <ClosurePanel jobId={selectedJob.apiId} onChanged={loadJobs} />
             </>
           )}
         />

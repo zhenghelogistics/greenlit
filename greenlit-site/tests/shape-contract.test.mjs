@@ -204,3 +204,43 @@ test("every screen a button navigates to is a screen that exists", async () => {
   assert.deepEqual(dead, [],
     `goTo targets no screen renders, so the click blanks the page: ${dead.join(", ")}`);
 });
+
+test("a component is only handed props it declares", async () => {
+  // TripTable declares ({ trips, flashTripId, onOpenTrip }) and was being
+  // rendered as <TripTable job={...} />. `trips` came through undefined, and
+  // `trips.length` took the whole screen down with "Cannot read properties of
+  // undefined (reading 'length')".
+  //
+  // Nothing typechecks JSX props in a .jsx file, so the mistake is invisible
+  // until the screen is opened. This compares what each component destructures
+  // against what every call site actually passes.
+  const src = await readFile(SOURCE, "utf8");
+
+  const declared = new Map();
+  for (const m of src.matchAll(/function ([A-Z]\w*)\(\{([^}]*)\}/g)) {
+    const names = m[2].split(",")
+      .map((p) => p.split(/[:=]/)[0].trim())
+      .filter((p) => p && !p.startsWith("..."));
+    declared.set(m[1], new Set(names));
+  }
+
+  // React owns these; they are never destructured by the component.
+  const REACT_OWN = new Set(["key", "ref"]);
+
+  const offenders = [];
+  // `[^<>]` keeps the attribute run from spanning into nested children, which
+  // would otherwise attribute an inner element's onClick to the outer tag.
+  for (const m of src.matchAll(/<([A-Z]\w*)\s([^<>]*?)\/?>/g)) {
+    const [, name, attrs] = m;
+    const params = declared.get(name);
+    if (!params) continue;               // imported from elsewhere
+    if (/\{\s*\.\.\./.test(attrs)) continue;  // spread: cannot be read statically
+    for (const a of attrs.matchAll(/(\w+)=\{/g)) {
+      if (!REACT_OWN.has(a[1]) && !params.has(a[1])) offenders.push(`<${name} ${a[1]}={…}>`);
+    }
+  }
+
+  assert.deepEqual([...new Set(offenders)], [],
+    "a prop the component never destructures arrives as undefined, and the "
+    + "first property read off it throws");
+});
