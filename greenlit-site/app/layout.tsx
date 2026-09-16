@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+// The PM's demo stylesheet, scoped to `.zht`. See the header in that file.
+import "./zht.css";
 
 // Self-hosted through next/font: no external request, no render-blocking
 // stylesheet chain, and the exact weights v3 uses.

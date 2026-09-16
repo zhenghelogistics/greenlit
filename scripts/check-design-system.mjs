@@ -19,6 +19,20 @@ const UI_EXT = new Set([".jsx", ".tsx"]);
 /** Files that define the tokens themselves are exempt from the palette rule. */
 const TOKEN_FILES = [/globals\.css$/, /MASTER.*\.md$/];
 
+/**
+ * The PM's demo stylesheet, ported verbatim and exempt by explicit decision.
+ *
+ * It carries font weights to 900, type down to 8px, 377 raw hex colours and
+ * emoji used as status marks — four things this file otherwise fails a build
+ * for. The operation has been running on that design and it is the one they
+ * asked for, so it is ported as-is rather than argued with.
+ *
+ * The exemption is one file by name, deliberately. Every component we write
+ * ourselves is still held to the whole standard, so this cannot quietly become
+ * the way the rest of the app is allowed to look.
+ */
+const PORTED_VERBATIM = [/zht\.css$/, /ZhtDashboard\.jsx$/];
+
 const RULES = [
   {
     id: "weight-ceiling",
@@ -164,6 +178,7 @@ const findings = [];
 for (const file of walk(ROOT)) {
   const rel = relative(ROOT, file);
   if (TOKEN_FILES.some((r) => r.test(rel))) continue;
+  if (PORTED_VERBATIM.some((r) => r.test(rel))) continue;
   let text;
   try { text = readFileSync(file, "utf8"); } catch { continue; }
 

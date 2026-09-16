@@ -45,6 +45,7 @@ import {
   Send,
 } from "lucide-react";
 import { groupByCustomer, matchCustomer } from "@greenlit/engine";
+import ZhtDashboard from "./components/ZhtDashboard.jsx";
 import { addIsoDays, MAX_CONTAINERS_PER_JOB, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
 import { validateContainerCount } from "@greenlit/engine";
 import { reconcileExtraction, toExtractedFields } from "@greenlit/engine";
@@ -1993,69 +1994,6 @@ function Panel({ title, action, children, className = "" }) {
   );
 }
 
-/**
- * A dashboard counter, in the PM's shape.
- *
- * The demo puts the label first, the number second and the note third, and
- * that ordering is better than ours was: a tile that opens with a bare "1"
- * makes the reader travel to the next line to learn what one of anything it
- * means. Label first, and the number lands on a question already asked.
- *
- * The icons are gone with it. The demo carries none, and a red triangle
- * beside the words "Waiting on us" is decoration — the number and the label
- * have already said it, and colour that repeats text is noise at best.
- *
- * What is not copied is the demo's type: 9px at #96a1a9 is about 2.5:1, and
- * this system holds a 7:1 floor measured in CI. The people this is being
- * built for are the ones who would lose that text first, so the hue is kept
- * and the size and value are ours.
- */
-function CounterCard({ label, value, note, attention = false, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`gl-tile${attention ? " gl-tile--attention" : ""}`}
-    >
-      <span className="gl-tile__label">{label}</span>
-      <span className="gl-tile__value">{value}</span>
-      <span className="gl-tile__note">{note ?? ""}</span>
-    </button>
-  );
-}
-
-
-/**
- * §9 / ADR-0007. Companies are an entry point, not a filter.
- *
- * The book is retainer, so a controller thinks "what is ABC Company running"
- * far more often than "what came in on the 17th". Opening a company shows its
- * jobs in the order they happened, newest first.
- */
-
-/**
- * Creating a company.
- *
- * The code is typed rather than generated because it goes on paperwork and
- * into every job reference, and it is immutable once issued — so the operator
- * chooses something they will recognise, and the server checks it is free.
- */
-/**
- * A document naming a company the master does not have.
- *
- * §11.2 detects the customer rather than asking for it, and the master stays
- * the authority — so this does not create anything silently. It shows what was
- * read, proposes a code, and makes a person confirm it, because the code is
- * immutable once issued and goes on every job reference from then on.
- */
-/**
- * What the board says when it has nothing to show.
- *
- * An empty book and an unreachable server produce the same blank screen, and
- * they mean opposite things: one is "there is no work", the other is "you
- * cannot see the work". A controller who cannot tell them apart will assume
- * the first, which is the dangerous reading.
- */
 function BoardState({ source, onRetry, onAddDocument }) {
   if (source === "loading") {
     return (
@@ -2811,23 +2749,6 @@ function ActionTable({ rows, onOpen, compact = false }) {
           </tbody>
         </table>
       </div>
-      {/* A shortcut nobody can discover is a shortcut nobody uses. */}
-      <div className="hidden items-center gap-3 border-t border-slate-200 px-4 py-2 xl:flex">
-        <span className="gl-caption">
-          <kbd className="gl-data rounded border border-slate-300 bg-slate-50 px-1">J</kbd>
-          <span className="mx-1">/</span>
-          <kbd className="gl-data rounded border border-slate-300 bg-slate-50 px-1">K</kbd>
-          <span className="ml-2">move</span>
-        </span>
-        <span className="gl-caption">
-          <kbd className="gl-data rounded border border-slate-300 bg-slate-50 px-1">Enter</kbd>
-          <span className="ml-2">open</span>
-        </span>
-        <span className="gl-caption">
-          <kbd className="gl-data rounded border border-slate-300 bg-slate-50 px-1">Esc</kbd>
-          <span className="ml-2">clear</span>
-        </span>
-      </div>
       <div className="divide-y divide-slate-200 xl:hidden">
         {jobs.map((job) => (
           <button key={job.id} type="button" onClick={() => onOpen(job.id)} className="block min-h-44 w-full px-5 py-5 text-left transition-colors duration-200 hover:bg-sky-50/70 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600">
@@ -2899,46 +2820,6 @@ function TripTable({ trips, flashTripId, onOpenTrip }) {
 
 
 
-const WAITING_LABEL = { US: "Us", CUSTOMER: "Customer", CARRIER: "Carrier", NOBODY: "Nobody" };
-
-/** Maps a DerivedJobView from /api into the neutral row shape. */
-function rowsFromApi(jobs) {
-  return jobs.map((j) => ({
-    id: j.jobNumber,
-    type: j.domain === "IMPORT" ? "Import" : "Export",
-    container: j.containers?.[0]?.containerNumber ?? "Not yet known",
-    status: j.jobStatus,
-    blocking: j.blockingReason ?? "—",
-    nextAction: j.nextActionRequired,
-    waitingOn: WAITING_LABEL[j.waitingOn] ?? "Nobody",
-    age: "—",
-    requiredBy: "—",
-    overdue: false,
-    // Openable: the row's id is the job number, which is what openJob looks a
-    // job up by, so a row on the dashboard opens the same job the full list
-    // does. It was false — a leftover from when this panel was fed by
-    // something the job list did not contain — and the effect was a table of
-    // rows that looked clickable, highlighted on hover, and did nothing.
-    openable: true,
-  }));
-}
-
-/**
- * Keeps a piece of view state in the URL.
- *
- * Enterprise table guidance says filter and sort should survive a reload with
- * a way back to the default. Browser-side storage APIs are deliberately NOT
- * used here, and tests/rendered-html.test.mjs asserts none appears in this
- * file: a document a controller uploads should not be left sitting in browser
- * storage afterwards. The URL gives the same persistence and makes a filtered
- * queue shareable, which is more useful to a controller anyway.
- *
- * The "processed on this device" claim this once carried is gone. Intake now
- * posts the document to /api/extract, which is what lets it read a scan or an
- * unfamiliar carrier at all — so the badge says where the document actually
- * goes. A privacy claim that has quietly stopped being true is worse than no
- * claim.
- */
 function useUrlState(key, initial) {
   const [value, setValue] = useState(() => {
     try {
@@ -2957,170 +2838,6 @@ function useUrlState(key, initial) {
   }, [key, value, initial]);
 
   return [value, setValue];
-}
-
-/**
- * Reads the Action Required queue from the server, where @greenlit/engine
- * computes it.
- *
- * Reports its state rather than collapsing to null, so the caller can show a
- * skeleton while loading instead of rendering seed values and then swapping
- * them — a visible content jump.
- */
-function useLiveActionRows() {
-  const [state, setState] = useState({ status: "loading", rows: null });
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/queues/action-required")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((data) => { if (!cancelled) setState({ status: "ready", rows: rowsFromApi(data.jobs ?? []) }); })
-      .catch(() => { if (!cancelled) setState({ status: "error", rows: null }); });
-    return () => { cancelled = true; };
-  }, []);
-  return state;
-}
-
-/** Reserves the row's space while loading so nothing jumps when data lands. */
-function RegisterSkeleton({ rows = 6 }) {
-  return (
-    <div className="divide-y divide-slate-200" aria-busy="true" aria-live="polite">
-      <span className="sr-only">Loading the action register</span>
-      {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="flex h-11 items-center gap-4 px-4">
-          <div className="h-3 w-28 animate-pulse rounded bg-slate-200" />
-          <div className="h-3 w-32 animate-pulse rounded bg-slate-100" />
-          <div className="h-3 w-40 animate-pulse rounded bg-slate-100" />
-          <div className="h-3 w-24 animate-pulse rounded bg-slate-100" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Dashboard({ jobs, actionJobs, chassis, onOpen, onShowActions, onShowFleet }) {
-  const live = useLiveActionRows();
-  const activeJobs = jobs.filter((job) => jobStatus(job) !== "Completed");
-  const blockedJobs = activeJobs.filter((job) => !readiness(job).ready);
-  const waitingUs = actionJobs.filter((job) => waitingOn(job) === "Us");
-  const waitingCustomer = actionJobs.filter((job) => waitingOn(job) === "Customer");
-  const exceptions = jobs.filter((job) => job.exception?.open);
-  const atCarpark = jobs.filter((job) => location(job) === CARPARK);
-  const freeRisk = jobs.filter((job) => job.type === "Import" && !["Delivered", "Empty Return Pending", "Completed"].includes(jobStatus(job)) && daysUntil(job.demurrageLastFreeDay) <= 3);
-
-  /**
-   * §48: "The dashboard answers one question: what requires attention right
-   * now?" Eight equal counters answered eight questions at once and left the
-   * controller to prioritise — which is the job the engine exists to do.
-   *
-   * Three counters, and only ones that mean ACT. Situational awareness —
-   * active jobs, chassis available, carpark occupancy — has its own screens
-   * and is linked below rather than competing here.
-   */
-  const permitAttention = activeJobs.filter((job) => job.permitRequired && !job.permitReceived);
-
-  /**
-   * §48: "The dashboard answers one question: what requires attention right
-   * now?"
-   *
-   * Four, in the PM's shape rather than ours. His demo runs four slots — one
-   * that says how much work is live, three that say what is wrong with it —
-   * and names permits explicitly, which ours never surfaced despite §24 being
-   * built. He is the one who reads this every morning.
-   *
-   * Exceptions moved down to the context line. That is a real loss and worth
-   * saying out loud: it was a counter that meant ACT. But the demo does not
-   * carry it, four slots is what the layout holds, and a permit that has not
-   * come back is the more common of the two by a distance.
-   */
-  const attention = [
-    { label: "Active jobs", value: activeJobs.length, filter: "active",
-      note: "being prepared or monitored" },
-    { label: "Waiting on us", value: waitingUs.length, filter: "us",
-      attention: waitingUs.length > 0,
-      note: waitingUs.length ? "work these first" : "nothing outstanding" },
-    { label: "Permit attention", value: permitAttention.length, filter: "blocked",
-      attention: permitAttention.length > 0,
-      note: permitAttention.length ? "missing or not yet returned" : "all permits in" },
-    { label: "At deadline risk", value: freeRisk.length, filter: "freeTime",
-      attention: freeRisk.length > 0,
-      note: freeRisk.length ? "free time running out" : "all inside free time" },
-  ];
-
-  /** Context, not attention. One line, not eight cards. */
-  const elsewhere = [
-    { label: "Exceptions open", value: exceptions.length, filter: "exceptions" },
-    { label: "Blocked", value: blockedJobs.length, filter: "blocked" },
-    { label: "Waiting on customer", value: waitingCustomer.length, filter: "customer" },
-    { label: "At the carpark", value: atCarpark.length, filter: "carpark" },
-  ];
-
-
-  return (
-    <main id="main-content" className="mx-auto max-w-[1800px] px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="gl-display">Today</h1>
-          <p className="gl-body gl-muted mt-1">
-            {waitingUs.length
-              ? `${waitingUs.length} ${waitingUs.length === 1 ? "job needs" : "jobs need"} something from us.`
-              : "Nothing is waiting on us."}
-          </p>
-        </div>
-        <div className="gl-data gl-muted inline-flex min-h-11 items-center gap-2">
-          <CalendarDays className="h-4 w-4" aria-hidden="true" />
-          {/* The banner still carries the full weekday — it is the one place
-              that answers "what day is it" rather than "when is this due" —
-              but the date beside it is the same DD/MM/YYYY as everywhere
-              else. */}
-          {`${new Intl.DateTimeFormat("en-SG", { weekday: "long" }).format(new Date())} ${formatDay(operationalToday())}`}
-        </div>
-      </div>
-
-      {/* PRIMARY. §61.3 defines done as working this list top to bottom, so it
-          is the first thing on the screen rather than the fourth. */}
-      <section className="gl-panel gl-panel--lead overflow-hidden" aria-label="Action required">
-        <div className="gl-panel__header">
-          <h2 className="gl-title">Action required</h2>
-          <button type="button" onClick={() => onShowActions("us")}
-            className="gl-body-plain min-h-11 px-2 font-medium text-[color:var(--gl-accent)] underline decoration-1 underline-offset-4">
-            View full list
-          </button>
-        </div>
-        {live.status === "loading"
-          ? <RegisterSkeleton />
-          : <ActionTable
-              rows={(live.rows ?? actionJobs.map(rowFromSeedJob)).slice(0, 8)}
-              onOpen={onOpen}
-              compact
-            />}
-      </section>
-
-      {/* SECONDARY. Three counters that mean ACT, not eight that mean look. */}
-      <section aria-label="Attention" className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
-        {attention.map((card) => (
-          <CounterCard key={card.label} {...card} onClick={() => onShowActions(card.filter)} />
-        ))}
-      </section>
-
-      {/* TERTIARY. Context lives on its own screens; this is a way in, not a
-          competing display. */}
-      <section aria-label="Elsewhere" className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2">
-        {elsewhere.map((item) => (
-          <button key={item.label} type="button" onClick={() => onShowActions(item.filter)}
-            className="gl-body-plain min-h-11 text-slate-600 hover:text-[color:var(--gl-accent)]">
-            <span className="gl-data gl-strong">{item.value}</span>
-            <span className="ml-2">{item.label}</span>
-          </button>
-        ))}
-        <button type="button" onClick={onShowFleet}
-          className="gl-body-plain min-h-11 text-slate-600 hover:text-[color:var(--gl-accent)]">
-          <span className="gl-data gl-strong">{chassis.available.length}</span>
-          <span className="ml-2">chassis available</span>
-        </button>
-      </section>
-
-    </main>
-  );
 }
 
 const FILTERS = [
@@ -5822,7 +5539,7 @@ export default function GreenlitControlTower() {
       {(screen === "dashboard" || screen === "actions") && source !== "engine" ? (
         <BoardState source={source} onRetry={loadJobs} onAddDocument={() => goTo("documents")} />
       ) : null}
-      {screen === "dashboard" && source === "engine" ? <Dashboard jobs={jobs} actionJobs={actionJobs} chassis={fleet} onOpen={openJob} onShowActions={showActions} onShowFleet={() => goTo("fleet")} /> : null}
+      {screen === "dashboard" && source === "engine" ? <ZhtDashboard jobs={jobs} today={operationalToday()} onOpenJob={openJob} onNewJob={() => goTo("intake")} onShowActions={showActions} /> : null}
       {screen === "actions" && source === "engine" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}
       {screen === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onApplyBatch={applyDocumentFor} onOpenJob={openJob} /> : null}
       {screen === "people" ? <People /> : null}

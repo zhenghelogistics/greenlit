@@ -34,6 +34,10 @@ export function jobFromApi(view) {
     billOfLading: r.blNumber ?? "",
     houseBillOfLading: r.houseBlNumber ?? "",
     vessel: [r.vesselName, r.voyageNumber].filter(Boolean).join(" / "),
+    // §34.1 and the dashboard's arrival timeline both count from this, and it
+    // is the one date a controller sorts the morning by. Import calls it `eta`
+    // and export `etaSingapore`; the screen wants one field.
+    eta: r.eta ?? r.etaSingapore ?? null,
     infoComplete: view.mandatoryComplete,
     missingInformation: view.missingInformation ?? [],
     cmsCompleted: r.cmsStatus === "COMPLETED" || r.cmsStatus === "NOT_REQUIRED",
