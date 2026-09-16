@@ -4553,6 +4553,13 @@ export default function GreenlitControlTower() {
           onRecordDetails={recordDetails}
           onSendDetails={sendContainerDetails}
           onSetTranshipment={setTranshipment}
+          permitPanel={(
+            <PermitPanel
+              jobId={selectedJob.apiId}
+              containers={selectedJob.containers ?? []}
+              onChanged={loadJobs}
+            />
+          )}
           onManage={(type, details) => manageJob(selectedJob.id, type, details)}
           /* The panels that carry capability his demo has no card for —
              permits, documents, free time and the charge estimate, closure,
@@ -4566,11 +4573,6 @@ export default function GreenlitControlTower() {
                   were being handed a whole `job` and an `onManage` they do not
                   accept, so TripTable read `trips.length` off undefined and
                   took the screen down with it. */}
-              <PermitPanel
-                jobId={selectedJob.apiId}
-                containers={selectedJob.containers ?? []}
-                onChanged={loadJobs}
-              />
               <FreeTimePanel container={(selectedJob.containers ?? [])[containerIndex] ?? (selectedJob.containers ?? [])[0]} />
               <DocumentsPanel jobId={selectedJob.apiId} />
               <TripTable

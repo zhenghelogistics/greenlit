@@ -2586,3 +2586,82 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 /* Tighten our generous padding to his density. */
 .zht .p-6 { padding: 14px; }
 .zht .p-5 { padding: 12px; }
+
+/* ------------------------------------------------------------------
+   Drill-down, on his card.
+
+   His job detail opens fourteen panels at once. A controller opening a job
+   asks three things — what is this, what is blocking it, what do I do next —
+   and everything else is reference they go looking for. So the three stay
+   open and the rest collapse.
+
+   Built on <details>/<summary>: keyboard operable, screen-reader announced
+   and toggleable with no JavaScript, which a div with an onClick is not.
+   ------------------------------------------------------------------ */
+.zht .drawer { 
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+.zht .drawer > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  border-radius: 10px;
+}
+.zht .drawer > summary::-webkit-details-marker { display: none; }
+.zht .drawer > summary:hover { background: var(--soft); }
+.zht .drawer > summary:focus-visible {
+  outline: 3px solid rgba(40, 104, 160, .35);
+  outline-offset: 2px;
+}
+
+/* A caret that says which way this goes, in text-independent shape. */
+.zht .drawer > summary::before {
+  content: "";
+  width: 0; height: 0;
+  border-left: 5px solid var(--muted);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform .15s ease;
+  flex: none;
+}
+.zht .drawer[open] > summary::before { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) {
+  .zht .drawer > summary::before { transition: none; }
+}
+
+/* How much is inside, so a closed section never hides work silently. */
+.zht .drawer-count {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.zht .drawer-count[data-has="yes"] {
+  background: var(--soft);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.zht .drawer-body { padding: 0 14px 14px; }
+
+/* The one card that is never closed and never quiet. */
+.zht .lede {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--blue);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.zht .lede-action { font-size: 17px; font-weight: 700; color: var(--text); }
+.zht .lede-why { font-size: 13px; color: var(--muted); margin-top: 3px; }
+.zht .lede--blocked { border-left-color: var(--red); }

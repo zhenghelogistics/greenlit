@@ -33,6 +33,23 @@ export default function Error({
       <p className="gl-data gl-muted">
         {error.digest ? `Reference ${error.digest}` : error.message}
       </p>
+      {/* The message alone says what broke and never where. A controller
+          reporting "cannot read length of undefined" leaves the frame it
+          happened in to be guessed at, which costs a round trip every time.
+          The top frames are shown so the report names the component. */}
+      {error.stack ? (
+        <details>
+          <summary className="gl-body gl-muted" style={{ cursor: "pointer" }}>
+            Where it happened
+          </summary>
+          <pre className="gl-data gl-muted" style={{
+            whiteSpace: "pre-wrap", wordBreak: "break-word",
+            fontSize: 12, marginTop: 8, maxHeight: "40vh", overflow: "auto",
+          }}>
+            {error.stack.split("\n").slice(0, 12).join("\n")}
+          </pre>
+        </details>
+      ) : null}
       <div className="flex gap-3">
         <button
           type="button"
