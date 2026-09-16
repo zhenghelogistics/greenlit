@@ -2665,3 +2665,58 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 .zht .lede-action { font-size: 17px; font-weight: 700; color: var(--text); }
 .zht .lede-why { font-size: 13px; color: var(--muted); margin-top: 3px; }
 .zht .lede--blocked { border-left-color: var(--red); }
+
+/* ------------------------------------------------------------------
+   Job detail, ordered by what it costs to miss.
+
+   His layout is a stack of equal cards, so "3 days over free time" sits as
+   the sixth field in a grid with the same weight as the container size. One
+   of those is money running out and the other is a fact that will still be
+   true tomorrow.
+
+   His card language is kept. What changes is rank.
+   ------------------------------------------------------------------ */
+
+/* The alert band. Only ever holds things that are costing money or stopping
+   work — if it is empty it does not render at all. */
+.zht .alarms { display: grid; gap: 8px; margin-bottom: 12px; }
+.zht .alarm {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--orange);
+  border-radius: 10px;
+  background: var(--card);
+  padding: 11px 14px;
+}
+.zht .alarm--money { border-left-color: var(--red); }
+.zht .alarm-what { font-size: 15px; font-weight: 700; color: var(--text); }
+.zht .alarm-why { font-size: 12px; color: var(--muted); }
+
+/* Movements: the work, so the table is roomier than his and the next one to
+   arrange is not competing with eight columns of history. */
+.zht .moves { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.zht .moves th {
+  text-align: left; padding: 7px 10px;
+  font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+.zht .moves td {
+  padding: 10px; font-size: 13px; color: var(--text);
+  border-bottom: 1px solid #eef2f6; vertical-align: top;
+}
+.zht .moves tr:last-child td { border-bottom: 0; }
+.zht .moves .route { font-weight: 600; }
+.zht .moves .sub { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* The container strip: identity at a glance, not eleven boxes. */
+.zht .idstrip {
+  display: flex; flex-wrap: wrap; gap: 18px;
+  padding: 10px 0 2px;
+}
+.zht .idstrip > div { min-width: 0; }
+.zht .idstrip .k {
+  display: block; font-size: 10px; text-transform: uppercase;
+  letter-spacing: .04em; color: var(--muted);
+}
+.zht .idstrip .v { font-size: 15px; font-weight: 700; color: var(--text); }

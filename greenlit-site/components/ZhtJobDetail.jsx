@@ -106,6 +106,59 @@ function Drawer({ title, count, children, open = false }) {
   );
 }
 
+/**
+ * What is costing money or stopping work, at the top and nowhere else.
+ *
+ * His layout gives "3 days over free time" the same weight as the container
+ * size, six fields into a grid. One of those is a meter running and the other
+ * will still be true tomorrow.
+ *
+ * Nothing decorative gets in here. If a job is healthy the band does not
+ * render, so its presence alone means something is wrong.
+ */
+function Alarms({ job, container }) {
+  const alarms = [];
+
+  for (const clock of container?.freeTime ?? []) {
+    if (clock.standing === "OVERDUE") {
+      alarms.push({
+        money: true,
+        what: `${clock.label}: ${clock.summary}`,
+        why: container.charge?.amount != null
+          ? `Estimated ${container.charge.currency} ${container.charge.amount.toFixed(2)} so far`
+          : "No daily rate on file, so the cost is not yet known",
+      });
+    } else if (clock.standing === "LAST_DAY" || clock.standing === "DUE_SOON") {
+      alarms.push({ what: `${clock.label}: ${clock.summary}`, why: "Return or clear before it starts charging" });
+    }
+  }
+
+  if (job.permitRequired && !job.permitReceived) {
+    alarms.push({ what: "No permit recorded", why: "Needed before the delivery order is exchanged" });
+  }
+  if (job.type === "Import" && !job.portnetReleased) {
+    alarms.push({ what: "Portnet not released", why: "This is what holds the collection" });
+  }
+  if (job.missingInformation?.length) {
+    alarms.push({
+      what: `Missing ${job.missingInformation.join(", ")}`,
+      why: "The job cannot be completed until these are filled in",
+    });
+  }
+
+  if (!alarms.length) return null;
+  return (
+    <div className="alarms">
+      {alarms.map((a, i) => (
+        <div className={`alarm${a.money ? " alarm--money" : ""}`} key={i}>
+          <span className="alarm-what">{a.what}</span>
+          <span className="alarm-why">{a.why}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const Field = ({ label, value }) => (
   <div className="field"><span className="field-label">{label}</span><b>{value || "—"}</b></div>
 );
@@ -199,33 +252,60 @@ export default function ZhtJobDetail({
             <SendDetails container={container} customer={job.customer} onSend={onSendDetails} />
           ) : null}
 
-          <Drawer title="Shipment" count={job.missingInformation?.length ?? 0}>
-            <div className="fieldgrid">
-              {shipment.map(([label, value]) => <Field key={label} label={label} value={value} />)}
-            </div>
-            {job.missingInformation?.length ? (
-              <div className="muted" style={{ marginTop: 10 }}>
-                Still required: {job.missingInformation.join(", ")}
-              </div>
-            ) : null}
-            <button className="btn secondary" type="button" style={{ marginTop: 10 }}
-              onClick={() => onManage("job")}>Edit Shipment</button>
-          </Drawer>
+          <Alarms job={job} container={container} />
 
-          {job.permitRequired ? (
-            <Drawer title="Shipment Permits" count={job.permitReceived ? 0 : 1}>
-              <div className="muted" style={{ marginBottom: 8 }}>
-                {job.permitReceived
-                  ? "Permit recorded for this shipment."
-                  : "Permit Required is selected but no permit is recorded."}
+          {/* §17. The job is its movements. Everything else on this screen
+              is the paperwork around them — this is the work itself, so it is
+              open, it is the largest thing here, and the next one to arrange
+              is the first thing in it. */}
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div className="header-row">
+              <div className="section-title">Movements</div>
+              <button className="btn primary" type="button"
+                onClick={() => onManage("trip")}>
+                + Plan a movement
+              </button>
+            </div>
+
+            {(job.trips ?? []).length ? (
+              <table className="moves">
+                <thead>
+                  <tr>
+                    <th>Reference</th><th>Type</th><th>Route</th>
+                    <th>Driver / Vehicle</th><th>Planned</th><th>Status</th><th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {job.trips.map((m) => (
+                    <tr key={m.id}>
+                      <td>{m.movementRef ?? m.id}</td>
+                      <td>{m.type}</td>
+                      <td className="route">{m.origin} → {m.destination}</td>
+                      <td>
+                        {[m.driver, m.truck].filter(Boolean).join(" / ") || "Not assigned"}
+                        {m.chassisId ? <small style={{ display: "block" }}>Chassis {m.chassisId}</small> : null}
+                      </td>
+                      <td>
+                        {formatDay(m.plannedDate)}
+                        {m.plannedTime ? <small style={{ display: "block" }}>{m.plannedTime}</small> : null}
+                      </td>
+                      <td>{m.status}</td>
+                      <td>
+                        <button className="btn secondary" type="button"
+                          onClick={() => onManage("trip", { tripId: m.id })}>
+                          Manage
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="clean-empty" style={{ marginTop: 8 }}>
+                No movement arranged yet. This is what the job is waiting for.
               </div>
-              {/* The panel that actually adds and allocates permits, rather
-                  than a "Manage Permits" button pointing at a drawer panel
-                  that does not exist — which opened empty and could only be
-                  cancelled. */}
-              {permitPanel}
-            </Drawer>
-          ) : null}
+            )}
+          </div>
 
           {/* Open, because which container you are looking at changes every
               panel under it. The tabs are the second question a controller
@@ -259,8 +339,15 @@ export default function ZhtJobDetail({
               </div>
             ) : null}
 
-            <div className="fieldgrid">
-              {containerFields.map(([label, value]) => <Field key={label} label={label} value={value} />)}
+            {/* Identity at a glance. The full eleven fields are one click
+                away in the drawer below; five of them answer "which box is
+                this" and the rest are reference. */}
+            <div className="idstrip">
+              {[["Container", container.number], ["Seal", container.seal],
+                ["Size", container.sizeType], ["Status", container.status ?? container.state],
+                ["Last free day", formatDay(container.lastFreeDay)]].map(([k, v]) => (
+                  <div key={k}><span className="k">{k}</span><span className="v">{v || "—"}</span></div>
+                ))}
             </div>
 
             {/* §34. The drawer that records the carrier's allowance and the
@@ -282,6 +369,12 @@ export default function ZhtJobDetail({
               </div>
             ) : null}
 
+            <Drawer title="All container detail" count={containerFields.length}>
+              <div className="fieldgrid">
+                {containerFields.map(([label, value]) => <Field key={label} label={label} value={value} />)}
+              </div>
+            </Drawer>
+
             {/* §32.1. Where this container stands, as a strip rather than a
                 panel of its own — it is orientation, not work. */}
             <div className="timeline" style={{ marginTop: 12 }}>
@@ -294,19 +387,33 @@ export default function ZhtJobDetail({
             </div>
           </div>
 
-          <Drawer title="Movements" count={(job.trips ?? []).length}>
-            {(job.trips ?? []).length ? job.trips.map((m) => (
-              <div className="movement" key={m.id}>
-                <strong>{m.type}</strong>{m.origin} → {m.destination}
-                <br />
-                <span className="muted">
-                  {[m.driver, m.truck, m.chassisId ? `Chassis ${m.chassisId}` : null, m.status]
-                    .filter(Boolean).join(" / ")}
-                  {m.plannedDate ? ` / ${formatDay(m.plannedDate)}${m.plannedTime ? ` ${m.plannedTime}` : ""}` : ""}
-                </span>
+          <Drawer title="Shipment" count={job.missingInformation?.length ?? 0}>
+            <div className="fieldgrid">
+              {shipment.map(([label, value]) => <Field key={label} label={label} value={value} />)}
+            </div>
+            {job.missingInformation?.length ? (
+              <div className="muted" style={{ marginTop: 10 }}>
+                Still required: {job.missingInformation.join(", ")}
               </div>
-            )) : <span className="muted">No movements planned yet.</span>}
+            ) : null}
+            <button className="btn secondary" type="button" style={{ marginTop: 10 }}
+              onClick={() => onManage("job")}>Edit Shipment</button>
           </Drawer>
+
+          {job.permitRequired ? (
+            <Drawer title="Shipment Permits" count={job.permitReceived ? 0 : 1}>
+              <div className="muted" style={{ marginBottom: 8 }}>
+                {job.permitReceived
+                  ? "Permit recorded for this shipment."
+                  : "Permit Required is selected but no permit is recorded."}
+              </div>
+              {/* The panel that actually adds and allocates permits, rather
+                  than a "Manage Permits" button pointing at a drawer panel
+                  that does not exist — which opened empty and could only be
+                  cancelled. */}
+              {permitPanel}
+            </Drawer>
+          ) : null}
 
           <Drawer title="Delivery Stops" count={job.deliveryAddress ? 1 : 0}>
             {job.deliveryAddress ? (
