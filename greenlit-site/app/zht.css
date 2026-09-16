@@ -2720,3 +2720,45 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   letter-spacing: .04em; color: var(--muted);
 }
 .zht .idstrip .v { font-size: 15px; font-weight: 700; color: var(--text); }
+
+/* ------------------------------------------------------------------
+   Controller workspace.
+
+   The operations assistant works a job until its information is complete.
+   The controller works the fleet: which boxes are ready, which truck is
+   where, and what that truck could pick up next. Same data, different
+   question, so it is a different screen rather than a filter on one.
+   ------------------------------------------------------------------ */
+.zht .queue-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 14px; }
+.zht .queue-tab {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line); background: var(--card);
+  border-radius: 999px; padding: 8px 14px;
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--text);
+  cursor: pointer;
+}
+.zht .queue-tab[aria-selected="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
+.zht .queue-tab:focus-visible { outline: 3px solid rgba(40,104,160,.35); outline-offset: 2px; }
+.zht .queue-tab .n {
+  min-width: 20px; text-align: center;
+  background: var(--soft); color: var(--text);
+  border-radius: 999px; padding: 1px 7px; font-size: 11px;
+}
+.zht .queue-tab[aria-selected="true"] .n { background: rgba(255,255,255,.25); color: #fff; }
+
+/* One driver, one line. His version gives every idle driver a full card, so
+   ten drivers with nothing on produce ten identical rows that say nothing.
+   Engaged drivers get the space; the idle ones are counted. */
+.zht .crew {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(0, 2fr) minmax(120px, 1fr) auto;
+  gap: 12px; align-items: center;
+  padding: 11px 12px; border-bottom: 1px solid #eef2f6;
+}
+.zht .crew:last-child { border-bottom: 0; }
+.zht .crew-who { font-size: 13px; font-weight: 700; color: var(--text); }
+.zht .crew-who small { display: block; font-weight: 500; color: var(--muted); font-size: 11px; }
+.zht .crew-now { font-size: 12px; color: var(--text); }
+.zht .crew-now small { display: block; color: var(--muted); }
+.zht .crew-idle { font-size: 12px; color: var(--muted); padding: 10px 12px; }
+@media (max-width: 900px) { .zht .crew { grid-template-columns: 1fr; } }

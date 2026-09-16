@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  can, canAssignRole, requirePermission, validateOverride,
+  can, canAssignRole, requirePermission, validateOverride, homeScreenFor,
   MINIMUM_OVERRIDE_REASON_LENGTH, type Principal,
 } from '../src/roles.ts';
 import { canJoin, joiningRole, suggestedUserId, suggestedDisplayName } from '../src/joining.ts';
@@ -199,4 +199,47 @@ test('§7: a username and a name are derived so nobody invents one', () => {
   // §13 puts the display name on every change, so it can never be empty.
   assert.ok(suggestedDisplayName('x@zhenghe.com.sg').length > 0);
   assert.ok(suggestedUserId('!!!@zhenghe.com.sg').length > 0);
+});
+
+const asRole = (role: Parameters<typeof homeScreenFor>[0]): Principal => ({
+  userId: 'u', displayName: 'Test', role, email: null, active: true,
+});
+const may = (role: Parameters<typeof homeScreenFor>[0], permission: Parameters<typeof can>[1]) =>
+  can(asRole(role), permission).allowed;
+
+test('§7: a controller moves boxes and does not open the book', () => {
+  // The split is the work, not seniority. Planning, scheduling and assigning
+  // are theirs; creating a job and reading documents belong to the assistant
+  // who prepares it.
+  assert.equal(may('CONTROLLER', 'movement.schedule'), true);
+  assert.equal(may('CONTROLLER', 'movement.assign'), true);
+  assert.equal(may('CONTROLLER', 'portnet.confirm'), true);
+
+  assert.equal(may('CONTROLLER', 'job.create'), false);
+  assert.equal(may('CONTROLLER', 'document.upload'), false);
+  assert.equal(may('CONTROLLER', 'job.close'), false);
+  assert.equal(may('CONTROLLER', 'job.reopen'), false,
+    'reopening a billed job stays a commercial act');
+});
+
+test('§7: management covers both halves of the operation', () => {
+  for (const p of ['movement.schedule', 'job.create', 'job.close', 'job.reopen']) {
+    assert.equal(may('MANAGEMENT', p as Parameters<typeof can>[1]), true, `management should hold ${p}`);
+  }
+});
+
+test('§14.4: only an administrator sees the machinery', () => {
+  // A director reading a stack trace learns nothing they can act on and loses
+  // confidence in a system that is working. Everyone else gets the sentence
+  // about what to do.
+  assert.equal(may('ADMINISTRATOR', 'diagnostics.view'), true);
+  assert.equal(may('MANAGEMENT', 'diagnostics.view'), false);
+  assert.equal(may('CONTROLLER', 'diagnostics.view'), false);
+  assert.equal(may('OPERATIONS', 'diagnostics.view'), false);
+});
+
+test('§7: a controller lands on the fleet, everyone else on the overview', () => {
+  assert.equal(homeScreenFor('CONTROLLER'), 'controller');
+  assert.equal(homeScreenFor('OPERATIONS'), 'dashboard');
+  assert.equal(homeScreenFor('MANAGEMENT'), 'dashboard');
 });

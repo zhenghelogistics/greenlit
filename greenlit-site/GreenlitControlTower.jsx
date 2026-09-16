@@ -41,6 +41,7 @@ import {
 import { groupByCustomer, matchCustomer } from "@greenlit/engine";
 import ZhtDashboard from "./components/ZhtDashboard.jsx";
 import ZhtJobDetail from "./components/ZhtJobDetail.jsx";
+import ZhtController from "./components/ZhtController.jsx";
 import {
   ZhtJobs, ZhtPlanning, ZhtDrivers, ZhtChassis, ZhtBilling,
   ZhtEmptyReturns, ZhtSearchResults, ZhtCustomers, ZhtCustomerDetail,
@@ -1109,9 +1110,15 @@ function BatchReview({ batch, customers, onApplyAll, onDiscard, applying }) {
   );
 }
 
-function ActingUser() {
+/**
+ * §7. Who the server says you are.
+ *
+ * One fetch, shared: the rail, the screen you land on and the name on the
+ * audit trail all have to be the same answer, and three components asking
+ * separately is three chances to disagree.
+ */
+function usePrincipal() {
   const [user, setUser] = useState(null);
-
   useEffect(() => {
     let cancelled = false;
     fetch("/api/me")
@@ -1120,11 +1127,20 @@ function ActingUser() {
       .catch(() => { if (!cancelled) setUser(null); });
     return () => { cancelled = true; };
   }, []);
+  return user;
+}
 
+const ROLE_LABEL = {
+  ADMINISTRATOR: "Admin",
+  MANAGEMENT: "Management",
+  CONTROLLER: "Controller",
+  OPERATIONS: "Operations",
+};
+
+function ActingUser() {
+  const user = usePrincipal();
   if (!user) return null;
-
-  const role = user.role === "ADMINISTRATOR" ? "Admin"
-    : user.role === "MANAGEMENT" ? "Manager" : "Controller";
+  const role = ROLE_LABEL[user.role] ?? user.role;
 
   return (
     <div className="flex shrink-0 items-center gap-2 text-[15px] text-white/90">
@@ -3716,6 +3732,22 @@ export default function GreenlitControlTower() {
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [workPanel, setWorkPanel] = useState(null);
   const [screen, setScreen] = useState("dashboard");
+  const principal = usePrincipal();
+  const role = principal?.role ?? null;
+  /**
+   * §7. A controller opens on the fleet, everyone else on the overview.
+   *
+   * Derived rather than set: the landing screen is a function of the role, so
+   * writing it into state during an effect would be storing something already
+   * known and cascading a render to do it. `moved` records only that the
+   * person has navigated since, after which their choice wins over the
+   * default — the app should not argue with somebody about which screen they
+   * are looking at.
+   */
+  const [moved, setMoved] = useState(false);
+  const current = moved || !role
+    ? screen
+    : (role === "CONTROLLER" ? "controller" : screen);
   const [returnScreen, setReturnScreen] = useState("actions");
   /** Which container tab is open on the job detail screen. */
   const [containerIndex, setContainerIndex] = useState(0);
@@ -3750,8 +3782,9 @@ export default function GreenlitControlTower() {
    * screen renders immediately rather than waiting.
    */
   function openJob(id) {
-    setReturnScreen(screen === "detail" ? "actions" : screen);
+    setReturnScreen(current === "detail" ? "actions" : current);
     setSelectedJobId(id);
+    setMoved(true);
     setScreen("detail");
     // A new job opens on its first container, not on whichever tab index the
     // last job happened to leave behind.
@@ -4379,6 +4412,12 @@ export default function GreenlitControlTower() {
   const navItems = [
     { id: "dashboard", label: "Dashboard", count: jobs.filter((job) => jobStatus(job) !== "Completed").length, icon: LayoutDashboard },
     { id: "actions", label: "Action Required", count: actionJobs.length, icon: ListTodo },
+    // §7. The controller's own board. Shown to the people who work the fleet
+    // and to management, who oversee both halves; an assistant preparing jobs
+    // has no use for it and it is not in their way.
+    ...(role === "CONTROLLER" || role === "MANAGEMENT" || role === "ADMINISTRATOR"
+      ? [{ id: "controller", label: "Controller Board", count: null, icon: CalendarRange }]
+      : []),
     { id: "jobs", label: "Jobs", count: jobs.length, icon: ClipboardList },
     { id: "documents", label: "Document Intake", count: documents.length, icon: FileSearch },
     { id: "planning", label: "Planning Board", count: null, icon: CalendarRange },
@@ -4474,7 +4513,7 @@ export default function GreenlitControlTower() {
         >
           {navItems.map((item) => {
             const Icon = item.icon;
-            const active = screen === item.id || (screen === "detail" && returnScreen === item.id);
+            const active = current === item.id || (current === "detail" && returnScreen === item.id);
             return (
               /*
                 On the rail, the current section is a filled panel the colour
@@ -4524,28 +4563,29 @@ export default function GreenlitControlTower() {
           <ActingUser />
         </header>
 
-      {(screen === "dashboard" || screen === "actions") && source !== "engine" ? (
+      {(current === "dashboard" || current === "actions") && source !== "engine" ? (
         <BoardState source={source} onRetry={loadJobs} onAddDocument={() => goTo("documents")} />
       ) : null}
-      {screen === "dashboard" && source === "engine" ? <ZhtDashboard jobs={jobs} today={operationalToday()} onOpenJob={openJob} onNewJob={() => goTo("documents")} onShowActions={showActions} /> : null}
-      {screen === "actions" && source === "engine" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}
-      {screen === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onApplyBatch={applyDocumentFor} onOpenJob={openJob} /> : null}
-      {screen === "people" ? <People /> : null}
-      {screen === "companies" ? (
+      {current === "dashboard" && source === "engine" ? <ZhtDashboard jobs={jobs} today={operationalToday()} onOpenJob={openJob} onNewJob={() => goTo("documents")} onShowActions={showActions} /> : null}
+      {current === "actions" && source === "engine" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}
+      {current === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onApplyBatch={applyDocumentFor} onOpenJob={openJob} /> : null}
+      {current === "people" ? <People /> : null}
+      {current === "companies" ? (
         <ZhtCustomers onOpenCustomer={(code) => { setSelectedCompany(code); setScreen("company"); }} />
       ) : null}
-      {screen === "company" && selectedCompany ? (
+      {current === "company" && selectedCompany ? (
         <ZhtCustomerDetail code={selectedCompany}
           onBack={() => { setSelectedCompany(null); setScreen("companies"); }} />
       ) : null}
-      {screen === "fleet" ? <ZhtChassis fleet={fleet} onOpenJob={(job) => openJob(job.id)} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
-      {screen === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => goTo("documents")} /> : null}
-      {screen === "planning" ? <ZhtPlanning jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)} /> : null}
-      {screen === "drivers" ? <ZhtDrivers fleet={fleet} /> : null}
-      {screen === "emptyReturns" ? <ZhtEmptyReturns jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
-      {screen === "billing" ? <ZhtBilling jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
-      {screen === "search" ? <ZhtSearchResults jobs={jobs} query={searchQuery} onOpenJob={(job) => openJob(job.id)} onBack={() => goTo(returnScreen)} /> : null}
-      {screen === "detail" && selectedJob ? (
+      {current === "fleet" ? <ZhtChassis fleet={fleet} onOpenJob={(job) => openJob(job.id)} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
+      {current === "controller" ? <ZhtController jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)} /> : null}
+      {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => goTo("documents")} /> : null}
+      {current === "planning" ? <ZhtPlanning jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)} /> : null}
+      {current === "drivers" ? <ZhtDrivers fleet={fleet} /> : null}
+      {current === "emptyReturns" ? <ZhtEmptyReturns jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
+      {current === "billing" ? <ZhtBilling jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
+      {current === "search" ? <ZhtSearchResults jobs={jobs} query={searchQuery} onOpenJob={(job) => openJob(job.id)} onBack={() => goTo(returnScreen)} /> : null}
+      {current === "detail" && selectedJob ? (
         <ZhtJobDetail
           job={selectedJob}
           containerIndex={containerIndex}

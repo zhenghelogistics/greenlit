@@ -20,7 +20,7 @@
  * could not create a job or close one — which is not what a manager does.
  */
 
-export const ROLE = ['ADMINISTRATOR', 'MANAGEMENT', 'OPERATIONS'] as const;
+export const ROLE = ['ADMINISTRATOR', 'MANAGEMENT', 'CONTROLLER', 'OPERATIONS'] as const;
 export type Role = (typeof ROLE)[number];
 
 /**
@@ -46,6 +46,17 @@ export const PERMISSION = [
 
   // Reading — §7.3
   'dashboard.view', 'tracker.view', 'queue.view', 'report.export', 'audit.view',
+
+  /**
+   * §14.4. Seeing the machinery when something breaks.
+   *
+   * Error references, failure detail and the stack behind a broken screen.
+   * Held by whoever maintains the system, and deliberately not by management:
+   * a director reading "Cannot read properties of undefined" learns nothing
+   * they can act on and loses confidence in a system that is working.
+   * Operations and controllers get the sentence about what to do instead.
+   */
+  'diagnostics.view',
 ] as const;
 export type Permission = (typeof PERMISSION)[number];
 
@@ -67,6 +78,29 @@ const OPERATIONS_PERMISSIONS: readonly Permission[] = [
 ];
 
 /**
+ * §7.2. The controller works the fleet rather than the paperwork.
+ *
+ * Everything about moving boxes — planning, scheduling, assigning a driver,
+ * updating and cancelling a trip — and the checkpoints that gate a movement.
+ * Not job creation or document intake: an assistant prepares a job until its
+ * information is complete, and the controller takes it from there.
+ *
+ * The split is by the work, not by seniority. A controller is not a junior
+ * manager and an assistant is not a junior controller; they are two halves of
+ * one operation, and each is senior in their own half.
+ */
+const CONTROLLER_PERMISSIONS: readonly Permission[] = [
+  ...READ_ONLY,
+  'job.edit',
+  'movement.create', 'movement.schedule', 'movement.assign',
+  'movement.update', 'movement.cancel',
+  'permit.confirm', 'portnet.confirm',
+  'readiness.record', 'transhipment.record',
+  'container.capture', 'container.notify',
+  'exception.manage',
+];
+
+/**
  * §7.3. Everything operations can do, plus the departures from the rules.
  *
  * job.reopen is the one that matters. A closed job has been billed, so
@@ -80,6 +114,7 @@ const OPERATIONS_PERMISSIONS: readonly Permission[] = [
  */
 const MANAGEMENT_PERMISSIONS: readonly Permission[] = [
   ...OPERATIONS_PERMISSIONS,
+  ...CONTROLLER_PERMISSIONS,
   'audit.view',
   'job.reopen',
   'gate.override',
@@ -91,8 +126,23 @@ const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   // system rather than by anyone running the book.
   ADMINISTRATOR: PERMISSION,
   MANAGEMENT: MANAGEMENT_PERMISSIONS,
+  CONTROLLER: CONTROLLER_PERMISSIONS,
   OPERATIONS: OPERATIONS_PERMISSIONS,
 };
+
+/**
+ * §7. Which screen this person opens on.
+ *
+ * Not a preference and not a toggle: the screens answer different questions
+ * and a person does one of the jobs. A controller landing on the assistant's
+ * job-preparation board would have to navigate away from it every morning.
+ *
+ * Management lands on the overview because their question is how the
+ * operation is doing, not which box moves next.
+ */
+export function homeScreenFor(role: Role): 'controller' | 'dashboard' {
+  return role === 'CONTROLLER' ? 'controller' : 'dashboard';
+}
 
 export interface Principal {
   userId: string;
@@ -153,6 +203,7 @@ export function can(principal: Principal | null, permission: Permission): Author
 const ROLE_LABEL: Record<Role, string> = {
   ADMINISTRATOR: 'An administrator',
   MANAGEMENT: 'Management',
+  CONTROLLER: 'A controller',
   OPERATIONS: 'Operations',
 };
 

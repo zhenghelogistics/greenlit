@@ -197,7 +197,10 @@ test("every screen a button navigates to is a screen that exists", async () => {
   // set it is not in fails silently. Here the set is the screens the router
   // actually handles.
   const src = await readFile(SOURCE, "utf8");
-  const screens = new Set([...src.matchAll(/screen === "([a-zA-Z]+)"/g)].map((m) => m[1]));
+  // `current` is the resolved screen: what the person chose, or the one
+  // their role lands on. Both spellings appear, so both are read.
+  const screens = new Set(
+    [...src.matchAll(/(?:screen|current) === "([a-zA-Z]+)"/g)].map((m) => m[1]));
   const targets = [...src.matchAll(/goTo\("([a-zA-Z]+)"\)/g)].map((m) => m[1]);
 
   const dead = [...new Set(targets)].filter((t) => !screens.has(t));
