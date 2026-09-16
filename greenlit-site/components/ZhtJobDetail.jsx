@@ -319,9 +319,18 @@ export default function ZhtJobDetail({
 
           <Drawer title="Job Activity Log" count={(job.activity ?? []).length}>
             {(job.activity ?? []).length ? job.activity.map((item) => (
+              /* His .job-log-entry is a 4px | 1fr grid: a colour rail, then
+                 the content. Without the rail div the text landed in the 4px
+                 column and wrapped one word per line under the timestamp. */
               <div className="job-log-entry" key={item.id}>
-                <b>{item.text}</b>
-                <div className="muted">{item.at} · {item.actor}</div>
+                <div className="job-log-rail" />
+                <div className="job-log-content">
+                  <div className="job-log-meta">
+                    <div><b>{item.text}</b></div>
+                    <span>{formatDay(item.at)}</span>
+                  </div>
+                  <div className="muted">{item.actor}</div>
+                </div>
               </div>
             )) : <span className="muted">No changes recorded yet.</span>}
             <button className="btn ghost" type="button" style={{ marginTop: 8 }}
