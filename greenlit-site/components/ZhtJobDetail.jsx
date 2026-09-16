@@ -280,7 +280,11 @@ export default function ZhtJobDetail({
           <Journey steps={job.journey ?? []} onAct={(action) => {
             if (action === "job.close") { setShowClosing(true); return; }
             if (action === "job.edit") return onManage("job");
-            if (action === "portnet.confirm" || action === "permit.confirm") return onManage("checkpoint");
+            // Which checkpoint, not just "a checkpoint". Without the key the
+            // drawer opened titled "Update checkpoint", could not tell what it
+            // was saving, and Save did nothing at all.
+            if (action === "portnet.confirm") return onManage("checkpoint", { key: "portnetReleased" });
+            if (action === "permit.confirm") return onManage("checkpoint", { key: "permitReceived" });
             if (action === "movement.create" || action === "movement.update") return onManage("trip");
             return onManage("job");
           }} />

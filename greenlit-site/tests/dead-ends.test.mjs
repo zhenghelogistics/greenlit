@@ -127,3 +127,20 @@ test("every ported screen renders inside the scope its stylesheet needs", async 
   assert.deepEqual(offenders, [],
     `these use his class names with none of his stylesheet: ${offenders.join(", ")}`);
 });
+
+test("every checkpoint a control opens has a route that records it", () => {
+  // The journey opened the checkpoint drawer without saying which checkpoint,
+  // so the commit handler could not pick a route and Save did nothing — the
+  // drawer just sat there. A drawer that opens and cannot save is the same
+  // silent failure as a button that navigates nowhere.
+  const opened = new Set(
+    [...all.matchAll(/onManage\(\s*"checkpoint",\s*\{\s*key:\s*"(\w+)"/g)].map((m) => m[1]));
+
+  const commit = ui.slice(ui.indexOf('if (panel.type === "checkpoint") {'));
+  const routed = new Set(
+    [...commit.slice(0, 900).matchAll(/panel\.key === "(\w+)"/g)].map((m) => m[1]));
+
+  const unroutable = [...opened].filter((k) => !routed.has(k));
+  assert.deepEqual(unroutable, [],
+    `these open a checkpoint drawer nothing can save: ${unroutable.join(", ")}`);
+});

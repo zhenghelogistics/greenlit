@@ -2776,7 +2776,16 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
               </div>
             ) : null}
 
-            {panel.type === "checkpoint" ? (
+            {/* §24. A permit is a number on a piece of paper, so recording
+                one means typing it. The other checkpoints are facts that
+                either happened or did not. */}
+            {panel.type === "checkpoint" && panel.key === "permitReceived" ? (
+              <DrawerField label="Permit number" hint="IG or ME, e.g. IG6I728642H.">
+                <input required value={draft.permitNumber || ""}
+                  onChange={(event) => update("permitNumber", event.target.value.toUpperCase())}
+                  placeholder="IG6I728642H" className={drawerInputClass} />
+              </DrawerField>
+            ) : panel.type === "checkpoint" ? (
               panel.key === "transhipment" ? <ChoiceGroup label="Carrier response" value={draft.value} onChange={(value) => update("value", value)} options={[{ value: "available", label: "Available", note: "Plan a direct or final port trip." }, { value: "not_available", label: "Not available", note: "Choose another laden delivery path." }, { value: "pending", label: "Still pending", note: "Keep the job waiting on the carrier." }]} />
                 : panel.key === "deliveryPath" ? <ChoiceGroup label="Agreed path" value={draft.value} onChange={(value) => update("value", value)} options={[{ value: "carpark", label: "Use company carpark", note: "Create the one-way loaded branch." }, { value: "other", label: "Another path needed", note: "Keep the job blocked for follow-up." }]} />
                   : <ChoiceGroup label="Checkpoint state" value={draft.value} onChange={(value) => update("value", value)} options={[{ value: true, label: "Complete / received", note: "Release this checkpoint." }, { value: false, label: "Outstanding", note: "Keep this checkpoint open." }]} />
@@ -4018,6 +4027,8 @@ export default function GreenlitControlTower() {
       // you happened to use.
       const route = panel.key === "cmsCompleted" ? "cms"
         : panel.key === "transhipment" ? "transhipment"
+        : panel.key === "portnetReleased" ? "portnet"
+        : panel.key === "permitReceived" ? "permit"
         : null;
 
       if (!route) {
@@ -4033,7 +4044,14 @@ export default function GreenlitControlTower() {
           {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ status: draft.value }),
+            // Each route asks for what it actually records. Portnet is a
+            // fact with no value — it happened or it has not — and a permit
+            // is the number on the paper.
+            body: JSON.stringify(
+              route === "portnet" ? {}
+                : route === "permit" ? { permitNumber: draft.permitNumber ?? "" }
+                  : { status: draft.value },
+            ),
           },
         ).catch(() => null);
 
