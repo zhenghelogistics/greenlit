@@ -121,6 +121,24 @@ test("the batch cap is derived from the time limit, not chosen", async () => {
   assert.ok(perRequest <= 5, `${perRequest} per request has not been measured`);
 });
 
+test("a single slow document cannot take the chunk with it", async () => {
+  // A chunk of five measured at 91.2s — exactly its slowest member, because
+  // documents read in parallel. So the count is nearly free and one
+  // pathological document is the entire risk.
+  //
+  // The deadline has to sit above anything normal and below the request
+  // ceiling, or it either fires on good documents or never fires at all.
+  const route = await readFile("app/api/extract/route.ts", "utf8");
+  const deadlineMs = Number(route.match(/DOCUMENT_DEADLINE_MS = ([\d_]+)/)?.[1].replace(/_/g, ""));
+  const ceilingSeconds = Number(route.match(/maxDuration = (\d+)/)?.[1]);
+
+  const SLOWEST_DOCUMENT_SECONDS = 93;
+  assert.ok(deadlineMs / 1000 > SLOWEST_DOCUMENT_SECONDS * 1.5,
+    "a deadline near normal would abandon documents that were going to succeed");
+  assert.ok(deadlineMs / 1000 < ceilingSeconds,
+    "a deadline above the request ceiling never fires, and the gateway kills everything instead");
+});
+
 test("the browser and the server agree on the chunk size", async () => {
   // Two numbers that must match. If the browser sends more than the server
   // accepts, every batch fails on a refusal nobody expected.

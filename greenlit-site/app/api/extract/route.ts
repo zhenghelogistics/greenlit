@@ -59,9 +59,9 @@ export async function POST(request: Request): Promise<Response> {
   if (files.length > 1) {
     const documents = await Promise.all(files.map(async (f) => {
       try {
-        return await readOne(f);
+        return await withDeadline(readOne(f), f.name);
       } catch (cause) {
-        // One unreadable scan must not lose the other nineteen. It comes back
+        // One unreadable scan must not lose the other four. It comes back
         // named, with its reason, and the operator decides.
         return { fileName: f.name, error: (cause as Error).message };
       }
@@ -146,6 +146,34 @@ export async function POST(request: Request): Promise<Response> {
  * because a caller that ignores it should get a refusal, not a gateway error.
  */
 const MAX_DOCUMENTS_PER_BATCH = 5;
+
+/**
+ * How long one document may take before it is abandoned.
+ *
+ * Measured: a chunk of five costs exactly its slowest member — 91.2 seconds
+ * against a 300-second ceiling. So the count is nearly free and a single
+ * pathological document is the whole risk.
+ *
+ * At 150 seconds a document is already two-thirds slower than anything ever
+ * observed. Abandoning it there means the chunk returns with four results and
+ * one named failure, rather than every document in it dying at the gateway
+ * because one was unusual. That is the difference between "this notice could
+ * not be read" and "it broke".
+ */
+const DOCUMENT_DEADLINE_MS = 150_000;
+
+function withDeadline<T>(work: Promise<T>, fileName: string): Promise<T> {
+  return Promise.race([
+    work,
+    new Promise<never>((_, reject) => setTimeout(
+      () => reject(new Error(
+        `${fileName} took longer than ${DOCUMENT_DEADLINE_MS / 1000}s to read, which is far `
+        + 'beyond normal for a notice. The others were read; try this one on its own.',
+      )),
+      DOCUMENT_DEADLINE_MS,
+    )),
+  ]);
+}
 
 /**
  * Read one document, the same way the single-file path does.
