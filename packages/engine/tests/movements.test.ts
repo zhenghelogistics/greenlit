@@ -170,7 +170,7 @@ const exportContainer: ExportContainer = {
   exportContainerId: 'xc', exportJobId: 'e', containerRef: 'C1',
   containerNumber: 'ABCU1', sealNumber: '1', tareWeightKg: 3850, sizeType: '40 HQ',
   isReefer: false, temperatureMode: null, temperatureSetpointC: null,
-  stuffingLocation: 'Site A', containerDetailsSent: true, containerDetailsSentAt: null,
+  stuffingLocation: 'Site A', containerDetailsSent: true, containerDetailsSentAt: null, containerDetailsSentTo: null, containerDetailsSentBy: null, containerDetailsReference: null,
   containerReady: true, containerReadyAt: null, vgm: 24500, vgmReceivedAt: null,
   portnetProcessed: 'PROCESSED', chassisId: null,
   chassisMountedAt: null, chassisReleasedAt: null, carparkArrivedAt: null,

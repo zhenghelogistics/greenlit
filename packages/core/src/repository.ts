@@ -381,6 +381,18 @@ export interface Repository {
     actor: string,
   ): Promise<void>;
   recordTranshipment(jobId: string, status: 'AVAILABLE' | 'NOT_AVAILABLE', actor: string): Promise<void>;
+  /**
+   * §42. Record that the customer has been told the container's number.
+   *
+   * The milestone that unblocks stuffing, and the one command the export flow
+   * had no way to perform: the status existed, the next action named it, and
+   * nothing could write it down.
+   */
+  recordContainerDetailsSent(
+    containerId: string,
+    notice: { sentTo: string; reference?: string | null },
+    actor: string,
+  ): Promise<void>;
   recordContainerReady(containerId: string, actor: string): Promise<void>;
   recordVgm(containerId: string, vgm: number, actor: string): Promise<void>;
 

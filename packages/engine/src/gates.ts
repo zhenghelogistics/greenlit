@@ -113,6 +113,44 @@ export function canStartLaden(
 }
 
 /**
+ * §42. Whether the customer can be told the container's number yet.
+ *
+ * "The notification is generated from stored job data, never retyped by the
+ * controller." So the gate is about what is on file: a notification cannot be
+ * generated from facts nobody has captured, and one sent with a blank seal is
+ * worse than one not sent, because the customer stuffs and seals against it.
+ *
+ * Tare is included because the customer needs it to compute VGM in §43. A
+ * notification without it produces a second round of email at exactly the
+ * point §42 is trying to remove one.
+ *
+ * The recipient is checked here too. §42 stores the recipient address as part
+ * of the record, and "sent" with nobody named is a flag that cannot be
+ * audited — which is the state the notification record exists to prevent.
+ */
+export function canSendContainerDetails(
+  container: ExportContainer,
+  recipient: string,
+): GateResult {
+  const failures: string[] = [];
+
+  if (container.containerNumber === null) failures.push('Container number not captured');
+  if (container.sealNumber === null) failures.push('Seal number not captured');
+  if (container.tareWeightKg === null) {
+    failures.push('Tare weight not captured, and the customer needs it for VGM');
+  }
+  // Deliberately not a full address grammar. The check is that somebody was
+  // named, because a validator that rejects a real address is worse than one
+  // that accepts an odd-looking one a person chose to type.
+  if (!recipient.trim()) failures.push('No recipient address');
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient.trim())) {
+    failures.push(`${recipient.trim()} is not an email address`);
+  }
+
+  return failures.length === 0 ? pass : { passed: false, failures };
+}
+
+/**
  * §43. VGM must exceed tare. At or below tare is impossible and raises a
  * discrepancy rather than being stored.
  *

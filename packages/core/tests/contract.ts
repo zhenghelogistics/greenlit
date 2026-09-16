@@ -192,6 +192,55 @@ export function runRepositoryContract(
     assert.ok(c?.vgmReceivedAt);
   });
 
+  test(`[${name}] §42: recording the notification unblocks stuffing`, async () => {
+    // The command the export flow did not have. The status existed, the engine
+    // raised "Send container details to customer" as the next action, and
+    // nothing could write it down — so a job reached Awaiting Container
+    // Details Notification and stayed there for good.
+    const repo = await fresh();
+    await repo.captureContainerIdentity(seeded.exportContainerId,
+      { containerNumber: 'MSKU1234567', sealNumber: 'SG998877', tareWeightKg: 3900 }, 'tester');
+
+    await repo.recordContainerDetailsSent(seeded.exportContainerId,
+      { sentTo: 'ops@acme.com.sg', reference: 'MSG-4471' }, 'Sarah Lim');
+
+    const c = (await repo.listContainersForExportJob(seeded.exportJobId))
+      .find((x) => x.exportContainerId === seeded.exportContainerId);
+    assert.equal(c?.containerDetailsSent, true);
+    assert.ok(c?.containerDetailsSentAt);
+    // §42 stores who told whom, because the question asked when stuffing has
+    // not started is never "was it sent".
+    assert.equal(c?.containerDetailsSentTo, 'ops@acme.com.sg');
+    assert.equal(c?.containerDetailsSentBy, 'Sarah Lim');
+    assert.equal(c?.containerDetailsReference, 'MSG-4471');
+  });
+
+  test(`[${name}] §42: details that were never captured cannot be sent`, async () => {
+    // "The notification is generated from stored job data, never retyped by
+    // the controller." A notification with a blank seal is worse than none,
+    // because the customer stuffs and seals against what it says.
+    const repo = await fresh();
+    const fresh_ = (await repo.listContainersForExportJob(seeded.exportJobId))
+      .find((x) => x.containerNumber === null);
+    if (!fresh_) return;
+
+    await assert.rejects(
+      () => repo.recordContainerDetailsSent(fresh_.exportContainerId,
+        { sentTo: 'ops@acme.com.sg' }, 'tester'),
+      /not captured/);
+  });
+
+  test(`[${name}] §42: "sent" with nobody named is refused`, async () => {
+    const repo = await fresh();
+    await repo.captureContainerIdentity(seeded.exportContainerId,
+      { containerNumber: 'MSKU7654321', sealNumber: 'SG112233', tareWeightKg: 2200 }, 'tester');
+
+    await assert.rejects(
+      () => repo.recordContainerDetailsSent(seeded.exportContainerId,
+        { sentTo: '  ' }, 'tester'),
+      /recipient/i);
+  });
+
   test(`[${name}] commands against unknown ids fail loudly`, async () => {
     const repo = await fresh();
     await assert.rejects(() => repo.recordPortnetReleased('no-such-id', 'tester'));

@@ -1,4 +1,5 @@
-import { suggestedUserId, suggestedDisplayName, normalisePermitNumber, locationProblem,
+import { canSendContainerDetails,
+  suggestedUserId, suggestedDisplayName, normalisePermitNumber, locationProblem,
   documentProblem, storagePathFor, type DocumentRecord,
   type PermitRecord } from '@greenlit/engine';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -1283,6 +1284,38 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       await record(jobId, 'transhipment.changed', actor,
         { field: 'transhipmentStatus', from: before.transhipmentStatus, to: status });
     },
+    async recordContainerDetailsSent(containerId, notice, actor) {
+      const jobId = await jobOfExportContainer(containerId);
+
+      // Read before writing, because §42's gate is about what is on file: a
+      // notification is generated from stored data, so the check has to run
+      // against the stored row rather than against anything the caller sent.
+      const current = await db.from('export_containers')
+        .select('container_number,seal_number,tare_weight_kg')
+        .eq('export_container_id', containerId).maybeSingle();
+      if (current.error) throw new Error(`container lookup: ${current.error.message}`);
+      if (!current.data) throw new Error(`Unknown container ${containerId}`);
+
+      const gate = canSendContainerDetails({
+        containerNumber: current.data.container_number as string | null,
+        sealNumber: current.data.seal_number as string | null,
+        tareWeightKg: current.data.tare_weight_kg === null || current.data.tare_weight_kg === undefined
+          ? null : Number(current.data.tare_weight_kg),
+      } as ExportContainer, notice.sentTo);
+      if (!gate.passed) throw new Error(gate.failures.join('; '));
+
+      unwrap(await db.from('export_containers').update({
+        container_details_sent: true,
+        container_details_sent_at: new Date().toISOString(),
+        container_details_sent_to: notice.sentTo.trim(),
+        container_details_sent_by: actor,
+        container_details_reference: notice.reference?.trim() || null,
+      }).eq('export_container_id', containerId).select().single(), 'record details sent');
+
+      await record(jobId, 'container.detailsSent', actor,
+        { field: 'containerDetailsSent', from: false, to: notice.sentTo.trim() });
+    },
+
     async recordContainerReady(containerId, actor) {
       const jobId = await jobOfExportContainer(containerId);
       unwrap(await db.from('export_containers').update({

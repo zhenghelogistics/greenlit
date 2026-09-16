@@ -44,8 +44,20 @@ export function jobFromApi(view) {
     containerSizeType: r.containerSizeType ?? first.sizeType ?? "",
     container: view.containers?.[0]?.containerNumber ?? "",
     detailsSent: Boolean(first.containerDetailsSent),
+    // §42. Who was told and where the message is. The question asked when
+    // stuffing has not started is never "was it sent" but "who told whom".
+    detailsSentTo: first.containerDetailsSentTo ?? "",
+    detailsSentBy: first.containerDetailsSentBy ?? "",
+    detailsSentAt: first.containerDetailsSentAt ?? null,
+    detailsReference: first.containerDetailsReference ?? "",
     customerReady: Boolean(first.containerReady),
     transhipment: r.transhipmentStatus ?? "",
+    // §21. Read by the export status derivation and never produced here, so
+    // `job.carparkRequested == null` was always true: "Carpark Decision
+    // Needed" could not clear, and "Ready for One-Way Loaded Trip" could not
+    // be reached. It is a plain boolean in the record — there is no undecided
+    // state — so the screen tests it as one.
+    carparkRequested: Boolean(r.carparkRequested),
     permitReceived: Boolean(r.permitReceived),
     portnetReleased: Boolean(r.portnetReleased),
     demurrageLastFreeDay: first.demurrageLfd ?? first.combinedLfd ?? null,

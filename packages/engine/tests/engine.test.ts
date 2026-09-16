@@ -45,7 +45,7 @@ const exportContainer = (over: Partial<ExportContainer> = {}): ExportContainer =
   exportContainerId: 'c', exportJobId: 'e', containerRef: 'C1',
   containerNumber: 'ABCU1234567', sealNumber: '123456', tareWeightKg: 3850,
   sizeType: '40 HQ', isReefer: false, temperatureMode: null, temperatureSetpointC: null,
-  stuffingLocation: 'A', containerDetailsSent: true, containerDetailsSentAt: null,
+  stuffingLocation: 'A', containerDetailsSent: true, containerDetailsSentAt: null, containerDetailsSentTo: null, containerDetailsSentBy: null, containerDetailsReference: null,
   containerReady: true, containerReadyAt: null, vgm: 24500, vgmReceivedAt: null,
   portnetProcessed: 'PROCESSED', chassisId: null,
   chassisMountedAt: null, chassisReleasedAt: null, carparkArrivedAt: null,

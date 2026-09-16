@@ -4,7 +4,7 @@ import {
   defaultLocation, doubleMountingProblem, selectableLocations,
   freeTimeCountdown,
   appearsOnSchedule, canCollect, canCollectEmpty, canComplete, canCreateMovement,
-  canEnterStandby, canStartLaden, canTransition, exportContainerStatus,
+  canEnterStandby, canSendContainerDetails, canStartLaden, canTransition, exportContainerStatus,
   importJobStatus, isVgmPlausible, nextMovementRef, planExportMovements,
   planImportMovements, detectImportExceptions, MOVEMENT_TYPE, USER_SETTABLE_STATUS,
   NEVER_AUTO_CREATED, reconcileExtraction, reconcileVgm, idempotencyKey,
@@ -90,7 +90,7 @@ const exportContainer = (o: Partial<ExportContainer> = {}): ExportContainer => (
   exportContainerId: 'xc', exportJobId: 'e', containerRef: 'C1',
   containerNumber: 'ABCU1', sealNumber: '1', tareWeightKg: 3850, sizeType: '40 HQ',
   isReefer: false, temperatureMode: null, temperatureSetpointC: null,
-  stuffingLocation: 'Site A', containerDetailsSent: true, containerDetailsSentAt: null,
+  stuffingLocation: 'Site A', containerDetailsSent: true, containerDetailsSentAt: null, containerDetailsSentTo: null, containerDetailsSentBy: null, containerDetailsReference: null,
   containerReady: true, containerReadyAt: null, vgm: 24500, vgmReceivedAt: null,
   portnetProcessed: 'PROCESSED', chassisId: null,
   chassisMountedAt: null, chassisReleasedAt: null, carparkArrivedAt: null,
@@ -628,4 +628,35 @@ test('§57 compliance summary', () => {
   console.log(`  ${gaps.length} declared gaps:`);
   for (const g of gaps) console.log(`    ${g.id.padEnd(8)} ${g.text}\n             gap: ${g.gap}`);
   assert.ok(enforced.length > 0);
+});
+
+test('§42: details cannot be sent before they are captured', () => {
+  // The engine already raises "Send container details to customer" as the next
+  // action. Sending a notification with a blank seal is worse than not sending
+  // one, because the customer stuffs and seals against what it says.
+  const bare = exportContainer({ containerNumber: null, sealNumber: null, tareWeightKg: null });
+  const gate = canSendContainerDetails(bare, 'ops@customer.com');
+
+  assert.equal(gate.passed, false);
+  assert.deepEqual(gate.failures, [
+    'Container number not captured',
+    'Seal number not captured',
+    'Tare weight not captured, and the customer needs it for VGM',
+  ]);
+});
+
+test('§42: a captured container can be notified', () => {
+  const ready = exportContainer({
+    containerNumber: 'MSKU1234567', sealNumber: 'SG998877', tareWeightKg: 3900,
+  });
+  assert.equal(canSendContainerDetails(ready, 'ops@customer.com').passed, true);
+});
+
+test('§42: "sent" with nobody named is a flag that cannot be audited', () => {
+  const ready = exportContainer({
+    containerNumber: 'MSKU1234567', sealNumber: 'SG998877', tareWeightKg: 3900,
+  });
+  assert.deepEqual(canSendContainerDetails(ready, '   ').failures, ['No recipient address']);
+  assert.deepEqual(canSendContainerDetails(ready, 'ops at customer').failures,
+    ['ops at customer is not an email address']);
 });

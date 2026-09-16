@@ -161,3 +161,29 @@ test("a fully populated job dereferences cleanly too", async () => {
   }
   assert.deepEqual(failures, [], failures.join("\n"));
 });
+
+test("a job field compared against a literal is a field the adapter produces", async () => {
+  // The quieter half of the dereference bug. `job.missing.sub` throws and gets
+  // noticed; `job.missing === "EXPORT"` is merely always false, so a whole
+  // branch silently never runs and nothing anywhere reports a problem.
+  //
+  // Two real instances. A container-details card keyed on `job.domain`, which
+  // the adapter has never produced — the card would never have appeared. And
+  // `job.carparkRequested == null`, which was always true, so "Carpark
+  // Decision Needed" could not clear and "Ready for One-Way Loaded Trip" was
+  // unreachable.
+  //
+  // Comparisons only, deliberately. A bare truthiness test on an absent field
+  // is usually a legitimate optional, while comparing one to a literal says
+  // the author believed a specific value could be there.
+  const src = await readFile(SOURCE, "utf8");
+  const compared = new Set();
+  for (const m of src.matchAll(/\bjob\.(\w+)\s*[=!]==?\s*["']/g)) compared.add(m[1]);
+  for (const m of src.matchAll(/\bjob\.(\w+)\s*[=!]=\s*null/g)) compared.add(m[1]);
+
+  const job = jobFromApi(sparseView);
+  const missing = [...compared].filter((f) => !(f in job));
+
+  assert.deepEqual(missing, [],
+    `compared against a literal but never produced, so the branch is dead: ${missing.join(", ")}`);
+});

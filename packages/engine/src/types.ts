@@ -184,6 +184,17 @@ export interface ExportContainer {
   temperatureSetpointC: number | null;
   stuffingLocation: string | null;
   containerDetailsSent: boolean;
+  /**
+   * §42. Who was told, by whom, and where the message is.
+   *
+   * "The send is recorded: sent flag, timestamp, sender, recipient address,
+   * and a stored copy or message reference." The flag alone answers "was it
+   * sent"; the question that actually gets asked when stuffing has not
+   * started is "who told whom, and where is it".
+   */
+  containerDetailsSentTo: string | null;
+  containerDetailsSentBy: string | null;
+  containerDetailsReference: string | null;
   containerDetailsSentAt: IsoInstant | null;
   containerReady: boolean;
   containerReadyAt: IsoInstant | null;

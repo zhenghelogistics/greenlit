@@ -43,6 +43,7 @@ import {
   XCircle,
   Building2,
   UserRound,
+  Send,
 } from "lucide-react";
 import { groupByCustomer, matchCustomer } from "@greenlit/engine";
 import { addIsoDays, MAX_CONTAINERS_PER_JOB, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
@@ -1683,7 +1684,7 @@ function exportContainerStatus(job, container, index) {
   if (container.customerReady && !container.vgmKg) return "Awaiting VGM";
   if (job.carparkRequested && oneWay?.status === "Pending") return "Ready for One-Way Loaded Trip";
   if (finalPort?.type === "Direct Laden to Port" && finalPort.status === "Pending") return "Ready for Direct Laden Trip";
-  if (job.transhipment === "not_available" && job.carparkRequested == null) return "Carpark Decision Needed";
+  if (job.transhipment === "not_available" && !job.carparkRequested) return "Carpark Decision Needed";
   if (job.transhipment === "not_available" && job.carparkRequested === false) return "Delivery Path Needed";
   if (container.detailsSent && !container.customerReady) return "Awaiting Customer Stuffing";
   if (container.number && !container.detailsSent) return "Awaiting Container Details Notification";
@@ -3722,7 +3723,72 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
   );
 }
 
-function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipment, onCarparkDecision, onCarparkAvailable, onManage, onNextAction, onResolveDiscrepancy, highlight }) {
+/**
+ * §42. The notification, generated from stored job data.
+ *
+ * The three facts are shown rather than typed: "the notification is generated
+ * from stored job data, never retyped by the controller." A controller copying
+ * a container number by hand is how a customer ends up sealing the wrong box.
+ *
+ * Only the recipient is entered, because it varies per booking, and the
+ * message reference is offered because §42 stores one — it is what somebody
+ * follows when the customer says they never received it.
+ */
+function SendContainerDetails({ container, customer, onSend }) {
+  const [sentTo, setSentTo] = useState("");
+  const [reference, setReference] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const field = "min-h-12 w-full rounded-md border border-[color:var(--gl-line-strong)] bg-white px-3 text-[17px] text-[color:var(--gl-ink)]";
+
+  async function submit(event) {
+    event.preventDefault();
+    setBusy(true);
+    await onSend({ sentTo, reference });
+    setBusy(false);
+  }
+
+  return (
+    <section className="mt-6 rounded-lg border border-sky-200 bg-sky-50 p-5">
+      <h2 className="text-xl font-semibold text-slate-900">Send container details to {customer || "the customer"}</h2>
+      <p className="mt-2 text-[17px] font-normal text-slate-700">
+        Until this is sent the customer does not know which container is theirs
+        and cannot begin stuffing.
+      </p>
+
+      <div className="mt-4 grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-3">
+        {[["Container", container.number], ["Seal", container.seal],
+          ["Tare", container.tare === null || container.tare === undefined ? "—" : `${container.tare} kg`]]
+          .map(([label, value]) => (
+            <div key={label} className="bg-white p-4">
+              <div className="gl-label">{label}</div>
+              <div className="mt-1 text-[17px] font-semibold text-slate-950">{value || "—"}</div>
+            </div>
+          ))}
+      </div>
+
+      <form onSubmit={submit} className="mt-4 grid gap-4">
+        <label className="grid gap-2">
+          <span className="gl-label">Send to</span>
+          <input type="email" required value={sentTo} onChange={(e) => setSentTo(e.target.value)}
+            placeholder="ops@customer.com.sg" className={field} />
+        </label>
+        <label className="grid gap-2">
+          <span className="gl-label">Message reference (optional)</span>
+          <input value={reference} onChange={(e) => setReference(e.target.value)}
+            placeholder="Email subject or message id" className={field} />
+          <span className="gl-caption">What to look for if the customer says it never arrived.</span>
+        </label>
+        <button type="submit" disabled={busy || !sentTo.trim()}
+          className="inline-flex min-h-14 items-center justify-center gap-3 rounded-md bg-[var(--gl-accent)] px-6 py-3 text-[17px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:bg-slate-400">
+          <Send className="h-6 w-6" />{busy ? "Recording…" : "Record details sent"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSendDetails, onSetTranshipment, onCarparkDecision, onCarparkAvailable, onManage, onNextAction, onResolveDiscrepancy, highlight }) {
   const gate = readiness(job);
   const status = jobStatus(job);
   const isMoment1 = job.id === "EXP-260819-001";
@@ -3856,6 +3922,33 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSetTranshipmen
           <button type="button" onClick={onRecordDetails} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[var(--gl-accent)] px-6 py-3 text-[17px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
             <ContainerIcon className="h-6 w-6" /> Record container details
           </button>
+        </section>
+      ) : null}
+
+      {/* §42. The dead end this closes: the engine raises "Send container
+          details to customer" as the next action, and until now nothing could
+          record that anyone had. A job sat here permanently while the customer
+          waited for a number nobody had sent them.
+
+          The details are read from the job, never retyped — §42 is explicit
+          that the notification is generated from stored data, and a controller
+          copying a container number by hand is the transcription error that
+          makes a customer seal against the wrong box. */}
+      {job.type === "Export" && containers[0]?.number && !job.detailsSent ? (
+        <SendContainerDetails container={containers[0]} customer={job.customer}
+          onSend={onSendDetails} />
+      ) : null}
+
+      {job.type === "Export" && job.detailsSent ? (
+        <section className="mt-6 rounded-lg border border-[color:var(--gl-line)] bg-white p-5">
+          <h2 className="text-xl font-semibold text-slate-900">Container details sent</h2>
+          <p className="mt-2 text-[17px] font-normal text-slate-700">
+            Sent to <strong>{job.detailsSentTo || "—"}</strong>
+            {job.detailsSentBy ? <> by {job.detailsSentBy}</> : null}
+            {job.detailsSentAt ? <> on {formatDay(String(job.detailsSentAt).slice(0, 10))}</> : null}.
+            {job.detailsReference ? <> Reference {job.detailsReference}.</> : null}
+          </p>
+          <p className="gl-caption mt-2">The customer can begin stuffing.</p>
         </section>
       ) : null}
 
@@ -5230,6 +5323,26 @@ export default function GreenlitControlTower() {
     );
   }
 
+  /**
+   * §42. Tell the customer the container's number, and record that we did.
+   *
+   * The recipient is typed because it varies per booking; everything else in
+   * the message comes off the job. §42 stores the send so the silent delay it
+   * describes — "the container is delivered, but the customer does not know
+   * its number and therefore cannot begin stuffing" — becomes a fact somebody
+   * can check rather than an assumption.
+   */
+  async function sendContainerDetails({ sentTo, reference }) {
+    const container = selectedJob?.containers?.[0];
+    if (!container) { showToast("This job has no container to notify about."); return; }
+    await runJobCommand(
+      selectedJob,
+      `/containers/${encodeURIComponent(container.id ?? container.ref)}/details-sent`,
+      { sentTo, reference },
+      "Container details sent. The customer can begin stuffing.",
+    );
+  }
+
   /** §44.1. The answer is stored with a timestamp and a user, not just "checked". */
   async function setTranshipment(answer) {
     const status = answer === "available" ? "AVAILABLE" : "NOT_AVAILABLE";
@@ -5634,6 +5747,7 @@ export default function GreenlitControlTower() {
           onBack={() => goTo(returnScreen)}
           onRecordCms={recordCms}
           onRecordDetails={recordDetails}
+          onSendDetails={sendContainerDetails}
           onSetTranshipment={setTranshipment}
           onCarparkDecision={carparkDecision}
           onCarparkAvailable={carparkAvailable}

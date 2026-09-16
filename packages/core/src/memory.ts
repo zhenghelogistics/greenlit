@@ -3,7 +3,7 @@ import { suggestedUserId, suggestedDisplayName, normalisePermitNumber, locationP
   type CustomerLocation, type DocumentRecord,
   type PermitRecord } from '@greenlit/engine';
 import {
-  appendAmendment, applyChassisChange, nextJobReference, recordChassisChange,
+  appendAmendment, applyChassisChange, canSendContainerDetails, nextJobReference, recordChassisChange,
   userEvent, validateContainerCount, validateCustomerDraft,
   type AuditEvent, type Chassis, type ChassisHolding, type Customer,
   type ChassisChange, type CustomerDraft, type DateAmendment, type Discrepancy,
@@ -258,7 +258,9 @@ const ec = (o: Partial<ExportContainer> & Pick<ExportContainer, 'exportContainer
   containerNumber: null, sealNumber: null, tareWeightKg: null,
   isReefer: false, temperatureMode: null, temperatureSetpointC: null,
   stuffingLocation: 'Customer site A', containerDetailsSent: false,
-  containerDetailsSentAt: null, containerReady: false, containerReadyAt: null,
+  containerDetailsSentAt: null, containerDetailsSentTo: null,
+  containerDetailsSentBy: null, containerDetailsReference: null,
+  containerReady: false, containerReadyAt: null,
   vgm: null, vgmReceivedAt: null, portnetProcessed: 'PENDING',
   chassisId: null, chassisMountedAt: null, chassisReleasedAt: null,
   carparkArrivedAt: null, cancelled: false, onHold: false, ...o,
@@ -269,6 +271,8 @@ const EXPORT_CONTAINERS: Record<string, ExportContainer[]> = {
     exportContainerId: 'xc1', exportJobId: 'ej1', containerRef: 'C1', sizeType: '40 HQ',
     containerNumber: 'ABCU9876543', sealNumber: '123456', tareWeightKg: 3850,
     containerDetailsSent: true, containerDetailsSentAt: '2026-08-20T02:00:00Z',
+    containerDetailsSentTo: 'ops@acme.com.sg', containerDetailsSentBy: 'Sarah Lim',
+    containerDetailsReference: null,
     containerReady: true, containerReadyAt: '2026-08-22T01:00:00Z',
     vgm: 24500, vgmReceivedAt: '2026-08-22T01:10:00Z', portnetProcessed: 'PROCESSED',
     chassisId: 'CH-4011', carparkArrivedAt: '2026-08-23T05:30:00Z',
@@ -768,6 +772,8 @@ export function createMemoryRepository(): Repository {
         temperatureSetpointC: draft.temperatureSetpointC ?? null,
         stuffingLocation: draft.stuffingLocation ?? null,
         containerDetailsSent: false, containerDetailsSentAt: null,
+        containerDetailsSentTo: null, containerDetailsSentBy: null,
+        containerDetailsReference: null,
         containerReady: false, containerReadyAt: null,
         vgm: null, vgmReceivedAt: null,
       } as unknown as ExportContainer;
@@ -1306,6 +1312,25 @@ export function createMemoryRepository(): Repository {
       record(jobId, 'transhipment.changed', actor,
         { field: 'transhipmentStatus', from, to: status });
     },
+    async recordContainerDetailsSent(containerId, notice, actor) {
+      const c = findExportContainer(containerId);
+      if (!c) throw new Error(`Unknown container ${containerId}`);
+
+      // §42. The gate lives in the engine so the route, both adapters and the
+      // screen cannot each decide differently what a sendable container is.
+      const gate = canSendContainerDetails(c, notice.sentTo);
+      if (!gate.passed) throw new Error(gate.failures.join('; '));
+
+      c.containerDetailsSent = true;
+      c.containerDetailsSentAt = new Date().toISOString();
+      c.containerDetailsSentTo = notice.sentTo.trim();
+      c.containerDetailsSentBy = actor;
+      c.containerDetailsReference = notice.reference?.trim() || null;
+
+      record(jobOfContainer(containerId), 'container.detailsSent', actor,
+        { field: 'containerDetailsSent', from: false, to: c.containerDetailsSentTo });
+    },
+
     async recordContainerReady(containerId, actor) {
       const c = findExportContainer(containerId);
       if (!c) throw new Error((() => {
