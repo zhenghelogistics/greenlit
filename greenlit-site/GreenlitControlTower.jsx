@@ -4070,6 +4070,72 @@ function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSendDetails, o
 }
 
 /**
+ * §21.3.2. Trucks that cannot take other work, and why.
+ *
+ * Separate from the chassis table above it because it is a different and far
+ * more expensive capacity: a chassis day is cheap and a truck hour is not.
+ *
+ * An engagement with no recorded end is shown as open-ended rather than given
+ * an estimated finish. §21.3.2: "the truck's remaining capacity that day is
+ * genuinely unknown until the driver is let go. The schedule shows that as
+ * open-ended rather than guessing a figure."
+ */
+function VehiclesEngaged({ vehicles, clashes }) {
+  if (!vehicles.length) return null;
+
+  const hours = (minutes) => minutes >= 60
+    ? `${Math.floor(minutes / 60)}h ${minutes % 60}m`
+    : `${minutes}m`;
+
+  return (
+    <Panel title="Vehicles engaged" className="mt-7">
+      <div className="p-6">
+        {clashes.length ? (
+          <div className="mb-5 rounded-md border border-rose-300 bg-rose-50 p-4">
+            <div className="text-[17px] font-semibold text-[color:var(--gl-state-blocked-ink)]">
+              {clashes.length} truck{clashes.length === 1 ? " is" : "s are"} booked twice at once
+            </div>
+            <ul className="mt-2 grid gap-1">
+              {clashes.map((c, i) => (
+                <li key={i} className="gl-body-plain text-[color:var(--gl-state-blocked-ink)]">
+                  {c.reason}, and {c.second.movementRef} is assigned to it as well.
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <div className="grid gap-3">
+          {vehicles.map((v) => (
+            <div key={`${v.truck}-${v.movementRef}`}
+              className="flex flex-wrap items-baseline justify-between gap-3 rounded-md border border-[color:var(--gl-line)] bg-white p-4"
+              style={{ borderLeft: `6px solid ${v.reason === "ON_STANDBY" ? "var(--gl-state-warn)" : "var(--gl-state-idle)"}` }}>
+              <div>
+                <div className="gl-label">{v.truck}{v.driver ? ` · ${v.driver}` : ""}</div>
+                <div className="mt-1 text-[19px] font-semibold text-slate-950">
+                  {v.reason === "ON_STANDBY" ? "Held on standby" : "In transit"} · {hours(v.minutes)}
+                </div>
+              </div>
+              <div className="gl-caption text-right">
+                <div>{v.movementRef}</div>
+                {v.openEnded
+                  ? <div className="font-semibold text-[color:var(--gl-state-warn-ink)]">No release recorded — open-ended</div>
+                  : <div>Free again after this trip</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p className="gl-caption mt-4">
+          Standby stops no other clock. Demurrage, detention and chassis
+          occupancy all keep running.
+        </p>
+      </div>
+    </Panel>
+  );
+}
+
+/**
  * Maps the server's fleet view into the shape the fleet screen consumes.
  *
  * Every status here was derived by @greenlit/engine from job records (§35.3),
@@ -4096,11 +4162,15 @@ function fleetFromApi(view) {
     averageJobDays: view?.averageJobDays ?? null,
     monthlyCapacity20ft: view?.monthlyCapacity20ft ?? null,
     monthlyCapacity40ft: view?.monthlyCapacity40ft ?? null,
+    // §21.3.2. Trucks, not chassis — a different and more expensive capacity.
+    vehicles: view?.vehicles ?? [],
+    vehicleClashes: view?.vehicleClashes ?? [],
   };
 }
 
 const EMPTY_FLEET = { inUse: [], available: [], maintenance: [], availability: null,
-  averageJobDays: null, monthlyCapacity20ft: null, monthlyCapacity40ft: null };
+  averageJobDays: null, monthlyCapacity20ft: null, monthlyCapacity40ft: null,
+  vehicles: [], vehicleClashes: [] };
 
 /** §35. Reads the fleet from the server, where its status is derived. */
 function useFleet() {
@@ -4762,6 +4832,14 @@ function ChassisFleet({ fleet, onOpen, onUnit }) {
       <div className="mt-6 grid gap-4 md:grid-cols-3">
         {[{ id: "available", label: "Available", value: fleet.available.length, tone: "text-emerald-800" }, { id: "inUse", label: "Under containers", value: fleet.inUse.length, tone: "text-slate-950" }, { id: "maintenance", label: "Maintenance or inspection", value: fleet.maintenance.length, tone: "text-amber-800" }].map((item) => <button key={item.id} type="button" onClick={() => setView((current) => current === item.id ? "all" : item.id)} aria-pressed={view === item.id} className={`rounded-lg border bg-white p-5 text-left hover:border-[var(--gl-accent)] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${view === item.id ? "border-[var(--gl-accent)] shadow-[inset_0_-3px_0_var(--gl-accent)]" : "border-slate-200"}`}><div className={`text-4xl font-semibold tabular-nums ${item.tone}`}>{item.value}</div><div className="mt-2 flex items-center justify-between gap-3 text-[17px] font-medium text-slate-600"><span>{item.label}</span><ChevronRight className="h-5 w-5 text-[var(--gl-accent)]" /></div></button>)}
       </div>
+
+      {/* §21.3.2. A truck and driver held on standby are not available for
+          other work, and until now nothing said so — the vehicle appeared free
+          and could be double-booked. §21.3: "A chassis under a container at a
+          customer for six days costs us one chassis. A truck and driver held
+          for six hours costs us a truck, a driver, and every other job that
+          vehicle could have run that day." */}
+      <VehiclesEngaged vehicles={fleet.vehicles} clashes={fleet.vehicleClashes} />
 
       {showInUse ? <Panel title="Units under containers" className="mt-7">
         <div className="overflow-x-auto">

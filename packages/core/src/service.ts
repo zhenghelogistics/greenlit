@@ -2,6 +2,8 @@ import type { MandatoryFieldSet } from '@greenlit/engine';
 import type { Repository } from './repository.ts';
 import {
   asNarrative, chassisDays, chassisStatus, describe, fleetAvailability,
+  vehicleOccupancy, doubleBookings,
+  type VehicleEngagement, type DoubleBooking,
   monthlyCapacity, type ChassisStatus, type FleetAvailability,
 } from '@greenlit/engine';
 import { deriveExportJob, deriveImportJob, type AuditEventView, type DerivedJobView } from './derive.ts';
@@ -185,6 +187,17 @@ export class JobService {
       this.#repo.listExportJobs(),
     ]);
 
+    // §21.3.2. Trucks, not chassis. "A chassis under a container at a customer
+    // for six days costs us one chassis. A truck and driver held for six hours
+    // costs us a truck, a driver, and every other job that vehicle could have
+    // run that day." Read across every job, because a truck is engaged by one
+    // job and double-booked by the next — a per-job view could never see it.
+    const movements = await this.#repo.listMovementsForJobs([
+      ...importJobs.map((j) => j.jobId),
+      ...exportJobs.map((j) => j.exportJobId),
+    ]);
+    const vehicles = vehicleOccupancy(movements, now);
+
     const jobNumber = new Map<string, { jobNumber: string; customer: string }>();
     for (const j of importJobs) jobNumber.set(j.jobId, { jobNumber: j.jobNumber, customer: j.customer });
     for (const j of exportJobs) jobNumber.set(j.exportJobId, { jobNumber: j.jobNumber, customer: j.customer });
@@ -216,6 +229,9 @@ export class JobService {
       units: rows,
       availability,
       averageJobDays,
+      vehicles,
+      // §21.3.2: "Otherwise the vehicle appears free and is double-booked."
+      vehicleClashes: doubleBookings(vehicles),
       // §35.6. Occupancy equals job duration, so fleet size sets the ceiling.
       monthlyCapacity20ft: monthlyCapacity(
         units.filter((u) => u.size === '20FT').length, averageJobDays),
@@ -248,6 +264,10 @@ export interface FleetView {
   units: FleetUnitView[];
   availability: FleetAvailability;
   averageJobDays: number;
+  /** §21.3.2. Trucks that are not available for other work, and why. */
+  vehicles: VehicleEngagement[];
+  /** §21.3.2. One truck engaged twice at the same moment. */
+  vehicleClashes: DoubleBooking[];
   monthlyCapacity20ft: number;
   monthlyCapacity40ft: number;
 }
