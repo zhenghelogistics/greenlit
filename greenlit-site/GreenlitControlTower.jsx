@@ -12,14 +12,10 @@ import React, { useEffect, useRef, useState } from "react";
 import { jobFromApi, WAITING_LABEL_API } from "./lib/job-adapter.mjs";
 import {
   AlertCircle,
-  Anchor,
   ArrowLeft,
-  CalendarDays,
-  Check,
   CheckCircle2,
   ChevronRight,
   CircleDot,
-  Container as ContainerIcon,
   FileCheck2,
   FileSearch,
   FileText,
@@ -27,9 +23,6 @@ import {
   LayoutDashboard,
   ListTodo,
   LoaderCircle,
-  MapPin,
-  PackageCheck,
-  PencilLine,
   Plus,
   Save,
   ScanText,
@@ -39,13 +32,12 @@ import {
   Upload,
   Wrench,
   X,
-  XCircle,
   Building2,
   UserRound,
-  Send,
 } from "lucide-react";
 import { groupByCustomer, matchCustomer } from "@greenlit/engine";
 import ZhtDashboard from "./components/ZhtDashboard.jsx";
+import ZhtJobDetail from "./components/ZhtJobDetail.jsx";
 import { addIsoDays, MAX_CONTAINERS_PER_JOB, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
 import { validateContainerCount } from "@greenlit/engine";
 import { reconcileExtraction, toExtractedFields } from "@greenlit/engine";
@@ -1925,14 +1917,6 @@ function readiness(job) {
 }
 
 
-function statusTone(status) {
-  if (["Completed", "Delivered", "Delivered to Port", "Ready for Collection", "Ready for Empty Collection", "Ready for Port Delivery", "Ready for Direct Laden Trip", "Ready for One-Way Loaded Trip"].includes(status)) {
-    return "border-emerald-200 bg-emerald-50 text-emerald-800";
-  }
-  if (["Incomplete", "Empty Delivered", "Carpark Decision Needed", "Delivery Path Needed"].includes(status)) return "border-rose-200 bg-rose-50 text-rose-800";
-  if (["Awaiting VGM", "Awaiting Permit", "Awaiting Customer Stuffing", "Partially Delivered", "Partially Collected"].includes(status)) return "border-amber-200 bg-amber-50 text-amber-800";
-  return "border-slate-200 bg-slate-100 text-slate-700";
-}
 
 function tripStatusTone(trip) {
   if (trip.status === "Pending") return "border-slate-200 bg-slate-100 text-slate-700";
@@ -3002,14 +2986,6 @@ function FreeTimePanel({ container }) {
   );
 }
 
-function DetailField({ label, value, flash = false }) {
-  return (
-    <div className={`min-h-24 border-b border-r border-slate-200 p-4 ${flash ? "greenlit-release-flash" : ""}`}>
-      <div className="gl-label">{label}</div>
-      <div className="mt-2 break-words text-[17px] font-semibold text-slate-900">{value}</div>
-    </div>
-  );
-}
 
 /**
  * §18. The words on screen, and the values the engine knows.
@@ -3458,351 +3434,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
   );
 }
 
-/**
- * §42. The notification, generated from stored job data.
- *
- * The three facts are shown rather than typed: "the notification is generated
- * from stored job data, never retyped by the controller." A controller copying
- * a container number by hand is how a customer ends up sealing the wrong box.
- *
- * Only the recipient is entered, because it varies per booking, and the
- * message reference is offered because §42 stores one — it is what somebody
- * follows when the customer says they never received it.
- */
-function SendContainerDetails({ container, customer, onSend }) {
-  const [sentTo, setSentTo] = useState("");
-  const [reference, setReference] = useState("");
-  const [busy, setBusy] = useState(false);
 
-  const field = "min-h-12 w-full rounded-md border border-[color:var(--gl-line-strong)] bg-white px-3 text-[17px] text-[color:var(--gl-ink)]";
-
-  async function submit(event) {
-    event.preventDefault();
-    setBusy(true);
-    await onSend({ sentTo, reference });
-    setBusy(false);
-  }
-
-  return (
-    <section className="mt-6 rounded-lg border border-sky-200 bg-sky-50 p-5">
-      <h2 className="text-xl font-semibold text-slate-900">Send container details to {customer || "the customer"}</h2>
-      <p className="mt-2 text-[17px] font-normal text-slate-700">
-        Until this is sent the customer does not know which container is theirs
-        and cannot begin stuffing.
-      </p>
-
-      <div className="mt-4 grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-3">
-        {[["Container", container.number], ["Seal", container.seal],
-          ["Tare", container.tare === null || container.tare === undefined ? "—" : `${container.tare} kg`]]
-          .map(([label, value]) => (
-            <div key={label} className="bg-white p-4">
-              <div className="gl-label">{label}</div>
-              <div className="mt-1 text-[17px] font-semibold text-slate-950">{value || "—"}</div>
-            </div>
-          ))}
-      </div>
-
-      <form onSubmit={submit} className="mt-4 grid gap-4">
-        <label className="grid gap-2">
-          <span className="gl-label">Send to</span>
-          <input type="email" required value={sentTo} onChange={(e) => setSentTo(e.target.value)}
-            placeholder="ops@customer.com.sg" className={field} />
-        </label>
-        <label className="grid gap-2">
-          <span className="gl-label">Message reference (optional)</span>
-          <input value={reference} onChange={(e) => setReference(e.target.value)}
-            placeholder="Email subject or message id" className={field} />
-          <span className="gl-caption">What to look for if the customer says it never arrived.</span>
-        </label>
-        <button type="submit" disabled={busy || !sentTo.trim()}
-          className="inline-flex min-h-14 items-center justify-center gap-3 rounded-md bg-[var(--gl-accent)] px-6 py-3 text-[17px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:bg-slate-400">
-          <Send className="h-6 w-6" />{busy ? "Recording…" : "Record details sent"}
-        </button>
-      </form>
-    </section>
-  );
-}
-
-function JobDetail({ job, onBack, onRecordCms, onRecordDetails, onSendDetails, onSetTranshipment, onCarparkDecision, onCarparkAvailable, onManage, onNextAction, onResolveDiscrepancy, highlight }) {
-  const gate = readiness(job);
-  const status = jobStatus(job);
-  const isMoment1 = job.id === "EXP-260819-001";
-  const isMoment2 = job.id === "EXP-260819-002";
-  const isMoment3a = job.id === "EXP-260819-005";
-  const isMoment3b = job.id === "EXP-260815-004";
-  const chassis = job.chassis || [];
-  const containers = jobContainers(job);
-  const completedContainers = job.type === "Import"
-    ? containers.filter((container) => container.state === "Delivered").length
-    : containers.filter((container, index) => ["Completed", "Delivered to Port"].includes(exportContainerStatus(job, container, index))).length;
-
-  return (
-    <main id="main-content" className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
-      <button type="button" onClick={onBack} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[17px] font-semibold text-[var(--gl-accent)] hover:bg-slate-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
-        <ArrowLeft className="h-6 w-6" /> Back
-      </button>
-      {/* Placed directly under the header: a conflict blocks trusting anything
-          below it, so it must be seen before the job's own facts. */}
-      <DiscrepancyReview job={job} onResolve={onResolveDiscrepancy} />
-
-      <header className="mt-5 pb-3">
-        <div className="flex flex-wrap items-start justify-between gap-5">
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-3xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-[2rem]">{job.id}</h1>
-              <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-[15px] font-normal text-slate-600">{job.type}</span>
-            </div>
-            <p className="mt-2 text-xl font-medium text-slate-700">{job.customer}</p>
-            <p className="mt-2 flex items-center gap-2 text-[17px] font-normal text-slate-600"><MapPin className="h-5 w-5" /> {location(job)}</p>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <StatusPill status={status} large flash={highlight === "status"} />
-            <button type="button" onClick={() => onManage("job")} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[17px] font-semibold text-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><PencilLine className="h-5 w-5" />Edit job</button>
-            <button type="button" onClick={() => onManage("activity")} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-[17px] font-semibold text-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><History className="h-5 w-5" />Activity</button>
-          </div>
-        </div>
-      </header>
-
-      {(isMoment1 || isMoment2 || isMoment3a || isMoment3b) ? (
-        <div className="mt-5 flex items-start gap-3 rounded-lg border border-sky-200 bg-sky-50 px-5 py-4 text-[17px] font-medium text-sky-900">
-          <CircleDot className="mt-0.5 h-5 w-5 shrink-0 text-[var(--gl-accent)]" />
-          <span>
-            {isMoment1 ? "Try this: record CMS completed and watch Greenlit create one empty-collection movement per container." : null}
-            {isMoment2 ? "Try this: record the missing container details and watch the exception close." : null}
-            {isMoment3a ? "Try this: answer transhipment and watch the correct second trip appear under this job." : null}
-            {isMoment3b ? "Try this: make transhipment available and watch the third trip appear under this job." : null}
-          </span>
-        </div>
-      ) : null}
-
-      {job.sourceDocument ? (
-        <section className={`mt-5 overflow-hidden rounded-lg border border-emerald-200 bg-white ${highlight === "sourceDocument" ? "greenlit-release-flash" : ""}`} aria-labelledby="source-document-title">
-          <div className="flex flex-col gap-3 bg-emerald-800 px-5 py-4 text-white sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3"><FileCheck2 className="h-6 w-6" aria-hidden="true" /><h2 id="source-document-title" className="text-xl font-semibold">Created from a verified arrival notice</h2></div>
-            <div className="flex flex-wrap items-center gap-3"><span className="inline-flex min-h-11 items-center rounded-full border border-emerald-500 bg-emerald-900/40 px-3 text-[17px] font-semibold">Processed locally</span><button type="button" onClick={() => onManage("source")} className="inline-flex min-h-11 items-center gap-2 rounded-md border border-emerald-300 bg-white px-4 font-semibold text-emerald-900 hover:bg-emerald-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400">View facts <ChevronRight className="h-5 w-5" /></button></div>
-          </div>
-          <div className="grid divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-4">
-            <DetailField label="Source document" value={job.sourceDocument?.fileName} />
-            <DetailField label="Bill of lading" value={job.billOfLading || "Not recorded"} />
-            {job.houseBillOfLading ? (
-              <DetailField label="House bill of lading" value={job.houseBillOfLading} />
-            ) : null}
-            <DetailField label="Vessel / voyage" value={[job.vessel, job.voyage].filter(Boolean).join(" / ") || "Not recorded"} />
-            <DetailField label="Fields applied" value={`${job.sourceDocument?.extractedCount} verified facts`} />
-          </div>
-          <div className="border-t border-amber-200 bg-amber-50 px-5 py-3 text-[17px] font-medium text-amber-950">Free-time dates are planning estimates from ETA until actual discharge and gate events are confirmed.</div>
-        </section>
-      ) : null}
-
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
-        <Panel title="Readiness checkpoint" className={highlight === "readiness" ? "greenlit-release-flash" : ""}>
-          <div className="divide-y divide-slate-200">
-            {gate.rows.map((row) => (
-              <button key={row.label} type="button" onClick={() => onManage("checkpoint", { key: row.key })} className="grid min-h-16 w-full grid-cols-[44px_minmax(0,1fr)_minmax(130px,0.8fr)_24px] items-center gap-3 px-5 py-3 text-left hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600">
-                <span className={`flex h-11 w-9 items-center justify-center rounded-md border ${row.ok ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
-                  {row.ok ? <Check className="h-5 w-5" /> : <X className="h-5 w-5" />}
-                </span>
-                <span className="text-[17px] font-semibold text-slate-900">{row.label}</span>
-                <span className={`font-semibold ${row.ok ? "text-emerald-800" : "text-rose-800"}`}>{row.value}</span>
-                <ChevronRight className="h-5 w-5 text-[var(--gl-accent)]" aria-hidden="true" />
-              </button>
-            ))}
-          </div>
-          <div className={`flex min-h-24 items-center gap-4 px-5 py-5 text-white ${gate.ready ? "bg-emerald-700" : "bg-rose-700"} ${highlight === "verdict" ? "greenlit-release-flash" : ""}`}>
-            {gate.ready ? <CheckCircle2 className="h-8 w-8 shrink-0" /> : <XCircle className="h-8 w-8 shrink-0" />}
-            <div>
-              <div className="text-xl font-semibold">{gate.ready ? "READY" : "BLOCKED"}</div>
-              <div className="mt-1 text-[17px] font-medium">{gate.reason}</div>
-            </div>
-          </div>
-        </Panel>
-
-        <section className="rounded-lg bg-[var(--gl-bg-subtle)] p-6 text-[color:var(--gl-ink)]" aria-label="Next action">
-          <div className="flex items-center gap-3 text-[color:var(--gl-ink-muted)]"><ListTodo className="h-6 w-6" /><h2 className="text-xl font-semibold">Next action</h2></div>
-          <p className={`mt-5 text-3xl font-semibold leading-tight tracking-[-0.02em] ${highlight === "nextAction" ? "greenlit-text-flash" : ""}`}>{nextAction(job)}</p>
-          <div className="mt-6 border-t border-slate-600 pt-5">
-            <div className="font-medium text-[color:var(--gl-ink-faint)]">Why</div>
-            <div className="mt-2 text-[17px] font-medium">{blockingReason(job)}</div>
-          </div>
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <span className="font-medium text-[color:var(--gl-ink-faint)]">Waiting on</span>
-            <WaitingPill owner={job.waitingOn} />
-          </div>
-          <button type="button" onClick={onNextAction} className="mt-6 inline-flex min-h-14 w-full items-center justify-center gap-3 rounded-md bg-white px-6 py-3 text-[17px] font-semibold text-[var(--gl-accent)] hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
-            {status === "Completed" ? <History className="h-5 w-5" /> : <ListTodo className="h-5 w-5" />}{status === "Completed" ? "View activity" : "Do this now"}<ChevronRight className="h-5 w-5" />
-          </button>
-        </section>
-      </div>
-
-      {isMoment2 ? (
-        <div className="mt-6 rounded-lg border border-rose-200 bg-rose-50 px-5 py-5 text-[17px] font-medium leading-relaxed text-rose-900">
-          “Without this rule the trip looks finished, the customer never learns the container number, and stuffing never starts.”
-        </div>
-      ) : null}
-
-      {(isMoment1 && !job.cmsCompleted) ? (
-        <section className="mt-6 rounded-lg border border-sky-200 bg-sky-50 p-5">
-          <h2 className="text-xl font-semibold text-slate-900">Release this checkpoint</h2>
-          <p className="mt-2 text-[17px] font-normal text-slate-700">This records the missing internal checkpoint and creates the permitted trip automatically.</p>
-          <button type="button" onClick={onRecordCms} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[var(--gl-accent)] px-6 py-3 text-[17px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
-            <PackageCheck className="h-6 w-6" /> Record CMS completed
-          </button>
-        </section>
-      ) : null}
-
-      {(isMoment2 && !containers[0]?.number) ? (
-        <section className="mt-6 rounded-lg border border-rose-200 bg-rose-50 p-5">
-          <h2 className="text-xl font-semibold text-rose-900">Open exception: {job.exception?.text ?? "Exception"}</h2>
-          <p className="mt-2 text-[17px] font-normal text-rose-900">Delivered 26 hours ago. Container details must be recorded before this trip can complete.</p>
-          <button type="button" onClick={onRecordDetails} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[var(--gl-accent)] px-6 py-3 text-[17px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
-            <ContainerIcon className="h-6 w-6" /> Record container details
-          </button>
-        </section>
-      ) : null}
-
-      {/* §42. The dead end this closes: the engine raises "Send container
-          details to customer" as the next action, and until now nothing could
-          record that anyone had. A job sat here permanently while the customer
-          waited for a number nobody had sent them.
-
-          The details are read from the job, never retyped — §42 is explicit
-          that the notification is generated from stored data, and a controller
-          copying a container number by hand is the transcription error that
-          makes a customer seal against the wrong box. */}
-      {job.type === "Export" && containers[0]?.number && !job.detailsSent ? (
-        <SendContainerDetails container={containers[0]} customer={job.customer}
-          onSend={onSendDetails} />
-      ) : null}
-
-      {job.type === "Export" && job.detailsSent ? (
-        <section className="mt-6 rounded-lg border border-[color:var(--gl-line)] bg-white p-5">
-          <h2 className="text-xl font-semibold text-slate-900">Container details sent</h2>
-          <p className="mt-2 text-[17px] font-normal text-slate-700">
-            Sent to <strong>{job.detailsSentTo || "—"}</strong>
-            {job.detailsSentBy ? <> by {job.detailsSentBy}</> : null}
-            {job.detailsSentAt ? <> on {formatDay(String(job.detailsSentAt).slice(0, 10))}</> : null}.
-            {job.detailsReference ? <> Reference {job.detailsReference}.</> : null}
-          </p>
-          <p className="gl-caption mt-2">The customer can begin stuffing.</p>
-        </section>
-      ) : null}
-
-      {isMoment3a ? (
-        <section className="mt-6 rounded-lg border border-sky-200 bg-sky-50 p-5">
-          <h2 className="text-xl font-semibold text-slate-900">Set transhipment</h2>
-          <p className="mt-2 text-[17px] font-normal text-slate-700">The answer determines whether the laden container goes directly to port or branches through the company carpark.</p>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button type="button" onClick={() => onSetTranshipment("available")} aria-pressed={job.transhipment === "available"} className={`min-h-14 rounded-md border px-6 py-3 text-[17px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${job.transhipment === "available" ? "border-emerald-700 bg-emerald-700 text-white" : "border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-50"}`}>
-              Available
-            </button>
-            <button type="button" onClick={() => onSetTranshipment("not_available")} aria-pressed={job.transhipment === "not_available"} className={`min-h-14 rounded-md border px-6 py-3 text-[17px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${job.transhipment === "not_available" ? "border-rose-700 bg-rose-700 text-white" : "border-rose-300 bg-white text-rose-800 hover:bg-rose-50"}`}>
-              Not available
-            </button>
-          </div>
-          {job.transhipment === "not_available" && job.carparkRequested == null ? (
-            <div className="mt-5 rounded-md border border-slate-200 bg-white p-5">
-              <div className="text-xl font-semibold text-slate-900">Customer requests carpark?</div>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button type="button" onClick={() => onCarparkDecision(true)} className="min-h-12 rounded-md bg-[var(--gl-accent)] px-6 py-2 text-[17px] font-semibold text-white focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">Yes — use carpark</button>
-                <button type="button" onClick={() => onCarparkDecision(false)} className="min-h-12 rounded-md border border-slate-300 bg-white px-6 py-2 text-[17px] font-semibold text-slate-800 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">No</button>
-              </div>
-            </div>
-          ) : null}
-        </section>
-      ) : null}
-
-      {isMoment3b && job.transhipment !== "available" ? (
-        <section className="mt-6 rounded-lg border border-rose-200 bg-rose-50 p-5">
-          <h2 className="text-xl font-semibold text-rose-900">Day 6 at carpark · chassis 4052 held 9 days</h2>
-          <p className="mt-2 text-[17px] font-normal text-rose-900">Transhipment is still pending, so the container cannot make its final port trip.</p>
-          <button type="button" onClick={onCarparkAvailable} className="mt-5 inline-flex min-h-14 items-center gap-3 rounded-md bg-[var(--gl-accent)] px-6 py-3 text-[17px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">
-            <Anchor className="h-6 w-6" /> Transhipment now available
-          </button>
-        </section>
-      ) : null}
-
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <Panel title="Containers" action={<button type="button" disabled={containers.length >= MAX_CONTAINERS_PER_JOB} onClick={() => onManage("container", { mode: "new" })} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600 disabled:text-slate-600 disabled:no-underline"><Plus className="h-5 w-5" />{containers.length >= MAX_CONTAINERS_PER_JOB ? "20 container limit" : "Add container"}</button>}>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[15px] font-normal text-slate-600" aria-live="polite"><span>{containers.length} / {MAX_CONTAINERS_PER_JOB} containers on this job</span><span>{completedContainers} complete</span></div>
-          <div className="divide-y divide-slate-200">
-            {containers.map((container, index) => {
-              const containerStatus = job.type === "Import" ? container.state : exportContainerStatus(job, container, index);
-              return (
-                <button key={container.ref || container.number || index} type="button" onClick={() => onManage("container", { index })} className="grid min-h-24 w-full gap-3 px-5 py-4 text-left hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                  <span className="min-w-0"><span className="block gl-label">{container.ref || `C${index + 1}`}</span><span className="mt-1 block break-all text-[17px] font-semibold text-slate-950">{container.number || "Identity pending"}</span><span className="mt-1 block text-[15px] font-normal text-slate-600">{job.type === "Import" ? [container.type, container.seal && `Seal ${container.seal}`].filter(Boolean).join(" · ") || "Type and seal not recorded" : [container.sizeType, container.stuffingLocation].filter(Boolean).join(" · ")}</span></span>
-                  <span className="flex items-center justify-between gap-3 sm:justify-end"><span className={`rounded-md border px-3 py-2 font-semibold ${statusTone(containerStatus)}`}>{containerStatus}</span><ChevronRight className="h-5 w-5 text-[var(--gl-accent)]" /></span>
-                </button>
-              );
-            })}
-          </div>
-        </Panel>
-
-        <Panel title="Chassis" action={<button type="button" onClick={() => chassis.length ? onManage("chassis", { unit: chassis[0].unit, size: chassis[0].size, condition: "assigned" }) : onManage("fleet")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><Truck className="h-5 w-5" />{chassis.length ? "Manage chassis" : "Assign chassis"}</button>}>
-          {chassis.length ? (
-            <div className="divide-y divide-slate-200">
-              {chassis.map((item) => (
-                <button key={item.unit} type="button" onClick={() => onManage("chassis", { unit: item.unit, size: item.size, condition: "assigned" })} className="grid min-h-24 w-full grid-cols-[1fr_1fr_1fr_24px] items-center gap-4 px-5 py-4 text-left hover:bg-sky-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-inset focus-visible:outline-sky-600">
-                  <div><div className="font-normal text-slate-600">Unit</div><div className="mt-1 text-2xl font-semibold text-slate-950">{item.unit}</div></div>
-                  <div><div className="font-normal text-slate-600">Size</div><div className="mt-1 text-[17px] font-semibold text-slate-950">{item.size}</div></div>
-                  <div><div className="font-normal text-slate-600">Held</div><div className={`mt-1 text-[17px] font-semibold ${daysHeld(item.heldSince) > 5 ? "text-red-900" : "text-slate-950"}`}>{item.released ? "Released" : `${daysHeld(item.heldSince)} days`}</div></div>
-                  <ChevronRight className="h-5 w-5 text-[var(--gl-accent)]" />
-                </button>
-              ))}
-            </div>
-          ) : <div className="px-5 py-8 text-[17px] font-normal text-slate-600">No chassis assigned yet.</div>}
-        </Panel>
-      </div>
-
-      {job.type === "Import" ? (
-        <>
-          <Panel title="Free time" className="mt-7" action={<button type="button" onClick={() => onManage("freeTime")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><CalendarDays className="h-5 w-5" />Confirm dates</button>}>
-          <div className="p-6">
-            {/*
-              Driven by the engine, not by two hardcoded rows. The old block
-              always showed Demurrage and Detention whatever the carrier
-              issued — which for a combined allowance is the invented deadline
-              §34.3 forbids, shown beside a real one with nothing to tell them
-              apart.
-            */}
-            <FreeTimePanel container={(job.containers ?? [])[0]} />
-            {(job.containers ?? []).length > 1 ? (
-              <p className="gl-caption mt-4">
-                Showing {(job.containers ?? [])[0]?.number || "the first container"}.
-                Each container has its own clocks; open one to see it.
-              </p>
-            ) : null}
-            </div>
-          </Panel>
-
-          {/* §24. Permits sit at job level, beside free time rather than
-              inside a container, because that is where they belong: one
-              permit over several boxes is the ordinary case. Both are inside
-              the import branch — an export job has an export clearance, which
-              is a different document with different rules. */}
-          <PermitPanel jobId={job.id} containers={job.containers ?? []} />
-          <DocumentsPanel jobId={job.id} />
-          <ClosurePanel jobId={job.id} />
-        </>
-      ) : null}
-
-      <Panel title={`Trip history · ${job.trips.length} trip${job.trips.length === 1 ? "" : "s"} under ${job.id}`} className="mt-7" action={<button type="button" onClick={() => onManage("trip")} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[var(--gl-accent)] px-4 font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><Plus className="h-5 w-5" />Add trip</button>}>
-        <TripTable trips={job.trips} flashTripId={highlight?.startsWith("trip:") ? highlight.split(":")[1] : ""} onOpenTrip={(tripId) => onManage("trip", { tripId })} />
-      </Panel>
-
-      {(job.activity || []).length ? (
-        <Panel title="Recent activity" className="mt-7" action={<button type="button" onClick={() => onManage("activity")} className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600"><History className="h-5 w-5" />View full history</button>}>
-          <div className="divide-y divide-slate-200">
-            {job.activity.slice(0, 3).map((item) => <div key={item.id} className="grid gap-2 px-5 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center"><div className="font-semibold text-slate-950">{item.text}</div><div className="gl-label">{item.at} · {item.actor}</div></div>)}
-          </div>
-        </Panel>
-      ) : null}
-
-      <div className="mt-7 rounded-lg border border-slate-200 bg-slate-50 px-5 py-4 text-[17px] font-medium text-slate-700">
-        One job number keeps every trip, container fact, checkpoint and chassis decision together: <span className="font-semibold text-[var(--gl-accent)]">{job.id}</span>.
-      </div>
-    </main>
-  );
-}
 
 /**
  * §21.3.2. Trucks that cannot take other work, and why.
@@ -4685,12 +4317,14 @@ export default function GreenlitControlTower() {
   const [workPanel, setWorkPanel] = useState(null);
   const [screen, setScreen] = useState("dashboard");
   const [returnScreen, setReturnScreen] = useState("actions");
+  /** Which container tab is open on the job detail screen. */
+  const [containerIndex, setContainerIndex] = useState(0);
   const [selectedJobId, setSelectedJobId] = useState(null);
   // Held in the URL, so a reload keeps the filter and the view is shareable.
   const [actionFilter, setActionFilter] = useUrlState("filter", "all");
   const [dashboardFilter, setDashboardFilter] = useState(null);
   const [toast, setToast] = useState("");
-  const [highlight, setHighlight] = useState("");
+  const [, setHighlight] = useState("");
   const [toastTimer, setToastTimer] = useState(null);
   // A company the document names that the master does not have yet.
   const [pendingCompany, setPendingCompany] = useState(null);
@@ -4718,6 +4352,9 @@ export default function GreenlitControlTower() {
     setReturnScreen(screen === "detail" ? "actions" : screen);
     setSelectedJobId(id);
     setScreen("detail");
+    // A new job opens on its first container, not on whichever tab index the
+    // last job happened to leave behind.
+    setContainerIndex(0);
     setHighlight("");
     window.scrollTo({ top: 0, behavior: "smooth" });
 
@@ -4781,38 +4418,6 @@ export default function GreenlitControlTower() {
     setWorkPanel({ type, jobId, ...details });
   }
 
-  function manageNextAction(jobId) {
-    const job = jobs.find((item) => item.id === jobId);
-    if (!job) return;
-    const status = jobStatus(job);
-    const exportTargetIndex = job.type === "Export" ? Math.max(0, jobContainers(job).findIndex((container, index) => exportContainerStatus(job, container, index) === status)) : 0;
-    if (status === "Completed") return manageJob(jobId, "activity");
-    if (status === "Incomplete") return manageJob(jobId, "job");
-    if (status === "Awaiting CMS") return manageJob(jobId, "checkpoint", { key: "cmsCompleted" });
-    if (["Empty Delivered", "Awaiting VGM", "Awaiting Container Details Notification", "Awaiting Customer Stuffing"].includes(status)) return manageJob(jobId, "container", { index: exportTargetIndex });
-    if (status === "Awaiting T/T") return manageJob(jobId, "checkpoint", { key: "transhipment" });
-    if (["Carpark Decision Needed", "Delivery Path Needed"].includes(status)) return manageJob(jobId, "checkpoint", { key: "deliveryPath" });
-    if (status === "Awaiting Permit") return manageJob(jobId, "checkpoint", { key: "permitReceived" });
-    if (status === "Awaiting Portnet") return manageJob(jobId, "checkpoint", { key: "portnetReleased" });
-    if (["Partially Delivered", "Partially Collected"].includes(status)) return manageJob(jobId, "container", { index: job.type === "Import" ? Math.max(0, job.containers.findIndex((container) => container.state !== "Delivered")) : Math.max(0, jobContainers(job).findIndex((container, index) => !["Completed", "Delivered to Port"].includes(exportContainerStatus(job, container, index)))) });
-    if (["Empty Collected", "Empty Collection Scheduled", "Transport Assigned"].includes(status)) {
-      const trip = [...job.trips].reverse().find((item) => item.status !== "Completed" && item.status !== "Cancelled");
-      return manageJob(jobId, "trip", { tripId: trip?.id });
-    }
-    if (status === "Empty Return Pending") {
-      const trip = [...job.trips].reverse().find((item) => item.type === "Empty Return" && item.status !== "Completed" && item.status !== "Cancelled");
-      return manageJob(jobId, "trip", { tripId: trip?.id });
-    }
-    if (status === "Delivered to Port" && (job.chassis || []).some((item) => !item.released)) {
-      const chassis = job.chassis.find((item) => !item.released);
-      return manageJob(jobId, "chassis", { unit: chassis.unit, size: chassis.size, condition: "assigned" });
-    }
-    if (status === "Delivered to Port") {
-      const trip = [...job.trips].reverse().find((item) => ["Direct Laden to Port", "Carpark to Port"].includes(item.type));
-      return manageJob(jobId, "trip", { tripId: trip?.id });
-    }
-    return manageJob(jobId, "trip");
-  }
 
   function commitOperationalPanel(panel, draft) {
     if (panel.type === "chassis" && panel.condition === "maintenance") {
@@ -5165,30 +4770,7 @@ export default function GreenlitControlTower() {
         : "Transhipment unavailable. Check whether the customer wants the carpark.");
   }
 
-  /**
-   * §21. The two carpark decisions.
-   *
-   * Both of these rewrote a job in React state, and both addressed a hardcoded
-   * fixture id — "EXP-260819-005" and "EXP-260815-004" — so against real data
-   * they silently did nothing: updateJob on an id that is not there changes
-   * nothing and reports success.
-   *
-   * Transhipment already had a command that persists, so this calls it on the
-   * job actually open rather than duplicating it against a constant.
-   */
-  async function carparkAvailable() {
-    await setTranshipment("available");
-  }
 
-  /**
-   * Whether the container goes via the carpark.
-   *
-   * §21 has no command behind this yet. Saying so beats a toast claiming a
-   * save that nothing performed, which is what it did before.
-   */
-  function carparkDecision() {
-    showToast("Recording the carpark decision is not built yet.");
-  }
 
 
   async function resolveDiscrepancy(discrepancy, choice) {
@@ -5555,19 +5137,32 @@ export default function GreenlitControlTower() {
       ) : null}
       {screen === "fleet" ? <ChassisFleet fleet={fleet} onOpen={openJob} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
       {screen === "detail" && selectedJob ? (
-        <JobDetail
+        <ZhtJobDetail
           job={selectedJob}
+          containerIndex={containerIndex}
+          onSelectContainer={setContainerIndex}
           onBack={() => goTo(returnScreen)}
           onRecordCms={recordCms}
           onRecordDetails={recordDetails}
           onSendDetails={sendContainerDetails}
           onSetTranshipment={setTranshipment}
-          onCarparkDecision={carparkDecision}
-          onCarparkAvailable={carparkAvailable}
           onManage={(type, details) => manageJob(selectedJob.id, type, details)}
-          onNextAction={() => manageNextAction(selectedJob.id)}
-          onResolveDiscrepancy={resolveDiscrepancy}
-          highlight={highlight}
+          /* The panels that carry capability his demo has no card for —
+             permits, documents, free time and the charge estimate, closure,
+             and §12 discrepancies. Passed in rather than rebuilt so nothing
+             built already becomes unreachable behind the new screen. They are
+             still in our styling; restyling them into his language is the
+             next pass, not a reason to drop them now. */
+          extras={(
+            <>
+              <PermitPanel job={selectedJob} onManage={(type, details) => manageJob(selectedJob.id, type, details)} />
+              <FreeTimePanel container={(selectedJob.containers ?? [])[containerIndex] ?? (selectedJob.containers ?? [])[0]} />
+              <DocumentsPanel job={selectedJob} />
+              <TripTable job={selectedJob} />
+              <DiscrepancyReview job={selectedJob} onResolve={resolveDiscrepancy} />
+              <ClosurePanel job={selectedJob} onManage={(type, details) => manageJob(selectedJob.id, type, details)} />
+            </>
+          )}
         />
       ) : null}
 

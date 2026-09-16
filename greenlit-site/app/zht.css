@@ -2503,3 +2503,23 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   font: inherit;
   cursor: pointer;
 }
+
+/* His read-only field grids use `<label>` for text that labels nothing —
+   there is no control beside it, only a value. Rendered as a span so the
+   markup says what it means, and given his label's exact appearance. */
+.zht .field > .field-label {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+/* His container tabs are clickable divs. Rendered as buttons so a keyboard can
+   reach them, reset to his tab's appearance. */
+.zht button.tab {
+  appearance: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}

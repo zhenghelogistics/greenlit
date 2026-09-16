@@ -31,11 +31,12 @@ test("server-renders the Greenlit control tower", async () => {
 });
 
 test("ships the document-intake contract", async () => {
-  const [component, reader, parser, layout] = await Promise.all([
+  const [component, reader, parser, layout, jobDetail] = await Promise.all([
     readFile(new URL("../GreenlitControlTower.jsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/read-pdf.mjs", import.meta.url), "utf8"),
     readFile(new URL("../lib/arrival-notice-parser.mjs", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/ZhtJobDetail.jsx", import.meta.url), "utf8"),
   ]);
 
   // Intake posts the document to /api/extract, which is what lets it read a
@@ -50,15 +51,26 @@ test("ships the document-intake contract", async () => {
   assert.match(component, /Apply to control tower/);
   assert.match(component, /Planning dates require confirmation/);
   assert.match(component, /Choose documents/);
-  assert.match(component, /20 container limit/);
-  assert.match(component, /Add container/);
-  assert.match(component, /Container identity/);
+  // §29. The cap moved to the ported job detail screen with the container
+  // tabs; it is asserted where it now lives rather than deleted, because the
+  // thing worth guarding is that the limit is still shown to a person.
+  assert.match(jobDetail, /container limit/);
+  assert.match(jobDetail, /MAX_CONTAINERS_PER_JOB/,
+    "the cap must come from the engine, not be retyped as a literal");
   assert.match(component, /containerDrafts/);
-  assert.match(component, /Do this now/);
   assert.match(component, /Save and recalculate/);
-  assert.match(component, /Manage container/);
-  assert.match(component, /Add trip/);
-  assert.match(component, /Job activity/);
+
+  // The job detail copy these used to assert belonged to the screen the PM's
+  // markup replaced, and asserting his words against our old file is how a
+  // test starts failing for a rename rather than a regression. What is worth
+  // pinning is that the screen still reaches each capability, so each one is
+  // asserted where it now lives and in his wording.
+  assert.match(jobDetail, /Add Container/);
+  assert.match(jobDetail, /Edit Container/);
+  assert.match(jobDetail, /Movements/);
+  assert.match(jobDetail, /Job Activity Log/);
+  assert.match(jobDetail, /nextAction/,
+    "§31: the next action is read from the engine, never decided on the screen");
   assert.match(reader, /15 \* 1024 \* 1024/);
   assert.match(reader, /pdfjs-dist\/legacy\/build\/pdf\.mjs/);
   assert.match(reader, /pdfjs-dist\/legacy\/build\/pdf\.worker\.min\.mjs/);

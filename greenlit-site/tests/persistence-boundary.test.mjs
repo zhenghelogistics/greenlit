@@ -20,16 +20,6 @@ import { readFile } from "node:fs/promises";
 const ui = await readFile("GreenlitControlTower.jsx", "utf8");
 const actions = await readFile("lib/operations-actions.mjs", "utf8");
 
-/** The body of a named function in the UI file, up to the next one. */
-function bodyOf(name) {
-  const start = ui.indexOf(`function ${name}(`);
-  if (start === -1) return null;
-  const next = ui.indexOf("\n  function ", start + 10);
-  const nextAsync = ui.indexOf("\n  async function ", start + 10);
-  const end = Math.min(...[next, nextAsync].filter((x) => x > 0), ui.length);
-  return ui.slice(start, end);
-}
-
 test("every drawer panel that saves reaches the server", () => {
   // A panel that commits by rewriting React state and returning is the exact
   // shape of the bug.
@@ -47,12 +37,18 @@ test("every drawer panel that saves reaches the server", () => {
 test("no handler addresses a hardcoded fixture job", () => {
   // Both carpark handlers called updateJob("EXP-260819-005", …). On real data
   // updateJob on an id that is not there changes nothing and reports success.
-  for (const name of ["carparkAvailable", "carparkDecision"]) {
-    const body = bodyOf(name);
-    assert.ok(body, `${name} should exist`);
-    assert.doesNotMatch(body, /updateJob\(\s*"/,
-      `${name} must act on the open job, not on a fixture id`);
-  }
+  //
+  // This named those two handlers, and they are gone with the old job detail
+  // screen — the carpark decision is made through setTranshipment now. Naming
+  // them meant the guard failed when they were removed, which is the wrong
+  // signal: their disappearance is not the regression it exists to catch.
+  //
+  // So it asserts the property over the whole file instead. Nothing anywhere
+  // may call updateJob with a literal id, which is what the bug actually was
+  // and is true however the handlers are named next.
+  const offenders = [...ui.matchAll(/updateJob\(\s*"([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(offenders, [],
+    "a handler acting on a fixture id changes nothing on real data and reports success");
 });
 
 test("the local-only job and checkpoint mutators are gone, not merely unused", () => {

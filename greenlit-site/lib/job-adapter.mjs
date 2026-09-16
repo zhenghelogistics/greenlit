@@ -140,6 +140,13 @@ export function jobFromApi(view) {
       origin: m.origin,
       destination: m.destination,
       plannedDate: m.plannedDate,
+      plannedTime: m.plannedTime,
+      // §21.3 and the movements panel. Who is actually doing this trip — the
+      // demo's movement row names all three, and without them it reads as a
+      // route with nobody on it.
+      truck: m.truck,
+      driver: m.driver,
+      chassisId: m.chassisId,
       autoCreated: m.autoCreated,
     })),
     // The engine's answers. The accessors above read these and never recompute.
