@@ -39,6 +39,9 @@ const EXPORT_CASES: Record<string, Partial<ExportCtx>> = {
   EXP_SEND_DETAILS: { detailsSent: false },
   EXP_ARRANGE_EMPTY: { emptyGatePassed: true, emptyScheduled: false, emptyCollected: false },
   EXP_CHECK_TRANSHIPMENT: { transhipmentStatus: 'PENDING' },
+  // §11.2. Ready for the port with no declaration behind the box — which is
+  // otherwise discovered at the gate, with the container on the truck.
+  EXP_OBTAIN_CLEARANCE: { ladenGatePassed: true, hasExportClearance: false },
   EXP_ARRANGE_LADEN: { ladenGatePassed: true, hasLadenMovement: false },
   EXP_ARRANGE_ONE_WAY: {
     ladenGatePassed: true, transhipmentStatus: 'NOT_AVAILABLE',

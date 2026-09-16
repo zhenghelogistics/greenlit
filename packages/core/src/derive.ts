@@ -26,7 +26,14 @@ function emptyReturnedOn(movements: readonly Movement[]): string | null {
 /** What a screen or an API consumer receives. Every field here is computed. */
 export interface DerivedContainerView {
   containerId: string;
-  reference: string;
+  /**
+   * What a screen calls this container.
+   *
+   * The number once it is known; null before the arrival notice arrives, which
+   * is when a job is often opened. A screen shows the container's position on
+   * the job until then.
+   */
+  reference: string | null;
   containerNumber: string | null;
   status: ImportContainerStatus | ExportJobStatus;
   location: ContainerLocation;
@@ -198,6 +205,9 @@ export function buildExportCtx(
       ? daysBetween(container.carparkArrivedAt.slice(0, 10), now.slice(0, 10)) : 0,
     carparkDwellThreshold: thresholds.carparkDwellDays,
     ladenGatePassed: laden.passed,
+    // §11.2. The declaration behind the box. Absent, the next action is to get
+    // one — before the truck is at the gate rather than after.
+    hasExportClearance: Boolean(job.exportClearanceReference),
     hasLadenMovement: own.some((m) =>
       ['DIRECT_LADEN_TO_PORT', 'ONE_WAY_LOADED', 'CARPARK_TO_PORT'].includes(m.movementType)
       && m.movementStatus !== 'CANCELLED'),

@@ -15,6 +15,7 @@ export const importBase: ImportCtx = {
 };
 
 export const exportBase: ExportCtx = {
+  hasExportClearance: true,
   mandatoryComplete: true, missingFields: [],
   cmsRequired: false, cmsCompleted: true,
   emptyGatePassed: false, emptyScheduled: true, emptyOverdue: false,

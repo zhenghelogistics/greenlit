@@ -721,6 +721,93 @@ export function createMemoryRepository(): Repository {
         { field: 'containerNumber', from: gone?.containerNumber ?? null, to: null });
     },
 
+    async recordExportClearance(jobId, reference, actor) {
+      const job = exportJobs.find((j) => j.exportJobId === jobId);
+      if (!job) throw new Error(`Unknown job ${jobId}`);
+      if (!reference.trim()) throw new Error('An export clearance needs its reference');
+
+      const fields = job as unknown as Record<string, unknown>;
+      const from = fields.exportClearanceReference ?? null;
+      fields.exportClearanceReference = reference.trim().toUpperCase();
+      record(jobId, 'export.clearance.recorded', actor,
+        { field: 'exportClearanceReference', from, to: fields.exportClearanceReference });
+    },
+
+    async addExportContainer(jobId, draft, actor) {
+      const onJob = exportContainers[jobId] ?? [];
+      validateContainerCount(onJob.length + 1);
+
+      // §46. A slot is referenced C1, C2 within the job until identity is
+      // captured at collection.
+      //
+      // Unlike a movement reference, this one is reused after a release. A
+      // cancelled movement was planned, may have been given to a driver and
+      // sits in the history, so MOV-002 must never mean two things. A slot
+      // released before collection never became a container and never left
+      // this screen — so C3 becoming free again costs nothing, and a
+      // high-water mark to prevent it would be machinery for a problem nobody
+      // has.
+      const highest = onJob.reduce((best, c) => {
+        const n = Number(String(c.containerRef).replace(/\D/g, '') || 0);
+        return Math.max(best, n);
+      }, 0);
+
+      const container = {
+        exportContainerId: `${jobId}-c${highest + 1}`,
+        exportJobId: jobId,
+        containerRef: `C${highest + 1}`,
+        containerNumber: null,
+        sealNumber: null,
+        tareWeightKg: null,
+        sizeType: draft.sizeType,
+        isReefer: draft.isReefer ?? false,
+        temperatureMode: draft.temperatureMode ?? null,
+        temperatureSetpointC: draft.temperatureSetpointC ?? null,
+        stuffingLocation: draft.stuffingLocation ?? null,
+        containerDetailsSent: false, containerDetailsSentAt: null,
+        containerReady: false, containerReadyAt: null,
+        vgm: null, vgmReceivedAt: null,
+      } as unknown as ExportContainer;
+
+      (exportContainers[jobId] ??= []).push(container);
+      record(jobId, 'export.container.added', actor,
+        { field: 'containerRef', from: null, to: container.containerRef });
+      return clone(container);
+    },
+
+    async amendExportContainer(exportContainerId, changes, actor) {
+      const container = Object.values(exportContainers).flat()
+        .find((c) => c.exportContainerId === exportContainerId);
+      if (!container) throw new Error(`Unknown container ${exportContainerId}`);
+
+      const fields = container as unknown as Record<string, unknown>;
+      for (const [field, to] of Object.entries(changes)) {
+        if (to === undefined) continue;
+        const from = fields[field] ?? null;
+        if (String(from ?? '') === String(to ?? '')) continue;
+        fields[field] = to;
+        record(container.exportJobId, 'export.container.amended', actor, { field, from, to });
+      }
+    },
+
+    async removeExportContainer(exportContainerId, actor) {
+      const jobId = Object.keys(exportContainers).find((id) =>
+        (exportContainers[id] ?? []).some((c) => c.exportContainerId === exportContainerId));
+      if (!jobId) throw new Error(`Unknown container ${exportContainerId}`);
+
+      // Refused once the box has been collected: by then it is a real
+      // container doing real work, not a slot on a booking.
+      const list = exportContainers[jobId]!;
+      const container = list.find((c) => c.exportContainerId === exportContainerId)!;
+      if (container.containerNumber) {
+        throw new Error('That container has been collected and cannot be removed from the booking');
+      }
+
+      list.splice(list.indexOf(container), 1);
+      record(jobId, 'export.container.removed', actor,
+        { field: 'containerRef', from: container.containerRef, to: null });
+    },
+
     async createMovement(draft, actor) {
       // §18. MOV-NNN, unique within the job and never reused after a
       // cancellation — so the next number comes from the highest ever issued,

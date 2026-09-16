@@ -23,6 +23,8 @@ export interface ExportCtx {
   carparkDwellDays: number;
   carparkDwellThreshold: number;
   ladenGatePassed: boolean;
+  /** §11.2. The Portnet export declaration reference, once obtained. */
+  hasExportClearance: boolean;
   hasLadenMovement: boolean;
   movementOverdue: boolean;
   vesselClosingAtRisk: boolean;
@@ -102,6 +104,25 @@ export const EXPORT_RULES: readonly Rule<ExportCtx>[] = [
     action: 'Check transhipment',
     waitingOn: 'US',
     reason: () => 'VGM received, transhipment availability not yet established',
+  },
+  {
+    /**
+     * §11.2. No export declaration, and the box is ready to go to the port.
+     *
+     * Twenty export rules and not one of them mentioned the clearance, so a
+     * container could be planned to PSA with no declaration behind it — which
+     * is discovered at the gate, with the box on the truck.
+     *
+     * It warns rather than blocks, for the reason §44.2.1 gives about Portnet:
+     * the condition is outside our control, and a gate that is routinely
+     * overridden teaches people to ignore every other gate.
+     */
+    id: 'EXP_OBTAIN_CLEARANCE',
+    precedence: PRECEDENCE.INTERNAL_BLOCKER,
+    when: (c) => c.ladenGatePassed && !c.hasExportClearance,
+    action: 'Obtain the export declaration',
+    waitingOn: 'US',
+    reason: () => 'Ready for the port with no export clearance reference recorded',
   },
   {
     id: 'EXP_ARRANGE_LADEN',

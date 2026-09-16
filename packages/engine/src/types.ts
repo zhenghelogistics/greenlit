@@ -55,7 +55,16 @@ export interface Movement {
 /** §29. Import container. A job may hold one or many. */
 export interface ImportContainer {
   containerId: string;
-  containerNumber: string;
+  /**
+   * §39. Null until the arrival notice arrives.
+   *
+   * A job is opened when the customer calls and the notice follows, so the
+   * container row exists before its number does. The type said `string`, the
+   * in-memory adapter produced null, and the database refused it — three
+   * answers to one question, and the design was the one the type disagreed
+   * with.
+   */
+  containerNumber: string | null;
   jobId: string;
   containerSize: string;
   containerType: string;

@@ -310,6 +310,72 @@ export function runRepositoryContract(
     assert.deepEqual(ids(c), ids(a));
   });
 
+  test(`[${name}] §46: a booking's containers can change after it is taken`, async () => {
+    // A booking is for a number of boxes and that number changes: the shipper
+    // finds another pallet, or a slot is released. Import had these three
+    // commands and export did not.
+    const repo = await fresh();
+    const before = (await repo.listContainersForExportJob(seeded.exportJobId)).length;
+
+    const added = await repo.addExportContainer(seeded.exportJobId,
+      { sizeType: "40'HC", stuffingLocation: '8 Tuas Ave 10' }, 'Max Ng');
+
+    assert.match(added.containerRef, /^C\d+$/);
+    assert.equal(added.containerNumber, null, 'a slot before it is a container');
+    assert.equal(added.sizeType, "40'HC");
+    assert.equal((await repo.listContainersForExportJob(seeded.exportJobId)).length, before + 1);
+  });
+
+  test(`[${name}] §46: a released slot can be removed, a collected box cannot`, async () => {
+    const repo = await fresh();
+    const slot = await repo.addExportContainer(seeded.exportJobId, { sizeType: "20'GP" }, 'tester');
+    await repo.removeExportContainer(slot.exportContainerId, 'tester');
+
+    const collected = (await repo.listContainersForExportJob(seeded.exportJobId))
+      .find((c) => c.containerNumber !== null);
+    if (collected) {
+      // By then it is a real container doing real work, not a slot.
+      await assert.rejects(
+        () => repo.removeExportContainer(collected.exportContainerId, 'tester'),
+        /collected and cannot be removed/);
+    }
+  });
+
+  test(`[${name}] §46: a released slot's reference becomes free again`, async () => {
+    // Deliberately unlike a movement reference. A cancelled movement was
+    // planned and may have been given to a driver, so MOV-002 must never mean
+    // two things. A slot released before collection never became a container
+    // and never left the booking screen, so C3 becoming free costs nothing —
+    // and a high-water mark to prevent it would be machinery for a problem
+    // nobody has.
+    const repo = await fresh();
+    const first = await repo.addExportContainer(seeded.exportJobId, { sizeType: "20'GP" }, 'tester');
+    await repo.removeExportContainer(first.exportContainerId, 'tester');
+    const second = await repo.addExportContainer(seeded.exportJobId, { sizeType: "20'GP" }, 'tester');
+    assert.equal(second.containerRef, first.containerRef);
+  });
+
+  test(`[${name}] §11.2: the export declaration is recorded as its own event`, async () => {
+    // Twenty export rules and not one mentioned the clearance, so a container
+    // could be planned to the port with no declaration behind it — discovered
+    // at the gate, with the box on the truck.
+    const repo = await fresh();
+    await repo.recordExportClearance(seeded.exportJobId, ' me1a123456b ', 'Winnie Ong');
+
+    const job = await repo.getExportJob(seeded.exportJobId);
+    assert.equal(job?.exportClearanceReference, 'ME1A123456B', 'stored in one shape');
+
+    const trail = await repo.listAuditEvents(seeded.exportJobId);
+    assert.equal(trail.at(-1)?.actor, 'Winnie Ong');
+  });
+
+  test(`[${name}] §11.2: a clearance with no reference is refused`, async () => {
+    const repo = await fresh();
+    await assert.rejects(
+      () => repo.recordExportClearance(seeded.exportJobId, '   ', 'tester'),
+      /needs its reference/);
+  });
+
   test(`[${name}] §10: a document is kept, not read and discarded`, async () => {
     // Extraction records which page and line every value came from and then
     // threw the file away, so a controller in a demurrage dispute had a quote

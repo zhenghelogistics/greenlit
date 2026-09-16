@@ -64,6 +64,36 @@ export interface Repository {
    */
   removeContainerFromJob(containerId: string, actor: string): Promise<void>;
 
+  // ---- §46. Containers on an existing export job ----------------------------
+  //
+  // A booking is for a number of boxes and that number changes: the shipper
+  // finds another pallet, or one slot is released. The same three commands
+  // import has, because the reason is the same — a booking is not fixed at the
+  // moment it is taken.
+  //
+  // Separate from the import methods because an export container is a
+  // different record: it exists as a slot before it has a number, and its
+  // identity is captured at collection (§39).
+  /**
+   * §11.2. Record the Portnet export declaration for this shipment.
+   *
+   * One per booking, not per container: the declaration covers the shipment.
+   * Separate from amendJob, which would let it be typed in like any other
+   * field — this is the moment the box becomes allowed into the port, and it
+   * is worth an event of its own on the trail.
+   */
+  recordExportClearance(
+    jobId: string, reference: string, actor: string,
+  ): Promise<void>;
+
+  addExportContainer(
+    jobId: string, draft: ExportContainerDraft, actor: string,
+  ): Promise<ExportContainer>;
+  amendExportContainer(
+    exportContainerId: string, changes: ExportContainerAmendment, actor: string,
+  ): Promise<void>;
+  removeExportContainer(exportContainerId: string, actor: string): Promise<void>;
+
   createMovement(draft: MovementDraft, actor: string): Promise<Movement>;
   /** §19. When it is planned for, and who is driving. */
   scheduleMovement(
@@ -394,6 +424,24 @@ export interface DateAmendmentInput {
  * Only the identity: everything else about a container is either derived or
  * recorded later by a person against a named event.
  */
+/** §46. A slot on an export booking, before it is a container. */
+export interface ExportContainerDraft {
+  sizeType: string;
+  stuffingLocation?: string | null;
+  isReefer?: boolean;
+  temperatureMode?: string | null;
+  temperatureSetpointC?: number | null;
+}
+
+/** §46. What may be corrected on an export container. */
+export interface ExportContainerAmendment {
+  sizeType?: string;
+  stuffingLocation?: string | null;
+  isReefer?: boolean;
+  temperatureMode?: string | null;
+  temperatureSetpointC?: number | null;
+}
+
 /** §29. What may be corrected on a container. */
 export interface ContainerAmendment {
   containerNumber?: string | null;

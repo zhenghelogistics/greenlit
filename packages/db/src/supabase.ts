@@ -457,6 +457,101 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         { field: 'containerNumber', from: found.data.container_number as string, to: null });
     },
 
+    async recordExportClearance(jobId, reference, actor) {
+      if (!reference.trim()) throw new Error('An export clearance needs its reference');
+      const found = await db.from('export_jobs').select('export_clearance_reference')
+        .eq('export_job_id', jobId).maybeSingle();
+      if (found.error) throw new Error(`job lookup: ${found.error.message}`);
+      if (!found.data) throw new Error(`Unknown job ${jobId}`);
+
+      const to = reference.trim().toUpperCase();
+      unwrap(await db.from('export_jobs').update({ export_clearance_reference: to })
+        .eq('export_job_id', jobId).select().single(), 'record export clearance');
+      await record(jobId, 'export.clearance.recorded', actor, {
+        field: 'exportClearanceReference',
+        from: found.data.export_clearance_reference ?? null,
+        to,
+      });
+    },
+
+    async addExportContainer(jobId, draft, actor) {
+      const onJob = rows(
+        await db.from('export_containers').select('container_ref').eq('export_job_id', jobId),
+        'export containers',
+      );
+      validateContainerCount(onJob.length + 1);
+
+      // §46. C1, C2 within the job. Reused after a release, unlike a movement
+      // reference: a slot released before collection never became a container
+      // and never left this screen, whereas a cancelled movement was planned
+      // and may have been given to a driver.
+      const highest = onJob.reduce((best, r) => {
+        const n = Number(String(r.container_ref).replace(/\D/g, '') || 0);
+        return Math.max(best, n);
+      }, 0);
+      const ref = `C${highest + 1}`;
+
+      const row = unwrap(await db.from('export_containers').insert({
+        export_container_id: `${jobId}-c${highest + 1}`,
+        export_job_id: jobId,
+        container_ref: ref,
+        size_type: draft.sizeType,
+        is_reefer: draft.isReefer ?? false,
+        temperature_mode: draft.temperatureMode ?? null,
+        temperature_setpoint_c: draft.temperatureSetpointC ?? null,
+        stuffing_location: draft.stuffingLocation ?? null,
+      }).select().single(), 'add export container') as Record<string, unknown>;
+
+      await record(jobId, 'export.container.added', actor,
+        { field: 'containerRef', from: null, to: ref });
+      return toExportContainer(row);
+    },
+
+    async amendExportContainer(exportContainerId, changes, actor) {
+      const found = await db.from('export_containers').select('*')
+        .eq('export_container_id', exportContainerId).maybeSingle();
+      if (found.error) throw new Error(`container lookup: ${found.error.message}`);
+      if (!found.data) throw new Error(`Unknown container ${exportContainerId}`);
+
+      const before = found.data as Record<string, unknown>;
+      const patch: Record<string, unknown> = {};
+      const changed: Array<{ field: string; from: unknown; to: unknown }> = [];
+      for (const [field, to] of Object.entries(changes)) {
+        if (to === undefined) continue;
+        const column = camelToSnake(field);
+        const from = before[column] ?? null;
+        if (String(from ?? '') === String(to ?? '')) continue;
+        patch[column] = to;
+        changed.push({ field, from, to });
+      }
+      if (changed.length === 0) return;
+
+      unwrap(await db.from('export_containers').update(patch)
+        .eq('export_container_id', exportContainerId).select().single(), 'amend export container');
+      for (const c of changed) {
+        await record(before.export_job_id as string, 'export.container.amended', actor, c);
+      }
+    },
+
+    async removeExportContainer(exportContainerId, actor) {
+      const found = await db.from('export_containers')
+        .select('export_job_id,container_ref,container_number')
+        .eq('export_container_id', exportContainerId).maybeSingle();
+      if (found.error) throw new Error(`container lookup: ${found.error.message}`);
+      if (!found.data) throw new Error(`Unknown container ${exportContainerId}`);
+
+      // Refused once the box has been collected: by then it is a real
+      // container doing real work, not a slot on a booking.
+      if (found.data.container_number) {
+        throw new Error('That container has been collected and cannot be removed from the booking');
+      }
+
+      unwrap(await db.from('export_containers').delete()
+        .eq('export_container_id', exportContainerId).select().single(), 'remove export container');
+      await record(found.data.export_job_id as string, 'export.container.removed', actor,
+        { field: 'containerRef', from: found.data.container_ref as string, to: null });
+    },
+
     async createMovement(draft, actor) {
       const job = await this.getImportJob(draft.jobId)
         ?? await this.getExportJob(draft.jobId);
