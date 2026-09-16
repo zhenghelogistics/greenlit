@@ -2523,3 +2523,66 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   text-align: left;
   cursor: pointer;
 }
+
+/* ------------------------------------------------------------------
+   Our panels, wearing his card.
+
+   Permits, documents, free time and the charge estimate, closure and the §12
+   discrepancy review have no equivalent card in his demo, so they are ours
+   and they render inside his job detail screen. Rewriting them to his markup
+   would mean rewriting six components that fetch and mutate, and the risk
+   there is losing behaviour, not losing styling.
+
+   So the presentation is mapped instead. These rules only apply inside
+   `.zht`, so the same components would look unchanged anywhere else.
+   ------------------------------------------------------------------ */
+
+/* Panel's outer <section> and its header row, as one of his cards. */
+.zht section.rounded-lg {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: none;
+  margin-bottom: 14px;
+}
+.zht section.rounded-lg > div:first-child {
+  background: transparent;
+  border-bottom: 1px solid var(--line);
+  padding: 12px 14px;
+  min-height: 0;
+}
+.zht section.rounded-lg > div:first-child h2 {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+/* His type ramp, applied to ours. */
+.zht .gl-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.zht .gl-caption { font-size: 11px; color: var(--muted); }
+.zht .gl-body, .zht .gl-body-plain { font-size: 13px; color: var(--text); }
+.zht .gl-metric { font-size: 24px; line-height: 1.1; color: var(--text); }
+
+/* Links and inline actions take his blue rather than our accent. */
+.zht .text-\[color\:var\(--gl-accent\)\],
+.zht .text-\[var\(--gl-accent\)\] { color: var(--blue); }
+
+/* Our primary buttons, as his .btn.primary. */
+.zht .bg-\[var\(--gl-accent\)\],
+.zht .bg-\[color\:var\(--gl-accent\)\] {
+  background: var(--blue);
+  border-radius: 8px;
+  font-size: 13px;
+  min-height: 34px;
+}
+
+/* Tighten our generous padding to his density. */
+.zht .p-6 { padding: 14px; }
+.zht .p-5 { padding: 12px; }

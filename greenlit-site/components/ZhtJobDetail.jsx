@@ -317,7 +317,10 @@ export default function ZhtJobDetail({
                 </div>
               </div>
 
-              {extras ? <div className="card" style={{ marginBottom: 18 }}>{extras}</div> : null}
+              {/* Each of these renders its own <section>, which the ported stylesheet
+                  now draws as one of his cards — so they sit as siblings here
+                  rather than nested inside another card. */}
+              {extras}
 
               <div className="card job-log-card">
                 <div className="job-log-head">
