@@ -3935,7 +3935,8 @@ export default function GreenlitControlTower() {
       // wrote nothing down — and containers carry the free-time clocks, so
       // what vanished on reload was the deadline.
       const base = `/api/jobs/${encodeURIComponent(targetJobId)}/containers`;
-      const existing = jobContainers(jobs.find((j) => j.id === targetJobId) ?? {})[panel.index || 0];
+      const openJobRecord = jobs.find((j) => j.id === targetJobId) ?? {};
+      const existing = jobContainers(openJobRecord)[panel.index || 0];
 
       void (async () => {
         const request = draft._delete
@@ -3970,6 +3971,38 @@ export default function GreenlitControlTower() {
           return;
         }
         setWorkPanel(null);
+        /**
+         * §43. Container ready and VGM have their own commands.
+         *
+         * The drawer has shown both — a "customer confirms container ready"
+         * choice and a VGM field — since it was written, and sent neither.
+         * The routes existed and nothing called them, so both controls looked
+         * like they saved and did not.
+         *
+         * Sent after the identity write because VGM is checked against tare,
+         * and tare may have been entered in the same edit.
+         */
+        const containerId = existing?.id;
+        if (containerId && openJobRecord.type === "Export") {
+          const ready = Boolean(draft.customerReady);
+          if (ready && !existing?.customerReady) {
+            await fetch(`${base}/${encodeURIComponent(containerId)}/ready`,
+              { method: "POST" }).catch(() => null);
+          }
+          const vgm = numberOrNull(draft.vgmKg);
+          if (vgm !== null && vgm !== numberOrNull(existing?.vgmKg)) {
+            const r = await fetch(`${base}/${encodeURIComponent(containerId)}/vgm`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ vgm }),
+            }).catch(() => null);
+            if (r && !r.ok) {
+              const payload = await r.json().catch(() => ({}));
+              showToast(payload?.error ?? "The VGM was not accepted.");
+            }
+          }
+        }
+
         await loadJobs();
         setHighlight("container");
         window.setTimeout(() => setHighlight(""), 1400);

@@ -185,3 +185,20 @@ test("a container route serves both domains, not whichever it was written for", 
       `${f} must reach the export container commands for an export job`);
   }
 });
+
+test("a control that shows a value also sends it", async () => {
+  // §43. The container drawer has shown a "customer confirms container ready"
+  // choice and a VGM field since it was written, and sent neither: the PATCH
+  // carries identity fields only, and the two commands that record these have
+  // their own routes. Both controls looked like they saved and did not — the
+  // same shape as the six persistence bugs before them.
+  const commit = ui.slice(ui.indexOf("function commitOperationalPanel"));
+  const scope = commit.slice(0, commit.indexOf("\n  function ", 40));
+
+  for (const [control, route] of [["customerReady", "/ready"], ["vgmKg", "/vgm"]]) {
+    assert.ok(ui.includes(control),
+      `${control} is offered by the drawer`);
+    assert.ok(scope.includes(route),
+      `${control} is offered but nothing sends it to ${route}`);
+  }
+});
