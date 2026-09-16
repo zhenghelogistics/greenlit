@@ -108,3 +108,34 @@ test('§13.1.3: disruption counts customer-driven moves specifically', () => {
   assert.equal(disruptionScore(log), 2,
     'a vessel delay is not the customer being difficult');
 });
+
+test('§13.1: the reason is the point, so it is refused without one', () => {
+  // The audit stream already records that a date changed and who changed it.
+  // What it cannot record is why, and why is the whole content of the call a
+  // controller gets when the customer asks.
+  const base = {
+    entityType: 'job' as const, entityId: 'j1', dateField: 'vesselEta',
+    previousValue: '2026-09-20', newValue: '2026-09-22', amendedBy: 'Sarah Lim',
+  };
+  assert.equal(validateAmendment({ ...base, reasonCode: undefined as never }).valid, false);
+  assert.equal(validateAmendment({ ...base, reasonCode: 'VESSEL_DELAY' }).valid, true);
+});
+
+test('§13.1: OTHER without a note is a reason code that says nothing', () => {
+  const base = {
+    entityType: 'job' as const, entityId: 'j1', dateField: 'vesselEta',
+    previousValue: '2026-09-20', newValue: '2026-09-22', amendedBy: 'Sarah Lim',
+  };
+  assert.equal(validateAmendment({ ...base, reasonCode: 'OTHER' }).valid, false);
+  assert.equal(
+    validateAmendment({ ...base, reasonCode: 'OTHER', reasonNote: 'Berth congestion' }).valid,
+    true);
+});
+
+test('§13.1: moving a date to where it already is records nothing', () => {
+  assert.equal(validateAmendment({
+    entityType: 'job', entityId: 'j1', dateField: 'vesselEta',
+    previousValue: '2026-09-20', newValue: '2026-09-20',
+    reasonCode: 'VESSEL_DELAY', amendedBy: 'Sarah Lim',
+  }).valid, false);
+});

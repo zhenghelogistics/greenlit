@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { IMPORT_CONTAINER_STATUS, EXPORT_JOB_STATUS } from "@greenlit/engine";
+import { useEffect, useState } from "react";
+import { IMPORT_CONTAINER_STATUS, EXPORT_JOB_STATUS, DATE_AMENDMENT_REASON } from "@greenlit/engine";
 
 /**
  * The job detail screen, in the PM's markup.
@@ -213,6 +213,124 @@ function Journey({ steps, onAct }) {
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * §13.1. Moving a date, with the reason attached.
+ *
+ * The audit stream records that a date changed and who changed it, and has
+ * nowhere to say why. Why is the whole content of the conversation a
+ * controller has when the customer rings — "the vessel slipped two days" is a
+ * different call from "they asked us to hold it" — so the reason is asked for
+ * at the point of the change rather than reconstructed afterwards.
+ *
+ * Append-only: a wrong entry is corrected by another amendment, never by
+ * editing the first. So there is no edit control here, by design.
+ */
+function DateAmendments({ jobId, eta }) {
+  const [log, setLog] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ dateField: "vesselEta", newValue: "", reasonCode: "VESSEL_DELAY", reasonNote: "" });
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = () => {
+    if (!jobId) return;
+    fetch(`/api/jobs/${encodeURIComponent(jobId)}/date-amendments`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => setLog(d.amendments ?? []))
+      .catch(() => setLog([]));
+  };
+  useEffect(load, [jobId]);
+
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function submit(event) {
+    event.preventDefault();
+    setBusy(true); setError("");
+    const response = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/date-amendments`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(form),
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    setBusy(false);
+    if (!response?.ok) { setError(payload?.error ?? "That amendment was not recorded."); return; }
+    setOpen(false);
+    setForm((f) => ({ ...f, newValue: "", reasonNote: "" }));
+    load();
+  }
+
+  const entries = log ?? [];
+  return (
+    <Drawer title="Date changes" count={entries.length}>
+      {error ? <div className="callout">{error}</div> : null}
+
+      {open ? (
+        <form onSubmit={submit} className="card" style={{ marginBottom: 10, padding: 12 }}>
+          <div className="formgrid">
+            <div className="field">
+              <label htmlFor="zht-dt-field">Which date</label>
+              <select id="zht-dt-field" value={form.dateField} onChange={set("dateField")}>
+                <option value="vesselEta">Vessel ETA</option>
+                <option value="deliveryDate">Delivery date</option>
+                <option value="emptyReturnDueDate">Empty return due</option>
+                <option value="truckInDate">Truck in</option>
+                <option value="truckOutDate">Truck out</option>
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="zht-dt-value">New date</label>
+              <input id="zht-dt-value" type="date" required value={form.newValue} onChange={set("newValue")} />
+            </div>
+            <div className="field">
+              <label htmlFor="zht-dt-reason">Why</label>
+              <select id="zht-dt-reason" value={form.reasonCode} onChange={set("reasonCode")}>
+                {DATE_AMENDMENT_REASON.map((r) => (
+                  <option key={r} value={r}>{r.replace(/_/g, " ").toLowerCase()}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {/* §13.1. OTHER without a note is a reason code that says nothing. */}
+          {form.reasonCode === "OTHER" ? (
+            <div className="field" style={{ marginTop: 8 }}>
+              <label htmlFor="zht-dt-note">What happened</label>
+              <input id="zht-dt-note" required value={form.reasonNote} onChange={set("reasonNote")} />
+            </div>
+          ) : null}
+          <div className="action-row" style={{ marginTop: 10, gap: 8 }}>
+            <button className="btn primary" type="submit" disabled={busy}>
+              {busy ? "Recording…" : "Record the change"}
+            </button>
+            <button className="btn ghost" type="button" onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </form>
+      ) : (
+        <button className="btn secondary" type="button" onClick={() => setOpen(true)}>
+          Move a date
+        </button>
+      )}
+
+      <div style={{ marginTop: 10 }}>
+        {entries.length ? entries.map((a) => (
+          <div className="movement" key={a.amendmentId}>
+            <strong>{a.dateField}</strong>
+            {formatDay(a.previousValue) } → {formatDay(a.newValue)}
+            <br />
+            <span className="muted">
+              {String(a.reasonCode).replace(/_/g, " ").toLowerCase()}
+              {a.reasonNote ? ` · ${a.reasonNote}` : ""} · {a.amendedBy}
+            </span>
+          </div>
+        )) : (
+          <span className="muted">
+            {log === null ? "Loading…" : `No date has been moved. ETA stands at ${formatDay(eta)}.`}
+          </span>
+        )}
+      </div>
+    </Drawer>
   );
 }
 
@@ -518,6 +636,8 @@ export default function ZhtJobDetail({
               {permitPanel}
             </Drawer>
           ) : null}
+
+          <DateAmendments jobId={job.apiId} eta={job.eta} />
 
           <Drawer title="Delivery Stops" count={job.deliveryAddress ? 1 : 0}>
             {job.deliveryAddress ? (
