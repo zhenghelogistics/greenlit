@@ -116,8 +116,9 @@ test('§13.1: the reason is the point, so it is refused without one', () => {
   const base = {
     entityType: 'job' as const, entityId: 'j1', dateField: 'vesselEta',
     previousValue: '2026-09-20', newValue: '2026-09-22', amendedBy: 'Sarah Lim',
+    amendedAt: '2026-09-16T00:00:00Z',
   };
-  assert.equal(validateAmendment({ ...base, reasonCode: undefined as never }).valid, false);
+  assert.equal(validateAmendment({ ...base, reasonCode: null }).valid, false);
   assert.equal(validateAmendment({ ...base, reasonCode: 'VESSEL_DELAY' }).valid, true);
 });
 
@@ -125,6 +126,7 @@ test('§13.1: OTHER without a note is a reason code that says nothing', () => {
   const base = {
     entityType: 'job' as const, entityId: 'j1', dateField: 'vesselEta',
     previousValue: '2026-09-20', newValue: '2026-09-22', amendedBy: 'Sarah Lim',
+    amendedAt: '2026-09-16T00:00:00Z',
   };
   assert.equal(validateAmendment({ ...base, reasonCode: 'OTHER' }).valid, false);
   assert.equal(
@@ -137,5 +139,6 @@ test('§13.1: moving a date to where it already is records nothing', () => {
     entityType: 'job', entityId: 'j1', dateField: 'vesselEta',
     previousValue: '2026-09-20', newValue: '2026-09-20',
     reasonCode: 'VESSEL_DELAY', amendedBy: 'Sarah Lim',
+    amendedAt: '2026-09-16T00:00:00Z',
   }).valid, false);
 });
