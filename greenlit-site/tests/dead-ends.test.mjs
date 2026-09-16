@@ -85,3 +85,31 @@ test("no button is wired to a handler that does not exist", () => {
   }
   assert.deepEqual(offenders, []);
 });
+
+test("every section in the rail is a screen, and every screen is reachable", () => {
+  // §7. The rail is now filtered by role, so a section listed for a role that
+  // no route renders would be a nav item leading to a blank page — the same
+  // dead end as goTo("intake"), reintroduced through the filter instead.
+  const rendered = new Set(
+    [...ui.matchAll(/current === "(\w+)"/g)].map((m) => m[1]));
+
+  // Only the rail's own array. `{ id: "all", label: … }` also describes the
+  // Action Required filter chips, which are not sections and render nothing.
+  const railArray = ui.slice(ui.indexOf("const allSections = ["));
+  const listed = new Set(
+    [...railArray.slice(0, railArray.indexOf("];")).matchAll(/\{ id: "(\w+)", label:/g)]
+      .map((m) => m[1]));
+  const grouped = new Set(
+    [...ui.matchAll(/^const (?:ASSISTANT|CONTROLLER)_SECTIONS = \[([^\]]*)\]/gm)]
+      .flatMap((m) => [...m[1].matchAll(/"(\w+)"/g)].map((x) => x[1])));
+
+  const dead = [...listed, ...grouped].filter((id) => !rendered.has(id));
+  assert.deepEqual([...new Set(dead)], [],
+    `the rail offers sections nothing renders: ${[...new Set(dead)].join(", ")}`);
+
+  // And nothing in a role's list is absent from the full set, which would be
+  // a section quietly missing from one role's rail.
+  const unknown = [...grouped].filter((id) => !listed.has(id));
+  assert.deepEqual(unknown, [],
+    `a role is offered sections the rail does not define: ${unknown.join(", ")}`);
+});

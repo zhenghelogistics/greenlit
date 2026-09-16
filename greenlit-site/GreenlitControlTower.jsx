@@ -4409,15 +4409,25 @@ export default function GreenlitControlTower() {
     setReturnScreen("documents");
     setScreen("detail");
   }
-  const navItems = [
+  /**
+   * §7. The rail shows the work this person does.
+   *
+   * Not a permission — the server decides that on every command, and hiding a
+   * control is a courtesy. This is about not making somebody walk past eight
+   * sections that are not their job to find the two that are.
+   *
+   * An assistant prepares jobs and never plans a truck. A controller plans
+   * trucks and never opens document intake. Management and administrators see
+   * both halves, because overseeing them is the job — and an administrator
+   * testing the system needs to reach every screen there is.
+   */
+  const ASSISTANT_SECTIONS = ["dashboard", "actions", "jobs", "documents", "companies", "people"];
+  const CONTROLLER_SECTIONS = ["controller", "planning", "drivers", "fleet", "emptyReturns", "jobs", "people"];
+
+  const allSections = [
     { id: "dashboard", label: "Dashboard", count: jobs.filter((job) => jobStatus(job) !== "Completed").length, icon: LayoutDashboard },
     { id: "actions", label: "Action Required", count: actionJobs.length, icon: ListTodo },
-    // §7. The controller's own board. Shown to the people who work the fleet
-    // and to management, who oversee both halves; an assistant preparing jobs
-    // has no use for it and it is not in their way.
-    ...(role === "CONTROLLER" || role === "MANAGEMENT" || role === "ADMINISTRATOR"
-      ? [{ id: "controller", label: "Controller Board", count: null, icon: CalendarRange }]
-      : []),
+    { id: "controller", label: "Controller Board", count: null, icon: CalendarRange },
     { id: "jobs", label: "Jobs", count: jobs.length, icon: ClipboardList },
     { id: "documents", label: "Document Intake", count: documents.length, icon: FileSearch },
     { id: "planning", label: "Planning Board", count: null, icon: CalendarRange },
@@ -4428,6 +4438,15 @@ export default function GreenlitControlTower() {
     { id: "billing", label: "Billing Ready", count: null, icon: Receipt },
     { id: "people", label: "People", count: null, icon: UserRound },
   ];
+
+  const visibleSections =
+    role === "OPERATIONS" ? ASSISTANT_SECTIONS
+      : role === "CONTROLLER" ? CONTROLLER_SECTIONS
+        : null;   // management, administrators, and before the role is known
+
+  const navItems = visibleSections
+    ? allSections.filter((item) => visibleSections.includes(item.id))
+    : allSections;
 
   return (
     <div className="min-h-screen bg-[color:var(--gl-bg)] font-sans text-[17px] leading-normal text-slate-900 lg:flex lg:items-start">

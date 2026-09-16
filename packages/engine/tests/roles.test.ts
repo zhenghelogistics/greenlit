@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  can, canAssignRole, requirePermission, validateOverride, homeScreenFor,
+  can, canAssignRole, requirePermission, validateOverride, homeScreenFor, roleChangeProblem,
   MINIMUM_OVERRIDE_REASON_LENGTH, type Principal,
 } from '../src/roles.ts';
 import { canJoin, joiningRole, suggestedUserId, suggestedDisplayName } from '../src/joining.ts';
@@ -242,4 +242,31 @@ test('§7: a controller lands on the fleet, everyone else on the overview', () =
   assert.equal(homeScreenFor('CONTROLLER'), 'controller');
   assert.equal(homeScreenFor('OPERATIONS'), 'dashboard');
   assert.equal(homeScreenFor('MANAGEMENT'), 'dashboard');
+});
+
+test('§7.1: an administrator cannot demote themselves into a corner', () => {
+  // Only ADMINISTRATOR holds user.manage, so stepping down removes the screen
+  // you would use to step back up. Nothing errors; it simply cannot be undone.
+  const me = asRole('ADMINISTRATOR');
+  const problem = roleChangeProblem(me, me.userId, 'CONTROLLER', 3);
+  assert.match(problem ?? '', /would not be able to change it back/);
+});
+
+test('§7.1: an administrator may still be promoted to administrator', () => {
+  const me = asRole('ADMINISTRATOR');
+  assert.equal(roleChangeProblem(me, me.userId, 'ADMINISTRATOR', 3), null);
+});
+
+test('§7.1: the last administrator cannot be stood down', () => {
+  // Each step is legal on its own and the end state has nobody who can add a
+  // user, change a role or configure a threshold.
+  const me = asRole('ADMINISTRATOR');
+  assert.match(roleChangeProblem(me, 'someone-else', 'OPERATIONS', 1) ?? '',
+    /last administrator/);
+  assert.equal(roleChangeProblem(me, 'someone-else', 'OPERATIONS', 2), null);
+});
+
+test('§7.1: changing somebody else is ordinary work', () => {
+  const me = asRole('ADMINISTRATOR');
+  assert.equal(roleChangeProblem(me, 'sarah', 'CONTROLLER', 2), null);
 });

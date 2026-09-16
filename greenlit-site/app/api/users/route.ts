@@ -1,7 +1,7 @@
 import { authorize, badRequest, readJson } from "../../../lib/command";
 import { currentPrincipal } from "../../../lib/auth";
 import { getRepository, jsonError } from "../../../lib/greenlit";
-import { ROLE } from "@greenlit/engine";
+import { ROLE, roleChangeProblem } from "@greenlit/engine";
 
 /**
  * §7.1. The directory: who exists, and what each of them may do.
@@ -64,6 +64,17 @@ export async function POST(request: Request) {
     if (body.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email.trim())) {
       return badRequest("That does not look like an email address");
     }
+
+    // §7.1. Two ways to lock the operation out of its own directory, both of
+    // which look like ordinary edits at the moment they are made: stepping
+    // down from administrator yourself, and standing down the last one. The
+    // person genuinely holds user.manage, so neither is caught by `can`.
+    const directory = await getRepository().listPrincipals();
+    const administrators = directory.filter(
+      (p) => p.role === "ADMINISTRATOR" && p.active).length;
+    const problem = roleChangeProblem(
+      auth.principal, userId, body.role as (typeof ROLE)[number], administrators);
+    if (problem) return badRequest(problem);
 
     const principal = await getRepository().upsertPrincipal({
       userId,

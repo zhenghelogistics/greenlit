@@ -1,4 +1,4 @@
-import { can, type Permission } from "@greenlit/engine";
+import { can, type Permission, type Principal } from "@greenlit/engine";
 import { authConfigured, currentPrincipal } from "./auth";
 import { getJobService, getRepository, jsonError } from "./greenlit";
 
@@ -28,7 +28,10 @@ import { getJobService, getRepository, jsonError } from "./greenlit";
  */
 export async function authorize(
   permission: Permission,
-): Promise<{ ok: true; displayName: string } | { ok: false; response: Response }> {
+): Promise<
+  | { ok: true; displayName: string; principal: Principal }
+  | { ok: false; response: Response }
+> {
   if (!authConfigured()) {
     return {
       ok: false,
@@ -57,7 +60,7 @@ export async function authorize(
       ),
     };
   }
-  return { ok: true, displayName: principal!.displayName };
+  return { ok: true, displayName: principal!.displayName, principal };
 }
 
 /**

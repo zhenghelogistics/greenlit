@@ -262,3 +262,47 @@ export function validateOverride(request: OverrideRequest): AuthorizationResult 
 export function canAssignRole(principal: Principal | null): AuthorizationResult {
   return can(principal, 'user.manage');
 }
+
+/**
+ * §7.1. Why a role change is refused, or null when it is fine.
+ *
+ * Two ways to lock the operation out of its own directory, both of which look
+ * like ordinary edits at the moment they are made.
+ *
+ * The first is demoting yourself. Only ADMINISTRATOR holds user.manage, so an
+ * administrator who sets their own role to CONTROLLER loses the screen they
+ * would use to set it back. Nothing errors — they simply cannot undo it, and
+ * the fix is someone else's account or a hand-written SQL statement.
+ *
+ * The second is removing the last one. If every administrator steps down in
+ * turn, each step is legal and the end state has nobody who can add users,
+ * change roles or configure thresholds. There is no way back in through the
+ * application at all.
+ *
+ * Neither is a permission question — the person genuinely holds user.manage —
+ * so neither is caught by `can`. They are guarded here because this is where
+ * the consequence is knowable.
+ */
+export function roleChangeProblem(
+  actor: Principal,
+  targetUserId: string,
+  nextRole: Role,
+  /** How many active administrators exist right now, including the target. */
+  administratorCount: number,
+): string | null {
+  const isSelf = actor.userId === targetUserId;
+
+  if (isSelf && actor.role === 'ADMINISTRATOR' && nextRole !== 'ADMINISTRATOR') {
+    return 'You cannot change your own role away from administrator: only an '
+      + 'administrator can change roles, so you would not be able to change it '
+      + 'back. Ask another administrator to do it.';
+  }
+
+  if (actor.role === 'ADMINISTRATOR' && nextRole !== 'ADMINISTRATOR'
+    && administratorCount <= 1) {
+    return 'This is the last administrator. Promote someone else first, or the '
+      + 'directory will have nobody who can manage users.';
+  }
+
+  return null;
+}
