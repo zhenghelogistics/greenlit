@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { freeTimeClocks, carrierLastFreeDay, contradictoryFreeTime, freeTimeCountdown, mostUrgentClock } from '../src/free-time.ts';
+import { freeTimeClocks, carrierLastFreeDay, contradictoryFreeTime, freeTimeCountdown, mostUrgentClock, chargeEstimate } from '../src/free-time.ts';
 
 const base = {
   demurrageFreeDays: 5, demurrageLfd: '2026-09-14',
@@ -175,4 +175,74 @@ test('a container still out counts to today as before', () => {
 
   const [, comfortable] = freeTimeCountdown(split(), '2026-09-10', 3, null);
   assert.equal(comfortable?.standing, 'OK');
+});
+
+const split6 = () => ({
+  freeTimeModel: 'SPLIT' as const,
+  demurrageFreeDays: 5, demurrageLfd: '2026-09-14',
+  detentionFreeDays: 7, detentionLfd: '2026-09-21',
+  combinedFreeDays: null, combinedLfd: null,
+});
+
+test('§34.0: the charge estimate is the carrier count times their rate', () => {
+  // 14 Sep + 4 = 18 Sep, so demurrage is 4 days over. Detention is not yet.
+  const clocks = freeTimeCountdown(split6(), '2026-09-18', 3, null);
+  const estimate = chargeEstimate(clocks, { dailyRate: 85, currency: 'SGD' });
+
+  assert.equal(estimate.chargeableDays, 4);
+  assert.equal(estimate.amount, 340);
+  assert.match(estimate.summary, /4 chargeable days at SGD 85\.00 — estimated SGD 340\.00/);
+});
+
+test('§34.0: both clocks are money under a split allowance', () => {
+  // 25 Sep: demurrage 11 days over, detention 4. Charging only the nearer
+  // deadline would understate the bill by the whole of the other clock.
+  const clocks = freeTimeCountdown(split6(), '2026-09-25', 3, null);
+  assert.equal(chargeEstimate(clocks, { dailyRate: 10, currency: 'SGD' }).chargeableDays, 15);
+});
+
+test('§34.2: no rate on file produces no figure, and still shows the days', () => {
+  // "The MVP may leave rates blank where commercial rates are unavailable."
+  // The days are the half that is certain, so they are not withheld with it.
+  const clocks = freeTimeCountdown(split6(), '2026-09-18', 3, null);
+  const estimate = chargeEstimate(clocks, { dailyRate: null, currency: null });
+
+  assert.equal(estimate.amount, null, 'a missing rate must never render as zero owed');
+  assert.equal(estimate.chargeableDays, 4);
+  assert.equal(estimate.summary, '4 chargeable days, no rate on file');
+});
+
+test('a container inside its free time says so rather than showing 0.00', () => {
+  const clocks = freeTimeCountdown(split6(), '2026-09-10', 3, null);
+  const estimate = chargeEstimate(clocks, { dailyRate: 85, currency: 'SGD' });
+  assert.equal(estimate.chargeableDays, 0);
+  assert.equal(estimate.amount, 0);
+  assert.equal(estimate.summary, 'No charge — still inside carrier free time');
+});
+
+test('I-25: a container returned on time is estimated at nothing', () => {
+  const clocks = freeTimeCountdown(split6(), '2026-10-30', 3, '2026-09-16');
+  // Demurrage ran to gate-out and was already 2 days over on 16 Sep; the
+  // return stops detention only, so the estimate is the demurrage alone.
+  const estimate = chargeEstimate(clocks, { dailyRate: 100, currency: 'SGD' });
+  assert.equal(clocks[1]?.standing, 'SETTLED');
+  assert.equal(estimate.amount, clocks[0]!.chargeableDays * 100);
+});
+
+test('the estimate is rounded to the cent, because it is money', () => {
+  const clocks = freeTimeCountdown(split6(), '2026-09-17', 3, null);
+  const estimate = chargeEstimate(clocks, { dailyRate: 0.1, currency: 'SGD' });
+  assert.equal(estimate.chargeableDays, 3);
+  assert.equal(estimate.amount, 0.3, '0.1 * 3 is 0.30000000000000004 unrounded');
+});
+
+test('an unconfirmed carrier rule has no clocks and therefore no charge', () => {
+  const clocks = freeTimeCountdown({
+    freeTimeModel: 'NOT_CONFIRMED',
+    demurrageFreeDays: null, demurrageLfd: null,
+    detentionFreeDays: null, detentionLfd: null,
+    combinedFreeDays: null, combinedLfd: null,
+  }, '2026-09-25', 3, null);
+  assert.deepEqual(clocks, []);
+  assert.equal(chargeEstimate(clocks, { dailyRate: 85, currency: 'SGD' }).chargeableDays, 0);
 });

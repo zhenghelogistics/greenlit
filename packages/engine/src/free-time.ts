@@ -216,3 +216,84 @@ export function mostUrgentClock(countdowns: readonly FreeTimeCountdown[]): FreeT
   return dated.reduce((worst, clock) =>
     (clock.daysRemaining! < worst.daysRemaining! ? clock : worst));
 }
+
+/**
+ * §34.0. The third number: what the days already counted are likely to cost.
+ *
+ * The internal count is the operational alert and the carrier count is the
+ * money, but a controller reading "3 days over" cannot tell whether that is a
+ * nuisance or four figures. §34.0 defines the estimate as the carrier count
+ * multiplied by their rate, and this is the only place that multiplication
+ * happens.
+ *
+ * Two things it deliberately does not do. It never invents a rate: §34.2 says
+ * "the MVP may leave rates blank where commercial rates are unavailable", and
+ * a number with a currency symbol in front of it is read as a fact even when
+ * it was a guess. And it never suppresses the day count when the rate is
+ * missing — the days are known, they are the part that is actionable today,
+ * and withholding them because the commercial team has not filed a tariff
+ * would hide the only half that is certain.
+ *
+ * It is an estimate and says so. The carrier's invoice is the carrier's
+ * arithmetic, applied to the carrier's own record of the dates.
+ */
+export interface ChargeEstimate {
+  /**
+   * Days past the last free day, summed across the clocks that apply.
+   *
+   * Under a split allowance demurrage and detention are both chargeable and
+   * both count. Under a combined allowance there is one pool and one figure.
+   * `freeTimeCountdown` has already decided which clocks exist, so this adds
+   * up what it produced rather than re-reading the model.
+   */
+  chargeableDays: number;
+  dailyRate: number | null;
+  currency: string | null;
+  /** Null when no rate is on file. Never zero standing in for unknown. */
+  amount: number | null;
+  /** The sentence a screen shows. Says "estimated", because it is. */
+  summary: string;
+}
+
+export interface ChargeRate {
+  /** Per chargeable day, in `currency`. Null until commercial terms are filed. */
+  dailyRate: number | null;
+  currency: string | null;
+}
+
+export function chargeEstimate(
+  countdowns: readonly FreeTimeCountdown[],
+  rate: ChargeRate,
+): ChargeEstimate {
+  const chargeableDays = countdowns.reduce((total, clock) => total + clock.chargeableDays, 0);
+  const days = `${chargeableDays} chargeable day${chargeableDays === 1 ? '' : 's'}`;
+
+  // No rate: the days still stand, and the sentence says plainly why there is
+  // no figure beside them rather than leaving a blank someone reads as zero.
+  if (rate.dailyRate === null || rate.currency === null) {
+    return {
+      chargeableDays,
+      dailyRate: rate.dailyRate,
+      currency: rate.currency,
+      amount: null,
+      summary: chargeableDays === 0
+        ? 'No charge — still inside carrier free time'
+        : `${days}, no rate on file`,
+    };
+  }
+
+  // Money, so rounded to the cent at the point it becomes money. Left as a
+  // float it is 0.1 + 0.2 territory, and a charge estimate that renders as
+  // 1050.0000000000002 is one nobody quotes to a customer.
+  const amount = Math.round(chargeableDays * rate.dailyRate * 100) / 100;
+
+  return {
+    chargeableDays,
+    dailyRate: rate.dailyRate,
+    currency: rate.currency,
+    amount,
+    summary: chargeableDays === 0
+      ? 'No charge — still inside carrier free time'
+      : `${days} at ${rate.currency} ${rate.dailyRate.toFixed(2)} — estimated ${rate.currency} ${amount.toFixed(2)}`,
+  };
+}

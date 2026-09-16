@@ -1231,6 +1231,11 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       // to honour that is not to store the figures that would produce them.
       const split = terms.freeTimeModel === 'SPLIT';
       const combined = terms.freeTimeModel === 'COMBINED';
+      const rate = terms.dailyRate ?? null;
+      const currency = terms.currency ?? null;
+      if ((rate === null) !== (currency === null)) {
+        throw new Error('A daily rate needs a currency, and a currency needs a rate');
+      }
       unwrap(await db.from('containers').update({
         free_time_model: terms.freeTimeModel,
         demurrage_free_days: split ? terms.demurrageFreeDays ?? null : null,
@@ -1240,6 +1245,10 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         combined_free_days: combined ? terms.combinedFreeDays ?? null : null,
         combined_lfd: combined ? terms.combinedLfd ?? null : null,
         free_time_remarks: terms.freeTimeRemarks ?? null,
+        // §34.2. The database carries the same both-or-neither check; this
+        // says so in a sentence instead of a constraint violation.
+        daily_rate: rate,
+        currency,
       }).eq('container_id', containerId).select().single(), 'record free time');
 
       await record(existing.data.job_id as string, 'freetime.confirmed', actor, {

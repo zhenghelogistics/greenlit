@@ -994,7 +994,8 @@ function BatchReview({ batch, customers, onApplyAll, onDiscard, applying }) {
       <h1 className="gl-display">{batch.length} documents</h1>
       <p className="gl-body-plain mt-1 text-[color:var(--gl-ink-muted)]">
         {reading.length > 0
-          ? `Reading ${reading.length} of ${batch.length}. They are read together, so this takes about as long as the slowest one.`
+          ? `Reading ${reading.length} of ${batch.length}. They go ${DOCUMENTS_PER_REQUEST} at a time and are read together, `
+            + "so a batch takes about as long as its slowest document rather than the sum of them."
           : "Grouped by the company each names as consignee."}
       </p>
 
@@ -3210,6 +3211,42 @@ function FreeTimeRow({ clock }) {
   );
 }
 
+/**
+ * §34.0. What the days already over are likely to cost.
+ *
+ * The third of the three numbers. A controller reading "4 days over" cannot
+ * tell a nuisance from four figures, and the manager who cares about the
+ * answer is not the person watching the countdown.
+ *
+ * Shown only once a clock is actually chargeable. A container inside its free
+ * time gets no money line at all — putting "SGD 0.00" under a healthy
+ * container is a figure that draws the eye to nothing.
+ */
+function ChargeLine({ charge }) {
+  if (!charge || charge.chargeableDays === 0) return null;
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-3 rounded-md border border-[color:var(--gl-line)] bg-white p-4"
+      style={{ borderLeft: "6px solid var(--gl-state-blocked)" }}>
+      <div>
+        <div className="gl-label">Estimated charge</div>
+        <div className="mt-1 text-[19px] font-semibold text-[color:var(--gl-state-blocked-ink)]">
+          {charge.amount === null
+            ? `${charge.chargeableDays} chargeable day${charge.chargeableDays === 1 ? "" : "s"}`
+            : `${charge.currency} ${charge.amount.toFixed(2)}`}
+        </div>
+      </div>
+      <div className="gl-caption text-right">
+        {charge.amount === null
+          ? "No daily rate on file — add one to see the figure"
+          : <>
+              {charge.chargeableDays} day{charge.chargeableDays === 1 ? "" : "s"} at {charge.currency} {charge.dailyRate.toFixed(2)}
+              <div>Our estimate, not the carrier&rsquo;s invoice</div>
+            </>}
+      </div>
+    </div>
+  );
+}
+
 /** Every clock on a container, or a plain sentence when there are none. */
 function FreeTimePanel({ container }) {
   const clocks = container?.freeTime ?? [];
@@ -3224,6 +3261,7 @@ function FreeTimePanel({ container }) {
   return (
     <div className="grid gap-3">
       {clocks.map((clock) => <FreeTimeRow key={clock.label} clock={clock} />)}
+      <ChargeLine charge={container?.charge} />
     </div>
   );
 }
@@ -3393,6 +3431,8 @@ function initialDrawerDraft(panel, job) {
       detentionFreeDays: "", detentionLfd: "",
       combinedFreeDays: "", combinedLfd: "",
       freeTimeRemarks: c.freeTimeRemarks ?? "",
+      dailyRate: c.dailyRate ?? "",
+      currency: c.currency || "SGD",
     };
   }
   return {};
@@ -3628,6 +3668,31 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                     placeholder="e.g. 10 combined calendar days from discharge"
                     className={drawerInputClass} />
                 </DrawerField>
+
+                {/* §34.0. The rate turns days into money, and it is read off
+                    the same tariff page as the allowance above, so it is
+                    confirmed in the same breath. Both boxes or neither: a rate
+                    with no currency is an amount nobody can quote. */}
+                <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+                  <DrawerField label="Daily rate after free time">
+                    <input type="number" min="0" step="0.01" inputMode="decimal"
+                      value={draft.dailyRate ?? ""}
+                      onChange={(event) => setDraft((d) => ({ ...d, dailyRate: event.target.value }))}
+                      placeholder="e.g. 85.00"
+                      className={drawerInputClass} />
+                  </DrawerField>
+                  <DrawerField label="Currency">
+                    <select value={draft.currency || "SGD"}
+                      onChange={(event) => setDraft((d) => ({ ...d, currency: event.target.value }))}
+                      className={drawerInputClass}>
+                      {["SGD", "USD", "EUR", "CNY", "MYR"].map((code) => <option key={code} value={code}>{code}</option>)}
+                    </select>
+                  </DrawerField>
+                </div>
+                <p className="gl-caption -mt-2">
+                  Leave the rate blank if the tariff is not to hand. The countdowns
+                  do not depend on it; only the estimated charge does.
+                </p>
               </div>
             ) : null}
 
@@ -4480,14 +4545,14 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
               className={`flex min-h-72 flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 text-center ${dragging ? "border-[var(--gl-accent)] bg-sky-50" : "border-slate-300 bg-slate-50"}`}
             >
               <span className="flex h-14 w-14 items-center justify-center rounded-md bg-[var(--gl-accent)] text-white"><Upload className="h-7 w-7" aria-hidden="true" /></span>
-              <span className="mt-5 text-2xl font-semibold text-slate-950">Drop a document here</span>
-              <span className="mt-2 max-w-[58ch] text-[17px] font-normal text-slate-600">PDFs, scans, photographs and email files, from any carrier. Up to {MAX_CONTAINERS_PER_JOB} containers per job, 15 MB maximum.</span>
+              <span className="mt-5 text-2xl font-semibold text-slate-950">Drop documents here</span>
+              <span className="mt-2 max-w-[58ch] text-[17px] font-normal text-slate-600">PDFs, scans, photographs and email files, from any carrier. One at a time, or up to {MAX_DOCUMENTS_PER_BATCH} together — a morning&rsquo;s post. Up to {MAX_CONTAINERS_PER_JOB} containers per job, 15 MB each.</span>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="mt-5 inline-flex min-h-12 items-center justify-center rounded-md bg-[var(--gl-accent)] px-6 text-[17px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
               >
-                Choose a document
+                Choose documents
               </button>
             </div>
             <div className="mt-5 grid gap-4 border-t border-slate-200 pt-5 md:grid-cols-3">
@@ -4871,6 +4936,11 @@ export default function GreenlitControlTower() {
               combinedFreeDays: combined ? numberOrNull(draft.combinedFreeDays) : undefined,
               combinedLfd: combined ? draft.combinedLfd || null : undefined,
               freeTimeRemarks: draft.freeTimeRemarks || null,
+              // §34.2. Both or neither, which is what the database checks too.
+              // A blank rate clears the currency with it rather than leaving a
+              // label on nothing.
+              dailyRate: numberOrNull(draft.dailyRate),
+              currency: numberOrNull(draft.dailyRate) === null ? null : (draft.currency || "SGD"),
             }),
           },
         ).catch(() => null);

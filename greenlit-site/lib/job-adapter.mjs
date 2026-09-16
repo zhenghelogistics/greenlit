@@ -98,6 +98,10 @@ export function jobFromApi(view) {
       // §34. Which clocks this container actually has is the model's to say.
       freeTimeModel: c.freeTimeModel ?? "NOT_CONFIRMED",
       freeTimeRemarks: c.freeTimeRemarks ?? "",
+      // §34.2. Stored, so the drawer can show what is already on file rather
+      // than presenting an empty box over a rate somebody already entered.
+      dailyRate: c.dailyRate ?? null,
+      currency: c.currency ?? "",
       // `state` and `lastFreeDay` are what the container panels read; the
       // state is the engine's derived container status, never recomputed here.
       state: view.containers?.[i]?.status ?? "",
@@ -106,6 +110,8 @@ export function jobFromApi(view) {
       // §34.4, computed server-side. A countdown a screen works out itself is
       // a countdown that can disagree with the next screen's.
       freeTime: view.containers?.[i]?.freeTime ?? [],
+      // §34.0. The third number, derived server-side with the other two.
+      charge: view.containers?.[i]?.charge ?? null,
     })),
     trips: (view.movements ?? []).map((m) => ({
       id: m.movementRef,

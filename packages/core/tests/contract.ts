@@ -941,6 +941,54 @@ export function runRepositoryContract(
     assert.equal(after?.freeTimeRemarks, '14 combined calendar days from discharge');
   });
 
+  test(`[${name}] §34.2: the daily rate round-trips as a number, not a string`, async () => {
+    // Over REST a numeric column comes back as a string, and '85' * 4 is 340
+    // while '85' + 4 is '854'. The charge estimate multiplies this, so the
+    // type is the whole point of asserting it here rather than the value.
+    const repo = await fresh();
+    const [container] = await repo.listContainersForImportJob(seeded.importJobId);
+    if (!container) return;
+
+    await repo.recordFreeTime(container.containerId, {
+      freeTimeModel: 'SPLIT', demurrageFreeDays: 5, demurrageLfd: '2026-09-14',
+      dailyRate: 85.5, currency: 'SGD',
+    }, 'tester');
+
+    const [after] = await repo.listContainersForImportJob(seeded.importJobId);
+    assert.equal(typeof after?.dailyRate, 'number');
+    assert.equal(after?.dailyRate, 85.5);
+    assert.equal(after?.currency, 'SGD');
+  });
+
+  test(`[${name}] §34.2: a rate needs a currency, and a currency needs a rate`, async () => {
+    // A rate with no currency is an amount nobody can quote; a currency with
+    // no rate is a label on nothing.
+    const repo = await fresh();
+    const [container] = await repo.listContainersForImportJob(seeded.importJobId);
+    if (!container) return;
+
+    await assert.rejects(
+      () => repo.recordFreeTime(container.containerId,
+        { freeTimeModel: 'SPLIT', dailyRate: 85, currency: null }, 'tester'),
+      /currency/i);
+  });
+
+  test(`[${name}] §34.2: no rate on file is a legitimate answer`, async () => {
+    // "The MVP may leave rates blank where commercial rates are unavailable.
+    // The countdowns do not depend on them."
+    const repo = await fresh();
+    const [container] = await repo.listContainersForImportJob(seeded.importJobId);
+    if (!container) return;
+
+    await repo.recordFreeTime(container.containerId,
+      { freeTimeModel: 'SPLIT', demurrageFreeDays: 5, demurrageLfd: '2026-09-14' }, 'tester');
+
+    const [after] = await repo.listContainersForImportJob(seeded.importJobId);
+    assert.equal(after?.dailyRate, null);
+    assert.equal(after?.currency, null);
+    assert.equal(after?.demurrageFreeDays, 5, 'the allowance is stored either way');
+  });
+
   test(`[${name}] §13: confirming free time is audited`, async () => {
     const repo = await fresh();
     const [container] = await repo.listContainersForImportJob(seeded.importJobId);

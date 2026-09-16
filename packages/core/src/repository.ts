@@ -571,6 +571,14 @@ export interface FreeTimeTerms {
   combinedLfd?: string | null;
   /** The terms as the carrier worded them, where a number cannot carry them. */
   freeTimeRemarks?: string | null;
+  /**
+   * §34.2. The daily rate and its currency, for the charge estimate.
+   *
+   * Confirmed alongside the allowance because they come off the same tariff
+   * and are read off the same page. Absent is a legitimate answer.
+   */
+  dailyRate?: number | null;
+  currency?: string | null;
 }
 
 export interface ImportContainerDraft {

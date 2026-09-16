@@ -65,6 +65,7 @@ const importContainer = (o: Partial<ImportContainer> = {}): ImportContainer => (
   portTerminal: 'PSA', emptyReturnYard: 'Jurong', freeTimeModel: 'SPLIT',
   freeTimeCountsFrom: 'VESSEL_ETA', demurrageFreeDays: 7, demurrageLfd: null,
   detentionFreeDays: 7, detentionLfd: null, combinedFreeDays: null, combinedLfd: null, freeTimeRemarks: null,
+  dailyRate: null, currency: null,
   internalLfd: null, carparkReason: null, carparkArrivedAt: null,
   emptyReadyConfirmed: false, emptyReadyConfirmedAt: null, emptyReadySource: null,
   chassisId: null, chassisMountedAt: null, chassisReleasedAt: null,

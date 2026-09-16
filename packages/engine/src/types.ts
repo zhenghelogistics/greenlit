@@ -100,6 +100,16 @@ export interface ImportContainer {
    * count derived from it.
    */
   freeTimeRemarks: string | null;
+  /**
+   * §34.2. What a chargeable day costs, and in what money.
+   *
+   * Null where commercial terms have not been filed, which §34.2 explicitly
+   * permits: "the MVP may leave rates blank where commercial rates are
+   * unavailable. The countdowns do not depend on them." The charge estimate
+   * does, and says so rather than showing nothing owed.
+   */
+  dailyRate: number | null;
+  currency: string | null;
   /** §34.1. Internal standard, counted from vessel ETA for every container. */
   internalLfd: IsoDate | null;
   /** §36.2 */

@@ -114,10 +114,22 @@ test("the batch cap is derived from the time limit, not chosen", async () => {
   assert.ok(ceiling >= 300, "the plan allows 300s; asking for less is self-limiting");
 
   // A chunk costs its slowest document, not the sum: two together took 95.5s
-  // when one alone took 92.4s. The worst document seen is the unit of risk.
-  const SLOWEST_DOCUMENT_SECONDS = 93;
-  assert.ok(ceiling / SLOWEST_DOCUMENT_SECONDS >= 3,
-    "a request that uses its whole allowance is one slow document from failing");
+  // when one alone took 92.4s. The worst document seen is the unit of risk,
+  // and raising the count does not raise it.
+  //
+  // This asked for three times the worst document, which held while the worst
+  // was a 93s notice. A 38-container manifest measured at 135s, and 300s is
+  // the plan's ceiling rather than a number that can be raised to keep a
+  // ratio. So the invariant is stated as what it was always standing in for:
+  // the request must outlive the per-document deadline, because a deadline
+  // that fires returns four results and one named failure, while a gateway
+  // that fires first returns nothing at all and reads as "it broke".
+  const deadlineSeconds =
+    Number(route.match(/DOCUMENT_DEADLINE_MS = ([\d_]+)/)?.[1].replace(/_/g, "")) / 1000;
+  assert.ok(ceiling > deadlineSeconds,
+    "a deadline at or above the ceiling never fires; the gateway kills the whole chunk instead");
+  assert.ok(ceiling - deadlineSeconds >= 30,
+    "the gap is the time left to serialise and return the results the deadline salvaged");
   assert.ok(perRequest <= 5, `${perRequest} per request has not been measured`);
 });
 
@@ -125,6 +137,11 @@ test("a single slow document cannot take the chunk with it", async () => {
   // A chunk of five measured at 91.2s — exactly its slowest member, because
   // documents read in parallel. So the count is nearly free and one
   // pathological document is the entire risk.
+  //
+  // The slowest document is not a long one, it is a crowded one: a notice
+  // listing 38 containers measured at 135s, because the model writes out every
+  // row. Operations says thirty to forty is normal, so that is the figure the
+  // deadline has to clear — not the five-container notice it was set from.
   //
   // The deadline has to sit above anything normal and below the request
   // ceiling, or it either fires on good documents or never fires at all.

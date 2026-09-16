@@ -49,7 +49,7 @@ test("ships the document-intake contract", async () => {
   assert.match(component, /Review extracted facts/);
   assert.match(component, /Apply to control tower/);
   assert.match(component, /Planning dates require confirmation/);
-  assert.match(component, /Choose a document/);
+  assert.match(component, /Choose documents/);
   assert.match(component, /20 container limit/);
   assert.match(component, /Add container/);
   assert.match(component, /Container identity/);

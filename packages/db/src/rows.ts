@@ -85,6 +85,10 @@ export const toImportContainer = (r: Record<string, unknown>): ImportContainer =
   packageCount: r.package_count === null || r.package_count === undefined ? null : Number(r.package_count),
   packageType: nn(r.package_type as string),
   freeTimeRemarks: nn(r.free_time_remarks as string),
+  // numeric comes back over REST as a string, so it is converted here rather
+  // than multiplied as one downstream: '85' * 4 is 340 but '85' + 4 is '854'.
+  dailyRate: r.daily_rate === null || r.daily_rate === undefined ? null : Number(r.daily_rate),
+  currency: nn(r.currency as string),
   internalLfd: nn(r.internal_lfd as string),
   carparkReason: nn(r.carpark_reason as ImportContainer['carparkReason']),
   carparkArrivedAt: nn(r.carpark_arrived_at as string),

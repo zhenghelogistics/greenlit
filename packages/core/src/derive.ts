@@ -7,7 +7,9 @@ import {
   type ImportContainerStatus, type ImportJob, type ImportJobStatus,
   type MandatoryFieldSet, type Movement, type Thresholds, type WaitingOn,
   freeTimeCountdown,
+  chargeEstimate,
   type FreeTimeCountdown,
+  type ChargeEstimate,
 } from '@greenlit/engine';
 
 /**
@@ -48,6 +50,15 @@ export interface DerivedContainerView {
    * countdown that can disagree with the one the next client calculates.
    */
   freeTime: FreeTimeCountdown[];
+  /**
+   * §34.0. The third number: what the days already over are likely to cost.
+   *
+   * Derived here for the same reason the countdown is — two screens
+   * multiplying the same two figures will eventually disagree — and because
+   * §54 means a charge estimate must never be a column somebody can edit.
+   * Null on an export container, which holds no carrier allowance.
+   */
+  charge: ChargeEstimate | null;
 }
 
 export interface DerivedJobView {
@@ -229,6 +240,9 @@ export function deriveImportJob(
   const views: DerivedContainerView[] = containers.map((c) => {
     const own = movements.filter((m) => m.containerId === c.containerId);
     const gate = canCollect(job, c, mandatory);
+    const clocks = freeTimeCountdown(
+      c, now.slice(0, 10), thresholds.ddCriticalDays, emptyReturnedOn(own),
+    );
     return {
       containerId: c.containerId,
       reference: c.containerNumber,
@@ -241,9 +255,8 @@ export function deriveImportJob(
       // returned separately, so a job-level countdown would be wrong for all
       // but one of them. I-25: the day the empty went back stops the clock,
       // so a container returned on time stays on time.
-      freeTime: freeTimeCountdown(
-        c, now.slice(0, 10), thresholds.ddCriticalDays, emptyReturnedOn(own),
-      ),
+      freeTime: clocks,
+      charge: chargeEstimate(clocks, { dailyRate: c.dailyRate, currency: c.currency }),
     };
   });
 
@@ -307,6 +320,7 @@ export function deriveExportJob(
       // there is nothing to count. Present and empty rather than absent, so a
       // screen reads the same field for both domains.
       freeTime: [],
+      charge: null,
     };
   });
 

@@ -185,6 +185,7 @@ const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
     emptyReturnYard: 'Jurong Yard', freeTimeModel: 'SPLIT', freeTimeCountsFrom: 'VESSEL_ETA',
     demurrageFreeDays: 5, demurrageLfd: '2026-09-01', detentionFreeDays: 7,
     detentionLfd: '2026-09-04', combinedFreeDays: null, combinedLfd: null, freeTimeRemarks: null,
+    dailyRate: 85, currency: 'SGD',
     internalLfd: '2026-08-27', carparkReason: null, carparkArrivedAt: null,
     emptyReadyConfirmed: false, emptyReadyConfirmedAt: null, emptyReadySource: null,
     chassisId: 'CH-4029', chassisMountedAt: null, chassisReleasedAt: null,
@@ -197,6 +198,7 @@ const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
     emptyReturnYard: 'Jurong Yard', freeTimeModel: 'COMBINED', freeTimeCountsFrom: 'DISCHARGE',
     demurrageFreeDays: null, demurrageLfd: null, detentionFreeDays: null,
     detentionLfd: '2026-09-02', combinedFreeDays: 10, combinedLfd: '2026-09-02', freeTimeRemarks: null,
+    dailyRate: null, currency: null,
     internalLfd: '2026-08-23', carparkReason: null, carparkArrivedAt: null,
     emptyReadyConfirmed: false, emptyReadyConfirmedAt: null, emptyReadySource: null,
     chassisId: 'CH-2038', chassisMountedAt: '2026-08-17T01:00:00Z', chassisReleasedAt: null,
@@ -555,6 +557,7 @@ export function createMemoryRepository(): Repository {
           detentionFreeDays: c.detentionFreeDays ?? null, detentionLfd: null,
           combinedFreeDays: c.combinedFreeDays ?? null, combinedLfd: null,
           freeTimeRemarks: c.freeTimeRemarks ?? null,
+          dailyRate: null, currency: null,
           internalLfd: null, carparkReason: null, carparkArrivedAt: null,
           emptyReadyConfirmed: false, emptyReadyConfirmedAt: null, emptyReadySource: null,
           chassisId: null, chassisMountedAt: null, chassisReleasedAt: null,
@@ -1256,6 +1259,16 @@ export function createMemoryRepository(): Repository {
       container.combinedFreeDays = combined ? terms.combinedFreeDays ?? null : null;
       container.combinedLfd = combined ? terms.combinedLfd ?? null : null;
       container.freeTimeRemarks = terms.freeTimeRemarks ?? null;
+
+      // §34.2. Both or neither: a rate with no currency is an amount nobody
+      // can quote, and a currency with no rate is a label on nothing.
+      const rate = terms.dailyRate ?? null;
+      const currency = terms.currency ?? null;
+      if ((rate === null) !== (currency === null)) {
+        throw new Error('A daily rate needs a currency, and a currency needs a rate');
+      }
+      container.dailyRate = rate;
+      container.currency = currency;
 
       record(container.jobId, 'freetime.confirmed', actor, {
         field: 'freeTimeModel', from, to: terms.freeTimeModel,

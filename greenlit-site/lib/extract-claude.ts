@@ -391,9 +391,16 @@ export async function extractWithClaude(
   // A truncated response is not a shorter answer, it is an unfinished one: the
   // JSON is cut mid-object and whatever survives is a fragment of the page.
   if (response.stop_reason === "max_tokens") {
+    // Not "split it by page". On a notice this is nearly always a long
+    // container manifest, and the manifest's pages carry no vessel, no B/L and
+    // no free time — those are on page one. Splitting by page would produce
+    // container rows with no shipment to attach them to, which is a worse
+    // answer than none. Measured: 38 containers cost 4,088 of these tokens, so
+    // the budget holds roughly a hundred rows before this can fire at all.
     throw new Error(
       "The document was too long to read in one pass and the answer was cut off. "
-      + "Split it and try the pages separately.",
+      + "If it carries a container manifest of a hundred or more, send the shipment "
+      + "pages first and add the remaining containers to the job afterwards.",
     );
   }
 

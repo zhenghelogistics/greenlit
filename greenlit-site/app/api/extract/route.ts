@@ -154,21 +154,31 @@ const MAX_DOCUMENTS_PER_BATCH = 5;
  * against a 300-second ceiling. So the count is nearly free and a single
  * pathological document is the whole risk.
  *
- * At 150 seconds a document is already two-thirds slower than anything ever
- * observed. Abandoning it there means the chunk returns with four results and
- * one named failure, rather than every document in it dying at the gateway
- * because one was unusual. That is the difference between "this notice could
- * not be read" and "it broke".
+ * Then operations produced the document this was calibrated wrong for. A
+ * notice can list **thirty to forty containers**, and the model has to write
+ * every row out: 38 containers measured at 135 seconds and 4,088 output
+ * tokens. Against the old 150-second deadline that is a 15-second margin on a
+ * document with a text layer — and a scanned manifest, which is read as an
+ * image, has less. The deadline was set from five-container notices and would
+ * have killed a perfectly good read nine-tenths of the way through it.
+ *
+ * What makes the larger number affordable is that documents are read in
+ * parallel: a chunk of five costs its slowest member, so raising the ceiling
+ * for one document does not multiply by five. 240 seconds is 1.8x the worst
+ * real document, still inside the 300-second request ceiling, and leaves the
+ * failure it exists for intact — one unreadable scan comes back named while
+ * the other four return their results.
  */
-const DOCUMENT_DEADLINE_MS = 150_000;
+const DOCUMENT_DEADLINE_MS = 240_000;
 
 function withDeadline<T>(work: Promise<T>, fileName: string): Promise<T> {
   return Promise.race([
     work,
     new Promise<never>((_, reject) => setTimeout(
       () => reject(new Error(
-        `${fileName} took longer than ${DOCUMENT_DEADLINE_MS / 1000}s to read, which is far `
-        + 'beyond normal for a notice. The others were read; try this one on its own.',
+        `${fileName} took longer than ${DOCUMENT_DEADLINE_MS / 1000}s to read. A notice of `
+        + 'forty containers takes about half that, so this is either much longer again or a '
+        + 'scan that will not read. The others were read; try this one on its own.',
       )),
       DOCUMENT_DEADLINE_MS,
     )),
