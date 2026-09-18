@@ -160,3 +160,23 @@ test("the browser and the server agree on the chunk size", async () => {
   const perChunk = ui.match(/DOCUMENTS_PER_REQUEST = (\d+)/)?.[1];
   assert.equal(perChunk, perRequest);
 });
+
+test("documents are read together, and each lands as it finishes", async () => {
+  // This sent chunks of five and awaited each chunk before starting the next,
+  // so twenty documents were four waits end to end even though the server
+  // reads a chunk in parallel. And a chunk answered all-or-nothing: a notice
+  // read in ten seconds sat invisible for another forty while the slowest in
+  // its group finished.
+  //
+  // What is worth pinning is that no await sits inside the loop that walks the
+  // documents — that is the shape that serialises them.
+  const intake = ui.slice(ui.indexOf("const queue = [...files]"));
+  const scope = intake.slice(0, 1800);
+
+  assert.match(scope, /Promise\.all\(/,
+    "the documents must be in flight together, not one chunk after another");
+  assert.match(scope, /DOCUMENTS_PER_REQUEST/,
+    "the concurrency cap is what keeps a morning's post from being rate limited");
+  assert.doesNotMatch(scope, /for \([^)]*\bfrom\b[^)]*\)\s*\{[\s\S]{0,400}?await fetch/,
+    "awaiting a fetch inside the loop over documents is what made them sequential");
+});

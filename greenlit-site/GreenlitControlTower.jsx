@@ -3454,33 +3454,50 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
     // Chunks go one after another so each row resolves visibly. It is no
     // slower than the limit allows, and a morning's post shows its progress
     // instead of a spinner that says nothing for four minutes.
-    for (let from = 0; from < files.length; from += DOCUMENTS_PER_REQUEST) {
-      const chunk = files.slice(from, from + DOCUMENTS_PER_REQUEST);
+    /**
+     * Every document is its own request, and they run together.
+     *
+     * This sent chunks of five and awaited each chunk before starting the
+     * next, so twenty documents were four waits end to end even though the
+     * server reads a chunk in parallel. Worse, a chunk answered all-or-nothing:
+     * a notice that finished in ten seconds sat invisible for another forty
+     * while the slowest one in its group finished.
+     *
+     * One document per request, DOCUMENTS_PER_REQUEST of them in flight at a
+     * time, each landing on screen the moment it is read. The total is bounded
+     * by the slowest document rather than by the sum of the chunks, and the
+     * screen fills continuously instead of in blocks.
+     *
+     * The concurrency cap stays: it is what keeps a morning's post from
+     * arriving at the model as twenty simultaneous calls and being rate
+     * limited.
+     */
+    const queue = [...files];
+    const readOne = async (file) => {
       const body = new FormData();
-      for (const file of chunk) body.append("file", file);
+      body.append("file", file);
 
       const response = await fetch("/api/extract", { method: "POST", body }).catch(() => null);
       const payload = await response?.json().catch(() => ({}));
 
-      if (!response?.ok) {
-        // This chunk failed; the ones already read are kept. Losing four
-        // documents is better than losing twenty.
-        setBatch((current) => current.map((item) => chunk.some((f) => f.name === item.fileName)
-          ? { ...item, state: "failed", error: payload?.error ?? "Could not be read" }
-          : item));
-        continue;
-      }
-
-      const byName = new Map((payload.documents ?? [payload]).map((d) => [d.fileName, d]));
       setBatch((current) => current.map((item) => {
-        if (!chunk.some((f) => f.name === item.fileName)) return item;
-        const read = byName.get(item.fileName);
+        if (item.fileName !== file.name) return item;
+        if (!response?.ok) {
+          return { ...item, state: "failed", error: payload?.error ?? "Could not be read" };
+        }
+        const read = Array.isArray(payload.documents) ? payload.documents[0] : payload;
         if (!read || read.error) {
           return { ...item, state: "failed", error: read?.error ?? "Not read" };
         }
         return { ...item, state: "read", result: toIntakeResult(read) };
       }));
-    }
+    };
+
+    await Promise.all(
+      Array.from({ length: Math.min(DOCUMENTS_PER_REQUEST, queue.length) }, async () => {
+        for (let next = queue.shift(); next; next = queue.shift()) await readOne(next);
+      }),
+    );
   }
 
   function updateField(key, value) {
