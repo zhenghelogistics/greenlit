@@ -312,3 +312,53 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 /* The domain, as an edge rather than a label competing with the job number. */
 .gl-edge-import { border-left: 6px solid var(--gl-import); }
 .gl-edge-export { border-left: 6px solid var(--gl-export); }
+
+/* ------------------------------------------------------------------
+   Reading progress.
+
+   Extraction is bounded by how fast the model can write the answer out —
+   measured at about 4,200 output tokens and 35 seconds for a notice of forty
+   containers, and neither thinking nor prompt caching moves it. So the wait
+   is real and the only honest thing to do is show it passing.
+
+   Two bars. The batch bar is determinate because the total is known. Each
+   document's own bar is indeterminate, because a document that will take 40
+   seconds and one that will take 12 look identical until they finish, and a
+   bar that guesses and then stalls at 90% is worse than one that never
+   claimed to know.
+   ------------------------------------------------------------------ */
+.gl-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--gl-bg-hover);
+  overflow: hidden;
+}
+.gl-progress__fill {
+  height: 100%;
+  background: var(--gl-accent);
+  border-radius: 999px;
+  transition: width .4s ease;
+}
+
+.gl-progress--waiting { position: relative; }
+.gl-progress--waiting::after {
+  content: "";
+  position: absolute; inset: 0;
+  width: 40%;
+  border-radius: 999px;
+  background: var(--gl-accent);
+  animation: gl-slide 1.4s ease-in-out infinite;
+}
+@keyframes gl-slide {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
+/* Motion is decoration here: the count and the words say the same thing, so
+   a reader who has asked for less of it loses nothing. */
+@media (prefers-reduced-motion: reduce) {
+  /* The global rule above already stops every animation and transition. What
+     it cannot fix is the shimmer's resting position: stopped mid-slide it sits
+     outside the bar and reads as empty, so it becomes a static fill instead. */
+  .gl-progress--waiting::after { animation: none; width: 100%; opacity: .35; }
+}

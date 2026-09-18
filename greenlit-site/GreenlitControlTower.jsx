@@ -982,7 +982,9 @@ function DocumentsPanel({ jobId }) {
 function BatchReview({ batch, customers, onApplyAll, onDiscard, applying }) {
   const read = batch.filter((b) => b.state === "read");
   const failed = batch.filter((b) => b.state === "failed");
-  const reading = batch.filter((b) => b.state === "reading");
+  const inFlight = batch.filter((b) => b.state === "reading");
+  const queued = batch.filter((b) => b.state === "queued");
+  const done = batch.filter((b) => b.state === "read" || b.state === "failed").length;
 
   const grouped = groupByCustomer(
     read,
@@ -994,22 +996,58 @@ function BatchReview({ batch, customers, onApplyAll, onDiscard, applying }) {
     <main id="main-content" className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8">
       <h1 className="gl-display">{batch.length} documents</h1>
       <p className="gl-body-plain mt-1 text-[color:var(--gl-ink-muted)]">
-        {reading.length > 0
-          ? `Reading ${reading.length} of ${batch.length}. They go ${DOCUMENTS_PER_REQUEST} at a time and are read together, `
-            + "so a batch takes about as long as its slowest document rather than the sum of them."
+        {inFlight.length + queued.length > 0
+          ? `${DOCUMENTS_PER_REQUEST} are read at once and each appears the moment it is done. `
+            + "A notice of forty containers takes about half a minute."
           : "Grouped by the company each names as consignee."}
       </p>
 
-      {reading.length > 0 ? (
+      {inFlight.length + queued.length > 0 ? (
         <Panel title="Reading" className="mt-7">
           <div className="p-6">
-            <ul className="grid gap-2">
+            {/* The batch bar is determinate: the total is known and the count
+                done is known, so it can say exactly where it is. */}
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="gl-label">{done} of {batch.length} read</span>
+              <span className="gl-caption">
+                {inFlight.length} in progress{queued.length ? `, ${queued.length} waiting` : ""}
+              </span>
+            </div>
+            <div className="gl-progress mt-2" role="progressbar"
+              aria-valuenow={done} aria-valuemin={0} aria-valuemax={batch.length}
+              aria-label={`${done} of ${batch.length} documents read`}>
+              <div className="gl-progress__fill" style={{ width: `${(done / batch.length) * 100}%` }} />
+            </div>
+
+            <ul className="mt-5 grid gap-3">
               {batch.map((item) => (
-                <li key={item.fileName} className="flex items-center justify-between gap-3">
-                  <span className="gl-body-plain text-[color:var(--gl-ink)]">{item.fileName}</span>
-                  <span className="gl-caption">
-                    {item.state === "reading" ? "reading…" : item.state === "failed" ? "could not read" : "read"}
-                  </span>
+                <li key={item.fileName} className="grid gap-1">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="gl-body-plain text-[color:var(--gl-ink)]">{item.fileName}</span>
+                    <span className="gl-caption">
+                      {item.state === "reading"
+                        ? <Elapsed since={item.startedAt} />
+                        : item.state === "queued" ? "waiting"
+                          : item.state === "failed" ? "could not read" : "read"}
+                    </span>
+                  </div>
+                  {/* Indeterminate, deliberately. A forty-second document and
+                      a twelve-second one look identical until they finish, and
+                      a bar that guesses then stalls at 90% is worse than one
+                      that never claimed to know. */}
+                  {item.state === "reading" ? (
+                    <div className="gl-progress gl-progress--waiting" />
+                  ) : item.state === "queued" ? (
+                    <div className="gl-progress" />
+                  ) : (
+                    <div className="gl-progress">
+                      <div className="gl-progress__fill" style={{
+                        width: "100%",
+                        background: item.state === "failed"
+                          ? "var(--gl-state-blocked)" : "var(--gl-state-ready)",
+                      }} />
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>
@@ -1083,7 +1121,7 @@ function BatchReview({ batch, customers, onApplyAll, onDiscard, applying }) {
         </Panel>
       ) : null}
 
-      {reading.length === 0 ? (
+      {inFlight.length + queued.length === 0 ? (
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <button
             type="button"
@@ -3315,6 +3353,30 @@ function DiscrepancyReview({ job, onResolve }) {
   );
 }
 
+/**
+ * Seconds since a document started being read.
+ *
+ * The one honest number available while it runs: the total is unknown until
+ * the model finishes writing, but the time already spent is a fact, and a
+ * number that changes is what tells somebody the screen has not frozen.
+ */
+function Elapsed({ since }) {
+  // Counted in the effect rather than read during render: Date.now() is impure
+  // and calling it while rendering makes the output depend on when React
+  // happened to run, not on the state.
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    if (!since) return undefined;
+    const update = () => setSeconds(Math.max(0, Math.round((Date.now() - since) / 1000)));
+    update();
+    const tick = window.setInterval(update, 1000);
+    return () => window.clearInterval(tick);
+  }, [since]);
+
+  if (!since) return <>reading…</>;
+  return <>reading… {seconds}s</>;
+}
+
 function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
   // §9. The companies a batch is grouped against. Loaded here because
   // grouping happens before anything is applied — the operator sees where
@@ -3444,7 +3506,10 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
     setStage("batch");
     // Named before they are read, so the operator watches twenty rows resolve
     // rather than a spinner that says nothing for four minutes.
-    setBatch(files.map((file) => ({ fileName: file.name, file, state: "reading" })));
+    // §Queued, not reading: five are in flight and the rest are waiting their
+    // turn. Marking all twenty "reading…" was a claim the screen could not
+    // back up, and it made the whole batch look stalled rather than moving.
+    setBatch(files.map((file) => ({ fileName: file.name, file, state: "queued" })));
 
     // Sent in chunks, because a request has a time limit and a document takes
     // about twenty-five seconds. Four together finish inside it; twenty in one
@@ -3474,6 +3539,9 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
      */
     const queue = [...files];
     const readOne = async (file) => {
+      setBatch((current) => current.map((item) => item.fileName === file.name
+        ? { ...item, state: "reading", startedAt: Date.now() } : item));
+
       const body = new FormData();
       body.append("file", file);
 
