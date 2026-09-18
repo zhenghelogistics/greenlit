@@ -374,7 +374,20 @@ export async function extractWithClaude(
   const stream = client.messages.stream({
     model: "claude-opus-5",
     max_tokens: 8000,
-    system: SYSTEM,
+    /**
+     * The instructions are identical on every document, so they are cached.
+     *
+     * Measured: 2,639 tokens are cached and read back on every call after the
+     * first. It buys nothing in time — 33.8s, 33.5s, 33.3s across three runs —
+     * because the wait is the 4,250 output tokens being written, not the input
+     * being read. What it buys is those 2,639 input tokens at a tenth of the
+     * price on every document but the first of each five-minute window.
+     *
+     * The document itself is deliberately outside the breakpoint: it is
+     * different every time, and a cache prefix that never repeats is a write
+     * that is never read.
+     */
+    system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
     thinking: { type: "adaptive" },
     output_config: {
       effort: "medium",

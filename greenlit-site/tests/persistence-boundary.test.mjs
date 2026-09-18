@@ -152,13 +152,21 @@ test("a single slow document cannot take the chunk with it", async () => {
     "a deadline above the request ceiling never fires, and the gateway kills everything instead");
 });
 
-test("the browser and the server agree on the chunk size", async () => {
-  // Two numbers that must match. If the browser sends more than the server
-  // accepts, every batch fails on a refusal nobody expected.
-  const route = await readFile("app/api/extract/route.ts", "utf8");
-  const perRequest = route.match(/MAX_DOCUMENTS_PER_BATCH = (\d+)/)?.[1];
-  const perChunk = ui.match(/DOCUMENTS_PER_REQUEST = (\d+)/)?.[1];
-  assert.equal(perChunk, perRequest);
+test("the browser never sends more documents than a request accepts", () => {
+  // These used to have to be equal: the browser chunked documents and the
+  // server capped how many one request could carry. Each document is its own
+  // request now, so what matters is the other direction — the browser must not
+  // put more in one request than the server will take, and how many it runs at
+  // once is a separate question answered by the rate limit.
+  const route = ui.includes("DOCUMENTS_AT_ONCE");
+  assert.ok(route, "the concurrency constant should be named for what it does");
+
+  const src = ui.slice(ui.indexOf("const readOne = async (file)"));
+  const scope = src.slice(0, 900);
+  assert.match(scope, /body\.append\("file", file\)/,
+    "one document per request; appending a list is what the chunking did");
+  assert.doesNotMatch(scope, /for \([^)]*of chunk\)/,
+    "a loop appending several files would exceed the server's per-request cap");
 });
 
 test("documents are read together, and each lands as it finishes", async () => {
@@ -175,7 +183,7 @@ test("documents are read together, and each lands as it finishes", async () => {
 
   assert.match(scope, /Promise\.all\(/,
     "the documents must be in flight together, not one chunk after another");
-  assert.match(scope, /DOCUMENTS_PER_REQUEST/,
+  assert.match(scope, /DOCUMENTS_AT_ONCE/,
     "the concurrency cap is what keeps a morning's post from being rate limited");
   assert.doesNotMatch(scope, /for \([^)]*\bfrom\b[^)]*\)\s*\{[\s\S]{0,400}?await fetch/,
     "awaiting a fetch inside the loop over documents is what made them sequential");

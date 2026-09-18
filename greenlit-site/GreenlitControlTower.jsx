@@ -997,7 +997,7 @@ function BatchReview({ batch, customers, onApplyAll, onDiscard, applying }) {
       <h1 className="gl-display">{batch.length} documents</h1>
       <p className="gl-body-plain mt-1 text-[color:var(--gl-ink-muted)]">
         {inFlight.length + queued.length > 0
-          ? `${DOCUMENTS_PER_REQUEST} are read at once and each appears the moment it is done. `
+          ? `${DOCUMENTS_AT_ONCE} are read at once and each appears the moment it is done. `
             + "A notice of forty containers takes about half a minute."
           : "Grouped by the company each names as consignee."}
       </p>
@@ -2572,18 +2572,27 @@ function FreeTimePanel({ container }) {
  * keeps both honest: the screen stays readable and the store stays typed.
  */
 /**
- * How many documents go in one request, and how many in one go.
+ * How many documents are read at once, and how many may be selected.
  *
- * Matched to the server's cap, which is measured: a notice takes between 12
- * and 93 seconds, documents read in parallel, and a chunk therefore costs its
- * slowest member. Five against a 300-second ceiling leaves about three times
- * the headroom on the worst document seen.
+ * This was five, matched to the server's cap on documents per request, back
+ * when the browser sent them in chunks of five. Each document is its own
+ * request now, so that reasoning no longer applies to how many run together —
+ * and five was throttling the work for no reason.
  *
- * The total is capped as well, so an operator who selects an entire folder is
- * told the number rather than discovering it through a request that never
- * comes back. Twenty is a morning's post; beyond that it is a mistake.
+ * Measured against the account's actual limits: 10,000,000 input tokens and
+ * 2,000,000 output tokens a minute, against roughly 4,400 in and 4,200 out per
+ * document over 35 seconds. Five concurrent uses 1.8% of the output ceiling.
+ * The rate limit would allow on the order of 270 at once; nothing about this
+ * workload is near it.
+ *
+ * So the number is set to the selection cap instead. Any batch an operator is
+ * allowed to submit now reads in a single pass — twenty documents take about
+ * as long as the slowest one rather than four times that.
+ *
+ * Twenty remains the selection cap: an operator who picks an entire folder is
+ * told the number rather than discovering it through a wait that never ends.
  */
-const DOCUMENTS_PER_REQUEST = 5;
+const DOCUMENTS_AT_ONCE = 20;
 const MAX_DOCUMENTS_PER_BATCH = 20;
 
 const MOVEMENT_TYPE_FOR = {
@@ -3528,7 +3537,7 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
      * a notice that finished in ten seconds sat invisible for another forty
      * while the slowest one in its group finished.
      *
-     * One document per request, DOCUMENTS_PER_REQUEST of them in flight at a
+     * One document per request, DOCUMENTS_AT_ONCE of them in flight at a
      * time, each landing on screen the moment it is read. The total is bounded
      * by the slowest document rather than by the sum of the chunks, and the
      * screen fills continuously instead of in blocks.
@@ -3562,7 +3571,7 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
     };
 
     await Promise.all(
-      Array.from({ length: Math.min(DOCUMENTS_PER_REQUEST, queue.length) }, async () => {
+      Array.from({ length: Math.min(DOCUMENTS_AT_ONCE, queue.length) }, async () => {
         for (let next = queue.shift(); next; next = queue.shift()) await readOne(next);
       }),
     );
