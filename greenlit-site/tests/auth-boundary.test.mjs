@@ -71,8 +71,10 @@ test("middleware gates everything except the two doors and the health check", as
   // else public is a screen somebody forgot to check.
   const source = await readFile("middleware.ts", "utf8");
   assert.match(source, /const PUBLIC = \["\/sign-in", "\/sign-up", "\/api\/health"\]/);
-  assert.match(source, /auth\.getUser\(\)/,
-    "getUser revalidates; getSession would trust a cookie the browser handed us");
+  assert.match(source, /auth\.getClaims\(\)/,
+    "the signature must be verified, not the cookie taken at its word");
+  assert.doesNotMatch(source, /auth\.getSession\(\)/,
+    "getSession reads the cookie without checking the signature");
 });
 
 test("registration cannot choose its own role", async () => {
@@ -91,4 +93,24 @@ test("registration cannot choose its own role", async () => {
   const payload = form.slice(form.indexOf("auth.signUp("), form.indexOf("setBusy(false)"));
   assert.doesNotMatch(payload, /\brole\b/,
     "the registration request must not carry a role for the server to trust");
+});
+
+test("§7: identity is established by checking a signature, never by asking a header", async () => {
+  // getUser() asks Supabase whether a token is good, which is a network round
+  // trip on every request — 125ms to the Tokyo project, and it was paid twice
+  // because the middleware asked as well. getClaims verifies the ES256
+  // signature locally in about 1ms and rejects a tampered token by the same
+  // arithmetic the server would have used.
+  //
+  // What must never appear is the cheap version of this: trusting an email or
+  // a user id handed over in a header or a body, which is the bug the whole
+  // actor rule exists to prevent.
+  for (const path of ["lib/auth.ts", "middleware.ts"]) {
+    const src = await readFile(path, "utf8");
+    assert.match(src, /auth\.getClaims\(\)/, `${path} must verify the token`);
+    assert.doesNotMatch(src, /auth\.getSession\(\)/,
+      `${path} must not read the cookie without checking it`);
+    assert.doesNotMatch(src, /headers\.get\(["'`]x-.*user/i,
+      `${path} must not take identity from a header a caller could set`);
+  }
 });

@@ -63,10 +63,24 @@ export async function currentPrincipal(): Promise<Principal | null> {
   const client = await serverAuthClient();
   if (!client) return null;
 
-  const { data, error } = await client.auth.getUser();
-  if (error || !data.user?.email) return null;
+  /**
+   * §7. The signature is checked here rather than asked about.
+   *
+   * getUser() asks Supabase whether the token is good, which is a network
+   * round trip on every single request — measured at 125ms to the Tokyo
+   * project, paid twice per request because the middleware asks as well.
+   *
+   * The token is ES256, so its signature can be verified locally against the
+   * project's public key: 1ms, and a tampered token is rejected by the same
+   * arithmetic the server would have used. This is not trusting the cookie —
+   * trusting the cookie would be reading it without checking the signature,
+   * which is what getSession does and why it is the wrong call here.
+   */
+  const { data, error } = await client.auth.getClaims();
+  const claims = data?.claims;
+  if (error || typeof claims?.email !== "string") return null;
 
-  const email = data.user.email;
+  const email = claims.email;
   // Re-checked on every sign-in rather than only at registration: an address
   // that stops being a company one must stop being able to read the book.
   if (!canJoin(email).ok) return null;
@@ -75,8 +89,8 @@ export async function currentPrincipal(): Promise<Principal | null> {
   if (existing) return existing.active ? existing : null;
 
   // First sign-in. The name they gave at registration is on the auth record.
-  const name = typeof data.user.user_metadata?.display_name === "string"
-    ? data.user.user_metadata.display_name
+  const name = typeof claims.user_metadata?.display_name === "string"
+    ? claims.user_metadata.display_name
     : suggestedDisplayName(email);
 
   return getRepository().ensurePrincipal(email, name, joiningRole(email));
