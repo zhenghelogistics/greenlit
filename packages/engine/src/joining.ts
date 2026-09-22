@@ -42,6 +42,8 @@ export const FOUNDING_ADMINISTRATOR = 'max-ng@zhenghe.com.sg';
  * out of here is what stops them registering again.
  */
 export const GUEST_ADDRESSES: readonly string[] = [
+  // Contract developer, Sept 2026. Remove when the engagement ends.
+  'ikbalgazalba@gmail.com',
 ];
 
 export function normaliseEmail(email: string): string {
