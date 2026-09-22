@@ -87,5 +87,21 @@ test("ships the document-intake contract", async () => {
   assert.match(reader, /No selectable text was found/);
   assert.match(parser, /REQUIRED_JOB_FIELDS/);
   assert.match(layout, /browser-local arrival-notice intake/);
-  assert.doesNotMatch(component, /localStorage|sessionStorage/);
+  /**
+   * Nothing operational is kept in the browser.
+   *
+   * This forbade browser storage outright, and the reason is sound: a job
+   * cached client-side is a job that can be read after it stopped being true,
+   * and a controller cannot tell that what is on screen is no longer coming
+   * from the server. Stale rows are worse than none.
+   *
+   * A theme preference is not that. It belongs to the device rather than to
+   * the operation, it is the reader's own choice, and losing it costs a click.
+   * So the rule is now what it always meant — what may be stored is a named
+   * list, and everything else still fails.
+   */
+  const stored = [...component.matchAll(/(?:local|session)Storage\.(?:get|set)Item\(\s*"([^"]+)"/g)]
+    .map((m) => m[1]);
+  assert.deepEqual([...new Set(stored)].sort(), ["gl-theme"],
+    "only per-device preferences may live in the browser, never job data");
 });

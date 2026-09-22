@@ -37,6 +37,8 @@ import {
   Container,
   Undo2,
   Receipt,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { groupByCustomer, matchCustomer } from "@greenlit/engine";
 import ZhtDashboard from "./components/ZhtDashboard.jsx";
@@ -1174,6 +1176,44 @@ const ROLE_LABEL = {
   CONTROLLER: "Controller",
   OPERATIONS: "Operations",
 };
+
+/**
+ * Light or dark, and the reader's choice rather than the machine's.
+ *
+ * prefers-color-scheme is a good default and a bad rule: a controller on a
+ * warehouse floor at 6am and the same person at a desk at noon want different
+ * things from the same laptop. The system setting picks the first answer and
+ * this overrides it, per device.
+ *
+ * No React state. The theme lives on the root element, set by a script in the
+ * document head before anything paints — state here would mean the first
+ * render happens in the wrong theme and corrects itself, which is a white
+ * flash in a dark room. Both icons are rendered and CSS shows the right one,
+ * so the button needs no knowledge of which theme is current either.
+ */
+function ThemeToggle() {
+  const toggle = () => {
+    const root = document.documentElement;
+    const next = root.dataset.theme === "dark" ? "light" : "dark";
+    root.dataset.theme = next;
+    try { window.localStorage.setItem("gl-theme", next); } catch { /* private window */ }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      title="Switch between light and dark"
+      className="gl-theme-toggle inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md border border-[color:var(--gl-line)] bg-[color:var(--gl-bg-subtle)] px-3 text-[color:var(--gl-ink)] hover:bg-[color:var(--gl-bg-hover)] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--gl-focus)]"
+    >
+      <Moon className="gl-when-light h-5 w-5" aria-hidden="true" />
+      <Sun className="gl-when-dark h-5 w-5" aria-hidden="true" />
+      <span className="gl-caption gl-when-light">Dark</span>
+      <span className="gl-caption gl-when-dark">Light</span>
+      <span className="sr-only">Switch between light and dark</span>
+    </button>
+  );
+}
 
 function ActingUser() {
   const user = usePrincipal();
@@ -4739,6 +4779,7 @@ export default function GreenlitControlTower() {
               whose only outcome was an error. The board refreshes itself;
               this says when it last did. */}
           <LastUpdated at={lastLoaded} stale={source === "offline"} />
+          <ThemeToggle />
           <ActingUser />
         </header>
 

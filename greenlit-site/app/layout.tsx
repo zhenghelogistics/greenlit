@@ -34,7 +34,25 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en-SG">
+    <html lang="en-SG" suppressHydrationWarning>
+      <head>
+        {/*
+          The theme is decided before anything paints.
+          
+          Applied from React instead, the first frame renders in the default
+          and corrects itself — a white flash, which on a warehouse floor at
+          6am is the difference between usable and not. The stored choice wins
+          over the system setting, because a person who pressed the button
+          meant it.
+        */}
+        <script
+          dangerouslySetInnerHTML={{ __html: `(function(){try{
+            var s=localStorage.getItem('gl-theme');
+            var d=s||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+            document.documentElement.dataset.theme=d;
+          }catch(e){}})();` }}
+        />
+      </head>
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
       >
