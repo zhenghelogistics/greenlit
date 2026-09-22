@@ -1208,8 +1208,8 @@ function ThemeToggle() {
     >
       <Moon className="gl-when-light h-5 w-5" aria-hidden="true" />
       <Sun className="gl-when-dark h-5 w-5" aria-hidden="true" />
-      <span className="gl-caption gl-when-light">Dark</span>
-      <span className="gl-caption gl-when-dark">Light</span>
+      <span className="gl-when-light text-[15px] font-medium">Dark</span>
+      <span className="gl-when-dark text-[15px] font-medium">Light</span>
       <span className="sr-only">Switch between light and dark</span>
     </button>
   );
@@ -2839,7 +2839,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
 
   return (
     <div className="fixed inset-0 z-[80] flex justify-end bg-[color:var(--gl-ink-strong)]/25" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <aside role="dialog" aria-modal="true" aria-labelledby="operations-drawer-title" className="greenlit-drawer flex h-full w-full max-w-[680px] flex-col overflow-hidden border-l border-slate-300 bg-[#f4f6f8] shadow-[-20px_0_50px_rgba(15,35,51,0.22)]">
+      <aside role="dialog" aria-modal="true" aria-labelledby="operations-drawer-title" className="greenlit-drawer flex h-full w-full max-w-[680px] flex-col overflow-hidden border-l border-[color:var(--gl-line-strong)] bg-[color:var(--gl-bg)] shadow-[-20px_0_50px_rgba(15,35,51,0.22)]">
         <div className="flex items-start justify-between gap-4 border-b border-[color:var(--gl-line)] bg-[var(--gl-bg-subtle)] px-5 py-5 text-[color:var(--gl-ink)]">
           <div className="min-w-0">
             <h2 id="operations-drawer-title" className="text-2xl font-semibold tracking-[-0.02em]">{heading.title}</h2>
@@ -4707,7 +4707,7 @@ export default function GreenlitControlTower() {
 
           One nav element, not two: a row that scrolls on a phone and a column
           from `lg` up. Two navs would be two lists to keep in step. */}
-      <aside className="sticky top-0 z-40 bg-[color:var(--gl-accent)] text-white lg:h-screen lg:w-[236px] lg:shrink-0">
+      <aside className="sticky top-0 z-40 bg-[color:var(--gl-rail)] text-[color:var(--gl-rail-ink)] lg:h-screen lg:w-[236px] lg:shrink-0">
         <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:block lg:px-5 lg:py-5">
           {/* The white mark, because the rail is the brand colour. The wordmark
               already says Zheng He Logistics, so the line under it names the

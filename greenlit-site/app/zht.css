@@ -27,6 +27,26 @@
   --muted:#6d7e90;--line:#dce5ef;--blue:#2f78d0;--green:#2d9a62;--orange:#e68a2f;
   --red:#c94242;--purple:#7254c7;--soft:#eef4fb;
 }
+/* ------------------------------------------------------------------
+   His palette, in the dark.
+
+   Everything the ported screens draw reads these — the cards, the tables, the
+   rails on the attention items. Without them, themeing our own tokens turned
+   the header dark and left the entire content area white, which is worse than
+   no dark mode at all.
+
+   The values are matched to the same grounds the contrast gate measures, so a
+   ported card and one of ours sit on the same colour rather than two shades
+   that look like a mistake.
+   ------------------------------------------------------------------ */
+:root[data-theme="dark"] {
+  --nav:#10131a; --nav2:#0b0e14;
+  --bg:#14161a; --card:#1b1e24; --soft:#22262e;
+  --text:#e6e9ee; --muted:#b2bac6; --line:#2c313a;
+  --blue:#8fb6ff; --green:#6ee7a0; --orange:#f0b968;
+  --red:#ff9c9c; --purple:#d6a8f5;
+}
+
 .zht * {box-sizing:border-box}
 .zht {margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
 .zht .app {display:flex;min-height:100vh}

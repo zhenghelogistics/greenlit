@@ -29,6 +29,15 @@
      5.17:1 on white, and white on it also passes, so it works as both. */
   --gl-accent: #1e40af;
   --gl-accent-hover: #1e3a8a;
+  /* The rail is a surface, not a link, and it stays dark in both themes.
+     Painting it with the accent meant lightening the accent for dark mode
+     turned the navy sidebar pale blue with white text on it. */
+  --gl-rail: #1e40af;
+  --gl-rail-ink: #ffffff;
+  /* The rail carries its own secondary ink. The page's muted grey measures
+     1.02:1 on the blue — invisible — so a subtitle or a count on the rail
+     cannot borrow it. */
+  --gl-rail-muted: #e0e8fc;
   --gl-accent-soft: #dbeafe;
   --gl-focus: #1e40af;
 
@@ -290,6 +299,9 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   --gl-line-strong: #3d444f;
 
   --gl-accent: #8fb6ff;
+  --gl-rail: #10131a;
+  --gl-rail-ink: #e6e9ee;
+  --gl-rail-muted: #a9b2bf;
   --gl-accent-hover: #a9c6ff;
   --gl-accent-soft: #1e2a44;
   --gl-focus: #8fb6ff;
@@ -437,3 +449,42 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .gl-when-dark { display: none; }
 :root[data-theme="dark"] .gl-when-dark { display: inline-flex; }
 :root[data-theme="dark"] .gl-when-light { display: none; }
+
+
+/* ------------------------------------------------------------------
+   Dark, for the screens that predate the tokens.
+
+   355 hardcoded Tailwind colour classes are still in the older panels and
+   drawers — bg-white, text-slate-600, border-slate-200 and their neighbours.
+   Rewriting each by hand across a 4,700-line file is a larger risk than
+   mapping the dozen that account for almost all of them, so the utilities
+   are redefined under the dark root and the markup is left alone.
+
+   Every value here is one the contrast gate already measures as a token;
+   none is a new colour invented for this block.
+   ------------------------------------------------------------------ */
+:root[data-theme="dark"] {
+  .bg-white        { background-color: var(--gl-bg-subtle) !important; }
+  .bg-slate-50     { background-color: var(--gl-bg-subtle) !important; }
+  .bg-slate-100    { background-color: var(--gl-bg-hover) !important; }
+  .bg-sky-50       { background-color: var(--gl-bg-accent) !important; }
+  .bg-slate-400    { background-color: var(--gl-line-strong) !important; }
+
+  .text-slate-950, .text-slate-900 { color: var(--gl-ink-strong) !important; }
+  .text-slate-800, .text-slate-700 { color: var(--gl-ink) !important; }
+  .text-slate-600, .text-slate-500 { color: var(--gl-ink-muted) !important; }
+
+  .border-slate-200 { border-color: var(--gl-line) !important; }
+  .border-slate-300 { border-color: var(--gl-line-strong) !important; }
+
+  /* The pale state washes go to their dark equivalents rather than staying
+     near-white, which is where the worst of the glare was. */
+  .bg-rose-50    { background-color: #2a1618 !important; }
+  .bg-amber-50   { background-color: var(--gl-state-warn-soft) !important; }
+  .bg-emerald-50 { background-color: #10241a !important; }
+  .border-rose-200, .border-rose-300 { border-color: #5c2a2e !important; }
+  .border-amber-200 { border-color: #4a3a1e !important; }
+  .text-rose-800, .text-rose-900 { color: var(--gl-state-blocked-ink) !important; }
+  .text-amber-800, .text-amber-900 { color: var(--gl-state-warn-ink) !important; }
+  .text-emerald-800 { color: var(--gl-state-ready-ink) !important; }
+}

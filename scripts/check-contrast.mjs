@@ -112,9 +112,11 @@ function everything() {
   check("muted on warn wash", muted, tok("state-warn-soft"));
   check("ink on warn wash", tok("ink"), tok("state-warn-soft"));
 
-  // 7. The rail. Two grounds, because the current section sits on the page
-  //    while the rest sit on the blue.
-  check("rail label on accent", onSolid, tok("accent"));
+  // 7. The rail has its own surface token, because it is a surface rather
+  //    than a link: it was painted with the accent, and lightening the accent
+  //    for dark mode turned the navy sidebar pale blue under white text.
+  check("rail ink on rail", tok("rail-ink"), tok("rail"));
+  check("rail muted on rail", tok("rail-muted"), tok("rail"));
   check("rail current on page ground", tok("accent"), tok("bg"));
 
   // 8. Borders have to be visible, which is a lower bar than text but not
