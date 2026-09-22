@@ -1215,14 +1215,23 @@ function ThemeToggle() {
   );
 }
 
+/**
+ * Who is signed in, in the toolbar.
+ *
+ * This was white, on a toolbar painted with the page ground — which is
+ * near-white. The name and the sign-out link have been invisible in light mode
+ * for as long as they have existed; dark mode only made them visible by
+ * accident, which is how it was noticed. They take the page's ink now, so they
+ * follow whichever theme is on.
+ */
 function ActingUser() {
   const user = usePrincipal();
   if (!user) return null;
   const role = ROLE_LABEL[user.role] ?? user.role;
 
   return (
-    <div className="flex shrink-0 items-center gap-2 text-[15px] text-white/90">
-      <UserRound className="h-5 w-5 shrink-0 text-white/90" aria-hidden="true" />
+    <div className="flex shrink-0 items-center gap-2 text-[15px] text-[color:var(--gl-ink-muted)]">
+      <UserRound className="h-5 w-5 shrink-0 text-[color:var(--gl-ink-muted)]" aria-hidden="true" />
       <span>
         <span className="sr-only">Signed in as </span>
         {user.displayName} &middot; {role}
@@ -1230,7 +1239,7 @@ function ActingUser() {
       <form action="/api/sign-out" method="post" className="ml-1">
         <button
           type="submit"
-          className="min-h-11 cursor-pointer rounded-md px-2 text-[15px] text-white/90 underline underline-offset-4 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          className="min-h-11 cursor-pointer rounded-md px-2 text-[15px] text-[color:var(--gl-ink-muted)] underline underline-offset-4 hover:text-[color:var(--gl-ink)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         >
           Sign out
         </button>

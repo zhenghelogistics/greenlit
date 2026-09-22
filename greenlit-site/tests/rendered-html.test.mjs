@@ -105,3 +105,21 @@ test("ships the document-intake contract", async () => {
   assert.deepEqual([...new Set(stored)].sort(), ["gl-theme"],
     "only per-device preferences may live in the browser, never job data");
 });
+
+test("nothing in the toolbar is painted a colour the toolbar cannot show", async () => {
+  // The signed-in name and the sign-out link were `text-white` on a toolbar
+  // painted with the page ground — 1.04:1, invisible, and it had been that way
+  // since they were written. Dark mode only revealed it by making the toolbar
+  // dark, which is a bad way to find out.
+  //
+  // The toolbar follows the theme, so anything on it must take a token rather
+  // than a fixed colour.
+  const src = await readFile("GreenlitControlTower.jsx", "utf8");
+  const start = src.indexOf("function ActingUser()");
+  const toolbar = src.slice(start, src.indexOf("\n}\n", start));
+
+  assert.doesNotMatch(toolbar, /text-white/,
+    "a fixed white sits on a toolbar that is only dark in one theme");
+  assert.match(toolbar, /var\(--gl-ink/,
+    "toolbar text takes the page's ink so it follows the theme");
+});

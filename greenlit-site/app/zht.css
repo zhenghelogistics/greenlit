@@ -2843,3 +2843,418 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 .zht .leg--blocked .leg-node::after { content: "!"; }
 .zht .leg--waiting .leg-node::after { content: "\2026"; }
 .zht .leg--skipped .leg-node::after { content: "\2013"; }
+/* ---- generated dark surfaces ---- */
+/* ------------------------------------------------------------------
+   His stylesheet in the dark — generated from the rules above, not typed.
+
+   Most of his CSS sets colours as raw hex rather than through his variables,
+   so giving the variables dark values left every card, chip, table head,
+   button and attention row light. Writing these by hand is how three of them
+   end up wrong and nobody notices until a controller is squinting at one.
+
+   Three transforms, each keeping what the colour meant:
+
+   Surfaces keep their hue and a trace of saturation and invert only lightness,
+   because his palette carries meaning in the tint — warm for attention, red
+   for a problem, blue for a gate. Flattened to grey they would all say the
+   same thing.
+
+   Inks written for a white ground are lifted to a light equivalent of the same
+   hue, so a red word stays red and becomes readable rather than turning white.
+
+   Borders darken to an edge that is still visible without glowing.
+
+   Regenerate rather than edit. The light rule above is the source of truth.
+   ------------------------------------------------------------------ */
+:root[data-theme="dark"] {
+  .zht .topbar { background: #1f1c1c; }
+  .zht .btn.secondary { background: #1b212a; }
+  .zht .btn.ghost { background: #1f1c1c; }
+  .zht .card { border-color: #323c48; }
+  .zht th { background: #1b222a; }
+  .zht td { border-bottom-color: #323d48; }
+  .zht .pending { background: #2a231b; color: #e3c4a0; }
+  .zht .ready { background: #1b212a; color: #a0c0e3; }
+  .zht .green { background: #1b2a21; color: #a1e3c3; }
+  .zht .purple { background: #1f1b2a; color: #b5a7dc; }
+  .zht .red { background: #2a1b1b; color: #e3a0a0; }
+  .zht .gray { background: #1b232a; color: #bbc2c9; }
+  .zht .toolbar input,
+  .zht .toolbar select { background: #1f1c1c; }
+  .zht .field { background: #1b222a; }
+  .zht .tab { background: #1b222a; }
+  .zht .tab.active { background: #1b212a; color: #a0c0e3; }
+  .zht .step { background: #1b222a; }
+  .zht .step.done { background: #1b2a21; color: #a0e3c3; }
+  .zht .step.current { background: #1b212a; color: #a0c0e3; }
+  .zht .note { border-bottom-color: #323d48; }
+  .zht .stop { background: #1b222a; }
+  .zht .movement { background: #1b222a; }
+  .zht .modal-card { background: #1f1c1c; }
+  .zht .container-entry { background: #1b222a; }
+  .zht .board>div { background: #1f1c1c; }
+  .zht .alert { border-bottom-color: #323d48; }
+  .zht .callout { background: #2a251b; color: #e3cca0; border-color: #484032; }
+  .zht .validation-warn { background: #2a241b; color: #e3c6a0; border-color: #484032; }
+  .zht .validation-ok { background: #1b2a21; color: #a1e3c3; border-color: #32483c; }
+  .zht .permit-alert { background: #2a241b; color: #e3c7a0; }
+  .zht .export-slot { background: #1f1c1c; }
+  .zht .queue-card { background: #1f1c1c; }
+  .zht .field-label { color: #bbc2c9; }
+  .zht .eyebrow { color: #b8c0cb; }
+  .zht .icon-close { background: #1f1c1c; }
+  .zht .customer-modal-footer { background: #1b202a; }
+  .zht .location-editor-card { background: #1f1c1c; border-color: #323c48; }
+  .zht .location-card-top { background: #1b222a; border-bottom-color: #323c48; }
+  .zht .location-number { background: #1b212a; color: #a0c0e3; }
+  .zht .default-choice { color: #b9c1cb; }
+  .zht .location-card-remove { color: #d0b4b9; }
+  .zht .location-summary-strip>div { background: #1b222a; border-color: #323c48; }
+  .zht .location-info-panel { background: #1b222a; border-color: #323d48; }
+  .zht .save-state { color: #bac0ca; }
+  .zht .data-menu-button { background: #1f1c1c; color: #a9c0db; border-color: #323c48; }
+  .zht .data-menu-button:hover { background: #1b212a; }
+  .zht .data-menu-button .chevron { color: #b9c0ca; }
+  .zht .data-menu { background: #1f1c1c; border-color: #323c48; }
+  .zht .data-menu button { color: #a9c0db; }
+  .zht .data-menu button:hover { background: #1b212a; }
+  .zht .data-menu button small { color: #bbc2c8; }
+  .zht .menu-icon { color: #b5c1ce; }
+  .zht .data-menu-divider { background: #1b222a; }
+  .zht .danger-menu-item b { color: #d7adb3; }
+  .zht /* ----------------------------------------------------------------------- */ /* v9.7 Primary customer delivery location ------------------------------- */ .primary-location-section { background: #1b222a; }
+  .zht .primary-location-badge { background: #1b212a; color: #a0c1e3; }
+  .zht .primary-location-card { background: #1f1c1c; border-color: #323d48; }
+  .zht .empty-location-hint { background: #1b202a; color: #bac1c9; border-color: #323c48; }
+  .zht .company-group-card { background: #1f1c1c; border-color: #323d48; }
+  .zht .company-group-head { background: #1b222a; border-bottom-color: #323c48; }
+  .zht .primary-company-group .company-group-head { background: #1b222a; }
+  .zht .company-group-name { color: #a6c0de; }
+  .zht .nested-address-card { background: #1f1c1c; border-color: #323c48; }
+  .zht .address-index { background: #1b222a; color: #a9c1db; }
+  .zht .company-group-remove,
+  .zht .address-remove { color: #d1b3ba; }
+  .zht .updated-meta strong { color: #b3c1d1; }
+  .zht .nested-address-title small { color: #bac1ca; }
+  .zht .location-reference-note { color: #b9c1ca; border-bottom-color: #323d48; }
+  .zht .container-entry textarea.nc-job-instructions { background: #1b202a; }
+  .zht /* v10.3 Customer location workspace redesign ----------------------------- */ .company-group-card { background: #1f1c1c; border-color: #323c48; }
+  .zht .modern-company-head,
+  .zht .company-group-head { border-bottom-color: #323c48; }
+  .zht .company-group-caption { color: #bac1ca; }
+  .zht .company-head-note { background: #1f1c1c; color: #b9c1cb; border-color: #323c48; }
+  .zht .company-group-body { background: #1b202a; }
+  .zht .location-workspace-card { background: #1f1c1c; border-color: #323d48; }
+  .zht .location-workspace-head { border-bottom-color: #323d48; }
+  .zht .location-title { color: #a5c0df; }
+  .zht .location-subtitle { color: #bac2ca; }
+  .zht .address-index { background: #1b222a; color: #a0c1e3; }
+  .zht .default-location-toggle { background: #1f1c1c; color: #bac1ca; border-color: #323c48; }
+  .zht .default-location-toggle.is-default { background: #1b222a; color: #a0c1e3; border-color-color: #323d48; }
+  .zht .default-dot { background: #1f1c1c; }
+  .zht .location-more-button { background: #1f1c1c; color: #b9c1ca; border-color: #323d48; }
+  .zht .location-more-button:hover { background: #1b212a; }
+  .zht .location-action-menu { background: #1f1c1c; border-color: #323d48; }
+  .zht .location-delete-action { color: #d4b0b7; }
+  .zht .location-action-menu button:hover { background: #1b202a; }
+  .zht .location-panel { background: #1b202a; border-color: #323c48; }
+  .zht .location-panel-main { background: #1f1c1c; }
+  .zht .location-panel-label { color: #b9c1ca; }
+  .zht .field-helper { color: #bac1ca; }
+  .zht .location-workspace-card input,
+  .zht .location-workspace-card select,
+  .zht .location-workspace-card textarea { background: #1f1c1c; border-color: #323c48; }
+  .zht .location-workspace-card .field-label { color: #b7c1cc; }
+  .zht .company-type-kicker { background: #1b212a; color: #a0c1e3; }
+  .zht .company-edit-hint { color: #bac1ca; }
+  .zht .company-name-field-shell { background: #1f1c1c; border-color: #323d48; }
+  .zht .company-field-icon { background: #1b222a; color: #b2c1d1; }
+  .zht .company-name-modern { color: #a0c2e3; }
+  .zht .company-name-helper { color: #bac1c9; }
+  .zht /* ----------------------------------------------------------------------- */ /* v10.5 linked customer identity ----------------------------------------- */ .profile-link-helper { color: #bac1c9; }
+  .zht .customer-search-controls input { border-color: #323c48; }
+  .zht .customer-search-summary { color: #bac1ca; }
+  .zht .location-status-toggle { background: #1f1c1c; border-color: #323c48; }
+  .zht .location-status-toggle.is-active { background: #1b2a22; color: #aad9c4; border-color-color: #32483c; }
+  .zht .location-status-toggle.is-inactive { background: #1b202a; color: #bbc1c9; border-color-color: #343c47; }
+  .zht .audit-entry:not(:last-child)::before { background: #1b222a; }
+  .zht .audit-card { background: #1f1c1c; border-color: #323c48; }
+  .zht .audit-action { color: #a6c0de; }
+  .zht .audit-area { color: #bac1ca; }
+  .zht .audit-meta strong { color: #b6c1cd; }
+  .zht .audit-meta span { color: #bac2ca; }
+  .zht .audit-details { color: #bac1ca; }
+  .zht .audit-change-list { border-top-color: #323d48; }
+  .zht .audit-change-row { border-bottom-color: #323d48; }
+  .zht .audit-field { color: #b5c1cf; }
+  .zht .audit-old { background: #2a1b1d; color: #ccb7bd; }
+  .zht .audit-new { background: #1b2a21; color: #b3d1c1; }
+  .zht .audit-empty { background: #1b202a; border-color: #323c48; }
+  .zht .audit-empty-title { color: #b6c1ce; }
+  .zht .creation-intro h4 { color: #a9c2db; }
+  .zht .creation-kicker { color: #b5c1cf; }
+  .zht .job-type-card { background: #1f1c1c; border-color: #323d48; }
+  .zht .job-type-icon { background: #1b232a; color: #a5c4de; }
+  .zht .job-type-card strong { color: #a8c3dc; }
+  .zht .job-type-card span { color: #bac2c9; }
+  .zht .job-type-arrow { color: #b5c2cf; }
+  .zht .creation-workspace-head { border-bottom-color: #323d48; }
+  .zht .creation-type-badge.import { background: #1b222a; color: #a9c3db; }
+  .zht .creation-type-badge.export { background: #1b2a20; color: #b3d0be; }
+  .zht .creation-section { background: #1f1c1c; border-color: #323d48; }
+  .zht .creation-section-head { border-bottom-color: #323d48; }
+  .zht .creation-required-note { color: #bac2c9; }
+  .zht .field-wrap .field-label { color: #b5c2ce; }
+  .zht .req { color: #daa9a9; }
+  .zht #jobCreationWorkspace .uploadbox { background: #1b222a; }
+  .zht #jobCreationWorkspace .container-entry { border-color: #323d48; }
+  .zht .role-view-switch { background: #1b232a; border-color: #323e48; }
+  .zht .role-view-switch button { color: #bac1ca; }
+  .zht .role-view-switch button.active { background: #1f1c1c; color: #a8c4db; }
+  .zht .role-callout { background: #1b242a; border-color: #323e48; }
+  .zht .controller-callout { background: #1b222a; }
+  .zht .role-callout-icon { background: #1b232a; color: #adc4d7; }
+  .zht .role-callout strong { color: #abc3d8; }
+  .zht .role-callout span { color: #bac2c9; }
+  .zht .attention-metric strong { color: #e3c2a0; }
+  .zht .missing-chip { background: #2a221b; color: #e3c1a0; }
+  .zht .missing-text { color: #d5b2af; }
+  .zht .controller-stat { background: #1f1c1c; border-color: #323d48; }
+  .zht .controller-stat span { color: #bbc2c9; }
+  .zht .controller-stat strong { color: #aac3d9; }
+  .zht .lfd-urgent b { color: #ddaba6; }
+  .zht /* Live NOA extraction */ .extraction-review { background: #1f1c1c; border-color: #323e48; }
+  .zht .extraction-review-head { background: #1b242a; border-bottom-color: #323e48; }
+  .zht .extract-field { background: #1b222a; border-color: #323e48; }
+  .zht .extract-field span { color: #bcc2c8; }
+  .zht .extract-field b { color: #adc5d6; }
+  .zht .extract-confidence { background: #1b2a20; color: #b3d1bf; }
+  .zht .extract-confidence.review { background: #2a221b; color: #e2c2a1; }
+  .zht .extract-table th,
+  .zht .extract-table td { border-bottom-color: #323f48; }
+  .zht .extract-table th { color: #bcc2c8; }
+  .zht .extract-warning { background: #2a251b; color: #ddc9a6; }
+  .zht .clean-metric { background: #1f1c1c; border-color: #323e48; }
+  .zht button.clean-metric:hover { border-color-color: #324048; }
+  .zht .clean-metric span { color: #bbc3c8; }
+  .zht .clean-metric strong { color: #abc5d8; }
+  .zht .clean-metric small { color: #bcc3c8; }
+  .zht .clean-metric.attention-soft { background: #2a251b; border-color-color: #483f32; }
+  .zht .clean-section-head { border-bottom-color: #333f47; }
+  .zht .clean-table th { background: #1b222a; color: #bcc3c8; }
+  .zht .clean-table td { border-top-color: #333f48; }
+  .zht .clean-alert-card .alert { border-bottom-color: #333f48; }
+  .zht .clean-alert-item { background: #2a241b; color: #d1c4b2; border-color: #483f32; }
+  .zht .clean-alert-item.danger { background: #2a1d1b; color: #d4b5b0; border-color-color: #483632; }
+  .zht .clean-empty { color: #bcc3c8; }
+  .zht .shipment-edit-head { border-bottom-color: #323e48; }
+  .zht .shipment-edit-field>span { color: #b8c2cc; }
+  .zht .shipment-edit-field input,
+  .zht .shipment-edit-field select { background: #1f1c1c; color: #a0c5e3; border-color: #323e48; }
+  .zht .shipment-edit-footer { background: #1b202a; border-top-color: #323e48; }
+  .zht .shipment-history-empty { color: #bac2ca; }
+  .zht .shipment-history-entry { border-top-color: #323f48; }
+  .zht .shipment-history-meta b { color: #aac4da; }
+  .zht .shipment-history-meta span { color: #bac2ca; }
+  .zht .shipment-history-change>span { color: #b8c2cc; }
+  .zht .shipment-history-change del { background: #2a1b1d; color: #ccb8bc; }
+  .zht .shipment-history-change ins { background: #1b2a21; color: #b3d1c1; }
+  .zht .container-edit-help { color: #bbc3c8; }
+  .zht .container-edit-help.valid { color: #b3d1c1; }
+  .zht .container-edit-help.invalid { color: #dbbca8; }
+  .zht .address-mode-option { background: #1f1c1c; border-color: #323f48; }
+  .zht .address-mode-option b { color: #aac4da; }
+  .zht #containerAddressRowsWrap { border-color: #323e48; }
+  .zht .address-editor-head { background: #1b202a; }
+  .zht .container-address-row { border-top-color: #323e48; }
+  .zht .container-address-row-head b { color: #b6c3ce; }
+  .zht /* v12.11 Demurrage / Detention free-time controls */ .free-time-editor { background: #1b222a; border-color: #323f48; }
+  .zht .free-time-head { background: #1b242a; border-bottom-color: #323e48; }
+  .zht .free-time-head b { color: #aac4da; }
+  .zht .free-time-head span { color: #bbc3c9; }
+  .zht .free-time-grid+.free-time-grid { border-top-color: #323f48; }
+  .zht .lfd-preview { background: #1f1c1c; border-color: #323f48; }
+  .zht .lfd-preview b { color: #a9c6da; }
+  .zht .lfd-preview span { color: #bbc3c8; }
+  .zht .free-time-rule { background: #1b242a; color: #b4c4cf; }
+  .zht /* v12.12 ETA-based LFD + controller override */ .free-time-basis { background: #1f1c1c; border-bottom-color: #323f48; }
+  .zht .free-time-basis>div { border-color: #323e48; }
+  .zht .free-time-basis span { color: #bbc3c9; }
+  .zht .free-time-basis b { color: #aec4d5; }
+  .zht .readonly-value { background: #1b242a; color: #adc5d6; border-color: #323f48; }
+  .zht .readonly-value span { color: #bbc3c9; }
+  .zht .controller-override-field small { color: #ccc4b7; }
+  .zht .dd-row { background: #1f1c1c; border-color: #323f48; }
+  .zht .dd-row-title { background: #1b252a; border-bottom-color: #323e48; }
+  .zht .dd-row-title b { color: #aac4da; }
+  .zht .dd-row-title span { color: #bcc3c8; }
+  .zht .create-dd-row-title { background: #1b252a; border-color: #323f48; }
+  .zht .create-dd-row-title b { color: #aac4da; }
+  .zht .create-dd-row-title span { color: #bcc3c8; }
+  .zht .create-dd-row-fields { background: #1f1c1c; border-color: #323f48; }
+  .zht #editContainerModal .shipment-edit-footer,
+  .zht #editShipmentModal .shipment-edit-footer,
+  .zht #editContainerAddressModal .shipment-edit-footer { background: #1b202a; }
+  .zht .compact-lfd-status { background: #1b242a; color: #b8c3cb; }
+  .zht .compact-lfd-status b { color: #acc5d7; }
+  .zht .compact-lfd-status span { color: #bac3c9; }
+  .zht .compact-combined-row { background: #1f1c1c; border-color: #323f48; }
+  .zht #editContainerModal .shipment-edit-footer { background: #1f1c1c; border-top-color: #323e48; }
+  .zht .free-time-redesign { background: #1f1c1c; border-color: #323f48; }
+  .zht .dd-section-head { background: #1b252a; border-bottom-color: #323e48; }
+  .zht .dd-section-head b { color: #aac4da; }
+  .zht .dd-section-head span { color: #bbc2c9; }
+  .zht .dd-summary-bar { border-bottom-color: #323f48; }
+  .zht .dd-summary-item { background: #1b222a; border-color: #323e48; }
+  .zht .dd-summary-item span { color: #bbc3c9; }
+  .zht .dd-summary-item b { color: #aec4d5; }
+  .zht .dd-structure-row label>span { color: #b7c2cc; }
+  .zht .dd-structure-row select { background: #1f1c1c; border-color: #323e48; }
+  .zht .dd-line-card { background: #1f1c1c; border-color: #323f48; }
+  .zht .dd-line-name { background: #1b252a; border-bottom-color: #323e48; }
+  .zht .dd-line-name b { color: #aac4da; }
+  .zht .dd-line-name span { color: #bcc3c8; }
+  .zht .dd-line-fields label>span,
+  .zht .dd-readonly-field>span,
+  .zht .dd-effective-field>span { color: #b7c2cc; }
+  .zht .dd-line-fields input { background: #1f1c1c; border-color: #323e48; }
+  .zht .dd-readonly-value,
+  .zht .dd-effective-value { background: #1b242a; border-color: #323f48; }
+  .zht .dd-effective-value { background: #1b2a1f; border-color-color: #32483a; }
+  .zht .dd-readonly-value b,
+  .zht .dd-effective-value b { color: #abc6d9; }
+  .zht .dd-readonly-value small,
+  .zht .dd-effective-value small { color: #bcc3c8; }
+  .zht .dd-classification-note { background: #1b242a; color: #b9c3cb; border-top-color: #323e48; }
+  .zht #editContainerModal .shipment-edit-head { background: #1f1c1c; border-bottom-color: #323e48; }
+  .zht #editContainerModal .shipment-edit-footer { background: #1f1c1c; border-top-color: #323e48; }
+  .zht .job-log-head { border-bottom-color: #323e48; }
+  .zht .job-log-legend { background: #1b202a; color: #bbc2c9; border-bottom-color: #323f48; }
+  .zht .job-log-entry { border-bottom-color: #323f48; }
+  .zht .job-log-meta b { color: #aac4da; }
+  .zht .job-log-meta>span { color: #bbc3c8; }
+  .zht .job-log-type { background: #1b232a; color: #b8c3cb; }
+  .zht .job-log-type.shipment { background: #1b242a; color: #afc4d5; }
+  .zht .job-log-type.container { background: #221b2a; color: #bfb5cf; }
+  .zht .job-log-type.operations { background: #1b2a1f; color: #b7cdbc; }
+  .zht .job-log-type.planning { background: #2a221b; color: #d5c1af; }
+  .zht .job-log-details { color: #b6c4cd; }
+  .zht .job-log-change>span { color: #b9c3cb; }
+  .zht .job-log-change del { background: #2a1b1d; color: #cbb8bc; }
+  .zht .job-log-change ins { background: #1b2a20; color: #b6cebc; }
+  .zht .job-log-empty { color: #bac2ca; }
+  .zht /* v12.21 shipment-level permit allocation */ .permit-workspace { background: #1b222a; border-color: #323f48; }
+  .zht .permit-guidance { background: #1b242a; color: #b5c4cf; }
+  .zht .permit-guidance b { color: #acc5d7; }
+  .zht .permit-empty-state { background: #1f1c1c; color: #bac3c9; border-color: #323f48; }
+  .zht .shipment-permit-card { background: #1f1c1c; border-color: #323f48; }
+  .zht .shipment-permit-card-head { background: #1b252a; border-bottom-color: #323e48; }
+  .zht .shipment-permit-card-head b { color: #aac4da; }
+  .zht .permit-card-status { color: #bbc3c9; }
+  .zht .permit-file-state>span { color: #b8c2cc; }
+  .zht .permit-file-state>b { background: #1b222a; color: #b6c4ce; border-color: #323f48; }
+  .zht .permit-selection-panel { background: #1b202a; border-color: #323f48; }
+  .zht .permit-selection-head { border-bottom-color: #323f48; }
+  .zht .permit-selection-head>div:first-child b { color: #adc5d6; }
+  .zht .permit-selection-head>div:first-child span { color: #bbc3c9; }
+  .zht .permit-target-option { background: #1f1c1c; border-color: #323f48; }
+  .zht .permit-target-option b { color: #adc5d7; }
+  .zht .permit-target-option small { color: #bbc3c9; }
+  .zht .permit-selection-actions { border-top-color: #323f48; }
+  .zht .permit-copy-summary { color: #b8c3cc; }
+  .zht .permit-copy-summary b { color: #adc5d6; }
+  .zht .container-permit-panel { border-top-color: #323f48; }
+  .zht .container-permit-panel-head b { color: #adc5d7; }
+  .zht .permit-link { background: #1b252a; border-color: #323f48; }
+  .zht .permit-link b { color: #acc5d8; }
+  .zht .permit-link span { color: #bbc3c9; }
+  .zht .permit-linked-badge { background: #1b2a20; color: #b7ccbe; }
+  .zht /* v12.22 shipment-level permit files + number-only container links */ .permit-vessel-check { background: #1b222a; border-color: #323f48; }
+  .zht .permit-vessel-check span { color: #bbc3c8; }
+  .zht .permit-vessel-check b { color: #adc5d7; }
+  .zht .permit-vessel-check small { color: #bbc3c9; }
+  .zht .permit-vessel-status.pending { color: #d3c4b1; }
+  .zht .permit-vessel-status.match { color: #b5cebd; }
+  .zht .permit-vessel-status.mismatch { color: #d6b2ae; }
+  .zht /* v12.23 — NOA immediately after customer/delivery */ .noa-first-section { background: #1b222a; border-color: #323f48; }
+  .zht .noa-primary-upload { background: #1b242a; border-color: #323f48; }
+  .zht .noa-primary-upload input[type="file"] { background: #1f1c1c; }
+  .zht .noa-first-section .creation-kicker { color: #abc6d9; }
+  .zht /* v12.24 ETA DD/MM/YYYY */ .date-format-help { color: #bbc3c9; }
+  .zht .date-format-help.valid { color: #b6cdbd; }
+  .zht .date-format-help.invalid { color: #d4b3af; }
+  .zht /* v12.26 — creation D+D calculation hardening */ .create-dd-basis-note { background: #1b242a; color: #b7c4cd; border-color: #323f48; }
+  .zht .create-dd-basis-note b { color: #adc6d7; }
+  .zht .app-date-button { color: #b6c4cd; }
+  .zht .app-date-button:hover { background: #1b242a; color: #abc6d9; }
+  .zht .permit-vessel-status.valid { color: #a0e3c4; }
+  .zht .permit-vessel-status.mismatch { color: #e3a5a0; }
+  .zht .permit-attention-alert { background: #2a1c1b; color: #e3a5a0; border-color: #483432; }
+  .zht /* v12.30 — repaired time selectors */ select.app-time-input,
+  .zht select.nc-time,
+  .zht select.nested-time-from,
+  .zht select.nested-time-to { background: #1f1c1c; }
+  .zht .permit-check-row { background: #1f1c1c; border-color: #323f48; }
+  .zht .permit-check-name > span { color: #b7c3cd; }
+  .zht .permit-check-message { color: #b7c3cd; }
+  .zht .permit-vessel-check-status.valid,
+  .zht .permit-expiry-check-status.valid,
+  .zht .permit-alert-pass { color: #a0e3c4; }
+  .zht .permit-vessel-check-status.mismatch,
+  .zht .permit-expiry-check-status.mismatch,
+  .zht .permit-alert-fail { color: #e3a5a0; }
+  .zht .permit-vessel-check-status.pending,
+  .zht .permit-expiry-check-status.pending { color: #e3d2a0; }
+  .zht .permit-all-btn,
+  .zht .permit-selected-btn { background: #1b232a; color: #a0bee3; border-color: #323e48; }
+  .zht .permit-all-btn:hover,
+  .zht .permit-selected-btn:hover { background: #1b232a; border-color-color: #323e48; }
+  .zht /* v12.34 — container Delivery Date vs Vessel ETA validation */ .container-date-check { background: #1f1c1c; border-color: #323f48; }
+  .zht .container-date-check-head span { color: #b7c3cd; }
+  .zht .container-date-check-message { color: #b7c3cd; }
+  .zht .container-date-check.valid { background: #1b2a21; border-color-color: #32483c; }
+  .zht .container-date-check.valid .container-date-check-status { color: #a0e3c4; }
+  .zht .container-date-check.attention { background: #2a1c1b; }
+  .zht .container-date-check.attention .container-date-check-status { color: #e3a5a0; }
+  .zht .container-date-check.pending .container-date-check-status { color: #e3d2a0; }
+  .zht .attention-detail-item { background: #2a241b; }
+  .zht .attention-detail-item.attention { background: #2a1c1b; }
+  .zht .attention-detail-item.gate { background: #1b222a; }
+  .zht .attention-detail-label { color: #a0c6e3; }
+  .zht .attention-detail-item small { color: #b9c3ca; }
+  .zht .control-tower-kicker { color: #b7c3cc; }
+  .zht .control-tower-date { color: #a0c6e3; }
+  .zht .control-tower-summary-note { color: #b8c3cc; }
+  .zht .ops-attention-job { background: #1f1c1c; border-color: #323f48; }
+  .zht .ops-attention-job-head small { color: #b9c3cb; }
+  .zht .attention-count { background: #2a231b; color: #e3c4a0; }
+  .zht .attention-more { color: #a0bee3; }
+  .zht .vessel-timeline-item { background: #1f1c1c; border-color: #323f48; }
+  .zht .vessel-timeline-item:hover { background: #1b242a; }
+  .zht .vessel-day { color: #a0bee3; }
+  .zht .vessel-info b { color: #a0c6e3; }
+  .zht .vessel-info small { color: #b8c3cc; }
+  .zht .workload-day { color: #b1c5d3; }
+  .zht .workload-track { background: #1b242a; }
+  .zht .workload-row b { color: #a0c6e3; }
+  .zht /* v12.42 — Jobs / Job Creation permit parity */ .job-permit-card { border-top-color: #323e48; }
+  .zht .job-permit-summary-card { background: #1b222a; border-color: #323f48; }
+  .zht .job-permit-summary-head span:first-child { color: #b8c3cc; }
+  .zht .job-permit-summary-head b { color: #a0c6e3; }
+  .zht .permit-summary-status { background: #1b242a; color: #b8c3cb; }
+  .zht .permit-summary-status.valid { background: #1b2a22; color: #a0e3c4; }
+  .zht .permit-summary-status.attention { background: #2a211b; color: #e3bea0; }
+  .zht .permit-summary-status.review { background: #1b242a; color: #b8c3cb; }
+  .zht .job-permit-summary-grid>div { background: #1f1c1c; border-color: #324048; }
+  .zht .job-permit-summary-grid span { color: #b9c3ca; }
+  .zht .job-permit-summary-grid b { color: #adc5d6; }
+  .zht .permit-ok { color: #a0e3c4; }
+  .zht .permit-bad { color: #e3b4a0; }
+  .zht .permit-review { color: #b9c3cb; }
+  .zht .permit-manager-context>div { background: #1b222a; border-color: #323f48; }
+  .zht .permit-manager-context span { color: #b9c3ca; }
+  .zht .permit-manager-context b { color: #a8c5dc; }
+  .zht .job-permit-target-panel { border-top-color: #323f48; }
+  .zht .moves td { border-bottom-color: #323d48; }
+  .zht .crew { border-bottom-color: #323d48; }
+}
