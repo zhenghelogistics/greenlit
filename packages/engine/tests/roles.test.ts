@@ -4,7 +4,7 @@ import {
   can, canAssignRole, requirePermission, validateOverride, homeScreenFor, roleChangeProblem,
   MINIMUM_OVERRIDE_REASON_LENGTH, type Principal,
 } from '../src/roles.ts';
-import { canJoin, joiningRole, suggestedUserId, suggestedDisplayName } from '../src/joining.ts';
+import { canJoin, joiningRole, suggestedUserId, suggestedDisplayName, GUEST_ADDRESSES } from '../src/joining.ts';
 
 const who = (role: Principal['role'], o: Partial<Principal> = {}): Principal => ({
   userId: 'u1', displayName: 'Sarah Lim', role, email: 'sarah@zhenghe.com.sg', active: true, ...o,
@@ -269,4 +269,32 @@ test('§7.1: the last administrator cannot be stood down', () => {
 test('§7.1: changing somebody else is ordinary work', () => {
   const me = asRole('ADMINISTRATOR');
   assert.equal(roleChangeProblem(me, 'sarah', 'CONTROLLER', 2), null);
+});
+
+test('§7: a named guest may join, and a domain may not', () => {
+  // A contractor has to be able to sign in. The exception is one address, not
+  // a second domain: an address lets one person in, a domain lets in whoever
+  // holds an account there next year.
+  const guest = GUEST_ADDRESSES[0];
+  if (guest) assert.equal(canJoin(guest).ok, true);
+
+  assert.equal(canJoin('someone@gmail.com').ok, false);
+  assert.equal(canJoin('sarah@zhenghe.com.sg').ok, true);
+});
+
+test('§7: a guest is not an administrator by being a guest', () => {
+  // Registration decides that you may sign in. What you may do is written by
+  // somebody else afterwards, which is the whole point of the split.
+  const guest = GUEST_ADDRESSES[0];
+  if (guest) assert.equal(joiningRole(guest), 'OPERATIONS');
+});
+
+test('§7: the guest list holds addresses, never domains', () => {
+  // A bare domain here would quietly reopen the gate the domain rule closes.
+  for (const address of GUEST_ADDRESSES) {
+    assert.match(address, /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+      `${address} is not a single address`);
+    assert.equal(address, address.toLowerCase(),
+      'addresses are compared lower-cased, so they are stored that way');
+  }
 });

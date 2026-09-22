@@ -23,6 +23,27 @@ export const STAFF_EMAIL_DOMAIN = 'zhenghe.com.sg';
  */
 export const FOUNDING_ADMINISTRATOR = 'max-ng@zhenghe.com.sg';
 
+/**
+ * §7. Named people who are not staff and still need in.
+ *
+ * A contractor building the system has to be able to sign into it. The domain
+ * rule exists because a signed-in person can read every job, customer and
+ * container, and there is no approval step behind registration — so the list
+ * of exceptions is individual addresses, never a second domain. One address
+ * lets one person in; a domain lets in whoever holds an account there next
+ * year.
+ *
+ * It lives in code rather than configuration on purpose. Adding someone is a
+ * commit with a name on it, reviewable and revertible, and it cannot be done
+ * by anyone who merely has access to the deployment dashboard.
+ *
+ * Remove an address when the engagement ends. §7.1 lets an administrator
+ * deactivate the account, and that is the immediate lever; taking the address
+ * out of here is what stops them registering again.
+ */
+export const GUEST_ADDRESSES: readonly string[] = [
+];
+
 export function normaliseEmail(email: string): string {
   return email.trim().toLowerCase();
 }
@@ -41,6 +62,8 @@ export function canJoin(email: string): { ok: boolean; reason: string | null } {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) {
     return { ok: false, reason: 'That does not look like an email address' };
   }
+  if (GUEST_ADDRESSES.includes(address)) return { ok: true, reason: null };
+
   if (!address.endsWith(`@${STAFF_EMAIL_DOMAIN}`)) {
     return {
       ok: false,
