@@ -86,12 +86,20 @@ function everything() {
   // 3. Solids, and the type that sits on them.
   //    Light mode puts white on a dark solid; dark mode puts near-black on a
   //    light one. Same requirement, opposite ink.
+  //
+  //    This used to assume the ink rather than read it, and the assumption was
+  //    wrong: seventeen primary buttons carried a literal `text-white`, so the
+  //    accent went pale for dark mode and the buttons sat at 2.04:1 while this
+  //    gate reported them clear. The accent's ink is a token now, and what the
+  //    markup uses is what gets measured.
   const onSolid = theme === "dark" ? tok("bg") : "#ffffff";
   for (const st of ["state-blocked", "state-warn", "state-ready", "state-idle",
-                    "import", "export", "accent",
+                    "import", "export",
                     "money", "box", "move", "doc", "past"]) {
     check(`type on ${st}`, onSolid, tok(st));
   }
+  check("on-accent on accent", tok("on-accent"), tok("accent"));
+  check("on-accent on accent-hover", tok("on-accent"), tok("accent-hover"));
 
   // 4. Every hue wash, with both inks that land on it.
   for (const h of ["money", "box", "move", "doc", "past"]) {
@@ -111,6 +119,9 @@ function everything() {
   check("warn ink on warn wash", tok("state-warn-ink"), tok("state-warn-soft"));
   check("muted on warn wash", muted, tok("state-warn-soft"));
   check("ink on warn wash", tok("ink"), tok("state-warn-soft"));
+  check("warn ink on warn wash", tok("state-warn-ink"), tok("state-warn-soft"));
+  check("ink on the landing flash", tok("ink"), tok("state-ready-soft"));
+  check("muted on the landing flash", muted, tok("state-ready-soft"));
 
   // 7. The rail has its own surface token, because it is a surface rather
   //    than a link: it was painted with the accent, and lightening the accent

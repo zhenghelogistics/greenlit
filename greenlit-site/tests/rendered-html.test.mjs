@@ -106,20 +106,59 @@ test("ships the document-intake contract", async () => {
     "only per-device preferences may live in the browser, never job data");
 });
 
-test("nothing in the toolbar is painted a colour the toolbar cannot show", async () => {
-  // The signed-in name and the sign-out link were `text-white` on a toolbar
-  // painted with the page ground — 1.04:1, invisible, and it had been that way
-  // since they were written. Dark mode only revealed it by making the toolbar
-  // dark, which is a bad way to find out.
+test("no fixed colour sits on a background that changes with the theme", async () => {
+  // Two ways to write a colour that only works in one theme, both of which
+  // shipped:
   //
-  // The toolbar follows the theme, so anything on it must take a token rather
-  // than a fixed colour.
+  //   text-white on bg-[var(--gl-accent)]   the accent goes pale in dark, and
+  //                                         seventeen primary buttons dropped
+  //                                         to 2.04:1
+  //   text-white on the toolbar             the toolbar takes the page ground,
+  //                                         which is near-white, so the signed
+  //                                         -in name was 1.04:1 in LIGHT mode
+  //                                         and had been since it was written
+  //
+  // The contrast gate cannot see either: it measures tokens against tokens,
+  // and a literal white is not a token. So it is caught here, structurally.
+  //
+  // The rail is the one exception. It has its own token and is dark in both
+  // themes, precisely so white can sit on it.
   const src = await readFile("GreenlitControlTower.jsx", "utf8");
-  const start = src.indexOf("function ActingUser()");
-  const toolbar = src.slice(start, src.indexOf("\n}\n", start));
+  const offenders = [];
 
-  assert.doesNotMatch(toolbar, /text-white/,
-    "a fixed white sits on a toolbar that is only dark in one theme");
-  assert.match(toolbar, /var\(--gl-ink/,
-    "toolbar text takes the page's ink so it follows the theme");
+  for (const [, cls] of src.matchAll(/className="([^"]*)"/g)) {
+    if (!/\btext-white\b|text-white\//.test(cls)) continue;
+    const ground = [...cls.matchAll(/bg-\[(?:color:)?var\((--gl-[a-z-]+)\)\]/g)].map((m) => m[1]);
+    const themed = ground.filter((g) => g !== "--gl-rail");
+    if (themed.length) offenders.push(`text-white on ${themed.join(", ")}`);
+  }
+
+  assert.deepEqual(offenders, [],
+    "a fixed white on a background that is only dark in one theme");
+});
+
+test("the toolbar takes its colours from the page, not from white", async () => {
+  // The toolbar sits on the page ground, so everything in it — who is signed
+  // in, and the freshness pill that says the board stopped updating — has to
+  // follow the theme. Both were white on near-white. The "Not updating"
+  // warning being invisible is the worse half of that.
+  const src = await readFile("GreenlitControlTower.jsx", "utf8");
+
+  for (const name of ["ActingUser", "LastUpdated"]) {
+    const at = src.indexOf(`function ${name}(`);
+    assert.notEqual(at, -1, `${name} has moved or been renamed`);
+    const body = src.slice(at, src.indexOf("\n}\n", at));
+    assert.doesNotMatch(body, /text-white/, `${name} paints itself white on the page ground`);
+    assert.match(body, /var\(--gl-/, `${name} should take its colours from tokens`);
+  }
+});
+
+test("native controls follow the theme", async () => {
+  // color-scheme is what the browser paints date pickers, select menus,
+  // autofill and the overscroll canvas from. It was pinned to light, so every
+  // date field in the app — and this app is mostly date fields — opened a
+  // white calendar on a dark page.
+  const src = await readFile("GreenlitControlTower.jsx", "utf8");
+  assert.match(src, /\[data-theme="dark"\]\s*\{\s*color-scheme:\s*dark/,
+    "dark mode never tells the browser it is dark");
 });

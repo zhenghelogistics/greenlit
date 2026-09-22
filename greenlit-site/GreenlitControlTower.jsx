@@ -148,14 +148,14 @@ function LastUpdated({ at, stale }) {
 
   if (stale) {
     return (
-      <span role="status" className="inline-flex items-center gap-2 rounded-md bg-white/15 px-3 py-1.5 text-[15px] font-medium text-white">
+      <span role="status" className="inline-flex items-center gap-2 rounded-md border border-[color:var(--gl-state-warn)] bg-[color:var(--gl-state-warn-soft)] px-3 py-1.5 text-[15px] font-medium text-[color:var(--gl-state-warn-ink)]">
         <AlertCircle className="h-4 w-4" aria-hidden="true" />
         Not updating
       </span>
     );
   }
   if (!label) return null;
-  return <span role="status" className="hidden whitespace-nowrap text-[15px] text-white/90 sm:inline">{label}</span>;
+  return <span role="status" className="hidden whitespace-nowrap text-[15px] text-[color:var(--gl-ink-muted)] sm:inline">{label}</span>;
 }
 
 /**
@@ -254,7 +254,7 @@ function People() {
         </div>
         {state.canManage && !adding ? (
           <button type="button" onClick={() => setAdding(true)}
-            className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white hover:bg-[color:var(--gl-accent-hover)]">
+            className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-[color:var(--gl-on-accent)] hover:bg-[color:var(--gl-accent-hover)]">
             Add someone
           </button>
         ) : null}
@@ -418,7 +418,7 @@ function AddPerson({ onDone, onCancel }) {
 
       <div className="mt-6 flex flex-wrap gap-3">
         <button type="submit" disabled={saving}
-          className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white disabled:opacity-60">
+          className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-[color:var(--gl-on-accent)] disabled:opacity-60">
           {saving ? "Adding…" : "Add to the directory"}
         </button>
         <button type="button" onClick={onCancel}
@@ -640,7 +640,7 @@ function ContainerAllocation({ containers, selected, onCancel, onApply }) {
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button type="button" onClick={() => onApply([...ticked])}
-          className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white">
+          className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-[color:var(--gl-on-accent)]">
           Apply to {ticked.size} {ticked.size === 1 ? "container" : "containers"}
         </button>
         <button type="button" onClick={onCancel}
@@ -701,7 +701,7 @@ function AddPermit({ onCancel, onSave }) {
       </div>
       <div className="mt-4 flex flex-wrap gap-3">
         <button type="submit" disabled={saving}
-          className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white disabled:opacity-60">
+          className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-[color:var(--gl-on-accent)] disabled:opacity-60">
           {saving ? "Saving…" : "Record permit"}
         </button>
         <button type="button" onClick={onCancel}
@@ -792,7 +792,7 @@ function ClosurePanel({ jobId, onChanged }) {
                 <div className="flex flex-wrap gap-3">
                   <button type="button"
                     onClick={async () => { if (await send("DELETE", { reason })) { setReopening(false); setReason(""); } }}
-                    className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white">
+                    className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-[color:var(--gl-on-accent)]">
                     Reopen this job
                   </button>
                   <button type="button" onClick={() => { setReopening(false); setError(""); }}
@@ -815,7 +815,7 @@ function ClosurePanel({ jobId, onChanged }) {
               and nothing is outstanding.
             </p>
             <button type="button" onClick={() => send("POST")}
-              className="mt-5 min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white hover:bg-[color:var(--gl-accent-hover)]">
+              className="mt-5 min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-[color:var(--gl-on-accent)] hover:bg-[color:var(--gl-accent-hover)]">
               Close this job
             </button>
           </>
@@ -1129,7 +1129,7 @@ function BatchReview({ batch, customers, onApplyAll, onDiscard, applying }) {
             type="button"
             disabled={applying || grouped.matched.length === 0}
             onClick={() => onApplyAll(grouped.matched)}
-            className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-white disabled:opacity-60"
+            className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-[color:var(--gl-on-accent)] disabled:opacity-60"
           >
             {applying
               ? "Creating jobs…"
@@ -2107,7 +2107,7 @@ function BoardState({ source, onRetry, onAddDocument }) {
           something out of date. Any job already in progress is unaffected.
         </p>
         <button type="button" onClick={onRetry}
-          className="mt-6 h-11 rounded border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-medium text-white hover:bg-[color:var(--gl-accent-hover)]">
+          className="mt-6 h-11 rounded border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-medium text-[color:var(--gl-on-accent)] hover:bg-[color:var(--gl-accent-hover)]">
           Try again
         </button>
       </div>
@@ -2123,7 +2123,7 @@ function BoardState({ source, onRetry, onAddDocument }) {
         and open the job for you.
       </p>
       <button type="button" onClick={onAddDocument}
-        className="mt-6 h-11 rounded border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-medium text-white hover:bg-[color:var(--gl-accent-hover)]">
+        className="mt-6 h-11 rounded border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-medium text-[color:var(--gl-on-accent)] hover:bg-[color:var(--gl-accent-hover)]">
         Upload a document
       </button>
     </div>
@@ -2197,7 +2197,7 @@ function UnknownCompanyPrompt({ pending, onCancel, onChange, onCreated }) {
 
         <div className="mt-6 flex items-center gap-3">
           <button type="submit" disabled={saving}
-            className="h-11 rounded border-0 bg-[color:var(--gl-accent)] px-4 text-[17px] font-medium text-white hover:bg-[color:var(--gl-accent-hover)] disabled:opacity-60">
+            className="h-11 rounded border-0 bg-[color:var(--gl-accent)] px-4 text-[17px] font-medium text-[color:var(--gl-on-accent)] hover:bg-[color:var(--gl-accent-hover)] disabled:opacity-60">
             {saving ? "Adding…" : "Add and apply document"}
           </button>
           <button type="button" onClick={onCancel}
@@ -2485,7 +2485,7 @@ function ActionRequired({ jobs, filter, setFilter, dashboardFilter, clearDashboa
 
       <div className="mt-5 flex flex-wrap gap-3" aria-label="Action filters">
         {FILTERS.map((item) => (
-          <button key={item.id} type="button" onClick={() => { setFilter(item.id); clearDashboardFilter(); }} aria-pressed={filter === item.id && !dashboardFilter} className={`min-h-12 rounded-md border px-5 py-2 text-[17px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${filter === item.id && !dashboardFilter ? "border-[var(--gl-accent)] bg-[var(--gl-accent)] text-white" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"}`}>
+          <button key={item.id} type="button" onClick={() => { setFilter(item.id); clearDashboardFilter(); }} aria-pressed={filter === item.id && !dashboardFilter} className={`min-h-12 rounded-md border px-5 py-2 text-[17px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${filter === item.id && !dashboardFilter ? "border-[var(--gl-accent)] bg-[var(--gl-accent)] text-[color:var(--gl-on-accent)]" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"}`}>
             {item.label}
           </button>
         ))}
@@ -2685,7 +2685,7 @@ function ChoiceGroup({ label, value, options, onChange }) {
       <legend className="text-[15px] font-normal text-slate-600">{label}</legend>
       <div className="mt-2 grid gap-3 sm:grid-cols-2">
         {options.map((option) => (
-          <button key={option.value} type="button" onClick={() => onChange(option.value)} aria-pressed={value === option.value} className={`min-h-14 rounded-md border px-4 py-3 text-left text-[17px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${value === option.value ? "border-[var(--gl-accent)] bg-[var(--gl-accent)] text-white" : "border-slate-300 bg-white text-slate-800 hover:border-[var(--gl-accent)]"}`}>
+          <button key={option.value} type="button" onClick={() => onChange(option.value)} aria-pressed={value === option.value} className={`min-h-14 rounded-md border px-4 py-3 text-left text-[17px] font-semibold focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 ${value === option.value ? "border-[var(--gl-accent)] bg-[var(--gl-accent)] text-[color:var(--gl-on-accent)]" : "border-slate-300 bg-white text-slate-800 hover:border-[var(--gl-accent)]"}`}>
             <span className="block">{option.label}</span>
             {option.note ? <span className={`mt-1 block text-[17px] font-medium ${value === option.value ? "text-sky-100" : "text-slate-600"}`}>{option.note}</span> : null}
           </button>
@@ -3070,7 +3070,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
               <button type="button" onClick={onClose} className="min-h-12 rounded-md border border-slate-300 bg-white px-5 text-[17px] font-semibold text-slate-800 hover:bg-slate-100 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600">{isReadOnly ? "Close" : "Cancel"}</button>
               {canRemoveContainer ? <button type="button" onClick={() => onCommit(panel, { ...draft, _delete: true })} className="inline-flex min-h-12 items-center gap-2 rounded-md border border-rose-300 bg-white px-4 text-[17px] font-semibold text-rose-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"><Trash2 className="h-5 w-5" />Remove</button> : null}
             </div>
-            {!isReadOnly ? <button type="submit" disabled={Boolean(duplicateContainerNumber)} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-md bg-[var(--gl-accent)] px-6 py-3 text-[17px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:bg-slate-400"><Save className="h-5 w-5" />{panel.type === "container" && panel.mode === "new" ? "Add container" : "Save and recalculate"}</button> : null}
+            {!isReadOnly ? <button type="submit" disabled={Boolean(duplicateContainerNumber)} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-md bg-[var(--gl-accent)] px-6 py-3 text-[17px] font-semibold text-[color:var(--gl-on-accent)] hover:bg-[color:var(--gl-accent-hover)] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:bg-slate-400"><Save className="h-5 w-5" />{panel.type === "container" && panel.mode === "new" ? "Add container" : "Save and recalculate"}</button> : null}
           </div>
         </form>
       </aside>
@@ -3399,7 +3399,7 @@ function DiscrepancyReview({ job, onResolve }) {
               <button
                 type="button"
                 onClick={() => onResolve(d, "extracted")}
-                className="h-11 rounded border-0 bg-[color:var(--gl-accent)] px-3 text-[17px] font-medium text-white hover:bg-[color:var(--gl-accent-hover)]"
+                className="h-11 rounded border-0 bg-[color:var(--gl-accent)] px-3 text-[17px] font-medium text-[color:var(--gl-on-accent)] hover:bg-[color:var(--gl-accent-hover)]"
               >
                 Use extracted
               </button>
@@ -3714,13 +3714,13 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
               onDrop={handleDrop}
               className={`flex min-h-72 flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-10 text-center ${dragging ? "border-[var(--gl-accent)] bg-sky-50" : "border-slate-300 bg-slate-50"}`}
             >
-              <span className="flex h-14 w-14 items-center justify-center rounded-md bg-[var(--gl-accent)] text-white"><Upload className="h-7 w-7" aria-hidden="true" /></span>
+              <span className="flex h-14 w-14 items-center justify-center rounded-md bg-[var(--gl-accent)] text-[color:var(--gl-on-accent)]"><Upload className="h-7 w-7" aria-hidden="true" /></span>
               <span className="mt-5 text-2xl font-semibold text-slate-950">Drop documents here</span>
               <span className="mt-2 max-w-[58ch] text-[17px] font-normal text-slate-600">PDFs, scans, photographs and email files, from any carrier. One at a time, or up to {MAX_DOCUMENTS_PER_BATCH} together — a morning&rsquo;s post. Any number of containers per job, 15 MB each.</span>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="mt-5 inline-flex min-h-12 items-center justify-center rounded-md bg-[var(--gl-accent)] px-6 text-[17px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
+                className="mt-5 inline-flex min-h-12 items-center justify-center rounded-md bg-[var(--gl-accent)] px-6 text-[17px] font-semibold text-[color:var(--gl-on-accent)] hover:bg-[color:var(--gl-accent-hover)] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600"
               >
                 Choose documents
               </button>
@@ -3796,7 +3796,7 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
                   <div className="text-right">
                     {requiredMissing.length ? <div className="mb-2 text-[17px] font-semibold text-rose-800">Complete {requiredMissing.length} required field{requiredMissing.length === 1 ? "" : "s"} before applying.</div> : null}
                     {containerIssues.some(Boolean) ? <div className="mb-2 text-[17px] font-semibold text-rose-800">Correct the container list before applying.</div> : null}
-                    <button type="submit" disabled={requiredMissing.length > 0 || containerIssues.some(Boolean)} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-md bg-[var(--gl-accent)] px-6 py-3 text-[17px] font-semibold text-white hover:bg-[#12366f] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:bg-slate-400">
+                    <button type="submit" disabled={requiredMissing.length > 0 || containerIssues.some(Boolean)} className="inline-flex min-h-14 items-center justify-center gap-3 rounded-md bg-[var(--gl-accent)] px-6 py-3 text-[17px] font-semibold text-[color:var(--gl-on-accent)] hover:bg-[color:var(--gl-accent-hover)] focus-visible:outline focus-visible:outline-4 focus-visible:outline-offset-2 focus-visible:outline-sky-600 disabled:bg-slate-400">
                       <FileCheck2 className="h-6 w-6" aria-hidden="true" />Apply to control tower
                     </button>
                   </div>
@@ -4668,13 +4668,14 @@ export default function GreenlitControlTower() {
           font-display: swap;
         }
         :root { color-scheme: light; }
+        :root[data-theme="dark"] { color-scheme: dark; }
         html { scroll-behavior: smooth; }
         h1, h2, .greenlit-display { font-family: var(--gl-font-sans); }
-        * { scrollbar-color: #64748b #e2e8f0; scrollbar-width: auto; }
+        * { scrollbar-color: var(--gl-ink-faint) var(--gl-bg-subtle); scrollbar-width: auto; }
         button, a { cursor: pointer; -webkit-tap-highlight-color: transparent; transition-duration: 180ms; transition-timing-function: cubic-bezier(.22,1,.36,1); }
         button:disabled { cursor: not-allowed; opacity: .55; }
         input, textarea, select { caret-color: var(--gl-accent); }
-        ::selection { background: var(--gl-accent); color: #ffffff; }
+        ::selection { background: var(--gl-accent); color: var(--gl-on-accent); }
         .greenlit-release-flash { animation: greenlitRelease 1.1s cubic-bezier(.16,1,.3,1); }
         .greenlit-new-row { animation: greenlitRow 1.35s cubic-bezier(.16,1,.3,1); }
         .greenlit-text-flash { animation: greenlitText 1.1s cubic-bezier(.16,1,.3,1); }
@@ -4684,13 +4685,13 @@ export default function GreenlitControlTower() {
           100% { box-shadow: inset 0 0 0 0 rgba(16,185,129,0), 0 0 0 rgba(15,35,51,0); }
         }
         @keyframes greenlitRow {
-          0% { background: #d1fae5; clip-path: inset(0 100% 0 0); }
-          45% { background: #d1fae5; clip-path: inset(0 0 0 0); }
-          100% { background: #ffffff; clip-path: inset(0 0 0 0); }
+          0% { background: var(--gl-state-ready-soft); clip-path: inset(0 100% 0 0); }
+          45% { background: var(--gl-state-ready-soft); clip-path: inset(0 0 0 0); }
+          100% { background: var(--gl-bg-subtle); clip-path: inset(0 0 0 0); }
         }
         @keyframes greenlitText {
-          0% { color: #bae6fd; text-shadow: 0 6px 18px rgba(0,0,0,.16); }
-          100% { color: white; text-shadow: none; }
+          0% { color: var(--gl-accent); text-shadow: 0 6px 18px rgba(0,0,0,.16); }
+          100% { color: inherit; text-shadow: none; }
         }
         @keyframes greenlitDrawer {
           0% { transform: translateX(34px); opacity: .72; box-shadow: -4px 0 14px rgba(15,35,51,.08); }

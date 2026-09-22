@@ -29,6 +29,10 @@
      5.17:1 on white, and white on it also passes, so it works as both. */
   --gl-accent: #1e40af;
   --gl-accent-hover: #1e3a8a;
+  /* Text on the accent. White here, near-black in dark mode, where the
+     accent is pale. Seventeen primary buttons read `text-white`, which was
+     2.04:1 once the accent lightened. */
+  --gl-on-accent: #ffffff;
   /* The rail is a surface, not a link, and it stays dark in both themes.
      Painting it with the accent meant lightening the accent for dark mode
      turned the navy sidebar pale blue with white text on it. */
@@ -54,6 +58,8 @@
      quieter and says the same thing — but it does it in raw hex at 2.5:1, so
      the hue is kept and the value is not. Measured in CI like every other. */
   --gl-state-warn-soft: #fdf5e9;
+  /* The flash a row gives off when a job lands on the board. */
+  --gl-state-ready-soft: #d6f5e3;
 
   --gl-state-blocked-ink: #9e1a08;
   --gl-state-warn-ink: #7a3b00;
@@ -299,6 +305,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   --gl-line-strong: #3d444f;
 
   --gl-accent: #8fb6ff;
+  --gl-on-accent: #0b0e12;
   --gl-rail: #10131a;
   --gl-rail-ink: #e6e9ee;
   --gl-rail-muted: #a9b2bf;
@@ -317,6 +324,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   --gl-state-ready-ink: #6ee7a0;
   --gl-state-idle-ink: #aab4c2;
   --gl-state-warn-soft: #2a2118;
+  --gl-state-ready-soft: #10281d;
 
   --gl-money: #ffb08a;  --gl-money-soft: #2a1a12;  --gl-money-ink: #ffb08a;
   --gl-box:   #7fd4e3;  --gl-box-soft:   #0f2429;  --gl-box-ink:   #7fd4e3;
