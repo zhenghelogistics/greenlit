@@ -4372,6 +4372,22 @@ export default function GreenlitControlTower() {
       "CMS recorded. The empty collection gate reopened.");
   }
 
+  /**
+   * Put one container on the controller's board.
+   *
+   * Per container, because containers on one job become ready at different
+   * times: three ready and two waiting on a permit is an ordinary Tuesday.
+   */
+  async function handOverContainer(container) {
+    if (!container?.id) { showToast("This container has no id to hand over."); return; }
+    await runJobCommand(
+      selectedJob,
+      `/containers/${encodeURIComponent(container.id)}/handover`,
+      {},
+      `${container.number || "The container"} is on the controller's board.`,
+    );
+  }
+
   /** §39. Container number, seal and tare are captured together. */
   async function recordDetails(details) {
     const container = selectedJob?.containers?.[0];
@@ -4829,6 +4845,7 @@ export default function GreenlitControlTower() {
           onRecordDetails={recordDetails}
           onSendDetails={sendContainerDetails}
           onSetTranshipment={setTranshipment}
+          onHandOver={handOverContainer}
           permitPanel={(
             <PermitPanel
               jobId={selectedJob.apiId}

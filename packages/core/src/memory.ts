@@ -1337,6 +1337,18 @@ export function createMemoryRepository(): Repository {
         { field: 'containerDetailsSent', from: false, to: c.containerDetailsSentTo });
     },
 
+    async handContainerToController(containerId, actor) {
+      const c = Object.values(importContainers).flat()
+        .find((ic) => ic.containerId === containerId);
+      if (!c) throw new Error(`Unknown import container ${containerId}`);
+      // Handing over twice is not an error and not a second event: the first
+      // decision stands, and re-stamping it would lose who actually made it.
+      if (c.handedOverAt) return;
+      c.handedOverAt = new Date().toISOString();
+      c.handedOverBy = actor;
+      record(jobOfContainer(containerId), 'container.handedToController', actor,
+        { field: 'handedOverAt', from: null, to: c.handedOverAt });
+    },
     async recordContainerReady(containerId, actor) {
       const c = findExportContainer(containerId);
       if (!c) throw new Error((() => {

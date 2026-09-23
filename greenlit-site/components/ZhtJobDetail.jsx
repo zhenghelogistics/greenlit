@@ -334,13 +334,128 @@ function DateAmendments({ jobId, eta }) {
   );
 }
 
+
+/**
+ * The handover from operations to the controller.
+ *
+ * His panel, and his four states per container, because the shape is right: a
+ * count at the top, then one line per box saying either that it has gone or
+ * exactly what is holding it.
+ *
+ * The distinction the four states draw is the useful part. "Waiting for
+ * shipment information" is not the same as "Missing: Permit" — the first is
+ * somebody else's job and the second is this container's — and a single
+ * "incomplete" would collapse them into a line nobody can act on.
+ */
+function Handover({ job, onHandOver }) {
+  const containers = job.containers ?? [];
+  const shipmentGaps = job.handoverShipmentGaps ?? [];
+  const handed = containers.filter((c) => c.handedOverAt).length;
+  const ready = containers.filter(
+    (c) => !c.handedOverAt && shipmentGaps.length === 0 && (c.handoverGaps ?? []).length === 0,
+  ).length;
+  const total = containers.length;
+  const done = total > 0 && handed === total;
+
+  return (
+    <div
+      className="card"
+      style={{
+        marginBottom: 18,
+        borderColor: done ? "var(--gl-state-ready)" : "var(--gl-state-warn)",
+      }}
+    >
+      <div className="header-row" style={{ marginBottom: 10 }}>
+        <div>
+          <div className="section-title">Controller handover</div>
+          <div className="muted">
+            What the controller needs to start. Shorter than the job&rsquo;s missing
+            information on purpose &mdash; the rest arrives while the box is already
+            on their board.
+          </div>
+        </div>
+        <span className="tag" style={{ whiteSpace: "nowrap" }}>
+          {handed}/{total} handed over{ready ? ` · ${ready} ready` : ""}
+        </span>
+      </div>
+
+      {shipmentGaps.length > 0 ? (
+        <div className="stop" style={{ borderLeft: "4px solid var(--gl-state-warn)" }}>
+          <b>Shipment</b> — missing {shipmentGaps.join(", ")}
+          <div className="muted">
+            This holds every container on the job, so it is worth doing first.
+          </div>
+        </div>
+      ) : null}
+
+      {containers.length === 0 ? (
+        <div className="muted">No containers on this job yet.</div>
+      ) : null}
+
+      {containers.map((c, i) => {
+        const own = c.handoverGaps ?? [];
+        const label = c.number || `Container ${i + 1}`;
+
+        if (c.handedOverAt) {
+          return (
+            <div className="stop" key={c.id ?? i}>
+              <b>{label}</b> — <span style={{ color: "var(--gl-state-ready-ink)", fontWeight: 600 }}>
+                handed over
+              </span>
+              <div className="muted">
+                {formatDay(c.handedOverAt)}{c.handedOverBy ? ` · ${c.handedOverBy}` : ""}
+              </div>
+            </div>
+          );
+        }
+
+        // The shipment's gap is named once at the top; repeating it on every
+        // container buries the container's own problem underneath it.
+        if (shipmentGaps.length > 0) {
+          return (
+            <div className="stop" key={c.id ?? i}>
+              <b>{label}</b> — waiting on the shipment
+              {own.length > 0 ? <div className="muted">Also missing {own.join(", ")}</div> : null}
+            </div>
+          );
+        }
+
+        if (own.length > 0) {
+          return (
+            <div className="stop" key={c.id ?? i}>
+              <b>{label}</b> — missing {own.join(", ")}
+            </div>
+          );
+        }
+
+        return (
+          <div
+            className="stop"
+            key={c.id ?? i}
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}
+          >
+            <div><b>{label}</b> — ready for handover</div>
+            <button
+              className="btn primary"
+              type="button"
+              onClick={() => onHandOver?.(c)}
+            >
+              Hand to controller
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const Field = ({ label, value }) => (
   <div className="field"><span className="field-label">{label}</span><b>{value || "—"}</b></div>
 );
 
 export default function ZhtJobDetail({
   job, containerIndex = 0, onSelectContainer, onBack, onManage,
-  onRecordCms, onSendDetails, onSetTranshipment, onRecordDetails, extras, permitPanel,
+  onRecordCms, onSendDetails, onSetTranshipment, onRecordDetails, onHandOver, extras, permitPanel,
 }) {
   /** Opened by the journey's closing step, and by hand otherwise. */
   const [showClosing, setShowClosing] = useState(false);
@@ -395,6 +510,8 @@ export default function ZhtJobDetail({
             </div>
             <span>{job.derived?.status}</span>
           </div>
+
+          {job.type === "Import" ? <Handover job={job} onHandOver={onHandOver} /> : null}
 
           {/* §31, §32. The trip the box makes, and the only place on this
               screen that answers "where are we" and "what now". The lede and

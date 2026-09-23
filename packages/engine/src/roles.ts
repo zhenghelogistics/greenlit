@@ -40,6 +40,14 @@ export const PERMISSION = [
   'container.capture', 'container.notify',
   'readiness.record', 'vgm.record', 'transhipment.record',
   'exception.manage', 'discrepancy.resolve',
+  /**
+   * Put a container on the controller's board.
+   *
+   * Operations only. The controller receives the work and does not award it to
+   * themselves: a board you can add to yourself is a board that tells you
+   * nothing about whether anyone has finished gathering the job.
+   */
+  'handover.record',
 
   // Deliberate departures from the rules — §27.4
   'gate.override', 'job.reopen', 'status.override',
@@ -75,6 +83,7 @@ const OPERATIONS_PERMISSIONS: readonly Permission[] = [
   'container.capture', 'container.notify',
   'readiness.record', 'vgm.record', 'transhipment.record',
   'exception.manage', 'discrepancy.resolve',
+  'handover.record',
 ];
 
 /**

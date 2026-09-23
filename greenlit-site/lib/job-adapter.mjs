@@ -51,6 +51,9 @@ export function jobFromApi(view) {
     eta: r.eta ?? r.etaSingapore ?? null,
     infoComplete: view.mandatoryComplete,
     missingInformation: view.missingInformation ?? [],
+    // What stops the controller starting, which is a much shorter list than
+    // everything still to gather.
+    handoverShipmentGaps: view.handoverShipmentGaps ?? [],
     cmsCompleted: r.cmsStatus === "COMPLETED" || r.cmsStatus === "NOT_REQUIRED",
     emptyYard: r.emptyCollectionYard ?? "",
     deliveryAddress: r.deliveryAddress ?? first.stuffingLocation ?? "",
@@ -155,6 +158,10 @@ export function jobFromApi(view) {
       freeTime: view.containers?.[i]?.freeTime ?? [],
       // §34.0. The third number, derived server-side with the other two.
       charge: view.containers?.[i]?.charge ?? null,
+      // Whether this box is on the controller's board, and what stops it.
+      handedOverAt: view.containers?.[i]?.handedOverAt ?? null,
+      handedOverBy: view.containers?.[i]?.handedOverBy ?? "",
+      handoverGaps: view.containers?.[i]?.handoverGaps ?? [],
     })),
     trips: (view.movements ?? []).map((m) => ({
       id: m.movementRef,

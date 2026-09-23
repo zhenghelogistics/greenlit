@@ -8,6 +8,9 @@ import {
   type MandatoryFieldSet, type Movement, type Thresholds, type WaitingOn,
   freeTimeCountdown,
   carrierLastFreeDay,
+  containerHandoverGaps,
+  importHandoverShipmentGaps,
+  exportHandoverShipmentGaps,
   chargeEstimate,
   importJourney,
   exportJourney,
@@ -15,7 +18,7 @@ import {
   type FreeTimeCountdown,
   type ChargeEstimate,
 } from '@greenlit/engine';
-import type { IsoDate } from '@greenlit/engine';
+import type { IsoDate, PermitRecord } from '@greenlit/engine';
 
 /**
  * I-25. The day the empty return actually completed, if it has.
@@ -63,6 +66,16 @@ export interface DerivedContainerView {
    * later clock against a different event and is not a substitute for it.
    */
   carrierLastFreeDay: IsoDate | null;
+  /** When operations handed this container to the controller, if they have. */
+  handedOverAt: string | null;
+  handedOverBy: string | null;
+  /**
+   * What this container still needs before it can be handed over — its own
+   * gaps only, not the shipment's. Empty does not mean ready: the job may
+   * still be missing something, which the job view reports once rather than
+   * repeating on every container.
+   */
+  handoverGaps: string[];
   /**
    * §34.0. The third number: what the days already over are likely to cost.
    *
@@ -97,6 +110,16 @@ export interface DerivedJobView {
   waitingOn: WaitingOn;
   mandatoryComplete: boolean;
   missingInformation: string[];
+  /**
+   * What the shipment still needs before any of its containers can be handed
+   * to the controller.
+   *
+   * Much shorter than `missingInformation`, and deliberately separate from it.
+   * Missing information is everything still to gather; this is only what stops
+   * the controller starting. A job can have eight missing fields and still be
+   * ready to hand over, and usually is.
+   */
+  handoverShipmentGaps: string[];
   containers: DerivedContainerView[];
   movements: Movement[];
   /**
@@ -256,6 +279,15 @@ export function deriveImportJob(
   job: ImportJob, containers: readonly ImportContainer[], movements: readonly Movement[],
   exceptions: readonly ExceptionRecord[], mandatory: MandatoryFieldSet,
   thresholds: Thresholds, now: string,
+  /**
+   * The job's permits, for the handover check.
+   *
+   * Defaulting to none is the safe direction: a container whose permit we
+   * cannot see is reported as missing one, which holds the handover. The
+   * opposite default would wave a container through to the controller's board
+   * and let it be stopped at the gate instead.
+   */
+  permits: readonly PermitRecord[] = [],
 ): DerivedJobView {
   const missing = missingMandatoryFields(job as unknown as Record<string, unknown>, mandatory);
   const views: DerivedContainerView[] = containers.map((c) => {
@@ -286,6 +318,9 @@ export function deriveImportJob(
       // `demurrageLfd ?? combinedLfd` that used to be done on the client
       // preferred a stale split date over the combined one that applied.
       carrierLastFreeDay: carrierLastFreeDay(counted),
+      handedOverAt: c.handedOverAt,
+      handedOverBy: c.handedOverBy,
+      handoverGaps: containerHandoverGaps(job, c, permits),
       charge: chargeEstimate(clocks, { dailyRate: c.dailyRate, currency: c.currency }),
     };
   });
@@ -329,6 +364,7 @@ export function deriveImportJob(
     waitingOn: action.waitingOn,
     mandatoryComplete: missing.length === 0,
     missingInformation: missing,
+    handoverShipmentGaps: importHandoverShipmentGaps(job),
     containers: views,
     movements: [...movements],
     activity: [],
@@ -367,6 +403,9 @@ export function deriveExportJob(
       // Export containers carry no carrier D&D allowance: the clocks that
       // matter to them are the booking's, not the carrier's free time.
       carrierLastFreeDay: null,
+      handedOverAt: null,
+      handedOverBy: null,
+      handoverGaps: [],
       charge: null,
     };
   });
@@ -413,6 +452,7 @@ export function deriveExportJob(
     waitingOn: action.waitingOn,
     mandatoryComplete: missing.length === 0,
     missingInformation: missing,
+    handoverShipmentGaps: exportHandoverShipmentGaps(job),
     containers: views,
     movements: [...movements],
     activity: [],

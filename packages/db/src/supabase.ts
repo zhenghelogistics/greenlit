@@ -1316,6 +1316,19 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         { field: 'containerDetailsSent', from: false, to: notice.sentTo.trim() });
     },
 
+    async handContainerToController(containerId, actor) {
+      const before = await db.from('containers').select('job_id,handed_over_at')
+        .eq('container_id', containerId).maybeSingle();
+      if (!before.data) throw new Error(`Unknown import container ${containerId}`);
+      // Already handed over: the first decision stands and is not re-stamped.
+      if (before.data.handed_over_at) return;
+      const at = new Date().toISOString();
+      unwrap(await db.from('containers').update({
+        handed_over_at: at, handed_over_by: actor,
+      }).eq('container_id', containerId).select().single(), 'hand to controller');
+      await record(before.data.job_id as string, 'container.handedToController', actor,
+        { field: 'handedOverAt', from: null, to: at });
+    },
     async recordContainerReady(containerId, actor) {
       const jobId = await jobOfExportContainer(containerId);
       unwrap(await db.from('export_containers').update({

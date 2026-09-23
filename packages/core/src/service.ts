@@ -48,12 +48,14 @@ export class JobService {
 
     const importJob = await this.#repo.getImportJob(jobId);
     if (importJob) {
-      const [containers, movements, exceptions] = await Promise.all([
+      const [containers, movements, exceptions, permits] = await Promise.all([
         this.#repo.listContainersForImportJob(jobId),
         this.#repo.listMovementsForJob(jobId),
         this.#repo.listOpenExceptionsForJob(jobId),
+        this.#repo.listPermitsForJob(jobId),
       ]);
-      const view = deriveImportJob(importJob, containers, movements, exceptions, IMPORT_MANDATORY, thresholds, now);
+      const view = deriveImportJob(
+        importJob, containers, movements, exceptions, IMPORT_MANDATORY, thresholds, now, permits);
       view.activity = await this.#activity(jobId);
       view.discrepancies = await this.#repo.listOpenDiscrepancies(jobId);
       return view;
@@ -100,13 +102,16 @@ export class JobService {
     const exportIds = exportJobs.map((j) => j.exportJobId);
     const allIds = [...importIds, ...exportIds];
 
-    // Seven queries for the whole board, whatever its size. One per job made
+    // Eight queries for the whole board, whatever its size. One per job made
     // thirty-three for eleven jobs, and would make three hundred for a hundred.
-    const [importContainers, exportContainers, movements, exceptions] = await Promise.all([
+    const [importContainers, exportContainers, movements, exceptions, jobPermits] = await Promise.all([
       this.#repo.listContainersForImportJobs(importIds),
       this.#repo.listContainersForExportJobs(exportIds),
       this.#repo.listMovementsForJobs(allIds),
       this.#repo.listOpenExceptionsForJobs(allIds),
+      // Batched with the rest for the same reason: the handover check needs
+      // them, and one query per job would undo the paragraph above.
+      this.#repo.listPermitsForJobs(importIds),
     ]);
 
     const groupBy = <T>(items: readonly T[], key: (item: T) => string): Map<string, T[]> => {
@@ -123,6 +128,7 @@ export class JobService {
     const exportContainersByJob = groupBy(exportContainers, (c) => c.exportJobId);
     const movementsByJob = groupBy(movements, (m) => m.jobId);
     const exceptionsByJob = groupBy(exceptions, (e) => e.jobId);
+    const permitsByJob = new Map(jobPermits.map((entry) => [entry.jobId, entry.permits]));
 
     return [
       ...importJobs.map((job) => deriveImportJob(
@@ -131,6 +137,7 @@ export class JobService {
         movementsByJob.get(job.jobId) ?? [],
         exceptionsByJob.get(job.jobId) ?? [],
         IMPORT_MANDATORY, thresholds, now,
+        permitsByJob.get(job.jobId) ?? [],
       )),
       ...exportJobs.map((job) => deriveExportJob(
         job,

@@ -393,6 +393,19 @@ export interface Repository {
     notice: { sentTo: string; reference?: string | null },
     actor: string,
   ): Promise<void>;
+  /**
+   * Hand one import container to the controller.
+   *
+   * The act that puts it on the controller's board. Per container, because
+   * containers on one job are chased separately and become ready at different
+   * times.
+   *
+   * There is deliberately no command to take it back. Withdrawing a handover
+   * because a later edit re-opened a gap makes rows vanish from the
+   * controller's board mid-plan with no explanation; the gap is surfaced
+   * instead, to the person best placed to chase it.
+   */
+  handContainerToController(containerId: string, actor: string): Promise<void>;
   recordContainerReady(containerId: string, actor: string): Promise<void>;
   recordVgm(containerId: string, vgm: number, actor: string): Promise<void>;
 

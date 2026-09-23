@@ -192,6 +192,36 @@ export function runRepositoryContract(
     assert.ok(c?.vgmReceivedAt);
   });
 
+  test(`[${name}] handing a container over stamps who and when, once`, async () => {
+    const repo = await fresh();
+    const [first] = await repo.listContainersForImportJob(seeded.importJobId);
+    assert.ok(first, 'the import job should have a container to hand over');
+
+    assert.equal(first!.handedOverAt, null, 'nothing is handed over until somebody says so');
+
+    await repo.handContainerToController(first!.containerId, 'operations');
+    const after = (await repo.listContainersForImportJob(seeded.importJobId))
+      .find((c) => c.containerId === first!.containerId);
+    assert.ok(after?.handedOverAt, 'the instant is recorded');
+    assert.equal(after?.handedOverBy, 'operations', 'and who decided it');
+
+    // Handing over again is not an error and must not re-stamp: the first
+    // decision stands, and overwriting it would lose who actually made it.
+    const stamp = after!.handedOverAt;
+    await repo.handContainerToController(first!.containerId, 'somebody-else');
+    const again = (await repo.listContainersForImportJob(seeded.importJobId))
+      .find((c) => c.containerId === first!.containerId);
+    assert.equal(again?.handedOverAt, stamp, 'the original instant survives');
+    assert.equal(again?.handedOverBy, 'operations', 'and so does the original name');
+  });
+
+  test(`[${name}] a container that does not exist cannot be handed over`, async () => {
+    const repo = await fresh();
+    await assert.rejects(
+      () => repo.handContainerToController('no-such-container', 'tester'),
+      /Unknown import container/);
+  });
+
   test(`[${name}] §42: recording the notification unblocks stuffing`, async () => {
     // The command the export flow did not have. The status existed, the engine
     // raised "Send container details to customer" as the next action, and
