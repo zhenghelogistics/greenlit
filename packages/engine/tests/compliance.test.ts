@@ -60,6 +60,7 @@ const importJob = (o: Partial<ImportJob> = {}): ImportJob => ({
 });
 
 const importContainer = (o: Partial<ImportContainer> = {}): ImportContainer => ({
+  handedOverAt: null, handedOverBy: null,
   containerId: 'c', containerNumber: 'ABCU1234567', jobId: 'j', containerSize: '40',
   containerType: 'HQ', sealNumber: null, grossWeight: 1, packageCount: null, packageType: null, cargoDescription: 'x',
   portTerminal: 'PSA', emptyReturnYard: 'Jurong', freeTimeModel: 'SPLIT',

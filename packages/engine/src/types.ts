@@ -56,6 +56,15 @@ export interface Movement {
 export interface ImportContainer {
   containerId: string;
   /**
+   * When operations handed this container to the controller, if they have.
+   *
+   * An instant rather than a flag, because the question asked afterwards is
+   * always "when did this land on my board" — and because the handover is
+   * something a person did, not a state the system worked out.
+   */
+  handedOverAt: IsoInstant | null;
+  handedOverBy: string | null;
+  /**
    * §39. Null until the arrival notice arrives.
    *
    * A job is opened when the customer calls and the notice follows, so the
