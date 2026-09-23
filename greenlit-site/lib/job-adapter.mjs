@@ -13,6 +13,17 @@ export const WAITING_LABEL_API = { US: "Us", CUSTOMER: "Customer", CARRIER: "Car
  * Nothing here recomputes a status. If a value is derived, it was derived on
  * the server (§56).
  */
+/**
+ * One clock's last free day, as the engine counted it.
+ *
+ * Reading the clocks rather than the stored columns is the difference between
+ * "the date that applies" and "a date somebody once typed": the engine counts
+ * from the vessel ETA and lets a controller's override win, and neither of
+ * those is visible in the raw figures.
+ */
+const lfdOf = (container, label) =>
+  container?.freeTime?.find((clock) => clock.label === label)?.lastFreeDay ?? null;
+
 export function jobFromApi(view) {
   const r = view.record ?? {};
   const stored = view.storedContainers ?? [];
@@ -68,8 +79,14 @@ export function jobFromApi(view) {
     permitRequired: Boolean(r.permitRequired),
     permitReceived: Boolean(r.permitReceived),
     portnetReleased: Boolean(r.portnetReleased),
-    demurrageLastFreeDay: first.demurrageLfd ?? first.combinedLfd ?? null,
-    detentionLastFreeDay: first.detentionLfd ?? null,
+    // §34.1, §54. The job-level pair the operations screens read, taken from
+    // the engine's clocks for the first container rather than from whichever
+    // stored figure happened to be set. A combined allowance has no separate
+    // detention date, and this now says so instead of reaching for a split
+    // value the carrier's terms do not give.
+    demurrageLastFreeDay: lfdOf(view.containers?.[0], "Demurrage")
+      ?? lfdOf(view.containers?.[0], "Combined D&D"),
+    detentionLastFreeDay: lfdOf(view.containers?.[0], "Detention"),
     atCarparkSince: first.carparkArrivedAt ?? null,
     readyConfirmedAt: first.containerReadyAt ?? null,
     // §35.2: chassis is assigned per container and held for the whole job, so
@@ -128,7 +145,11 @@ export function jobFromApi(view) {
       // state is the engine's derived container status, never recomputed here.
       state: view.containers?.[i]?.status ?? "",
       status: view.containers?.[i]?.status ?? "",
-      lastFreeDay: c.demurrageLfd ?? c.combinedLfd ?? null,
+      // §34.1, §54. Read, never derived here. Picking between the stored
+      // figures on the client is how a stale split date came to be shown over
+      // the combined one that applied; the engine counts it from the ETA now
+      // and this is the only place the answer comes from.
+      lastFreeDay: view.containers?.[i]?.carrierLastFreeDay ?? null,
       // §34.4, computed server-side. A countdown a screen works out itself is
       // a countdown that can disagree with the next screen's.
       freeTime: view.containers?.[i]?.freeTime ?? [],

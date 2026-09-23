@@ -48,7 +48,7 @@ import {
   ZhtJobs, ZhtPlanning, ZhtDrivers, ZhtChassis, ZhtBilling,
   ZhtEmptyReturns, ZhtSearchResults, ZhtCustomers, ZhtCustomerDetail,
 } from "./components/ZhtScreens.jsx";
-import { addIsoDays, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
+import { lastFreeDayFromEta, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
 import { validateContainerCount } from "@greenlit/engine";
 import { reconcileExtraction, toExtractedFields } from "@greenlit/engine";
 
@@ -3648,8 +3648,12 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
   const containerIssues = documentContainerIssues(containerDrafts);
   const effectiveDraft = { ...draft, containerNumber: normalisedContainers[0]?.number || "", containerType: normalisedContainers[0]?.type || "", sealNumber: normalisedContainers[0]?.seal || "" };
   const requiredMissing = REQUIRED_JOB_FIELDS.filter((key) => !String(effectiveDraft[key] || "").trim());
-  const planningDemurrage = addIsoDays(draft.eta, Number(draft.demurrageFreeDays || 3));
-  const planningDetention = addIsoDays(draft.eta, Number(draft.demurrageFreeDays || 3) + Number(draft.detentionFreeDays || 4));
+  // §34.1. Counted the one way, by the one function. This screen used to add
+  // the whole allowance to the ETA and to fall back on three and four days
+  // when the notice stated neither — a deadline nobody's carrier had agreed,
+  // shown as an estimate, a day later than the real one.
+  const planningDemurrage = lastFreeDayFromEta(draft.eta, draft.demurrageFreeDays);
+  const planningDetention = lastFreeDayFromEta(draft.eta, draft.detentionFreeDays);
   const reviewCount = Object.values(confidence).filter((level) => level === "review").length;
 
   return (

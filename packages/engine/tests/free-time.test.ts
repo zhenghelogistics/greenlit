@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { freeTimeClocks, carrierLastFreeDay, contradictoryFreeTime, freeTimeCountdown, mostUrgentClock, chargeEstimate } from '../src/free-time.ts';
+import { freeTimeClocks, carrierLastFreeDay, contradictoryFreeTime, freeTimeCountdown, mostUrgentClock, chargeEstimate, lastFreeDayFrom } from '../src/free-time.ts';
 
 const base = {
   demurrageFreeDays: 5, demurrageLfd: '2026-09-14',
@@ -245,4 +245,81 @@ test('an unconfirmed carrier rule has no clocks and therefore no charge', () => 
   }, '2026-09-25', 3, null);
   assert.deepEqual(clocks, []);
   assert.equal(chargeEstimate(clocks, { dailyRate: 85, currency: 'SGD' }).chargeableDays, 0);
+});
+
+
+test('§34.1: the ETA is day one, so the allowance ends a day earlier than it reads', () => {
+  // The whole rule, and the reason it is worth a test of its own: one free day
+  // is the day the vessel arrives, not the day after. Counting from the day
+  // after gives the carrier a day of demurrage on every container, every time.
+  assert.equal(lastFreeDayFrom('2026-09-23', 1), '2026-09-23', 'one free day is the ETA itself');
+  assert.equal(lastFreeDayFrom('2026-09-23', 7), '2026-09-29', 'seven free days end on ETA + 6');
+  assert.notEqual(lastFreeDayFrom('2026-09-23', 7), '2026-09-30', 'ETA + 7 is the off-by-one');
+});
+
+test('§34.1: the count crosses month and year ends', () => {
+  assert.equal(lastFreeDayFrom('2026-09-25', 10), '2026-10-04');
+  assert.equal(lastFreeDayFrom('2026-12-28', 7), '2027-01-03');
+  // 2028 is a leap year, so February has a 29th to cross.
+  assert.equal(lastFreeDayFrom('2028-02-26', 5), '2028-03-01');
+});
+
+test('§34.1: no ETA and no allowance means no deadline, never a guessed one', () => {
+  assert.equal(lastFreeDayFrom(null, 7), null, 'no ETA');
+  assert.equal(lastFreeDayFrom('2026-09-23', null), null, 'no allowance');
+  assert.equal(lastFreeDayFrom('2026-09-23', 0), null, 'zero free days is not a deadline today');
+  assert.equal(lastFreeDayFrom('2026-09-23', -3), null, 'a negative allowance is not a date in the past');
+  assert.equal(lastFreeDayFrom('23/09/2026', 7), null, 'a display date is not an ISO one');
+});
+
+test('§34.1: the clock counts its own last free day when nobody has overridden it', () => {
+  const [clock] = freeTimeClocks({
+    ...base,
+    freeTimeModel: 'COMBINED',
+    eta: '2026-09-23',
+    combinedFreeDays: 14,
+    combinedLfd: null,
+  });
+  assert.equal(clock?.countedLastFreeDay, '2026-10-06');
+  assert.equal(clock?.overriddenLastFreeDay, null);
+  assert.equal(clock?.lastFreeDay, '2026-10-06', 'the count applies');
+});
+
+test("§34.1: a date set by hand outranks the count, and both stay visible", () => {
+  // A carrier grants an extension; the extension is the deadline. Keeping the
+  // count alongside it means the row can still show what the terms gave.
+  const [clock] = freeTimeClocks({
+    ...base,
+    freeTimeModel: 'COMBINED',
+    eta: '2026-09-23',
+    combinedFreeDays: 14,
+    combinedLfd: '2026-10-20',
+  });
+  assert.equal(clock?.countedLastFreeDay, '2026-10-06', 'the terms still say the 6th');
+  assert.equal(clock?.overriddenLastFreeDay, '2026-10-20');
+  assert.equal(clock?.lastFreeDay, '2026-10-20', 'what was agreed is what applies');
+});
+
+test('§34.1: a container with no ETA reports what it has rather than inventing a date', () => {
+  const [clock] = freeTimeClocks({
+    ...base, freeTimeModel: 'COMBINED', combinedFreeDays: 14, combinedLfd: null,
+  });
+  assert.equal(clock?.freeDays, 14, 'the allowance is known');
+  assert.equal(clock?.lastFreeDay, null, 'the deadline is not');
+});
+
+test('§34.1: split clocks are counted from the same ETA, separately', () => {
+  const clocks = freeTimeClocks({
+    ...base,
+    freeTimeModel: 'SPLIT',
+    eta: '2026-09-23',
+    demurrageFreeDays: 5, demurrageLfd: null,
+    detentionFreeDays: 7, detentionLfd: null,
+  });
+  assert.equal(clocks[0]?.lastFreeDay, '2026-09-27', 'demurrage: five days from the 23rd');
+  assert.equal(clocks[1]?.lastFreeDay, '2026-09-29', 'detention: seven days from the 23rd');
+  assert.equal(carrierLastFreeDay({
+    ...base, freeTimeModel: 'SPLIT', eta: '2026-09-23',
+    demurrageFreeDays: 5, demurrageLfd: null, detentionFreeDays: 7, detentionLfd: null,
+  }), '2026-09-27', 'the money deadline is demurrage');
 });

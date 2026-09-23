@@ -126,3 +126,17 @@ test("a container with nothing recorded yet reads as unconfirmed, not split", ()
     "defaulting to SPLIT would show two countdowns for a carrier rule nobody has read");
   assert.equal(job.containers[0].sizeType, "");
 });
+
+test("§54: the adapter reads derived values, it does not work them out", async () => {
+  // `demurrageLfd ?? combinedLfd` on the client is how a stale split date came
+  // to be shown over the combined one that actually applied. The engine counts
+  // the last free day from the vessel ETA now, and honours a controller's
+  // override; a fallback chain here would quietly go back to guessing, and
+  // would never show a counted date at all, because it only reads stored ones.
+  const src = await readFile(new URL("../lib/job-adapter.mjs", import.meta.url), "utf8");
+
+  assert.doesNotMatch(src, /demurrageLfd\s*\?\?|combinedLfd\s*\?\?/,
+    "the adapter is picking between stored free-time dates instead of reading the derived one");
+  assert.match(src, /lastFreeDay:\s*view\.containers\?\.\[i\]\?\.carrierLastFreeDay/,
+    "lastFreeDay should come from the engine-derived view");
+});

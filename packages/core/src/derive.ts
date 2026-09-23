@@ -7,6 +7,7 @@ import {
   type ImportContainerStatus, type ImportJob, type ImportJobStatus,
   type MandatoryFieldSet, type Movement, type Thresholds, type WaitingOn,
   freeTimeCountdown,
+  carrierLastFreeDay,
   chargeEstimate,
   importJourney,
   exportJourney,
@@ -14,6 +15,7 @@ import {
   type FreeTimeCountdown,
   type ChargeEstimate,
 } from '@greenlit/engine';
+import type { IsoDate } from '@greenlit/engine';
 
 /**
  * I-25. The day the empty return actually completed, if it has.
@@ -53,6 +55,14 @@ export interface DerivedContainerView {
    * countdown that can disagree with the one the next client calculates.
    */
   freeTime: FreeTimeCountdown[];
+  /**
+   * §34.1. The carrier deadline that decides whether money is owed.
+   *
+   * Counted from the vessel ETA, or the date a controller set by hand where
+   * there is one. Under a split allowance this is demurrage: detention is a
+   * later clock against a different event and is not a substitute for it.
+   */
+  carrierLastFreeDay: IsoDate | null;
   /**
    * §34.0. The third number: what the days already over are likely to cost.
    *
@@ -251,8 +261,12 @@ export function deriveImportJob(
   const views: DerivedContainerView[] = containers.map((c) => {
     const own = movements.filter((m) => m.containerId === c.containerId);
     const gate = canCollect(job, c, mandatory);
+    // §34.1. Every allowance is counted from the vessel's ETA, which lives on
+    // the job rather than the container, so it has to be handed down. Without
+    // it the clocks can only report the dates somebody typed.
+    const counted = { ...c, eta: job.eta };
     const clocks = freeTimeCountdown(
-      c, now.slice(0, 10), thresholds.ddCriticalDays, emptyReturnedOn(own),
+      counted, now.slice(0, 10), thresholds.ddCriticalDays, emptyReturnedOn(own),
     );
     return {
       containerId: c.containerId,
@@ -267,6 +281,11 @@ export function deriveImportJob(
       // but one of them. I-25: the day the empty went back stops the clock,
       // so a container returned on time stays on time.
       freeTime: clocks,
+      // §34.1. The deadline that decides whether money is owed, derived here
+      // so no screen has to pick between the stored figures itself — the
+      // `demurrageLfd ?? combinedLfd` that used to be done on the client
+      // preferred a stale split date over the combined one that applied.
+      carrierLastFreeDay: carrierLastFreeDay(counted),
       charge: chargeEstimate(clocks, { dailyRate: c.dailyRate, currency: c.currency }),
     };
   });
@@ -345,6 +364,9 @@ export function deriveExportJob(
       // there is nothing to count. Present and empty rather than absent, so a
       // screen reads the same field for both domains.
       freeTime: [],
+      // Export containers carry no carrier D&D allowance: the clocks that
+      // matter to them are the booking's, not the carrier's free time.
+      carrierLastFreeDay: null,
       charge: null,
     };
   });

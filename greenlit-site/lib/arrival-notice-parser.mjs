@@ -82,6 +82,24 @@ export function addIsoDays(isoDate, days) {
   return date.toISOString().slice(0, 10);
 }
 
+/**
+ * §34.1. The last free day, counted from the vessel's ETA, which is day one.
+ *
+ * The same rule the engine applies, kept here because the intake screen shows
+ * a provisional date before anything reaches the engine. Four places in this
+ * codebase used to count this and three of them disagreed: two added the full
+ * allowance to the ETA, which lands a day late, in the carrier's favour.
+ *
+ * Returns "" when the notice does not state an allowance. A default would be
+ * an invented carrier term, and an invented deadline is worse than no deadline
+ * because it looks like a fact.
+ */
+export function lastFreeDayFromEta(isoEta, freeDays) {
+  const days = Number(freeDays);
+  if (!isoEta || !Number.isInteger(days) || days <= 0) return "";
+  return addIsoDays(isoEta, days - 1);
+}
+
 export function parseArrivalNoticeText(rawText) {
   const text = rawText
     .replace(/\u00a0/g, " ")
@@ -150,8 +168,12 @@ export function parseArrivalNoticeText(rawText) {
     extractedCount,
     requiredMissing,
     planning: {
-      demurrageLastFreeDay: addIsoDays(values.eta, Number(values.demurrageFreeDays || 3)),
-      detentionLastFreeDay: addIsoDays(values.eta, Number(values.demurrageFreeDays || 3) + Number(values.detentionFreeDays || 4)),
+      // Each clock is counted from the ETA in its own right. Adding detention
+      // on top of demurrage made it a cumulative figure, which is a third
+      // reading of the carrier's terms and matches neither the engine nor the
+      // operations demo.
+      demurrageLastFreeDay: lastFreeDayFromEta(values.eta, values.demurrageFreeDays),
+      detentionLastFreeDay: lastFreeDayFromEta(values.eta, values.detentionFreeDays),
       provisional: true,
     },
   };

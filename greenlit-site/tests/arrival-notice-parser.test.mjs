@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { addIsoDays, parseArrivalNoticeText } from "../lib/arrival-notice-parser.mjs";
+import { addIsoDays, lastFreeDayFromEta, parseArrivalNoticeText } from "../lib/arrival-notice-parser.mjs";
 
 const arrivalNotice = `
 Arrival Notice
@@ -66,8 +66,15 @@ test("extracts an arrival notice into job-ready facts", () => {
   assert.match(result.values.shipper, /ANSELL \(SHANGHAI\) HEALTHCARE CO\., LTD/);
   assert.match(result.values.consignee, /DKSH SINGAPORE PTE LTD/);
   assert.deepEqual(result.requiredMissing, []);
-  assert.equal(result.planning.demurrageLastFreeDay, "2026-09-03");
-  assert.equal(result.planning.detentionLastFreeDay, "2026-09-07");
+  // §34.1. This notice grants three demurrage days and four detention days
+  // from an ETA of 31 August, so the deadlines are the 2nd and the 3rd.
+  //
+  // It used to answer the 3rd and the 7th. Two separate faults, both a day or
+  // more late, both in the carrier's favour: the ETA was not counted as day
+  // one, and detention was stacked on top of demurrage rather than counted
+  // from the same arrival.
+  assert.equal(result.planning.demurrageLastFreeDay, "2026-09-02");
+  assert.equal(result.planning.detentionLastFreeDay, "2026-09-03");
   assert.equal(result.planning.provisional, true);
 });
 
@@ -109,4 +116,31 @@ test("marks review-sensitive fields and rejects unrelated PDFs", () => {
 test("adds planning days without local timezone drift", () => {
   assert.equal(addIsoDays("2026-08-31", 3), "2026-09-03");
   assert.equal(addIsoDays("", 3), "");
+});
+
+
+test("§34.1: intake counts the ETA as day one, the same way the engine does", () => {
+  // Four places in this codebase counted this and three disagreed. The two
+  // that added the whole allowance to the ETA landed a day late — in the
+  // carrier's favour, on every container.
+  assert.equal(lastFreeDayFromEta("2026-08-31", 1), "2026-08-31", "one free day is the ETA");
+  assert.equal(lastFreeDayFromEta("2026-08-31", 3), "2026-09-02", "three days end on the 2nd");
+  assert.notEqual(lastFreeDayFromEta("2026-08-31", 3), "2026-09-03", "the 3rd is the off-by-one");
+});
+
+test("§34.1: intake offers no deadline the notice did not state", () => {
+  // The defaults this used to fall back on — three days and four — happened to
+  // match the fixture above, which is why they went unnoticed for so long.
+  // They only ever bit on a notice that stated neither.
+  assert.equal(lastFreeDayFromEta("2026-08-31", null), "", "no allowance, no date");
+  assert.equal(lastFreeDayFromEta("2026-08-31", ""), "", "blank is not an allowance");
+  assert.equal(lastFreeDayFromEta("2026-08-31", 0), "", "zero free days is not a deadline today");
+  assert.equal(lastFreeDayFromEta("", 3), "", "no ETA, nothing to count from");
+});
+
+test("§34.1: demurrage and detention are each counted from the ETA, not stacked", () => {
+  // Detention used to be computed as demurrage plus detention, a cumulative
+  // reading that matches neither the engine nor the operations demo.
+  assert.equal(lastFreeDayFromEta("2026-08-31", 5), "2026-09-04", "demurrage, five days");
+  assert.equal(lastFreeDayFromEta("2026-08-31", 7), "2026-09-06", "detention, seven days from the same ETA");
 });

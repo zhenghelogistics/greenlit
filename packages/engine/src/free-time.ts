@@ -24,11 +24,55 @@ export interface FreeTimeClock {
   /** 'Demurrage', 'Detention' or 'Combined D&D' — what a person should read. */
   label: string;
   freeDays: number | null;
+  /** What applies: the controller's date where there is one, else the count. */
   lastFreeDay: IsoDate | null;
+  /** §34.1. ETA plus the allowance, ETA counted as day one. */
+  countedLastFreeDay: IsoDate | null;
+  /**
+   * A date the controller set by hand, which outranks the count.
+   *
+   * Carriers grant extensions and make exceptions, and when one has been
+   * agreed the agreement is the deadline. Recording it as an override rather
+   * than editing the count keeps both visible: what the terms give, and what
+   * was actually agreed.
+   */
+  overriddenLastFreeDay: IsoDate | null;
+}
+
+/**
+ * §34.1. The last free day, counted from the vessel's ETA.
+ *
+ * The ETA is day one. Seven free days therefore end six days after arrival,
+ * not seven — a distinction worth a day of demurrage on every container, in
+ * the carrier's favour, every time it is got wrong. The operations demo the
+ * PM built states the same rule in the same words, which is the third
+ * independent statement of it; §34.1 is the first.
+ *
+ * Returns null rather than guessing: no ETA and no allowance means no
+ * deadline, and a computed date would be a fabricated one.
+ */
+export function lastFreeDayFrom(eta: IsoDate | null, freeDays: number | null): IsoDate | null {
+  if (!eta || freeDays === null || !Number.isInteger(freeDays) || freeDays <= 0) return null;
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(eta);
+  if (!parts) return null;
+  const counted = new Date(Date.UTC(
+    Number(parts[1]),
+    Number(parts[2]) - 1,
+    Number(parts[3]) + freeDays - 1,
+  ));
+  if (Number.isNaN(counted.getTime())) return null;
+  return counted.toISOString().slice(0, 10) as IsoDate;
 }
 
 export interface FreeTimeSource {
   freeTimeModel: FreeTimeModel;
+  /**
+   * The vessel's arrival, from which every allowance is counted.
+   *
+   * Optional because a container can be on file before its ETA is known. The
+   * clocks then report what they have rather than inventing a date.
+   */
+  eta?: IsoDate | null;
   demurrageFreeDays: number | null;
   demurrageLfd: IsoDate | null;
   detentionFreeDays: number | null;
@@ -46,17 +90,27 @@ export interface FreeTimeSource {
  * an unverified rule is worse than showing that it is unverified.
  */
 export function freeTimeClocks(container: FreeTimeSource): FreeTimeClock[] {
+  // §34.1. The date is counted, not typed. A stored date is read as the
+  // controller's override, which is what a stored date has always meant:
+  // somebody decided this deadline by hand and it beats the arithmetic.
+  const clock = (label: string, freeDays: number | null, stored: IsoDate | null): FreeTimeClock => {
+    const counted = lastFreeDayFrom(container.eta ?? null, freeDays);
+    return {
+      label,
+      freeDays,
+      countedLastFreeDay: counted,
+      overriddenLastFreeDay: stored,
+      lastFreeDay: stored ?? counted,
+    };
+  };
+
   if (container.freeTimeModel === 'COMBINED') {
-    return [{
-      label: 'Combined D&D',
-      freeDays: container.combinedFreeDays,
-      lastFreeDay: container.combinedLfd,
-    }];
+    return [clock('Combined D&D', container.combinedFreeDays, container.combinedLfd)];
   }
   if (container.freeTimeModel === 'SPLIT') {
     return [
-      { label: 'Demurrage', freeDays: container.demurrageFreeDays, lastFreeDay: container.demurrageLfd },
-      { label: 'Detention', freeDays: container.detentionFreeDays, lastFreeDay: container.detentionLfd },
+      clock('Demurrage', container.demurrageFreeDays, container.demurrageLfd),
+      clock('Detention', container.detentionFreeDays, container.detentionLfd),
     ];
   }
   return [];
@@ -70,8 +124,11 @@ export function freeTimeClocks(container: FreeTimeSource): FreeTimeClock[] {
  * substitute for it.
  */
 export function carrierLastFreeDay(container: FreeTimeSource): IsoDate | null {
-  if (container.freeTimeModel === 'COMBINED') return container.combinedLfd;
-  if (container.freeTimeModel === 'SPLIT') return container.demurrageLfd;
+  const clocks = freeTimeClocks(container);
+  if (container.freeTimeModel === 'COMBINED') return clocks[0]?.lastFreeDay ?? null;
+  if (container.freeTimeModel === 'SPLIT') {
+    return clocks.find((c) => c.label === 'Demurrage')?.lastFreeDay ?? null;
+  }
   return null;
 }
 
