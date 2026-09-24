@@ -75,6 +75,16 @@ export interface ImportContainer {
   /** When it reached the customer. */
   deliveredAt: IsoInstant | null;
   /**
+   * The date agreed with the customer, which is not the date it arrived.
+   *
+   * What operations enter and the controller plans around. `deliveredAt`
+   * records what happened; this records what was promised, and the two are
+   * worth comparing.
+   */
+  plannedDeliveryDate: IsoDate | null;
+  /** A half-hour, or null when the day is agreed and the hour is not. */
+  plannedDeliveryTime: string | null;
+  /**
    * §39. Null until the arrival notice arrives.
    *
    * A job is opened when the customer calls and the notice follows, so the
@@ -254,6 +264,16 @@ export interface ExportJob {
   etaSingapore: IsoDate | null;
   vesselClosingAt: IsoInstant | null;
   emptyCollectionYard: string | null;
+  /**
+   * §47. When the empty is wanted.
+   *
+   * The clock this job actually runs on. CMS is chased against it and never
+   * the vessel: the empty is usually due weeks before the ship sails, so a job
+   * measured against the sailing looks comfortable right up to the morning the
+   * truck cannot go.
+   */
+  emptyCollectionDate: IsoDate | null;
+  emptyCollectionTime: string | null;
   cmsRequired: boolean;
   cmsStatus: CmsStatus;
   containerQuantity: number;

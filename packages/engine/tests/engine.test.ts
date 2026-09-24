@@ -29,6 +29,7 @@ const importJob = (over: Partial<ImportJob> = {}): ImportJob => ({
 
 const exportJob = (over: Partial<ExportJob> = {}): ExportJob => ({
   closedAt: null, closedBy: null,
+  emptyCollectionDate: null, emptyCollectionTime: null,
   exportJobId: 'e', jobNumber: 'EXP-1', customer: 'ABC', shipper: 'XYZ',
   bookingReference: 'BK1', exportClearanceReference: 'OP-1', carrier: 'ONE',
   vesselName: 'V', voyageNumber: '1E', etaSingapore: '2026-09-01',
@@ -54,6 +55,7 @@ const exportContainer = (over: Partial<ExportContainer> = {}): ExportContainer =
 
 const importContainer = (): ImportContainer => ({
   handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
+  plannedDeliveryDate: null, plannedDeliveryTime: null,
   containerId: 'c', containerNumber: 'ABCU1234567', jobId: 'j',
   containerSize: '40', containerType: 'HQ', sealNumber: null, grossWeight: 20000, packageCount: null, packageType: null,
   cargoDescription: 'Goods', portTerminal: 'PSA', emptyReturnYard: 'Yard',

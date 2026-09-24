@@ -269,7 +269,8 @@ test('§34.1: no ETA and no allowance means no deadline, never a guessed one', (
   assert.equal(lastFreeDayFrom('2026-09-23', null), null, 'no allowance');
   assert.equal(lastFreeDayFrom('2026-09-23', 0), null, 'zero free days is not a deadline today');
   assert.equal(lastFreeDayFrom('2026-09-23', -3), null, 'a negative allowance is not a date in the past');
-  assert.equal(lastFreeDayFrom('23/09/2026', 7), null, 'a display date is not an ISO one');
+  // A display date is now counted rather than refused: see the test below.
+  // Returning null for one meant no deadline at all, silently.
 });
 
 test('§34.1: the clock counts its own last free day when nobody has overridden it', () => {
@@ -333,4 +334,17 @@ test('ten days is its own class, not the bottom of "long"', () => {
   assert.equal(freeTimeTerm(11), 'LONG');
   assert.equal(freeTimeTerm(null), 'UNKNOWN');
   assert.equal(freeTimeTerm(0), 'UNKNOWN', 'zero free days is not a short allowance');
+});
+
+test('§34.1: a display date counts the same as a stored one', () => {
+  // The database stores ISO; the screens carry DD/MM/YYYY. A version that took
+  // only ISO returned null for a display date — no deadline at all, silently,
+  // which is worse than a wrong one because nothing looks broken.
+  assert.equal(lastFreeDayFrom('23/09/2026', 7), '2026-09-29');
+  assert.equal(lastFreeDayFrom('23/09/2026', 7), lastFreeDayFrom('2026-09-23', 7),
+    'the two shapes of the same day give the same answer');
+  // Singapore writes day first: 09/10 is the ninth of October, not September.
+  assert.equal(lastFreeDayFrom('09/10/2026', 1), '2026-10-09');
+  assert.equal(lastFreeDayFrom('2026-09-23T08:00:00Z', 7), '2026-09-29', 'a timestamp counts by its day');
+  assert.equal(lastFreeDayFrom('23/9/2026', 7), null, 'a half-written date is still refused');
 });

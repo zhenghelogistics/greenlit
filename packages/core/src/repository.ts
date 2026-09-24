@@ -674,6 +674,9 @@ export interface ExportJobDraft {
    */
   vesselClosingAt?: string | null;
   emptyCollectionYard?: string | null;
+  /** §47. When the empty is wanted. The clock the job actually runs on. */
+  emptyCollectionDate?: string | null;
+  emptyCollectionTime?: string | null;
   containerQuantity?: number;
   containerSizeType?: string | null;
   truckInDate?: string | null;
