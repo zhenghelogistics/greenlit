@@ -162,6 +162,12 @@ export function jobFromApi(view) {
       handedOverAt: view.containers?.[i]?.handedOverAt ?? null,
       handedOverBy: view.containers?.[i]?.handedOverBy ?? "",
       handoverGaps: view.containers?.[i]?.handoverGaps ?? [],
+      // The controller's four piles, and the two facts behind them.
+      controllerStage: view.containers?.[i]?.controllerStage ?? "PENDING",
+      pendingReasons: view.containers?.[i]?.pendingReasons ?? [],
+      dischargedAt: view.containers?.[i]?.dischargedAt ?? null,
+      deliveredAt: view.containers?.[i]?.deliveredAt ?? null,
+      canPlanCollection: Boolean(view.containers?.[i]?.canPlanCollection),
     })),
     trips: (view.movements ?? []).map((m) => ({
       id: m.movementRef,

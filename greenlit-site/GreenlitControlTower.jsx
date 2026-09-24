@@ -4373,6 +4373,38 @@ export default function GreenlitControlTower() {
   }
 
   /**
+   * Record that containers came off the vessel.
+   *
+   * One request for the whole job rather than one per box. Two clicks per
+   * container to say one thing about one bill of lading is the largest piece
+   * of repetition in the workflow; a thirty-container job was sixty clicks.
+   */
+  async function dischargeMany(job, containerIds) {
+    if (!containerIds?.length) { showToast("Choose the containers to discharge."); return; }
+    await runJobCommand(
+      job,
+      "/discharge-many",
+      { containerIds },
+      `${containerIds.length} container${containerIds.length === 1 ? "" : "s"} discharged.`,
+    );
+  }
+
+  /** §31. The shipment is cleared to leave the terminal. */
+  async function releasePortnet(job) {
+    await runJobCommand(job, "/portnet", {}, "Portnet release recorded.");
+  }
+
+  /** The container reached the customer. */
+  async function markDelivered(job, container) {
+    await runJobCommand(
+      job,
+      `/containers/${encodeURIComponent(container.id)}/delivered`,
+      {},
+      `${container.number || "The container"} is at the customer.`,
+    );
+  }
+
+  /**
    * Put one container on the controller's board.
    *
    * Per container, because containers on one job become ready at different
@@ -4828,7 +4860,8 @@ export default function GreenlitControlTower() {
           onBack={() => { setSelectedCompany(null); setScreen("companies"); }} />
       ) : null}
       {current === "fleet" ? <ZhtChassis fleet={fleet} onOpenJob={(job) => openJob(job.id)} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
-      {current === "controller" ? <ZhtController jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)} /> : null}
+      {current === "controller" ? <ZhtController jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)}
+        onDischargeMany={dischargeMany} onPortnet={releasePortnet} onDeliver={markDelivered} /> : null}
       {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => goTo("documents")} /> : null}
       {current === "planning" ? <ZhtPlanning jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)} /> : null}
       {current === "drivers" ? <ZhtDrivers fleet={fleet} /> : null}
