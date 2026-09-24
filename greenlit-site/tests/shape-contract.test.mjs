@@ -142,6 +142,59 @@ test("container entries expose every field the container panels read", async () 
   }
 });
 
+test("every value the engine derives for a container reaches the screen", async () => {
+  // The list above is hand-written, so it only ever catches what somebody
+  // remembered to add to it — which is to say, not the field that was just
+  // added. This checks the actual contract instead.
+  //
+  // The leak is silent and specific: `derive.ts` computes a value, the adapter
+  // maps the container fields one by one and does not mention it, and the
+  // screen reads `undefined`. Nothing throws. `readyForHandover` did exactly
+  // this — every container read as not ready, and the handover panel simply
+  // showed nothing to hand over.
+  const derived = await readFile("../packages/core/src/derive.ts", "utf8");
+  const adapter = await readFile("lib/job-adapter.mjs", "utf8");
+
+  const shape = /export interface DerivedContainerView \{([\s\S]*?)\n\}/.exec(derived);
+  assert.ok(shape, "expected to find the derived container view's shape");
+
+  // Field names at the top level of the interface, ignoring its comments.
+  const fields = [...shape[1].matchAll(/^ {2}([a-zA-Z]\w*)\??:/gm)].map((m) => m[1]);
+  assert.ok(fields.length > 10, `expected a real field list, found ${fields.length}`);
+
+  // Some values reach the screen under a different name. The rename is the
+  // adapter's job — the screens are older than the engine and their words won
+  // — so what matters is that the value is read, not what it is called.
+  const RENAMED = {
+    containerId: "id",
+    containerNumber: "number",
+    carrierLastFreeDay: "lastFreeDay",
+  };
+
+  // Derived and deliberately not sent. Each is here because nothing reads it,
+  // and naming it is what makes that a decision rather than an oversight: the
+  // gate result is recomputed for the handover panel from its own two lists,
+  // so forwarding it as well would be a second answer to one question.
+  const NOT_FORWARDED = new Set([
+    "gatePassed", "gateFailures",
+    // `ref` is built from the raw container, not from the derived view — it is
+    // a label, not a derived value, and falls back to a position when the
+    // container has none.
+    "reference",
+  ]);
+
+  const dropped = fields.filter((field) => {
+    if (NOT_FORWARDED.has(field)) return false;
+    const name = RENAMED[field] ?? field;
+    // Read anywhere in the adapter's container mapping, whatever it is wrapped
+    // in — `x: view.containers[i].x`, `Boolean(...)`, `?? []`.
+    return !new RegExp(`\\b${name}\\s*:[^,\\n]*\\b${field}\\b`).test(adapter);
+  });
+
+  assert.deepEqual(dropped, [],
+    "the engine derives these per container and the adapter does not pass them on");
+});
+
 test("trip entries expose every field the movement history reads", async () => {
   const [t] = jobFromApi(fullView).trips;
   for (const key of ["id", "type", "status", "origin", "destination", "plannedDate"]) {

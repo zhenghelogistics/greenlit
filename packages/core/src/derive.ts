@@ -9,6 +9,8 @@ import {
   freeTimeCountdown,
   carrierLastFreeDay,
   containerHandoverGaps,
+  isHandedOver,
+  freeTimeTerm,
   controllerStage,
   pendingReasons,
   canPlanCollection,
@@ -83,6 +85,10 @@ export interface DerivedContainerView {
    * repeating on every container.
    */
   handoverGaps: string[];
+  /** §54. Whether this container is already the controller's. */
+  handedOver: boolean;
+  /** §54. Whether it could be handed over now — the gate, not the gaps. */
+  readyForHandover: boolean;
   /**
    * Which of the controller's four piles this container is in.
    *
@@ -332,6 +338,10 @@ export function deriveImportJob(
   permits: readonly PermitRecord[] = [],
 ): DerivedJobView {
   const missing = missingMandatoryFields(job as unknown as Record<string, unknown>, mandatory);
+  // Computed above the loop because each container's readiness depends on
+  // it: a shipment missing its customer holds every box on it.
+  const shipmentGaps = importHandoverShipmentGaps(job);
+
   const views: DerivedContainerView[] = containers.map((c) => {
     const own = movements.filter((m) => m.containerId === c.containerId);
     const gate = canCollect(job, c, mandatory);
@@ -371,6 +381,15 @@ export function deriveImportJob(
       handedOverAt: c.handedOverAt,
       handedOverBy: c.handedOverBy,
       handoverGaps: containerHandoverGaps(job, c, permits),
+      // §54. Both of these were worked out on the screen instead: "handed
+      // over" as a truthiness check on the timestamp, and "ready" as the
+      // shipment's gaps and the container's both being empty. Neither is the
+      // screen's to decide, and the first was subtly wrong — a blank string is
+      // not an instant, and it read as handed over.
+      handedOver: isHandedOver(c),
+      readyForHandover: !isHandedOver(c)
+        && shipmentGaps.length === 0
+        && containerHandoverGaps(job, c, permits).length === 0,
       controllerStage: controllerStage(boardFacts),
       pendingReasons: pendingReasons(boardFacts),
       dischargedAt: c.dischargedAt,
@@ -420,7 +439,7 @@ export function deriveImportJob(
     waitingOn: action.waitingOn,
     mandatoryComplete: missing.length === 0,
     missingInformation: missing,
-    handoverShipmentGaps: importHandoverShipmentGaps(job),
+    handoverShipmentGaps: shipmentGaps,
     documentsCompletedAt: job.documentsCompletedAt,
     documentsCompletedBy: job.documentsCompletedBy,
     documentGaps: documentGaps(job, containers, permits),
@@ -473,6 +492,13 @@ export function deriveExportJob(
       handedOverAt: null,
       handedOverBy: null,
       handoverGaps: [],
+      // Export containers are not handed over one at a time. The export
+      // handover is a shipment decision — the booking, the yard and the vessel
+      // are what a controller needs, and none of them is per box — so the
+      // job's `handoverShipmentGaps` carries it and these stay false rather
+      // than claiming a per-container gate that does not exist.
+      handedOver: false,
+      readyForHandover: false,
       // Export containers do not sit on the import board.
       controllerStage: 'PENDING' as ControllerStage,
       pendingReasons: [],

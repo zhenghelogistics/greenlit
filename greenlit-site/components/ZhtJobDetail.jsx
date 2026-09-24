@@ -459,10 +459,8 @@ function DocumentReadiness({ job, onComplete }) {
 function Handover({ job, onHandOver }) {
   const containers = job.containers ?? [];
   const shipmentGaps = job.handoverShipmentGaps ?? [];
-  const handed = containers.filter((c) => c.handedOverAt).length;
-  const ready = containers.filter(
-    (c) => !c.handedOverAt && shipmentGaps.length === 0 && (c.handoverGaps ?? []).length === 0,
-  ).length;
+  const handed = containers.filter((c) => c.handedOver).length;
+  const ready = containers.filter((c) => c.readyForHandover).length;
   const total = containers.length;
   const done = total > 0 && handed === total;
 
@@ -505,7 +503,7 @@ function Handover({ job, onHandOver }) {
         const own = c.handoverGaps ?? [];
         const label = c.number || `Container ${i + 1}`;
 
-        if (c.handedOverAt) {
+        if (c.handedOver) {
           return (
             <div className="stop" key={c.id ?? i}>
               <b>{label}</b> — <span style={{ color: "var(--gl-state-ready-ink)", fontWeight: 600 }}>

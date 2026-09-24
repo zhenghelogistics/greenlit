@@ -169,6 +169,11 @@ export function jobFromApi(view) {
       handedOverAt: view.containers?.[i]?.handedOverAt ?? null,
       handedOverBy: view.containers?.[i]?.handedOverBy ?? "",
       handoverGaps: view.containers?.[i]?.handoverGaps ?? [],
+      // §54. The gate itself, decided by the engine. The screen used to work
+      // it out from the two lists above, and read "handed over" as a truthy
+      // timestamp — which a blank string satisfies.
+      handedOver: view.containers?.[i]?.handedOver ?? false,
+      readyForHandover: view.containers?.[i]?.readyForHandover ?? false,
       // The controller's four piles, and the two facts behind them.
       controllerStage: view.containers?.[i]?.controllerStage ?? "PENDING",
       pendingReasons: view.containers?.[i]?.pendingReasons ?? [],
