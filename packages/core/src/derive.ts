@@ -22,7 +22,7 @@ import {
   type FreeTimeCountdown,
   type ChargeEstimate,
 } from '@greenlit/engine';
-import type { ControllerStage, DocumentGap, IsoDate, PermitRecord } from '@greenlit/engine';
+import type { ControllerStage, DocumentGap, IsoDate, PermitRecord, Warning } from '@greenlit/engine';
 
 /**
  * I-25. The day the empty return actually completed, if it has.
@@ -95,6 +95,13 @@ export interface DerivedContainerView {
   /** Whether a truck can be sent: released and discharged, both. */
   canPlanCollection: boolean;
   /**
+   * Dates that are possible but almost certainly wrong.
+   *
+   * Warnings, never refusals: every one of them is sometimes right, and a
+   * refusal means the true answer cannot be recorded at all.
+   */
+  warnings: Warning[];
+  /**
    * §34.0. The third number: what the days already over are likely to cost.
    *
    * Derived here for the same reason the countdown is — two screens
@@ -147,6 +154,8 @@ export interface DerivedJobView {
    */
   documentGaps: DocumentGap[];
   documentsComplete: boolean;
+  /** Job-level oddities worth saying out loud. Never refusals. */
+  jobWarnings: Warning[];
   containers: DerivedContainerView[];
   movements: Movement[];
   /**
@@ -361,6 +370,10 @@ export function deriveImportJob(
       dischargedAt: c.dischargedAt,
       deliveredAt: c.deliveredAt,
       canPlanCollection: canPlanCollection(boardFacts),
+      // Empty until the container carries a *planned* delivery date. It has
+      // `deliveredAt`, which is when it actually arrived, and comparing that
+      // to the ETA answers a question nobody asked.
+      warnings: [],
       charge: chargeEstimate(clocks, { dailyRate: c.dailyRate, currency: c.currency }),
     };
   });
@@ -407,6 +420,7 @@ export function deriveImportJob(
     handoverShipmentGaps: importHandoverShipmentGaps(job),
     documentGaps: documentGaps(job, containers, permits),
     documentsComplete: documentGaps(job, containers, permits).length === 0,
+    jobWarnings: [],
     containers: views,
     movements: [...movements],
     activity: [],
@@ -454,6 +468,7 @@ export function deriveExportJob(
       dischargedAt: null,
       deliveredAt: null,
       canPlanCollection: false,
+      warnings: [],
       charge: null,
     };
   });
@@ -504,6 +519,12 @@ export function deriveExportJob(
     // Export readiness is a different list and is not modelled yet.
     documentGaps: [],
     documentsComplete: false,
+    // §47. Counted against the empty collection, not the sailing: the empty is
+    // usually wanted weeks earlier, so a job measured against the vessel looks
+    // comfortable right up to the morning the truck cannot go.
+    // Empty until the export job carries the empty collection date. The rule
+    // is written and tested; it has nothing to count to yet.
+    jobWarnings: [],
     containers: views,
     movements: [...movements],
     activity: [],

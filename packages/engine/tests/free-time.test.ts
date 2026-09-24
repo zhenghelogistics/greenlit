@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { freeTimeClocks, carrierLastFreeDay, contradictoryFreeTime, freeTimeCountdown, mostUrgentClock, chargeEstimate, lastFreeDayFrom } from '../src/free-time.ts';
+import { freeTimeClocks, carrierLastFreeDay, contradictoryFreeTime, freeTimeCountdown, mostUrgentClock, chargeEstimate, lastFreeDayFrom, freeTimeTerm } from '../src/free-time.ts';
 
 const base = {
   demurrageFreeDays: 5, demurrageLfd: '2026-09-14',
@@ -322,4 +322,15 @@ test('§34.1: split clocks are counted from the same ETA, separately', () => {
     ...base, freeTimeModel: 'SPLIT', eta: '2026-09-23',
     demurrageFreeDays: 5, demurrageLfd: null, detentionFreeDays: 7, detentionLfd: null,
   }), '2026-09-27', 'the money deadline is demurrage');
+});
+
+test('ten days is its own class, not the bottom of "long"', () => {
+  // The commonest allowance there is, so a carrier moving from nine to ten
+  // changes how the job is planned. A label that said "long" for both ten and
+  // thirty would hide that.
+  assert.equal(freeTimeTerm(9), 'SHORT');
+  assert.equal(freeTimeTerm(10), 'THRESHOLD');
+  assert.equal(freeTimeTerm(11), 'LONG');
+  assert.equal(freeTimeTerm(null), 'UNKNOWN');
+  assert.equal(freeTimeTerm(0), 'UNKNOWN', 'zero free days is not a short allowance');
 });

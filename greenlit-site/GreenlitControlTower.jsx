@@ -4910,7 +4910,7 @@ export default function GreenlitControlTower() {
       {(current === "dashboard" || current === "actions") && source !== "engine" ? (
         <BoardState source={source} onRetry={loadJobs} onAddDocument={() => goTo("documents")} />
       ) : null}
-      {current === "dashboard" && source === "engine" ? <ZhtDashboard jobs={jobs} today={operationalToday()} onOpenJob={openJob} onNewJob={() => goTo("documents")} onShowActions={showActions} /> : null}
+      {current === "dashboard" && source === "engine" ? <ZhtDashboard jobs={jobs} today={operationalToday()} onOpenJob={openJob} onNewJob={() => goTo("newJob")} onShowActions={showActions} /> : null}
       {current === "actions" && source === "engine" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}
       {current === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onApplyBatch={applyDocumentFor} onOpenJob={openJob} /> : null}
       {current === "people" ? <People /> : null}
@@ -4925,7 +4925,7 @@ export default function GreenlitControlTower() {
       {current === "controller" ? <ZhtController jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)}
         onDischargeMany={dischargeMany} onPortnet={releasePortnet} onDeliver={markDelivered} /> : null}
       {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => goTo("newJob")} /> : null}
-      {current === "newJob" ? <ZhtNewJob customers={customers} onCreate={createJob} onCancel={() => goTo("jobs")} /> : null}
+      {current === "newJob" ? <ZhtNewJob customers={customers} onCreate={createJob} onCancel={() => goTo("jobs")} onUseDocument={() => goTo("documents")} /> : null}
       {current === "planning" ? <ZhtPlanning jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)} /> : null}
       {current === "drivers" ? <ZhtDrivers fleet={fleet} /> : null}
       {current === "emptyReturns" ? <ZhtEmptyReturns jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}

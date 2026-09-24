@@ -101,7 +101,7 @@ function WhenField({ label, required, date, time, onDate, onTime }) {
   );
 }
 
-export default function ZhtNewJob({ customers = [], onCreate, onCancel }) {
+export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDocument }) {
   const [type, setType] = useState(null);
   const [tab, setTab] = useState("customer");
   const [busy, setBusy] = useState(false);
@@ -372,11 +372,28 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel }) {
                 <div className="section-title">Shipment</div>
                 <div className="muted">
                   {isImport
-                    ? "What the arrival notice says. Uploading the notice fills all of this."
+                    ? "What the arrival notice says."
                     : "The booking, and the two dates an export job is worked against."}
                 </div>
               </div>
             </div>
+
+            {/* The accelerator, offered rather than imposed. Reading the notice
+                fills every field below it, so somebody holding the PDF should
+                not be typing — but somebody who has the details on the phone
+                and no document yet should not be sent away to find one. */}
+            {isImport ? (
+              <div className="permit-guidance" style={{ marginBottom: 14 }}>
+                <b>Have the arrival notice?</b>
+                <span>
+                  Reading it fills the vessel, the ETA, the bills of lading and every
+                  container.{" "}
+                  <button type="button" className="btn ghost" onClick={onUseDocument}>
+                    Upload it instead
+                  </button>
+                </span>
+              </div>
+            ) : null}
             <div className="formgrid job-create-grid">
               <Field label="Vessel" required>
                 <input value={job.vesselName} onChange={(e) => set({ vesselName: shout(e.target.value) })} />

@@ -354,3 +354,33 @@ export function chargeEstimate(
       : `${days} at ${rate.currency} ${rate.dailyRate.toFixed(2)} — estimated ${rate.currency} ${amount.toFixed(2)}`,
   };
 }
+
+
+/**
+ * How a carrier's allowance is classed, and why anybody cares.
+ *
+ * Ten days is the line. Under it the container has to move almost at once and
+ * the job is planned around the deadline; over it there is room to sequence
+ * the collection with everything else, and the deadline stops being the thing
+ * that decides the week.
+ *
+ * Exactly ten is called out separately rather than folded into one side. It is
+ * the commonest allowance there is, so a carrier restating its terms from nine
+ * to ten changes how a job is planned, and a label that said "long" for both
+ * ten and thirty would hide that.
+ */
+export type FreeTimeTerm = 'SHORT' | 'THRESHOLD' | 'LONG' | 'UNKNOWN';
+
+export function freeTimeTerm(freeDays: number | null): FreeTimeTerm {
+  if (freeDays === null || !Number.isFinite(freeDays) || freeDays <= 0) return 'UNKNOWN';
+  if (freeDays < 10) return 'SHORT';
+  if (freeDays > 10) return 'LONG';
+  return 'THRESHOLD';
+}
+
+export const TERM_LABEL: Record<FreeTimeTerm, string> = {
+  SHORT: 'Short term',
+  THRESHOLD: 'Ten days',
+  LONG: 'Long term',
+  UNKNOWN: 'Not recorded',
+};
