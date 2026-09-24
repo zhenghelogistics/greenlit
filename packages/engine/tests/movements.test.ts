@@ -103,6 +103,7 @@ test('§20: truck and driver are required only to reach ASSIGNED', () => {
 
 const importJob: ImportJob = {
   closedAt: null, closedBy: null,
+  documentsCompletedAt: null, documentsCompletedBy: null,
   jobId: 'j', jobNumber: 'JOB-1', customer: 'ABC', blNumber: 'BL', houseBlNumber: null, vesselName: 'V',
   voyageNumber: '1E', eta: '2026-09-01', jobType: 'std', deliveryAddress: '12 Tuas',
   permitRequired: false, permitReceived: true, permitRejected: false,

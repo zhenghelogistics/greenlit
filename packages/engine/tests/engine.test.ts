@@ -19,6 +19,7 @@ const movement = (over: Partial<Movement>): Movement => ({
 
 const importJob = (over: Partial<ImportJob> = {}): ImportJob => ({
   closedAt: null, closedBy: null,
+  documentsCompletedAt: null, documentsCompletedBy: null,
   jobId: 'j', jobNumber: 'JOB-1', customer: 'ABC', blNumber: 'BL1', houseBlNumber: null,
   vesselName: 'V', voyageNumber: '1E', eta: '2026-09-01', jobType: 'standard',
   deliveryAddress: '12 Tuas', permitRequired: true, permitReceived: true,

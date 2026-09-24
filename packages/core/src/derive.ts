@@ -158,6 +158,9 @@ export interface DerivedJobView {
   documentsComplete: boolean;
   /** Job-level oddities worth saying out loud. Never refusals. */
   jobWarnings: Warning[];
+  /** When operations confirmed the job is gathered, and who. */
+  documentsCompletedAt: string | null;
+  documentsCompletedBy: string | null;
   containers: DerivedContainerView[];
   movements: Movement[];
   /**
@@ -417,6 +420,8 @@ export function deriveImportJob(
     mandatoryComplete: missing.length === 0,
     missingInformation: missing,
     handoverShipmentGaps: importHandoverShipmentGaps(job),
+    documentsCompletedAt: job.documentsCompletedAt,
+    documentsCompletedBy: job.documentsCompletedBy,
     documentGaps: documentGaps(job, containers, permits),
     documentsComplete: documentGaps(job, containers, permits).length === 0,
     jobWarnings: [],
@@ -516,6 +521,8 @@ export function deriveExportJob(
     missingInformation: missing,
     handoverShipmentGaps: exportHandoverShipmentGaps(job),
     // Export readiness is a different list and is not modelled yet.
+    documentsCompletedAt: null,
+    documentsCompletedBy: null,
     documentGaps: [],
     documentsComplete: false,
     // §47. Counted against the empty collection, not the sailing: the empty is

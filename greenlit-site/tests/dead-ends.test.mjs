@@ -257,3 +257,31 @@ test("state a screen reads can be written by something", async () => {
   assert.deepEqual(passedToAScreen, [],
     "these are handed to a screen to render and nothing can ever change them");
 });
+
+test("a bulk command names the job it is scoped to", async () => {
+  // Both bulk routes exist because the same fact applies to every container on
+  // one bill of lading. Both stop at the job on purpose: a carrier's free time
+  // belongs to a booking, and a vessel's discharge to a vessel. An
+  // apply-to-everything version of either was built in the demo and removed
+  // from it, because confirming one ship marked another ship's boxes.
+  const routes = ["discharge-many", "free-time-many"];
+  for (const name of routes) {
+    const src = await readFile(
+      new URL(`../app/api/jobs/[id]/${name}/route.ts`, import.meta.url), "utf8");
+    assert.match(src, /params: Promise<\{ id: string \}>/,
+      `${name} must take the job id, so it cannot reach across jobs`);
+    assert.match(src, /containerIds/,
+      `${name} must be given the containers explicitly, not infer them`);
+  }
+});
+
+test("the bulk free-time route copies the allowance and never the dates", async () => {
+  // §34.1: a last free day is counted from the vessel ETA per container.
+  // Copying one container's computed date onto another copies its arithmetic,
+  // which is wrong the moment two boxes are discharged on different days.
+  const src = await readFile(
+    new URL("../app/api/jobs/[id]/free-time-many/route.ts", import.meta.url), "utf8");
+  assert.match(src, /demurrageLfd: null/);
+  assert.match(src, /detentionLfd: null/);
+  assert.match(src, /combinedLfd: null/);
+});

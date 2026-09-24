@@ -187,6 +187,15 @@ export interface ImportJob {
   jobType: string;
   deliveryAddress: string | null;
   /** §31 gate conditions. Not mandatory fields — §30 forbids double-counting. */
+  /**
+   * When operations confirmed the job is fully gathered, if they have.
+   *
+   * Distinct from the computed outstanding list. That knows whether a field is
+   * empty; this records that a person checked the whole thing against the
+   * paperwork and agreed. The controller plans free time against the second.
+   */
+  documentsCompletedAt: IsoInstant | null;
+  documentsCompletedBy: string | null;
   permitRequired: boolean;
   permitReceived: boolean;
   permitRejected: boolean;

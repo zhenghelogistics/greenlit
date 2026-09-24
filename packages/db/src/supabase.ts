@@ -1329,6 +1329,18 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       await record(before.data.job_id as string, 'container.handedToController', actor,
         { field: 'handedOverAt', from: null, to: at });
     },
+    async markDocumentsComplete(jobId, actor) {
+      const before = await db.from('import_jobs').select('documents_completed_at')
+        .eq('job_id', jobId).maybeSingle();
+      if (!before.data) throw new Error(`Unknown import job ${jobId}`);
+      if (before.data.documents_completed_at) return;
+      const at = new Date().toISOString();
+      unwrap(await db.from('import_jobs').update({
+        documents_completed_at: at, documents_completed_by: actor,
+      }).eq('job_id', jobId).select().single(), 'mark documents complete');
+      await record(jobId, 'job.documentsCompleted', actor,
+        { field: 'documentsCompletedAt', from: null, to: at });
+    },
     async recordDischarged(containerId, actor) {
       const before = await db.from('containers').select('job_id,discharged_at')
         .eq('container_id', containerId).maybeSingle();

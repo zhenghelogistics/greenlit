@@ -157,7 +157,7 @@ const IMPORT_JOBS: ImportJob[] = [
     jobId: 'ij1', jobNumber: 'JOB-260818-001', customer: 'ABC Company',
     blNumber: 'ABC123456', houseBlNumber: null, vesselName: 'Vessel XYZ', voyageNumber: '123E',
     eta: '2026-08-20', jobType: 'standard', deliveryAddress: '12 Tuas Ave 8',
-    permitRequired: true, permitReceived: false, permitRejected: false,
+    documentsCompletedAt: null, documentsCompletedBy: null, permitRequired: true, permitReceived: false, permitRejected: false,
     portnetRequired: true, portnetReleased: false,
     assignedController: 'Sarah', cancelled: false, onHold: false,
     createdAt: '2026-08-18T08:00:00Z',
@@ -168,7 +168,7 @@ const IMPORT_JOBS: ImportJob[] = [
     jobId: 'ij2', jobNumber: 'JOB-260816-004', customer: 'Lion City Traders',
     blNumber: 'BL778812', houseBlNumber: 'HBL-99120', vesselName: 'Kota Ratu', voyageNumber: '044W',
     eta: '2026-08-16', jobType: 'standard', deliveryAddress: '3 Pioneer Sector 2',
-    permitRequired: false, permitReceived: true, permitRejected: false,
+    documentsCompletedAt: null, documentsCompletedBy: null, permitRequired: false, permitReceived: true, permitRejected: false,
     portnetRequired: true, portnetReleased: true,
     assignedController: 'Brandon', cancelled: false, onHold: false,
     createdAt: '2026-08-16T02:00:00Z',
@@ -521,6 +521,8 @@ export function createMemoryRepository(): Repository {
         // §33 makes closure a stored fact and an absent one would read as
         // closed to Boolean().
         closedAt: null, closedBy: null,
+        // Nobody has checked a job that has just been created.
+        documentsCompletedAt: null, documentsCompletedBy: null,
         jobId, jobNumber, customer: customer.companyName,
         blNumber: draft.blNumber ?? null,
         houseBlNumber: draft.houseBlNumber ?? null,
@@ -1359,6 +1361,15 @@ export function createMemoryRepository(): Repository {
       c.handedOverBy = actor;
       record(jobOfContainer(containerId), 'container.handedToController', actor,
         { field: 'handedOverAt', from: null, to: c.handedOverAt });
+    },
+    async markDocumentsComplete(jobId, actor) {
+      const job = importJobs.find((j) => j.jobId === jobId);
+      if (!job) throw new Error(`Unknown import job ${jobId}`);
+      if (job.documentsCompletedAt) return;
+      job.documentsCompletedAt = new Date().toISOString();
+      job.documentsCompletedBy = actor;
+      record(jobId, 'job.documentsCompleted', actor,
+        { field: 'documentsCompletedAt', from: null, to: job.documentsCompletedAt });
     },
     async recordDischarged(containerId, actor) {
       const c = Object.values(importContainers).flat()

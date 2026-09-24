@@ -101,7 +101,7 @@ function WhenField({ label, required, date, time, onDate, onTime }) {
   );
 }
 
-export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDocument }) {
+export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDocument, nextJobNumber, onCustomerChosen }) {
   const [type, setType] = useState(null);
   const [tab, setTab] = useState("customer");
   const [busy, setBusy] = useState(false);
@@ -171,6 +171,15 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
     return null;
   }
 
+  /**
+   * Create, then stay here with the customer kept.
+   *
+   * Jobs arrive in runs — one customer, one vessel, four bookings — and going
+   * back to an empty form between them means retyping the half that never
+   * changed. What is cleared is what differs: the references, the containers.
+   */
+  const [again, setAgain] = useState(false);
+
   async function submit(event) {
     event.preventDefault();
     const failure = validate();
@@ -214,7 +223,19 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
         };
 
     try {
-      await onCreate(type, draft);
+      await onCreate(type, draft, { stayHere: again });
+      if (again) {
+        set({
+          vesselName: "", voyageNumber: "", blNumber: "", houseBlNumber: "",
+          bookingReference: "", exportClearanceReference: "", remarks: "",
+        });
+        setRows([{ containerNumber: "", sizeType: "", grossWeight: "", deliveryDate: "", deliveryTime: "",
+          emptyReturnYard: "", freeTimeModel: "COMBINED", combinedFreeDays: "",
+          demurrageFreeDays: "", detentionFreeDays: "",
+          deliveryCompany: "", deliveryAddress: "",
+          heavyDuty: false, rated32_5: false, triAxle: false }]);
+        setTab("shipment");
+      }
     } catch (failed) {
       setProblem(failed?.message || "The job could not be created.");
     } finally {
@@ -276,6 +297,9 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
           </button>
           <div className={`creation-type-badge ${isImport ? "import" : "export"}`}>
             {isImport ? "IMPORT JOB" : "EXPORT JOB"}
+            {/* The number it will get, before it gets it. Operations write it
+                on the paperwork while the form is still open. */}
+            {nextJobNumber ? <span style={{ marginLeft: 8, opacity: 0.8 }}>{nextJobNumber}</span> : null}
           </div>
         </div>
 
@@ -301,7 +325,12 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
               <Field label="Customer" required>
                 <select
                   value={job.customerCode}
-                  onChange={(e) => set({ customerCode: e.target.value, deliveryCompany: "", deliveryAddress: "" })}
+                  onChange={(e) => {
+                    set({ customerCode: e.target.value, deliveryCompany: "", deliveryAddress: "" });
+                    // The reference is the customer's next one, so it can only
+                    // be previewed once there is a customer.
+                    onCustomerChosen?.(e.target.value);
+                  }}
                 >
                   <option value="">Choose a customer</option>
                   {customers.map((c) => (
@@ -761,7 +790,16 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
 
         <div className="action-row" style={{ justifyContent: "flex-end", marginTop: 18 }}>
           <button className="btn secondary" type="button" onClick={onCancel}>Cancel</button>
-          <button className="btn primary" type="submit" disabled={busy}>
+          <button
+            className="btn secondary" type="submit" disabled={busy}
+            onClick={() => setAgain(true)}
+          >
+            Create &amp; add another
+          </button>
+          <button
+            className="btn primary" type="submit" disabled={busy}
+            onClick={() => setAgain(false)}
+          >
             {busy ? "Creating…" : "Create job"}
           </button>
         </div>

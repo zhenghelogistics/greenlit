@@ -66,6 +66,79 @@ export function controllerQueues(jobs) {
  * and then removed: a controller confirming one vessel's discharge would
  * silently mark another vessel's containers too.
  */
+
+/**
+ * The days a controller actually asks about.
+ *
+ * "Next 3 days" means the three days *after* today, not today and two more.
+ * That distinction is worth being exact about: a controller pressing it on
+ * Thursday morning is planning Friday, Saturday and Sunday — they already know
+ * about Thursday, because they are standing in it.
+ */
+const RANGES = [
+  ["today", "Today", 0, 0],
+  ["tomorrow", "Tomorrow", 1, 1],
+  ["three", "Next 3 days", 1, 3],
+  ["seven", "Next 7 days", 1, 7],
+];
+
+const isoPlus = (iso, days) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  const at = new Date(Date.UTC(y, m - 1, d + days));
+  return at.toISOString().slice(0, 10);
+};
+
+/**
+ * What is arriving, grouped by vessel and day.
+ *
+ * A controller's morning question is not "which containers" but "what is
+ * landing, and is any of it ready" — one ship at a time, because one ship is
+ * one conversation with the terminal.
+ */
+function ArrivalBrief({ rows, range, today, onOpenJob }) {
+  const [, , from, to] = RANGES.find((r) => r[0] === range) ?? RANGES[0];
+  const first = isoPlus(today, from);
+  const last = isoPlus(today, to);
+
+  const groups = new Map();
+  for (const { job, c } of rows) {
+    const eta = (job.eta ?? "").slice(0, 10);
+    if (!eta || eta < first || eta > last) continue;
+    const key = `${eta}|${job.vessel || "Vessel to be advised"}`;
+    const group = groups.get(key);
+    if (group) group.rows.push({ job, c });
+    else groups.set(key, { eta, vessel: job.vessel || "Vessel to be advised", rows: [{ job, c }] });
+  }
+
+  const arrivals = [...groups.values()].sort((a, b) => a.eta.localeCompare(b.eta));
+  if (arrivals.length === 0) {
+    return <div className="clean-empty">Nothing arriving in this window.</div>;
+  }
+
+  return (
+    <div className="controller-arrival-brief">
+      {arrivals.map((a) => {
+        const ready = a.rows.filter(({ c }) => c.controllerStage === "READY").length;
+        const waiting = a.rows.length - ready;
+        return (
+          <button
+            key={`${a.eta}-${a.vessel}`} type="button"
+            className={`arrival-card${a.eta === today ? " today" : ""}`}
+            onClick={() => onOpenJob(a.rows[0].job)}
+          >
+            <div className="arrival-date">{a.eta === today ? "Today" : day(a.eta)}</div>
+            <div className="arrival-vessel">{a.vessel}</div>
+            <div className="arrival-stats">
+              {a.rows.length} container{a.rows.length === 1 ? "" : "s"}<br />
+              {ready} ready · {waiting} waiting
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function PendingByJob({ rows, onOpenJob, onDischargeMany, onPortnet }) {
   const [picked, setPicked] = useState(() => new Set());
 
@@ -200,6 +273,7 @@ function QueueTable({ rows, onOpenJob, empty, onDeliver }) {
 export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany, onPortnet, onDeliver }) {
   const q = controllerQueues(jobs);
   const [tab, setTab] = useState("importPending");
+  const [range, setRange] = useState("today");
 
   // The import piles in the order a container moves through them, so the board
   // reads left to right the way the work does.
@@ -252,6 +326,24 @@ export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany,
         <div className="muted">
           Jobs stay visible by movement, so trips can be chained and empty running reduced.
         </div>
+
+        {/* What is landing, before which pile it is in: the morning question
+            is about ships, and only then about boxes. */}
+        <div className="controller-date-tools" style={{ marginBottom: 10 }}>
+          {RANGES.map(([id, label]) => (
+            <button
+              key={id} type="button"
+              className={`btn ${range === id ? "secondary" : "ghost"}`}
+              onClick={() => setRange(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <ArrivalBrief
+          rows={[...q.importPending, ...q.importReady]}
+          range={range} today={today()} onOpenJob={onOpenJob}
+        />
 
         <div className="queue-tabs" role="tablist">
           {tabs.map(([id, label, n]) => (

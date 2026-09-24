@@ -3019,6 +3019,30 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                   </p>
                 ) : null}
 
+                {/* The terms come from the bill of lading, so they are the same
+                    for every box on it far more often than not. Typing them
+                    eleven times is not only slow — it is how two containers on
+                    one bill end up with different last free days, which is a
+                    discrepancy nobody can resolve from paperwork that only
+                    ever said one thing.
+
+                    Only the allowance travels. The dates are counted from the
+                    vessel ETA per container (§34.1), so copying a last free
+                    day across would copy one box's arithmetic onto another's. */}
+                {(job?.containers ?? []).length > 1 ? (
+                  <label className="flex min-h-11 cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(draft.applyToAllContainers)}
+                      onChange={(event) => setDraft((d) => ({ ...d, applyToAllContainers: event.target.checked }))}
+                      className="h-5 w-5 cursor-pointer accent-[color:var(--gl-accent)]"
+                    />
+                    <span className="gl-body-plain text-[color:var(--gl-ink)]">
+                      Apply these terms to all {job.containers.length} containers on this job
+                    </span>
+                  </label>
+                ) : null}
+
                 <DrawerField label="Free-time remarks">
                   <input value={draft.freeTimeRemarks || ""}
                     onChange={(event) => setDraft((d) => ({ ...d, freeTimeRemarks: event.target.value }))}
@@ -3954,6 +3978,12 @@ export default function GreenlitControlTower() {
    * screen renders immediately rather than waiting.
    */
   function openJob(id) {
+    // Push where we are, so Back out of a job returns to the list that opened
+    // it — and so a second job opened from inside a job comes back to the
+    // first, which is the whole reason somebody follows a container across
+    // jobs. `returnScreen` stays for the sidebar's highlight, which wants the
+    // section rather than the step.
+    history.current.push({ screen: current, jobId: selectedJobId });
     setReturnScreen(current === "detail" ? "actions" : current);
     setSelectedJobId(id);
     setMoved(true);
@@ -3978,9 +4008,39 @@ export default function GreenlitControlTower() {
       .catch(() => {});
   }
 
-  function goTo(nextScreen) {
+  /**
+   * Where Back goes.
+   *
+   * A stack rather than a remembered screen, because Back meant "the screen
+   * somebody last set returnScreen to", which was right when the route was
+   * anticipated and wrong the rest of the time — search to a job to a
+   * container and back landed on the dashboard.
+   *
+   * Pushing the screen *and* the job means opening a second job from inside a
+   * job comes back to the first, which is the whole reason a controller
+   * follows a container across jobs in the first place.
+   */
+  const history = useRef([]);
+
+  function goTo(nextScreen, { remember = true } = {}) {
+    if (remember && screen !== nextScreen) {
+      history.current.push({ screen, jobId: selectedJobId });
+      // Somebody who has been round the app for an hour does not need an
+      // hour of Back. Fifty is more than anyone retraces.
+      if (history.current.length > 50) history.current.shift();
+    }
     setScreen(nextScreen);
     setSelectedJobId(null);
+    setHighlight("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /** Back: the screen you were actually on, and the job you were in. */
+  function goBack() {
+    const previous = history.current.pop();
+    if (!previous) { setScreen("dashboard"); return; }
+    setScreen(previous.screen);
+    setSelectedJobId(previous.jobId ?? null);
     setHighlight("");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -4038,8 +4098,28 @@ export default function GreenlitControlTower() {
       // mismatch rather than storing one shape under another's name.
       const split = draft.freeTimeModel === "SPLIT";
       const combined = draft.freeTimeModel === "COMBINED";
+      // Applying to the whole job goes to a different endpoint, because the
+      // dates are counted per container and must not be copied: only the
+      // allowance travels.
+      const everyContainer = Boolean(draft.applyToAllContainers);
+      const job = jobs.find((j) => j.apiId === panel.jobId || j.id === panel.jobId);
+
       void (async () => {
-        const response = await fetch(
+        const response = everyContainer ? await fetch(
+          `/api/jobs/${encodeURIComponent(panel.jobId)}/free-time-many`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              containerIds: (job?.containers ?? []).map((c) => c.id).filter(Boolean),
+              freeTimeModel: draft.freeTimeModel || "NOT_CONFIRMED",
+              demurrageFreeDays: split ? numberOrNull(draft.demurrageFreeDays) : undefined,
+              detentionFreeDays: split ? numberOrNull(draft.detentionFreeDays) : undefined,
+              combinedFreeDays: combined ? numberOrNull(draft.combinedFreeDays) : undefined,
+              freeTimeRemarks: draft.freeTimeRemarks || null,
+            }),
+          },
+        ).catch(() => null) : await fetch(
           `/api/jobs/${encodeURIComponent(panel.jobId)}/containers/${encodeURIComponent(draft.containerId)}/free-time`,
           {
             method: "POST",
@@ -4373,6 +4453,28 @@ export default function GreenlitControlTower() {
       "CMS recorded. The empty collection gate reopened.");
   }
 
+  /**
+   * The number the next job will be given.
+   *
+   * Read from the server rather than guessed, because the sequence is the
+   * server's and two people creating jobs at once must not both be shown the
+   * same number. Shown before saving because operations write it on the
+   * paperwork while the form is still open.
+   */
+  const [nextJobNumber, setNextJobNumber] = useState("");
+  const [previewFor, setPreviewFor] = useState("");
+  useEffect(() => {
+    // Derived, not stored: with no customer there is no number, so the render
+    // reads an empty string rather than an effect writing one.
+    if (current !== "newJob" || !previewFor) return;
+    let cancelled = false;
+    fetch(`/api/jobs/next-number?customer=${encodeURIComponent(previewFor)}`)
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((d) => { if (!cancelled) setNextJobNumber(d.jobNumber ?? ""); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [current, previewFor]);
+
   // §9. The customer master, for the addresses the new-job form offers. Loaded
   // here rather than in the form so switching away and back does not refetch.
   const [customers, setCustomers] = useState([]);
@@ -4392,7 +4494,7 @@ export default function GreenlitControlTower() {
    * one: a customer rings, the booking is agreed, and the notice follows two
    * days later.
    */
-  async function createJob(type, draft) {
+  async function createJob(type, draft, { stayHere = false } = {}) {
     const response = await fetch("/api/jobs", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -4408,7 +4510,16 @@ export default function GreenlitControlTower() {
     const created = body?.job?.jobNumber;
     showToast(`${created ?? "The job"} created.`);
     await loadJobs();
+    // Creating several in a run: stay on the form rather than walking back to
+    // it four times.
+    if (stayHere) return;
     if (created) openJob(created); else goTo("jobs");
+  }
+
+  /** Operations confirm the job is gathered. Refused while anything is missing. */
+  async function confirmDocumentsComplete() {
+    await runJobCommand(selectedJob, "/documents-complete", {},
+      "Documents confirmed complete.");
   }
 
   /**
@@ -4925,23 +5036,25 @@ export default function GreenlitControlTower() {
       {current === "controller" ? <ZhtController jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)}
         onDischargeMany={dischargeMany} onPortnet={releasePortnet} onDeliver={markDelivered} /> : null}
       {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => goTo("newJob")} /> : null}
-      {current === "newJob" ? <ZhtNewJob customers={customers} onCreate={createJob} onCancel={() => goTo("jobs")} onUseDocument={() => goTo("documents")} /> : null}
+      {current === "newJob" ? <ZhtNewJob customers={customers} onCreate={createJob} onCancel={() => goTo("jobs")} onUseDocument={() => goTo("documents")} nextJobNumber={previewFor ? nextJobNumber : ""}
+        onCustomerChosen={setPreviewFor} /> : null}
       {current === "planning" ? <ZhtPlanning jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)} /> : null}
       {current === "drivers" ? <ZhtDrivers fleet={fleet} /> : null}
       {current === "emptyReturns" ? <ZhtEmptyReturns jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
       {current === "billing" ? <ZhtBilling jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
-      {current === "search" ? <ZhtSearchResults jobs={jobs} query={searchQuery} onOpenJob={(job) => openJob(job.id)} onBack={() => goTo(returnScreen)} /> : null}
+      {current === "search" ? <ZhtSearchResults jobs={jobs} query={searchQuery} onOpenJob={(job) => openJob(job.id)} onBack={goBack} /> : null}
       {current === "detail" && selectedJob ? (
         <ZhtJobDetail
           job={selectedJob}
           containerIndex={containerIndex}
           onSelectContainer={setContainerIndex}
-          onBack={() => goTo(returnScreen)}
+          onBack={goBack}
           onRecordCms={recordCms}
           onRecordDetails={recordDetails}
           onSendDetails={sendContainerDetails}
           onSetTranshipment={setTranshipment}
           onHandOver={handOverContainer}
+          onDocumentsComplete={confirmDocumentsComplete}
           permitPanel={(
             <PermitPanel
               jobId={selectedJob.apiId}

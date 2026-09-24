@@ -51,6 +51,7 @@ const mv = (o: Partial<Movement> = {}): Movement => ({
 
 const importJob = (o: Partial<ImportJob> = {}): ImportJob => ({
   closedAt: null, closedBy: null,
+  documentsCompletedAt: null, documentsCompletedBy: null,
   jobId: 'j', jobNumber: 'JOB-260901-001', customer: 'ABC', blNumber: 'BL', houseBlNumber: null,
   vesselName: 'V', voyageNumber: '1E', eta: '2026-09-01', jobType: 'std',
   deliveryAddress: '12 Tuas', permitRequired: true, permitReceived: true,

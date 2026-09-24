@@ -41,7 +41,17 @@ const Empty = ({ children }) => <div className="clean-empty">{children}</div>;
 /** §26. Every job, filterable by domain — his toolbar, our register. */
 export function ZhtJobs({ jobs, onOpenJob, onNewJob }) {
   const [type, setType] = useState("");
-  const rows = jobs.filter((j) => !type || j.type === type);
+  const [docs, setDocs] = useState("");
+
+  // Two questions a person actually opens this list to ask: what is still
+  // being chased, and what is finished and can be handed on. Neither is
+  // answerable from the operational status, which is about where the box is.
+  const rows = jobs.filter((j) => {
+    if (type && j.type !== type) return false;
+    if (docs === "outstanding" && (j.documentGaps ?? []).length === 0) return false;
+    if (docs === "ready" && (j.documentGaps ?? []).length > 0) return false;
+    return true;
+  });
 
   return (
     <Shell title="Jobs"
@@ -52,6 +62,11 @@ export function ZhtJobs({ jobs, onOpenJob, onNewJob }) {
             <option value="">All Types</option>
             <option value="Import">Import</option>
             <option value="Export">Export</option>
+          </select>
+          <select value={docs} onChange={(e) => setDocs(e.target.value)}>
+            <option value="">Any document status</option>
+            <option value="outstanding">Information outstanding</option>
+            <option value="ready">Documents ready</option>
           </select>
         </div>
         <table>

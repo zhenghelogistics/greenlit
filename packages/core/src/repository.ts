@@ -417,6 +417,13 @@ export interface Repository {
   recordDischarged(containerId: string, actor: string): Promise<void>;
   /** Record that a container reached the customer. */
   recordDelivered(containerId: string, actor: string): Promise<void>;
+  /**
+   * Operations confirm the job is fully gathered.
+   *
+   * Refused while anything is outstanding, so the mark can never mean less
+   * than both claims: no field is empty, and a person checked it.
+   */
+  markDocumentsComplete(jobId: string, actor: string): Promise<void>;
   recordContainerReady(containerId: string, actor: string): Promise<void>;
   recordVgm(containerId: string, vgm: number, actor: string): Promise<void>;
 

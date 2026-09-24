@@ -57,6 +57,8 @@ export function jobFromApi(view) {
     documentGaps: view.documentGaps ?? [],
     documentsComplete: Boolean(view.documentsComplete),
     jobWarnings: view.jobWarnings ?? [],
+    documentsCompletedAt: view.documentsCompletedAt ?? null,
+    documentsCompletedBy: view.documentsCompletedBy ?? "",
     emptyCollectionDate: r.emptyCollectionDate ?? null,
     emptyCollectionTime: r.emptyCollectionTime ?? "",
     cmsCompleted: r.cmsStatus === "COMPLETED" || r.cmsStatus === "NOT_REQUIRED",

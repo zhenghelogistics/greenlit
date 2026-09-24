@@ -381,7 +381,7 @@ function Warnings({ job }) {
  * Grouped by the part of the job a person would open to fix it, because a flat
  * list of eleven field names is a list somebody has to sort themselves.
  */
-function DocumentReadiness({ job }) {
+function DocumentReadiness({ job, onComplete }) {
   const gaps = job.documentGaps ?? [];
   const done = gaps.length === 0;
 
@@ -408,9 +408,23 @@ function DocumentReadiness({ job }) {
               : "What is still to gather. The controller can start before this is finished."}
           </div>
         </div>
-        <span className="tag" style={{ whiteSpace: "nowrap" }}>
-          {done ? "Complete" : `${gaps.length} outstanding`}
-        </span>
+        {/* The button says something the outstanding list cannot: that a
+            person checked the whole job against the paperwork and agreed.
+            "No field is empty" is arithmetic; this is a judgement, and it is
+            the one the controller relies on when they plan against free time. */}
+        {job.documentsCompletedAt ? (
+          <span className="tag" style={{ whiteSpace: "nowrap" }}>
+            Confirmed{job.documentsCompletedBy ? ` · ${job.documentsCompletedBy}` : ""}
+          </span>
+        ) : done ? (
+          <button className="btn primary" type="button" onClick={() => onComplete?.()}>
+            Confirm documents complete
+          </button>
+        ) : (
+          <span className="tag" style={{ whiteSpace: "nowrap" }}>
+            {gaps.length} outstanding
+          </span>
+        )}
       </div>
 
       {done ? null : [...byArea.entries()].map(([area, items]) => (
@@ -550,7 +564,8 @@ const Field = ({ label, value }) => (
 
 export default function ZhtJobDetail({
   job, containerIndex = 0, onSelectContainer, onBack, onManage,
-  onRecordCms, onSendDetails, onSetTranshipment, onRecordDetails, onHandOver, extras, permitPanel,
+  onRecordCms, onSendDetails, onSetTranshipment, onRecordDetails, onHandOver,
+  onDocumentsComplete, extras, permitPanel,
 }) {
   /** Opened by the journey's closing step, and by hand otherwise. */
   const [showClosing, setShowClosing] = useState(false);
@@ -607,7 +622,7 @@ export default function ZhtJobDetail({
           </div>
 
           <Warnings job={job} />
-          {job.type === "Import" ? <DocumentReadiness job={job} /> : null}
+          {job.type === "Import" ? <DocumentReadiness job={job} onComplete={onDocumentsComplete} /> : null}
           {job.type === "Import" ? <Handover job={job} onHandOver={onHandOver} /> : null}
 
           {/* §31, §32. The trip the box makes, and the only place on this

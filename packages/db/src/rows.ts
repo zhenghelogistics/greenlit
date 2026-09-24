@@ -52,6 +52,8 @@ export const toImportJob = (r: Record<string, unknown>): ImportJob => ({
   eta: nn(r.eta as string),
   jobType: r.job_type as string,
   deliveryAddress: nn(r.delivery_address as string),
+  documentsCompletedAt: nn(r.documents_completed_at as string),
+  documentsCompletedBy: nn(r.documents_completed_by as string),
   permitRequired: r.permit_required as boolean,
   permitReceived: r.permit_received as boolean,
   permitRejected: r.permit_rejected as boolean,
