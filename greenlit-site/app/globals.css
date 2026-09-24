@@ -48,6 +48,11 @@
   --zhl-ink-navy: #11203a;
   --zhl-harbor: #5a6b80;
   --zhl-line: #d9e1ea;
+  /* The deck's error pairing, and the pale blue it uses on navy. */
+  --zhl-error: #8f2018;
+  --zhl-error-soft: #fbedeb;
+  --zhl-error-line: #e4b3ad;
+  --zhl-on-navy-muted: #b5d4f4;
   /* The rail is a surface, not a link, and it stays dark in both themes.
      Painting it with the accent meant lightening the accent for dark mode
      turned the navy sidebar pale blue with white text on it. */

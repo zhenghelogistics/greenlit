@@ -22,7 +22,7 @@ const THIRTY_DAYS_IN_SECONDS = 60 * 60 * 24 * 30;
  *
  * The ten is the part worth being careful with. The guide says Horizon Blue is
  * for buttons, and on a slide that is right; at seventeen pixels on a screen,
- * white on `#006eff` measures 4.49:1, which is under AA and well under the 7:1
+ * white on Horizon Blue measures 4.49:1, which is under AA and well under the 7:1
  * this codebase holds itself to. So the button is navy, which measures 11.85:1
  * and which the guide calls the brand's own colour, and Horizon appears where
  * contrast rules do not bite: the focus ring, and the link. That keeps the
@@ -133,7 +133,7 @@ export default function SignInForm() {
             {error ? (
               <p
                 role="alert"
-                className="rounded-lg border border-[#e4b3ad] bg-[#fbedeb] p-3 text-[17px] text-[#8f2018]"
+                className="rounded-lg border border-[color:var(--zhl-error-line)] bg-[color:var(--zhl-error-soft)] p-3 text-[17px] text-[color:var(--zhl-error)]"
               >
                 {error}
               </p>
@@ -195,7 +195,7 @@ export default function SignInForm() {
           className="absolute inset-x-0 bottom-0 h-[38%]"
           style={{
             background:
-              "linear-gradient(to top, rgba(0,110,255,.30), rgba(0,110,255,0))",
+              "linear-gradient(to top, color-mix(in srgb, var(--zhl-horizon) 30%, transparent), transparent)",
           }}
         />
 
@@ -212,7 +212,7 @@ export default function SignInForm() {
           <p className="mt-7 max-w-[26ch] text-[30px] font-semibold leading-[1.22] tracking-[-0.015em] text-white">
             Every container, and what it is waiting for.
           </p>
-          <p className="mt-4 max-w-[42ch] text-[17px] leading-relaxed text-[#b5d4f4]">
+          <p className="mt-4 max-w-[42ch] text-[17px] leading-relaxed text-[color:var(--zhl-on-navy-muted)]">
             Import and export, from the arrival notice to the empty going back.
           </p>
         </div>
