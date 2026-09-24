@@ -406,6 +406,17 @@ export interface Repository {
    * instead, to the person best placed to chase it.
    */
   handContainerToController(containerId: string, actor: string): Promise<void>;
+  /**
+   * Record that a container came off the vessel.
+   *
+   * Per container, because boxes on one bill of lading are discharged days
+   * apart. With Portnet already released this is what makes the container
+   * ready to collect, which is why it is a fact somebody confirms rather than
+   * a status somebody sets.
+   */
+  recordDischarged(containerId: string, actor: string): Promise<void>;
+  /** Record that a container reached the customer. */
+  recordDelivered(containerId: string, actor: string): Promise<void>;
   recordContainerReady(containerId: string, actor: string): Promise<void>;
   recordVgm(containerId: string, vgm: number, actor: string): Promise<void>;
 

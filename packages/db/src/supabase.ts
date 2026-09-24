@@ -1329,6 +1329,28 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       await record(before.data.job_id as string, 'container.handedToController', actor,
         { field: 'handedOverAt', from: null, to: at });
     },
+    async recordDischarged(containerId, actor) {
+      const before = await db.from('containers').select('job_id,discharged_at')
+        .eq('container_id', containerId).maybeSingle();
+      if (!before.data) throw new Error(`Unknown import container ${containerId}`);
+      if (before.data.discharged_at) return;
+      const at = new Date().toISOString();
+      unwrap(await db.from('containers').update({ discharged_at: at })
+        .eq('container_id', containerId).select().single(), 'record discharge');
+      await record(before.data.job_id as string, 'container.discharged', actor,
+        { field: 'dischargedAt', from: null, to: at });
+    },
+    async recordDelivered(containerId, actor) {
+      const before = await db.from('containers').select('job_id,delivered_at')
+        .eq('container_id', containerId).maybeSingle();
+      if (!before.data) throw new Error(`Unknown import container ${containerId}`);
+      if (before.data.delivered_at) return;
+      const at = new Date().toISOString();
+      unwrap(await db.from('containers').update({ delivered_at: at })
+        .eq('container_id', containerId).select().single(), 'record delivery');
+      await record(before.data.job_id as string, 'container.delivered', actor,
+        { field: 'deliveredAt', from: null, to: at });
+    },
     async recordContainerReady(containerId, actor) {
       const jobId = await jobOfExportContainer(containerId);
       unwrap(await db.from('export_containers').update({

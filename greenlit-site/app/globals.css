@@ -33,6 +33,21 @@
      accent is pale. Seventeen primary buttons read `text-white`, which was
      2.04:1 once the accent lightened. */
   --gl-on-accent: #ffffff;
+
+  /* ---- Zheng He Logistics, from the brand guidelines ----------------------
+     Kept as brand tokens rather than folded into the accent, because they are
+     fixed by the company and the interface palette is not. The guide is
+     explicit that Horizon Blue marks the one thing to do on a screen: "if
+     everything is Horizon Blue, nothing is." So it is never a surface. */
+  --zhl-navy: #003087;
+  --zhl-horizon: #006eff;
+  /* The guide gives a darker Horizon for type, because the pure value does not
+     carry enough contrast as text on white. */
+  --zhl-horizon-ink: #0061e0;
+  --zhl-sail: #f5f8fc;
+  --zhl-ink-navy: #11203a;
+  --zhl-harbor: #5a6b80;
+  --zhl-line: #d9e1ea;
   /* The rail is a surface, not a link, and it stays dark in both themes.
      Painting it with the accent meant lightening the accent for dark mode
      turned the navy sidebar pale blue with white text on it. */

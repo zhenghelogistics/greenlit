@@ -1351,6 +1351,24 @@ export function createMemoryRepository(): Repository {
       record(jobOfContainer(containerId), 'container.handedToController', actor,
         { field: 'handedOverAt', from: null, to: c.handedOverAt });
     },
+    async recordDischarged(containerId, actor) {
+      const c = Object.values(importContainers).flat()
+        .find((ic) => ic.containerId === containerId);
+      if (!c) throw new Error(`Unknown import container ${containerId}`);
+      if (c.dischargedAt) return;
+      c.dischargedAt = new Date().toISOString();
+      record(jobOfContainer(containerId), 'container.discharged', actor,
+        { field: 'dischargedAt', from: null, to: c.dischargedAt });
+    },
+    async recordDelivered(containerId, actor) {
+      const c = Object.values(importContainers).flat()
+        .find((ic) => ic.containerId === containerId);
+      if (!c) throw new Error(`Unknown import container ${containerId}`);
+      if (c.deliveredAt) return;
+      c.deliveredAt = new Date().toISOString();
+      record(jobOfContainer(containerId), 'container.delivered', actor,
+        { field: 'deliveredAt', from: null, to: c.deliveredAt });
+    },
     async recordContainerReady(containerId, actor) {
       const c = findExportContainer(containerId);
       if (!c) throw new Error((() => {

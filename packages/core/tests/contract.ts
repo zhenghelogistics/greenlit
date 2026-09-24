@@ -215,6 +215,29 @@ export function runRepositoryContract(
     assert.equal(again?.handedOverBy, 'operations', 'and so does the original name');
   });
 
+  test(`[${name}] discharge and delivery are recorded once, per container`, async () => {
+    const repo = await fresh();
+    const [c] = await repo.listContainersForImportJob(seeded.importJobId);
+    assert.ok(c);
+
+    await repo.recordDischarged(c!.containerId, 'controller');
+    const landed = (await repo.listContainersForImportJob(seeded.importJobId))
+      .find((x) => x.containerId === c!.containerId);
+    assert.ok(landed?.dischargedAt, 'the box is off the ship');
+    assert.equal(landed?.deliveredAt, null, 'and not yet at the customer');
+
+    const stamp = landed!.dischargedAt;
+    await repo.recordDischarged(c!.containerId, 'someone-else');
+    const again = (await repo.listContainersForImportJob(seeded.importJobId))
+      .find((x) => x.containerId === c!.containerId);
+    assert.equal(again?.dischargedAt, stamp, 'recording it twice does not move the date');
+
+    await repo.recordDelivered(c!.containerId, 'controller');
+    const delivered = (await repo.listContainersForImportJob(seeded.importJobId))
+      .find((x) => x.containerId === c!.containerId);
+    assert.ok(delivered?.deliveredAt);
+  });
+
   test(`[${name}] a container that does not exist cannot be handed over`, async () => {
     const repo = await fresh();
     await assert.rejects(
