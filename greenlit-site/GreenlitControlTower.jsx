@@ -7,7 +7,6 @@ FORM: Maritime operations console — restrained, data-led, and shift-ready. Sig
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 */
 
-import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
 import { jobFromApi } from "./lib/job-adapter.mjs";
 import {
@@ -379,7 +378,7 @@ function AddPerson({ onDone, onCancel }) {
           <span className="gl-label">Name</span>
           <input required value={form.displayName} onChange={set("displayName")}
             placeholder="Winnie Ong"
-            className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-3 text-[17px]" />
+            className="zht-field" />
           <span className="gl-caption">Goes on every change they make.</span>
         </label>
 
@@ -387,7 +386,7 @@ function AddPerson({ onDone, onCancel }) {
           <span className="gl-label">Email</span>
           <input type="email" value={form.email} onChange={set("email")}
             placeholder="winnie@zhenghe.com.sg"
-            className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-3 text-[17px]" />
+            className="zht-field" />
           <span className="gl-caption">What they sign in with. Must match their Supabase account.</span>
         </label>
 
@@ -395,14 +394,14 @@ function AddPerson({ onDone, onCancel }) {
           <span className="gl-label">Username</span>
           <input required value={form.userId} onChange={set("userId")}
             placeholder="winnie" pattern="[a-z0-9][a-z0-9._-]{1,30}"
-            className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-3 text-[17px]" />
+            className="zht-field" />
           <span className="gl-caption">Short, lower-case. Cannot be changed later.</span>
         </label>
 
         <label className="grid gap-2">
           <span className="gl-label">Role</span>
           <select value={form.role} onChange={set("role")}
-            className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-3 text-[17px]">
+            className="zht-field">
             {Object.entries(ROLE_LABELS).map(([value, label]) => (
               <option key={value} value={value}>{label}</option>
             ))}
@@ -419,11 +418,11 @@ function AddPerson({ onDone, onCancel }) {
 
       <div className="mt-6 flex flex-wrap gap-3">
         <button type="submit" disabled={saving}
-          className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-[color:var(--gl-on-accent)] disabled:opacity-60">
+          className="btn primary">
           {saving ? "Adding…" : "Add to the directory"}
         </button>
         <button type="button" onClick={onCancel}
-          className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-5 text-[17px] text-[color:var(--gl-ink)]">
+          className="btn ghost">
           Cancel
         </button>
       </div>
@@ -503,7 +502,7 @@ function PermitPanel({ jobId, containers, onChanged }) {
           the border. */}
       <div className="p-6">
       {error ? (
-        <p role="alert" className="gl-body-plain mb-4 rounded-md border border-rose-300 bg-rose-50 p-3 text-[color:var(--gl-state-blocked-ink)]">
+        <p role="alert" className="callout">
           {error}
         </p>
       ) : null}
@@ -641,11 +640,11 @@ function ContainerAllocation({ containers, selected, onCancel, onApply }) {
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button type="button" onClick={() => onApply([...ticked])}
-          className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-[color:var(--gl-on-accent)]">
+          className="btn primary">
           Apply to {ticked.size} {ticked.size === 1 ? "container" : "containers"}
         </button>
         <button type="button" onClick={onCancel}
-          className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-5 text-[17px] text-[color:var(--gl-ink)]">
+          className="btn ghost">
           Cancel
         </button>
       </div>
@@ -702,11 +701,11 @@ function AddPermit({ onCancel, onSave }) {
       </div>
       <div className="mt-4 flex flex-wrap gap-3">
         <button type="submit" disabled={saving}
-          className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-[color:var(--gl-on-accent)] disabled:opacity-60">
+          className="btn primary">
           {saving ? "Saving…" : "Record permit"}
         </button>
         <button type="button" onClick={onCancel}
-          className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-5 text-[17px] text-[color:var(--gl-ink)]">
+          className="btn ghost">
           Cancel
         </button>
       </div>
@@ -765,7 +764,7 @@ function ClosurePanel({ jobId, onChanged }) {
     <Panel title={state.closed ? "This job is closed" : "Finishing this job"} className="mt-7">
       <div className="p-6">
         {error ? (
-          <p role="alert" className="gl-body-plain mb-4 rounded-md border border-rose-300 bg-rose-50 p-3 text-[color:var(--gl-state-blocked-ink)]">
+          <p role="alert" className="callout">
             {error}
           </p>
         ) : null}
@@ -793,11 +792,11 @@ function ClosurePanel({ jobId, onChanged }) {
                 <div className="flex flex-wrap gap-3">
                   <button type="button"
                     onClick={async () => { if (await send("DELETE", { reason })) { setReopening(false); setReason(""); } }}
-                    className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-[color:var(--gl-on-accent)]">
+                    className="btn primary">
                     Reopen this job
                   </button>
                   <button type="button" onClick={() => { setReopening(false); setError(""); }}
-                    className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-5 text-[17px] text-[color:var(--gl-ink)]">
+                    className="btn ghost">
                     Cancel
                   </button>
                 </div>
@@ -927,7 +926,7 @@ function DocumentsPanel({ jobId }) {
     >
       <div className="p-6">
         {error ? (
-          <p role="alert" className="gl-body-plain mb-4 rounded-md border border-rose-300 bg-rose-50 p-3 text-[color:var(--gl-state-blocked-ink)]">
+          <p role="alert" className="callout">
             {error}
           </p>
         ) : null}
@@ -1130,14 +1129,14 @@ function BatchReview({ batch, customers, onApplyAll, onDiscard, applying }) {
             type="button"
             disabled={applying || grouped.matched.length === 0}
             onClick={() => onApplyAll(grouped.matched)}
-            className="min-h-12 rounded-md border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-semibold text-[color:var(--gl-on-accent)] disabled:opacity-60"
+            className="btn primary"
           >
             {applying
               ? "Creating jobs…"
               : `Create ${grouped.matched.reduce((n, g) => n + g.documents.length, 0)} jobs`}
           </button>
           <button type="button" onClick={onDiscard}
-            className="min-h-12 rounded-md border border-[color:var(--gl-line-strong)] bg-white px-5 text-[17px] text-[color:var(--gl-ink)]">
+            className="btn ghost">
             Discard
           </button>
           {grouped.unmatched.length > 0 ? (
@@ -2901,7 +2900,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                 <DrawerField label="Stuffing location" hint="Each container may use a different customer site."><textarea required rows={2} value={draft.stuffingLocation || ""} onChange={(event) => update("stuffingLocation", event.target.value)} className={drawerInputClass} /></DrawerField>
                 <ChoiceGroup label="Details sent to customer" value={Boolean(draft.detailsSent)} onChange={(value) => update("detailsSent", value)} options={[{ value: true, label: "Sent", note: "This container may proceed to stuffing." }, { value: false, label: "Not sent", note: "Keep this container waiting on us." }]} />
                 <ChoiceGroup label="Customer confirms container ready" value={Boolean(draft.customerReady)} onChange={(value) => update("customerReady", value)} options={[{ value: true, label: "Ready", note: "Validate VGM before laden movement." }, { value: false, label: "Not ready", note: "Keep this container waiting on the customer." }]} />
-                {duplicateContainerNumber ? <div role="alert" className="rounded-md border border-rose-200 bg-rose-50 p-4 text-[17px] font-semibold text-rose-900">{draftContainerNumber} is already on this job. Every container number must be unique.</div> : null}
+                {duplicateContainerNumber ? <div role="alert" className="callout">{draftContainerNumber} is already on this job. Every container number must be unique.</div> : null}
               </div>
             ) : null}
 
@@ -2915,7 +2914,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                 <DrawerField label="Operational state"><select value={draft.state || ""} onChange={(event) => update("state", event.target.value)} className={drawerInputClass}>{["At terminal", "Awaiting permit", "Ready", "Collected", "Delivered"].map((state) => <option key={state}>{state}</option>)}</select></DrawerField>
                 <DrawerField label="Container last free day"><input required type="date" value={draft.lastFreeDay || ""} onChange={(event) => update("lastFreeDay", event.target.value)} className={drawerInputClass} /></DrawerField>
                 <div className="rounded-md border border-sky-200 bg-sky-50 p-4 text-[17px] font-medium text-sky-900">Marking a container collected or delivered also updates its linked delivery trip. Delivering every container creates the empty-return trip automatically.</div>
-                {duplicateContainerNumber ? <div role="alert" className="rounded-md border border-rose-200 bg-rose-50 p-4 text-[17px] font-semibold text-rose-900">{draftContainerNumber} is already on this job. Every container number must be unique.</div> : null}
+                {duplicateContainerNumber ? <div role="alert" className="callout">{draftContainerNumber} is already on this job. Every container number must be unique.</div> : null}
               </div>
             ) : null}
 
@@ -3714,7 +3713,7 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
       ) : null}
 
       {(stage === "idle" || stage === "error") ? (
-        <section className="mt-7 overflow-hidden rounded-lg border border-slate-200 bg-white" aria-labelledby="upload-document-title">
+        <section className="card" aria-labelledby="upload-document-title">
           <div className="border-b border-slate-200 bg-[var(--gl-bg-subtle)] px-5 py-4 text-[color:var(--gl-ink)]">
             <h2 id="upload-document-title" className="text-xl font-semibold">Upload an arrival notice</h2>
           </div>
@@ -3837,7 +3836,7 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
       ) : null}
 
       {documents.length ? (
-        <section className="mt-7 overflow-hidden rounded-lg border border-slate-200 bg-white" aria-labelledby="processed-documents-title">
+        <section className="card" aria-labelledby="processed-documents-title">
           <div className="border-b border-slate-200 px-5 py-4"><h2 id="processed-documents-title" className="text-xl font-semibold text-slate-950">Processed this session</h2></div>
           <div className="divide-y divide-slate-200">
             {documents.map((document) => (
@@ -4938,92 +4937,64 @@ export default function GreenlitControlTower() {
 
       <a href="#main-content" className="fixed left-3 top-3 z-[100] -translate-y-24 rounded-md bg-white px-5 py-3 font-semibold text-[var(--gl-accent)] shadow-lg focus:translate-y-0 focus:outline focus:outline-4 focus:outline-sky-600">Skip to main content</a>
 
-      {/* The one place colour is a wayfinding cue rather than a status: the
-          bar you are always looking at, so you always know which system you
-          are in. White on it measures 8.72:1. */}
-      {/* The shell: a rail on the left, the work on the right.
-          Tabs across the top ran out of room at six sections and would have
-          run out again — the rail grows downward, which is the direction a
-          list of sections actually grows. It keeps the blue, because the one
-          piece of chrome you are always looking at is what tells you which
-          system you are in.
+      {/* The shell is his: `.zht > .app > .sidebar + .main`, so his own rules
+          lay it out rather than Tailwind reproducing them beside them. The
+          screens inside were already his; the frame around them was not, and
+          two designs meeting at a seam is visible even when both are fine.
 
-          One nav element, not two: a row that scrolls on a phone and a column
-          from `lg` up. Two navs would be two lists to keep in step. */}
-      <aside className="sticky top-0 z-40 bg-[color:var(--gl-rail)] text-[color:var(--gl-rail-ink)] lg:h-screen lg:w-[236px] lg:shrink-0">
-        <div className="flex items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:block lg:px-5 lg:py-5">
-          {/* The white mark, because the rail is the brand colour. The wordmark
-              already says Zheng He Logistics, so the line under it names the
-              system rather than repeating the company. */}
-          <Image
-            src="/logo-cropped.png"
-            alt="Zheng He Logistics"
-            width={2217}
-            height={676}
-            className="h-8 w-auto shrink-0 lg:h-9"
-            priority
-          />
-          <div className="lg:mt-3">
-            <div className="text-[19px] font-medium tracking-[-0.008em] text-white">Greenlit</div>
-            <div className="mt-1 text-[15px] font-normal text-white/90">Singapore transport control</div>
-          </div>
+          The rail keeps the navy because it is the one piece of chrome always
+          on screen, and it is the company's own navy now rather than a blue
+          that was close to it. */}
+      {/* His rail, in his classes, so the chrome and the screens inside it are
+          one design rather than two that meet at a seam.
+
+          What his could not do is be small: a fixed 230px column is the whole
+          screen on a phone. Below 900px `.sidebar` becomes a bottom bar — the
+          same eight destinations, in the same order, where a thumb reaches.
+          That is in zht.css beside his own rules, not layered over them. */}
+      <div className="zht"><div className="app">
+      <aside className="sidebar">
+        <div className="logo">
+          ZHL<small>LOGISTICS</small>
         </div>
-
-        <nav
-          aria-label="Main navigation"
-          className="flex overflow-x-auto border-t border-white/20 lg:mt-1 lg:flex-col lg:overflow-visible lg:border-t-0 lg:px-3"
-        >
+        <nav className="nav" aria-label="Sections">
           {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = current === item.id || (current === "detail" && returnScreen === item.id);
+            const active = current === item.id
+              || (current === "detail" && returnScreen === item.id);
             return (
-              /*
-                On the rail, the current section is a filled panel the colour
-                of the page, so the section reads as continuous with the work
-                beside it rather than as a tab pointing at it. On the phone
-                row there is no "beside", so it stays the rule under the
-                label that the top bar used.
-
-                Both states clear 7:1 on the blue, so the difference is
-                carried by weight and ground rather than by fading one of
-                them toward the background.
-              */
               <button
                 key={item.id}
                 type="button"
-                onClick={() => goTo(item.id)}
+                className={active ? "active" : undefined}
                 aria-current={active ? "page" : undefined}
-                className={`relative flex min-h-14 min-w-0 shrink-0 cursor-pointer items-center gap-3 px-4 text-[16px] transition-colors duration-150 focus-visible:outline focus-visible:outline-3 focus-visible:-outline-offset-2 focus-visible:outline-white lg:w-full lg:rounded-lg lg:px-3 ${
-                  active
-                    ? "font-semibold text-white after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:rounded-t-sm after:bg-white after:content-[''] lg:bg-[color:var(--gl-bg)] lg:text-[color:var(--gl-accent)] lg:after:hidden"
-                    : "font-normal text-white/90 hover:bg-white/10 hover:text-white"
-                }`}
+                onClick={() => goTo(item.id)}
               >
-                <Icon className="hidden h-5 w-5 shrink-0 sm:block" aria-hidden="true" />
-                <span className="min-w-0 flex-1 text-center leading-tight lg:text-left">{item.label}</span>
-                {/* gl-figures, not gl-data: gl-data carries color:ink and is
-                    defined after Tailwind, so it won over text-white and
-                    rendered these counts near-black on the blue. */}
-                <span className={`gl-figures ${active ? "text-white lg:text-[color:var(--gl-accent)]" : "text-white/90"}`}>{item.count}</span>
+                {item.label}
+                {item.count != null ? (
+                  <span style={{ float: "right", opacity: 0.85 }}>{item.count}</span>
+                ) : null}
               </button>
             );
           })}
         </nav>
       </aside>
 
-      <div className="min-w-0 flex-1">
+      <main className="main">
         {/* When the board last updated, and who is acting. Off the blue now:
             on a white bar these are two quiet facts rather than two things
             competing with the brand. */}
-        <header className="sticky top-0 z-30 flex min-h-14 items-center gap-5 border-b border-[color:var(--gl-line)] bg-[color:var(--gl-bg)] px-4 sm:px-6 lg:min-h-16 lg:gap-6 lg:px-8">
-          {/* One field for everything with a reference on it. A controller
-              looking for a container has the number in front of them and not
-              the job it belongs to, and the screen that answered this existed
-              already with nothing able to reach it: `searchQuery` was a
-              useState with no setter, so the results view could never be
-              given a query. */}
+        {/* His topbar: who this is, one search, and the quiet indicators.
+            The title block is his and we had nothing like it — a controller
+            opening four tabs of four systems needs the page to say which one
+            it is before they read anything on it. */}
+        <div className="topbar">
+          <div className="topbar-title">
+            <div className="topbar-title-main">Operations Management System</div>
+            <div className="topbar-title-sub">Zheng He Logistics Control Tower</div>
+          </div>
+
           <form
-            className="min-w-0 flex-1"
+            className="global-search-wrap"
             onSubmit={(event) => {
               event.preventDefault();
               const term = new FormData(event.currentTarget).get("q")?.toString().trim() ?? "";
@@ -5033,21 +5004,19 @@ export default function GreenlitControlTower() {
             }}
           >
             <input
-              name="q" type="search" defaultValue={searchQuery}
+              name="q" type="search" className="search" defaultValue={searchQuery}
               placeholder="Job, container, customer, vessel, bill of lading"
               aria-label="Search"
-              className="min-h-11 w-full max-w-[520px] rounded-md border border-[color:var(--gl-line)] bg-[color:var(--gl-bg-subtle)] px-3.5 text-[15px] text-[color:var(--gl-ink)] placeholder:text-[color:var(--gl-ink-faint)]"
             />
+            <button type="submit" className="btn secondary">Search</button>
           </form>
-          {/* Reload and Reset used to sit here. A control tower asking to be
-              reloaded is admitting it does not keep itself current, and Reset
-              refused on a Supabase-backed instance anyway, so it was a button
-              whose only outcome was an error. The board refreshes itself;
-              this says when it last did. */}
-          <LastUpdated at={lastLoaded} stale={source === "offline"} />
-          <ThemeToggle />
-          <ActingUser />
-        </header>
+
+          <div className="topbar-actions">
+            <LastUpdated at={lastLoaded} stale={source === "offline"} />
+            <ThemeToggle />
+            <ActingUser />
+          </div>
+        </div>
 
       {(current === "dashboard" || current === "actions") && source !== "engine" ? (
         <BoardState source={source} onRetry={loadJobs} onAddDocument={() => goTo("documents")} />
@@ -5133,7 +5102,8 @@ export default function GreenlitControlTower() {
         />
       ) : null}
 
-      </div>
+      </main>
+      </div></div>
 
       {toast ? (
         <div role="status" aria-live="polite" className="fixed bottom-5 right-5 z-50 flex max-w-[560px] items-start gap-3 rounded-lg border border-emerald-300 bg-white p-5 text-[17px] font-semibold text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.2)]">
