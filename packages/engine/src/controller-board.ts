@@ -105,3 +105,78 @@ export const STAGE_MEANING: Record<ControllerStage, string> = {
   DELIVERED: 'At the customer. Waiting for them to finish with the box.',
   EMPTY: 'Finished with. Ready to plan the empty back to the depot.',
 };
+
+
+/**
+ * Why an event cannot be recorded yet.
+ *
+ * The four facts happen in an order, and recording one out of order is always
+ * a mistake rather than an unusual case: a container cannot be empty before it
+ * was delivered, and it cannot be delivered before anybody sent a truck.
+ *
+ * This is the one place in the workflow where refusing is right rather than
+ * warning. Everywhere else — a delivery date before the ETA, a container
+ * number of the wrong shape — the odd-looking answer is sometimes the true
+ * one. Here it never is: a box that reached the customer with no trip planned
+ * did not teleport, it means somebody clicked the wrong row, and recording it
+ * would put a date on the job that nothing can later contradict.
+ *
+ * Returns null when the event can be recorded.
+ */
+export function refuseEvent(
+  event: 'DISCHARGE' | 'DELIVER' | 'EMPTY',
+  facts: ControllerBoardFacts & { hasPlannedCollection?: boolean },
+): string | null {
+  if (event === 'DELIVER') {
+    if (!happened(facts.dischargedAt)) {
+      return 'This container has not been discharged yet, so it cannot have reached the customer.';
+    }
+    if (facts.hasPlannedCollection === false) {
+      return 'No collection has been planned for this container. Plan the trip, then record the delivery.';
+    }
+  }
+  if (event === 'EMPTY' && !happened(facts.deliveredAt)) {
+    return 'This container has not been delivered yet, so the customer cannot have finished with it.';
+  }
+  return null;
+}
+
+/**
+ * Whether a movement has enough on it to be a plan.
+ *
+ * A trip with no driver is a row on a board, not a job anybody can do. All
+ * three are named separately because "incomplete" sends somebody back to the
+ * form to work out which of the three it was.
+ */
+export function movementGaps(plan: {
+  driver?: string | null; vehicle?: string | null; chassis?: string | null;
+}): string[] {
+  const gaps: string[] = [];
+  if (!plan.driver?.trim()) gaps.push('Driver');
+  if (!plan.vehicle?.trim()) gaps.push('Vehicle');
+  if (!plan.chassis?.trim()) gaps.push('Chassis');
+  return gaps;
+}
+
+/**
+ * Which containers a bulk change would overwrite.
+ *
+ * Applying one container's terms to the rest is the point of the control, and
+ * silently replacing a figure somebody entered by hand is not. Naming them
+ * lets the question be asked properly — "this will replace the yard on these
+ * three" — rather than as a general warning nobody reads.
+ */
+export function wouldOverwrite<T extends Record<string, unknown>>(
+  targets: readonly T[],
+  fields: readonly string[],
+  incoming: Record<string, unknown>,
+  nameOf: (item: T) => string,
+): string[] {
+  return targets
+    .filter((item) => fields.some((field) => {
+      const existing = item[field];
+      const isSet = existing !== null && existing !== undefined && String(existing).trim() !== '';
+      return isSet && String(existing) !== String(incoming[field] ?? '');
+    }))
+    .map(nameOf);
+}

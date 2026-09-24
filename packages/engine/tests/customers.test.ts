@@ -3,8 +3,7 @@ import assert from 'node:assert/strict';
 import {
   canChangeCustomerCode, nextJobReference, normaliseCustomerCode,
   parseJobReference, sortCustomerJobs, validateCustomerCode, validateCustomerDraft,
-  type Customer,
-} from '../src/customers.ts';
+  duplicateCustomerName, type Customer } from '../src/customers.ts';
 
 const customer = (code: string, companyName: string): Customer => ({
   customerId: code.toLowerCase(), code, companyName, shortName: null,
@@ -93,4 +92,17 @@ test('a company page reads newest first', () => {
     { jobReference: 'ABC-002', domain: 'IMPORT' as const, createdDate: '2026-08-15', status: 'Delivered' },
   ];
   assert.deepEqual(sortCustomerJobs(jobs).map((j) => j.jobReference), ['ABC-003', 'ABC-002', 'ABC-001']);
+});
+
+test('a customer name already on file is named, with its code', () => {
+  // The usual cause is somebody creating a customer that already exists under
+  // a slightly different spelling. The cost lands later: the jobs split across
+  // two records and neither shows the whole relationship.
+  const on = [{ code: 'DKSH', companyName: 'DKSH Singapore' }];
+  assert.equal(duplicateCustomerName('Ansell', on), null);
+  assert.match(duplicateCustomerName('DKSH Singapore', on) ?? '', /already exists as DKSH/);
+  assert.match(duplicateCustomerName('  dksh   singapore ', on) ?? '', /already exists/,
+    'case and spacing are not a different company');
+  assert.equal(duplicateCustomerName('DKSH Singapore', on, 'DKSH'), null,
+    'a record saving its own name unchanged is not a duplicate');
 });

@@ -75,3 +75,37 @@ export function cmsWarning(
         : `CMS is still outstanding and the empty is due in ${daysAway} day${daysAway === 1 ? '' : 's'}.`,
   };
 }
+
+
+/**
+ * A vessel whose ETA has passed while its containers are still waiting.
+ *
+ * Not an error: ships are late, and a job worked normally on the day after an
+ * ETA is the ordinary case, not a problem. It becomes worth saying when the
+ * date is behind and nothing has moved — because at that point the ETA on file
+ * is either stale, or the containers have been discharged and nobody recorded
+ * it, and both are answered by the same phone call.
+ *
+ * The grace period matters. Warning on the ETA itself would fire on every job
+ * every week and be ignored within a day.
+ */
+export function staleEtaWarning(
+  eta: IsoDate | null,
+  today: IsoDate,
+  anyStillWaiting: boolean,
+  graceDays = 2,
+): Warning | null {
+  const arrived = dayOf(eta);
+  if (!arrived || !anyStillWaiting) return null;
+
+  const daysSince = Math.round(
+    (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${arrived}T00:00:00Z`)) / 86_400_000,
+  );
+  if (daysSince <= graceDays) return null;
+
+  return {
+    field: 'Vessel ETA',
+    says: `The vessel was due ${arrived}, ${daysSince} days ago, and containers are still `
+      + 'waiting. Either the ETA is out of date or a discharge has not been recorded.',
+  };
+}

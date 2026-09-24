@@ -14,6 +14,7 @@ import {
   canPlanCollection,
   deliveryDateWarning,
   cmsWarning,
+  staleEtaWarning,
   importHandoverShipmentGaps,
   exportHandoverShipmentGaps,
   documentGaps,
@@ -424,7 +425,13 @@ export function deriveImportJob(
     documentsCompletedBy: job.documentsCompletedBy,
     documentGaps: documentGaps(job, containers, permits),
     documentsComplete: documentGaps(job, containers, permits).length === 0,
-    jobWarnings: [],
+    // A ship being late is ordinary; an ETA days behind with containers still
+    // waiting means either the date is stale or a discharge went unrecorded,
+    // and both are answered by the same phone call.
+    jobWarnings: [staleEtaWarning(
+      job.eta, now.slice(0, 10),
+      views.some((v) => v.controllerStage === 'PENDING'),
+    )].filter(Boolean) as Warning[],
     containers: views,
     movements: [...movements],
     activity: [],

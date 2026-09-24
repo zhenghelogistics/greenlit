@@ -194,6 +194,13 @@ export function jobFromApi(view) {
       driver: m.driver,
       chassisId: m.chassisId,
       autoCreated: m.autoCreated,
+      // A trip with no driver is a row on a board, not a job anybody can do.
+      // Named individually rather than "incomplete", which sends somebody back
+      // to the form to work out which of the three it was. Not a refusal:
+      // scheduling a date before a driver is found is ordinary.
+      unassigned: ["driver", "truck", "chassisId"]
+        .filter((k) => !String(m[k] ?? "").trim())
+        .map((k) => ({ driver: "Driver", truck: "Vehicle", chassisId: "Chassis" }[k])),
     })),
     // The engine's answers. The accessors above read these and never recompute.
     derived: {

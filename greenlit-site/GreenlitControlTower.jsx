@@ -4104,6 +4104,37 @@ export default function GreenlitControlTower() {
       const everyContainer = Boolean(draft.applyToAllContainers);
       const job = jobs.find((j) => j.apiId === panel.jobId || j.id === panel.jobId);
 
+      // Applying to the job replaces figures somebody entered by hand, and
+      // doing that silently is how a correction made this morning disappears
+      // without anybody knowing it went. Name the containers rather than warn
+      // in general: "this will replace the terms on TSTU9900002 and
+      // TSTU9900004" is a question somebody can answer.
+      if (everyContainer) {
+        const incoming = {
+          freeTimeModel: draft.freeTimeModel || "NOT_CONFIRMED",
+          combinedFreeDays: combined ? String(numberOrNull(draft.combinedFreeDays) ?? "") : "",
+          demurrageFreeDays: split ? String(numberOrNull(draft.demurrageFreeDays) ?? "") : "",
+          detentionFreeDays: split ? String(numberOrNull(draft.detentionFreeDays) ?? "") : "",
+        };
+        const replaced = (job?.containers ?? [])
+          .filter((c) => c.id !== draft.containerId)
+          .filter((c) => ["freeTimeModel", "combinedFreeDays", "demurrageFreeDays", "detentionFreeDays"]
+            .some((field) => {
+              const existing = c[field];
+              const isSet = existing !== null && existing !== undefined && String(existing).trim() !== "";
+              return isSet && String(existing) !== String(incoming[field] ?? "");
+            }))
+          .map((c) => c.number || c.ref);
+
+        if (replaced.length > 0) {
+          const ok = window.confirm(
+            `This replaces the free-time terms already recorded on `
+            + `${replaced.join(", ")}. Continue?`,
+          );
+          if (!ok) return;
+        }
+      }
+
       void (async () => {
         const response = everyContainer ? await fetch(
           `/api/jobs/${encodeURIComponent(panel.jobId)}/free-time-many`,

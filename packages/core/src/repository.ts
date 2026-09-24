@@ -424,6 +424,22 @@ export interface Repository {
    * than both claims: no field is empty, and a person checked it.
    */
   markDocumentsComplete(jobId: string, actor: string): Promise<void>;
+  /**
+   * §36.3. The customer has finished with the container.
+   *
+   * What moves it into the empty-return queue. The field has existed since the
+   * first schema and nothing wrote it, so the queue could only ever be reached
+   * by a status somebody set by hand.
+   */
+  confirmEmptyReady(
+    containerId: string,
+    /**
+     * §36.3. How the customer told us, which is the part worth keeping. "They
+     * said so" is not auditable; "WhatsApp, Tuesday, from their warehouse" is.
+     */
+    source: 'EMAIL' | 'WHATSAPP' | 'PHONE' | 'MANUAL',
+    actor: string,
+  ): Promise<void>;
   recordContainerReady(containerId: string, actor: string): Promise<void>;
   recordVgm(containerId: string, vgm: number, actor: string): Promise<void>;
 

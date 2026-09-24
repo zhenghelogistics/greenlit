@@ -115,8 +115,43 @@ export function ZhtPlanning({ jobs, fleet, onOpenJob }) {
   }
   const vehicles = [...byVehicle.entries()];
 
+  // The board groups by truck, so a movement with no truck on it appeared
+  // nowhere: planned, invisible, and nobody doing it. They are listed first,
+  // because an unassigned trip is the only thing on this screen that needs
+  // somebody to act before the day can run.
+  const unassigned = jobs.flatMap((job) =>
+    (job.trips ?? [])
+      .filter((t) => (t.unassigned ?? []).length > 0 && t.status !== "CANCELLED")
+      .map((trip) => ({ trip, job })));
+
   return (
     <Shell title="Planning Board">
+      {unassigned.length ? (
+        <div className="card" style={{ marginBottom: 14, borderColor: "var(--gl-state-warn)" }}>
+          <div className="section-title">
+            Waiting on an assignment · {unassigned.length}
+          </div>
+          <div className="muted">
+            Planned, but nobody is doing them yet. Each is missing what it says.
+          </div>
+          <div style={{ marginTop: 10 }}>
+            {unassigned.map(({ trip, job }, i) => (
+              <div className="movement" key={`${job.id}-${trip.id}-${i}`}>
+                <strong>{trip.type}</strong>
+                {trip.origin} → {trip.destination}
+                <br />
+                <span className="muted">
+                  <button className="btn ghost" type="button" onClick={() => onOpenJob(job)}>
+                    {job.id}
+                  </button>
+                  {trip.plannedDate ? ` · ${trip.plannedDate}` : " · no date"}
+                  {" · needs "}{trip.unassigned.join(", ")}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {/* §17. The thing a controller reading job by job cannot see: a truck
           already committed to finish where some other job needs one to start.
           An empty leg is a truck, a driver and a slot on the day, paid for and

@@ -1362,6 +1362,17 @@ export function createMemoryRepository(): Repository {
       record(jobOfContainer(containerId), 'container.handedToController', actor,
         { field: 'handedOverAt', from: null, to: c.handedOverAt });
     },
+    async confirmEmptyReady(containerId, source, actor) {
+      const c = Object.values(importContainers).flat()
+        .find((ic) => ic.containerId === containerId);
+      if (!c) throw new Error(`Unknown import container ${containerId}`);
+      if (c.emptyReadyConfirmed) return;
+      c.emptyReadyConfirmed = true;
+      c.emptyReadyConfirmedAt = new Date().toISOString();
+      c.emptyReadySource = source;
+      record(jobOfContainer(containerId), 'container.emptyReady', actor,
+        { field: 'emptyReadyConfirmed', from: false, to: true });
+    },
     async markDocumentsComplete(jobId, actor) {
       const job = importJobs.find((j) => j.jobId === jobId);
       if (!job) throw new Error(`Unknown import job ${jobId}`);

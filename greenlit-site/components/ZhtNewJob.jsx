@@ -349,7 +349,19 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
                   <button
                     type="button"
                     className={`delivery-mode-btn${job.addressMode === "job" ? " active" : ""}`}
-                    onClick={() => set({ addressMode: "job" })}
+                    onClick={() => {
+                      // Switching back hides the per-container addresses, and
+                      // hiding them is how somebody loses twenty minutes of
+                      // typing without being told. Ask before, not after.
+                      const entered = rows.filter((r) => r.deliveryAddress).length;
+                      if (entered > 0 && !window.confirm(
+                        `${entered} container${entered === 1 ? " has" : "s have"} their own `
+                        + `delivery address. Using one address for the job will discard `
+                        + `${entered === 1 ? "it" : "them"}. Continue?`,
+                      )) return;
+                      setRows((was) => was.map((r) => ({ ...r, deliveryCompany: "", deliveryAddress: "" })));
+                      set({ addressMode: "job" });
+                    }}
                   >
                     <b>One address for the job</b>
                     <span>Every container goes to the same place. Most jobs.</span>
