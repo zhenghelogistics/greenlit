@@ -3921,7 +3921,7 @@ export default function GreenlitControlTower() {
   const [returnScreen, setReturnScreen] = useState("actions");
   /** Which container tab is open on the job detail screen. */
   const [containerIndex, setContainerIndex] = useState(0);
-  const [searchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedJobId, setSelectedJobId] = useState(null);
   // Held in the URL, so a reload keeps the filter and the view is shareable.
   const [actionFilter, setActionFilter] = useUrlState("filter", "all");
@@ -4873,7 +4873,30 @@ export default function GreenlitControlTower() {
         {/* When the board last updated, and who is acting. Off the blue now:
             on a white bar these are two quiet facts rather than two things
             competing with the brand. */}
-        <header className="sticky top-0 z-30 flex min-h-14 items-center justify-end gap-5 border-b border-[color:var(--gl-line)] bg-[color:var(--gl-bg)] px-4 sm:px-6 lg:min-h-16 lg:gap-6 lg:px-8">
+        <header className="sticky top-0 z-30 flex min-h-14 items-center gap-5 border-b border-[color:var(--gl-line)] bg-[color:var(--gl-bg)] px-4 sm:px-6 lg:min-h-16 lg:gap-6 lg:px-8">
+          {/* One field for everything with a reference on it. A controller
+              looking for a container has the number in front of them and not
+              the job it belongs to, and the screen that answered this existed
+              already with nothing able to reach it: `searchQuery` was a
+              useState with no setter, so the results view could never be
+              given a query. */}
+          <form
+            className="min-w-0 flex-1"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const term = new FormData(event.currentTarget).get("q")?.toString().trim() ?? "";
+              if (!term) return;
+              setSearchQuery(term);
+              goTo("search");
+            }}
+          >
+            <input
+              name="q" type="search" defaultValue={searchQuery}
+              placeholder="Job, container, customer, vessel, bill of lading"
+              aria-label="Search"
+              className="min-h-11 w-full max-w-[520px] rounded-md border border-[color:var(--gl-line)] bg-[color:var(--gl-bg-subtle)] px-3.5 text-[15px] text-[color:var(--gl-ink)] placeholder:text-[color:var(--gl-ink-faint)]"
+            />
+          </form>
           {/* Reload and Reset used to sit here. A control tower asking to be
               reloaded is admitting it does not keep itself current, and Reset
               refused on a Supabase-backed instance anyway, so it was a button

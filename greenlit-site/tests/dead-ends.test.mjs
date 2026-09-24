@@ -217,3 +217,43 @@ test("the new-job form posts the shape the create route validates", async () => 
   assert.doesNotMatch(call, /\{ domain: type, draft \}/,
     "a nested draft loses customerCode from where the route looks for it");
 });
+
+test("every screen in the nav can actually be reached", async () => {
+  // `searchQuery` was a useState with no setter for as long as the results
+  // screen has existed: the view was mounted, it read a query, and nothing in
+  // the application could ever give it one. A screen nothing routes to is a
+  // screen that is only discovered by reading the source.
+  const shell = await readFile("GreenlitControlTower.jsx", "utf8");
+
+  const mounted = [...shell.matchAll(/current === "([a-zA-Z]+)"/g)].map((m) => m[1]);
+  const reachable = new Set([
+    ...[...shell.matchAll(/goTo\("([a-zA-Z]+)"\)/g)].map((m) => m[1]),
+    ...[...shell.matchAll(/setScreen\("([a-zA-Z]+)"\)/g)].map((m) => m[1]),
+    // The sidebar navigates with `goTo(item.id)`, so its destinations are in
+    // the nav list rather than in a literal call.
+    ...[...shell.matchAll(/\{\s*id: "([a-zA-Z]+)", label:/g)].map((m) => m[1]),
+    // The landing screen is reached by being the default, not by a call.
+    "dashboard",
+  ]);
+
+  const orphans = [...new Set(mounted)].filter((screen) => !reachable.has(screen));
+  assert.deepEqual(orphans, [], "these screens are rendered but nothing navigates to them");
+});
+
+test("state a screen reads can be written by something", async () => {
+  // The subtler half of the same fault, and the one that actually shipped:
+  // the search screen was reachable — `goTo("search")` existed — and the query
+  // it renders could never be set, because `searchQuery` was declared as a
+  // useState with no setter. Reachable and useless is harder to spot than
+  // unreachable, because the screen opens and simply shows nothing.
+  const shell = await readFile("GreenlitControlTower.jsx", "utf8");
+
+  const readOnly = [...shell.matchAll(/const \[([a-zA-Z]+)\] = useState\(/g)].map((m) => m[1]);
+  // Handed to a screen under any prop name: the search query travels as
+  // `query={searchQuery}`, so matching `name={name}` would never have seen it.
+  const passedToAScreen = readOnly.filter((name) =>
+    new RegExp(`=\\{${name}\\}`).test(shell));
+
+  assert.deepEqual(passedToAScreen, [],
+    "these are handed to a screen to render and nothing can ever change them");
+});
