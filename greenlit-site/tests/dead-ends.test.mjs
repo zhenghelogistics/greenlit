@@ -236,8 +236,23 @@ test("every screen in the nav can actually be reached", async () => {
     "dashboard",
   ]);
 
-  const orphans = [...new Set(mounted)].filter((screen) => !reachable.has(screen));
+  // A screen may be deliberately parked — built, mounted, and with no way in
+  // — but only by saying so in the shell. That declaration is the whole point:
+  // it distinguishes "we decided to hide this" from "we broke the last link to
+  // it", which look identical from here and are not the same fault.
+  const parked = new Set(
+    [...(/const PARKED_SCREENS = \[([^\]]*)\]/.exec(shell)?.[1] ?? "")
+      .matchAll(/"([a-zA-Z]+)"/g)].map((m) => m[1]),
+  );
+
+  const orphans = [...new Set(mounted)]
+    .filter((screen) => !reachable.has(screen) && !parked.has(screen));
   assert.deepEqual(orphans, [], "these screens are rendered but nothing navigates to them");
+
+  // And the list cannot rot. A name left in it after the screen went away
+  // would silently excuse a future screen that happened to take the same id.
+  const stale = [...parked].filter((screen) => !mounted.includes(screen));
+  assert.deepEqual(stale, [], "PARKED_SCREENS names screens that are no longer rendered");
 });
 
 test("state a screen reads can be written by something", async () => {

@@ -2088,7 +2088,7 @@ function Panel({ title, action, children, className = "" }) {
   );
 }
 
-function BoardState({ source, onRetry, onAddDocument }) {
+function BoardState({ source, onRetry, onNewJob }) {
   if (source === "loading") {
     return (
       <div role="status" className="gl-panel mx-auto mt-10 max-w-[560px] p-8 text-center">
@@ -2119,12 +2119,12 @@ function BoardState({ source, onRetry, onAddDocument }) {
       <FileText className="mx-auto h-8 w-8 text-slate-600" aria-hidden="true" />
       <h2 className="gl-title mt-4">No jobs yet</h2>
       <p className="gl-body mt-2">
-        Upload an arrival notice and Greenlit will read it, match the company,
-        and open the job for you.
+        Start a job and drop the arrival notice on it. Greenlit reads the
+        vessel, the bills of lading and every container off the document.
       </p>
-      <button type="button" onClick={onAddDocument}
+      <button type="button" onClick={onNewJob}
         className="mt-6 h-11 rounded border-0 bg-[color:var(--gl-accent)] px-5 text-[17px] font-medium text-[color:var(--gl-on-accent)] hover:bg-[color:var(--gl-accent-hover)]">
-        Upload a document
+        New job
       </button>
     </div>
   );
@@ -4758,7 +4758,7 @@ export default function GreenlitControlTower() {
         ? `${existing.id}: ${discrepancies.length} conflict${discrepancies.length === 1 ? "" : "s"} raised for review.`
         : `${existing.id} updated from ${result.fileName ?? "the document"}.`);
       setSelectedJobId(existing.id);
-      setReturnScreen("documents");
+      setReturnScreen("jobs");
       setScreen("detail");
       return;
     }
@@ -4856,7 +4856,7 @@ export default function GreenlitControlTower() {
     await loadJobs();
     showToast(`${job.jobNumber} created for ${match.companyName} from ${result.fileName ?? "the document"}.`);
     setSelectedJobId(job.jobNumber);
-    setReturnScreen("documents");
+    setReturnScreen("jobs");
     setScreen("detail");
   }
   /**
@@ -4871,6 +4871,19 @@ export default function GreenlitControlTower() {
    * both halves, because overseeing them is the job — and an administrator
    * testing the system needs to reach every screen there is.
    */
+  // Screens that are still built and deliberately cannot be reached.
+  //
+  // Document Intake is parked, not deleted: the batch flow it holds — a
+  // morning's post read in one go — is wanted later, and deleting it to
+  // satisfy a guard would mean writing it again. Everything a single job needs
+  // now happens on the New Job form.
+  //
+  // This list is what makes the parking deliberate rather than an accident.
+  // A screen that stops being reachable without being named here still fails
+  // the dead-ends guard, which is the fault this was written for.
+  const PARKED_SCREENS = ["documents"];
+  void PARKED_SCREENS;
+
   // Document Intake was a destination of its own, and reading a document was
   // never the errand — filling in a job was. It now sits at the top of the New
   // Job form, which is the only thing anybody did with it afterwards. The
@@ -5040,7 +5053,7 @@ export default function GreenlitControlTower() {
         </div>
 
       {(current === "dashboard" || current === "actions") && source !== "engine" ? (
-        <BoardState source={source} onRetry={loadJobs} onAddDocument={() => goTo("documents")} />
+        <BoardState source={source} onRetry={loadJobs} onNewJob={() => setCreatingJob(true)} />
       ) : null}
       {current === "dashboard" && source === "engine" ? <ZhtDashboard jobs={jobs} today={operationalToday()} onOpenJob={openJob} onNewJob={() => setCreatingJob(true)} onShowActions={showActions} /> : null}
       {current === "actions" && source === "engine" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}

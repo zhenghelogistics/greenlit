@@ -3475,31 +3475,56 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   display: grid;
   grid-template-columns: repeat(var(--tabs, 4), minmax(0, 1fr));
   gap: 8px;
-  margin: 0 0 16px;
-  padding: 6px;
-  background: var(--soft, #f4f7fb);
+  margin: 0 0 18px;
+  padding: 8px;
+  background: var(--soft);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 14px;
   position: sticky;
   top: 0;
   z-index: 4;
 }
 .zht .import-create-tab {
-  border: 1px solid transparent;
-  background: transparent;
-  border-radius: 9px;
-  padding: 10px 12px;
-  font-weight: 700;
-  color: var(--muted);
-  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  /* 44px, which is the smallest thing a thumb hits reliably. */
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.25;
   text-align: center;
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
 }
-.zht .import-create-tab:hover { color: var(--text); }
+.zht .import-create-tab:hover {
+  border-color: var(--muted);
+  background: var(--card);
+}
+.zht .import-create-tab:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+/* Where you are. Doubled as an inset ring rather than a thicker border, so the
+   button does not change size when it becomes current and shift the two
+   beside it. */
+.zht .import-create-tab.current {
+  border-color: var(--blue);
+  box-shadow: inset 0 0 0 1px var(--blue);
+}
+/* Kept for his own tabbed screens elsewhere in the file, which are still
+   genuinely tabs. */
 .zht .import-create-tab.active {
   background: var(--card);
-  border-color: var(--line);
-  color: var(--text);
-  box-shadow: 0 2px 8px rgba(31, 56, 82, .08);
+  border-color: var(--blue);
+  box-shadow: inset 0 0 0 1px var(--blue);
 }
 .zht .export-create-tabs { --tabs: 3; }
 
@@ -3609,15 +3634,31 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 
 /* A section that still wants something. A dot rather than a red state: this is
    a form being filled in, and most of it is outstanding most of the time. */
-.zht .import-create-tab { position: relative; }
+/* A section with something outstanding. Orange rather than the action blue:
+   blue already means "you are here" on this same bar, and one colour cannot
+   mean two things two buttons apart. The dot never carries the meaning alone —
+   it is announced, and the fields under it are marked in their own right. */
+/* Declared here rather than borrowed from Tailwind: this stylesheet is his,
+   ported, and a class in it that silently depends on a utility framework is
+   one that breaks the day the framework is configured to prune it. */
+.zht .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 .zht .import-create-tab .wants-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-left: 7px;
+  flex: none;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--blue);
-  vertical-align: middle;
+  background: var(--orange);
 }
 
 .zht .nc-job-address-preview {

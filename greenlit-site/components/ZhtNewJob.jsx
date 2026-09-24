@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { checkPermit } from "@greenlit/engine";
 
 /**
@@ -66,17 +66,23 @@ const shout = (value) => String(value ?? "").toUpperCase();
  * which sections still want something. A dot means outstanding; nothing means
  * that section is happy. Clicking scrolls.
  */
-function SectionNav({ sections, onJump }) {
+function SectionNav({ sections, current, onJump }) {
   return (
     <nav className="import-create-tabs" aria-label="Sections of this form">
       {sections.map((section) => (
         <button
           key={section.id} type="button"
-          className={`import-create-tab${section.outstanding ? " wants" : ""}`}
+          className={`import-create-tab${current === section.id ? " current" : ""}`}
+          aria-current={current === section.id ? "true" : undefined}
           onClick={() => onJump(section.id)}
         >
-          {section.label}
-          {section.outstanding ? <i className="wants-dot" aria-label="needs something" /> : null}
+          <span>{section.label}</span>
+          {section.outstanding ? (
+            <>
+              <span className="wants-dot" aria-hidden="true" />
+              <span className="sr-only">— still needs something</span>
+            </>
+          ) : null}
         </button>
       ))}
     </nav>
@@ -215,6 +221,36 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
   const [readAddress, setReadAddress] = useState("");
 
   const form = useRef(null);
+  /**
+   * Which section the eye is on, so the bar can say so.
+   *
+   * Observed rather than set on click: the sections are one scroll now, and a
+   * bar that only moves when clicked goes wrong the moment somebody scrolls
+   * past it instead — which, on a form, is most of the time.
+   *
+   * The band is the top third of the viewport. Whole-element visibility would
+   * never fire for a section taller than the screen, which the containers one
+   * always is.
+   */
+  const [current, setCurrent] = useState("sec-customer");
+  useEffect(() => {
+    const targets = form.current?.querySelectorAll("section[id^='sec-']");
+    if (!targets?.length) return;
+    const seen = new Map();
+    const watcher = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => seen.set(entry.target.id, entry.isIntersecting));
+        const first = [...targets].find((t) => seen.get(t.id));
+        if (first) setCurrent(first.id);
+      },
+      { rootMargin: "0px 0px -67% 0px", threshold: 0 },
+    );
+    targets.forEach((t) => watcher.observe(t));
+    return () => watcher.disconnect();
+    // Re-observed when the sections change, which they do when the permit
+    // section appears or the direction is switched.
+  }, [type, job.permitRequired]);
+
   const jump = (id) => {
     const target = form.current?.querySelector(`#${id}`);
     if (!target) return;
@@ -537,7 +573,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
           busy={reading} setBusy={setReading}
         />
 
-        <SectionNav sections={sections} onJump={jump} />
+        <SectionNav sections={sections} current={current} onJump={jump} />
 
         {problem ? (
           <div className="callout" role="alert" style={{ marginBottom: 14 }}>{problem}</div>
