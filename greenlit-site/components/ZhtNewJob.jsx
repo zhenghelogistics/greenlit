@@ -226,6 +226,25 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
   const [readAddress, setReadAddress] = useState("");
 
   const form = useRef(null);
+  const [job, setJob] = useState({
+    customerCode: "", pic: "",
+    addressMode: "job", deliveryCompany: "", deliveryAddress: "",
+    vesselName: "", voyageNumber: "", etaDate: "", etaTime: "",
+    carrier: "", blNumber: "", houseBlNumber: "",
+    permitRequired: false, remarks: "",
+    permitNumber: "", permitExpiryDate: "", permitVesselVoyage: "",
+    // export only
+    bookingReference: "", exportClearanceReference: "", shipper: "",
+    emptyCollectionYard: "", cmsStatus: "PENDING",
+    emptyCollectionDate: "", emptyCollectionTime: "",
+    class2S: false, class2C: false,
+  });
+
+  const set = (patch) => setJob((was) => ({ ...was, ...patch }));
+
+  const [rows, setRows] = useState([{ ...EMPTY_ROW }]);
+  const [slots, setSlots] = useState([{ quantity: 1, sizeType: "20GP", reeferMode: "", reeferTemperature: "" }]);
+
   /**
    * Which section the eye is on, so the bar can say so.
    *
@@ -263,25 +282,6 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
     // Focus the first control in it, so a keyboard lands where the eye did.
     target.querySelector("input, select, textarea, button")?.focus({ preventScroll: true });
   };
-
-  const [job, setJob] = useState({
-    customerCode: "", pic: "",
-    addressMode: "job", deliveryCompany: "", deliveryAddress: "",
-    vesselName: "", voyageNumber: "", etaDate: "", etaTime: "",
-    carrier: "", blNumber: "", houseBlNumber: "",
-    permitRequired: false, remarks: "",
-    permitNumber: "", permitExpiryDate: "", permitVesselVoyage: "",
-    // export only
-    bookingReference: "", exportClearanceReference: "", shipper: "",
-    emptyCollectionYard: "", cmsStatus: "PENDING",
-    emptyCollectionDate: "", emptyCollectionTime: "",
-    class2S: false, class2C: false,
-  });
-
-  const set = (patch) => setJob((was) => ({ ...was, ...patch }));
-
-  const [rows, setRows] = useState([{ ...EMPTY_ROW }]);
-  const [slots, setSlots] = useState([{ quantity: 1, sizeType: "20GP", reeferMode: "", reeferTemperature: "" }]);
 
   const customer = customers.find((c) => c.code === job.customerCode);
   const locations = (customer?.locations ?? []).filter((l) => l.active !== false);

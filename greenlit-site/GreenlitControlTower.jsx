@@ -80,6 +80,30 @@ import { toIntakeResult } from "./lib/intake-fields.mjs";
  * meant nothing aged, nothing became overdue and no deadline ever arrived.
  * The engine computes against real time, so the interface must too.
  */
+/**
+ * How many documents are read at once, and how many may be selected.
+ *
+ * This was five, matched to the server's cap on documents per request, back
+ * when the browser sent them in chunks of five. Each document is its own
+ * request now, so that reasoning no longer applies to how many run together —
+ * and five was throttling the work for no reason.
+ *
+ * Measured against the account's actual limits: 10,000,000 input tokens and
+ * 2,000,000 output tokens a minute, against roughly 4,400 in and 4,200 out per
+ * document over 35 seconds. Five concurrent uses 1.8% of the output ceiling.
+ * The rate limit would allow on the order of 270 at once; nothing about this
+ * workload is near it.
+ *
+ * So the number is set to the selection cap instead. Any batch an operator is
+ * allowed to submit now reads in a single pass — twenty documents take about
+ * as long as the slowest one rather than four times that.
+ *
+ * Twenty remains the selection cap: an operator who picks an entire folder is
+ * told the number rather than discovering it through a wait that never ends.
+ */
+const DOCUMENTS_AT_ONCE = 20;
+const MAX_DOCUMENTS_PER_BATCH = 20;
+
 function operationalToday() {
   return new Date().toISOString().slice(0, 10);
 }
@@ -2620,29 +2644,6 @@ function FreeTimePanel({ container }) {
  * "Import Delivery" — while the movement model uses the enum. Translating here
  * keeps both honest: the screen stays readable and the store stays typed.
  */
-/**
- * How many documents are read at once, and how many may be selected.
- *
- * This was five, matched to the server's cap on documents per request, back
- * when the browser sent them in chunks of five. Each document is its own
- * request now, so that reasoning no longer applies to how many run together —
- * and five was throttling the work for no reason.
- *
- * Measured against the account's actual limits: 10,000,000 input tokens and
- * 2,000,000 output tokens a minute, against roughly 4,400 in and 4,200 out per
- * document over 35 seconds. Five concurrent uses 1.8% of the output ceiling.
- * The rate limit would allow on the order of 270 at once; nothing about this
- * workload is near it.
- *
- * So the number is set to the selection cap instead. Any batch an operator is
- * allowed to submit now reads in a single pass — twenty documents take about
- * as long as the slowest one rather than four times that.
- *
- * Twenty remains the selection cap: an operator who picks an entire folder is
- * told the number rather than discovering it through a wait that never ends.
- */
-const DOCUMENTS_AT_ONCE = 20;
-const MAX_DOCUMENTS_PER_BATCH = 20;
 
 const MOVEMENT_TYPE_FOR = {
   "Import Delivery": "IMPORT_DELIVERY",
@@ -3465,6 +3466,18 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
   // twenty notices are going before any of them becomes a job.
   const [customers, setCustomers] = useState([]);
   const [applyingBatch, setApplyingBatch] = useState(false);
+  const [stage, setStage] = useState("idle");
+  const [progress, setProgress] = useState("");
+  const [result, setResult] = useState(null);
+  const [draft, setDraft] = useState({});
+  const [confidence, setConfidence] = useState({});
+  const [containerDrafts, setContainerDrafts] = useState([]);
+  const [error, setError] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [dragging, setDragging] = useState(false);
+  // §9. A morning's post: one row per document, resolving as each is read.
+  const [batch, setBatch] = useState([]);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -3493,18 +3506,6 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
     return created;
   }
 
-  const [stage, setStage] = useState("idle");
-  const [progress, setProgress] = useState("");
-  const [result, setResult] = useState(null);
-  const [draft, setDraft] = useState({});
-  const [confidence, setConfidence] = useState({});
-  const [containerDrafts, setContainerDrafts] = useState([]);
-  const [error, setError] = useState("");
-  const [sourceUrl, setSourceUrl] = useState("");
-  const [dragging, setDragging] = useState(false);
-  // §9. A morning's post: one row per document, resolving as each is read.
-  const [batch, setBatch] = useState([]);
-  const fileInputRef = useRef(null);
 
   useEffect(() => () => {
     if (sourceUrl) URL.revokeObjectURL(sourceUrl);
@@ -3925,6 +3926,7 @@ export default function GreenlitControlTower() {
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [workPanel, setWorkPanel] = useState(null);
   const [screen, setScreen] = useState("dashboard");
+  const history = useRef([]);
   const principal = usePrincipal();
   const role = principal?.role ?? null;
   /**
@@ -4019,7 +4021,6 @@ export default function GreenlitControlTower() {
    * job comes back to the first, which is the whole reason a controller
    * follows a container across jobs in the first place.
    */
-  const history = useRef([]);
 
   function goTo(nextScreen, { remember = true } = {}) {
     if (remember && screen !== nextScreen) {

@@ -51,6 +51,21 @@ const eslintConfig = defineConfig([
       // would report every prop of every component and drown the rules that
       // find real defects.
       "react/prop-types": "off",
+      // A `const` read above the line that declares it. In a component body
+      // this is not a style question: the read happens during render and
+      // throws "Cannot access 'x' before initialization", which the error
+      // boundary catches as a blank screen with a minified letter in it.
+      //
+      // It reached the browser because a useEffect dependency array sat above
+      // the useState it depended on — legal-looking, since the effect itself
+      // runs later, but the array is built during render.
+      //
+      // `functions: false` because function declarations genuinely hoist and
+      // this codebase relies on that throughout: handlers are declared under
+      // the render they are used in, deliberately.
+      "no-use-before-define": ["error", {
+        functions: false, classes: true, variables: true, allowNamedExports: false,
+      }],
     },
   },
 ]);
