@@ -12,6 +12,8 @@ import {
   controllerStage,
   pendingReasons,
   canPlanCollection,
+  deliveryDateWarning,
+  cmsWarning,
   importHandoverShipmentGaps,
   exportHandoverShipmentGaps,
   documentGaps,
@@ -370,10 +372,7 @@ export function deriveImportJob(
       dischargedAt: c.dischargedAt,
       deliveredAt: c.deliveredAt,
       canPlanCollection: canPlanCollection(boardFacts),
-      // Empty until the container carries a *planned* delivery date. It has
-      // `deliveredAt`, which is when it actually arrived, and comparing that
-      // to the ETA answers a question nobody asked.
-      warnings: [],
+      warnings: [deliveryDateWarning(job.eta, c.plannedDeliveryDate)].filter(Boolean) as Warning[],
       charge: chargeEstimate(clocks, { dailyRate: c.dailyRate, currency: c.currency }),
     };
   });
@@ -522,9 +521,12 @@ export function deriveExportJob(
     // §47. Counted against the empty collection, not the sailing: the empty is
     // usually wanted weeks earlier, so a job measured against the vessel looks
     // comfortable right up to the morning the truck cannot go.
-    // Empty until the export job carries the empty collection date. The rule
-    // is written and tested; it has nothing to count to yet.
-    jobWarnings: [],
+    // §47. Counted against the empty collection and never the sailing: the
+    // empty is usually due weeks before the ship, so a job measured against
+    // the vessel looks comfortable right up to the morning the truck cannot go.
+    jobWarnings: [cmsWarning(
+      job.cmsStatus, job.emptyCollectionDate, now.slice(0, 10),
+    )].filter(Boolean) as Warning[],
     containers: views,
     movements: [...movements],
     activity: [],

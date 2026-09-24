@@ -336,6 +336,39 @@ function DateAmendments({ jobId, eta }) {
 
 
 
+
+/**
+ * Dates that are possible and almost certainly wrong.
+ *
+ * Shown, never enforced. Each of these is sometimes right — a vessel arrives
+ * early, a customer genuinely wants a same-day delivery off a ship that berths
+ * at six — and refusing the save would mean the true answer could not be
+ * recorded at all. The workaround for that is somebody typing a date they know
+ * to be false so the form will accept it, which is worse than the warning.
+ */
+function Warnings({ job }) {
+  const notes = [
+    ...(job.jobWarnings ?? []),
+    ...(job.containers ?? []).flatMap((c) =>
+      (c.warnings ?? []).map((w) => ({ ...w, container: c.number || c.ref }))),
+  ];
+  if (notes.length === 0) return null;
+
+  return (
+    <div className="callout" style={{ marginBottom: 18 }}>
+      <b>Worth a second look</b>
+      {notes.map((w, i) => (
+        <div key={i} style={{ marginTop: 6 }}>
+          {w.container ? `${w.container} — ` : ""}{w.says}
+        </div>
+      ))}
+      <div className="muted" style={{ marginTop: 8 }}>
+        Nothing here stops you saving. Each of these is occasionally correct.
+      </div>
+    </div>
+  );
+}
+
 /**
  * Document readiness.
  *
@@ -573,6 +606,7 @@ export default function ZhtJobDetail({
             <span>{job.derived?.status}</span>
           </div>
 
+          <Warnings job={job} />
           {job.type === "Import" ? <DocumentReadiness job={job} /> : null}
           {job.type === "Import" ? <Handover job={job} onHandOver={onHandOver} /> : null}
 
