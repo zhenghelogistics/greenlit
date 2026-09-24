@@ -8,7 +8,9 @@ screens, 9 modals, 112 distinct actions — rather than from memory of it. Where
 a rule appears twice in that file under different versions, what is recorded
 here is the **last** definition, because that is the one that runs.
 
-Status is marked against this codebase, today:
+Status is marked against this codebase, and re-checked against the code
+rather than from memory on 24 September 2026 — most of what this file called a
+gap had been built and the file had not been told.
 
 - **built** — exists, tested, reachable from a screen
 - **engine** — the rule exists and is tested; no screen reaches it yet
@@ -27,7 +29,7 @@ controller's by a deliberate act, not by reaching a status.
 
 | | status |
 |---|---|
-| Two dashboard views, switched in place | **gap** |
+| Two dashboard views, switched in place | **built** |
 | Controller handover, per container | **built** |
 | Handover requirements deliberately short | **built** |
 | Handover survives later edits | **built** |
@@ -67,11 +69,11 @@ off the ship one at a time and sometimes days apart.
 |---|---|
 | Four derived stages | **engine** |
 | `dischargedAt` / `deliveredAt` per container | **engine** |
-| Controller board with the four tabs | **gap** |
-| Per-job bulk Portnet / Discharge | **gap** |
+| Controller board with the four tabs | **built** |
+| Per-job bulk Portnet / Discharge | **built** |
 | Plan button only when READY | **engine** |
-| Arrival brief grouped by vessel and day | **gap** |
-| Date-range filter: today / tomorrow / next 3 / next 7 | **gap** |
+| Arrival brief grouped by vessel and day | **built** |
+| Date-range filter: today / tomorrow / next 3 / next 7 | **built** |
 
 His date ranges are worth copying exactly: **Next 3 Days means the three days
 after today, not today plus two.** He corrected this specifically.
@@ -87,9 +89,9 @@ stored, so saving a field clears its line immediately.
 
 | | status |
 |---|---|
-| Live outstanding list | **gap** |
-| Mark Document Completed | **gap** |
-| Jobs list filter: Required Information / Document Ready | **gap** |
+| Live outstanding list | **engine** |
+| Mark Document Completed | **engine** |
+| Jobs list filter: Required Information / Document Ready | **engine** |
 
 ---
 
@@ -141,14 +143,14 @@ additionally ask for Pre Cool or Pre Set At, and a temperature.
 
 | | status |
 |---|---|
-| Import / Export chooser | **gap** |
-| Import four-tab wizard | **gap** |
-| Export three-tab wizard | **gap** |
-| Job-level vs container-level address mode | **gap** |
-| Container rows with per-row distribution | **gap** |
-| Export slots with blank identity | **gap** |
-| Create & Add Another | **gap** |
-| Job number preview before saving | **gap** |
+| Import / Export chooser | **built** |
+| Import four-tab wizard | **built** |
+| Export three-tab wizard | **built** |
+| Job-level vs container-level address mode | **built** |
+| Container rows with per-row distribution | **built** |
+| Export slots with blank identity | **built** |
+| Create & Add Another | **built** |
+| Job number preview before saving | **built** |
 
 ---
 
@@ -159,13 +161,13 @@ additionally ask for Pre Cool or Pre Set At, and a temperature.
 | **ETA is day one.** 7 free days end 6 days after arrival | **built** |
 | Combined D&D vs separate demurrage/detention | **built** |
 | Controller override beats the counted date | **built** |
-| Free time classed: <10 short, >10 long, 10 threshold | **gap** |
+| Free time classed: <10 short, >10 long, 10 threshold | **engine** |
 | Permit vessel must match the shipment exactly | **built** |
 | Permit expiry must be **strictly after** the ETA | **built** |
 | Permit number shape `AA9A999999A` | **built** |
 | Vessel amendment raises permit attention | **built** |
-| Delivery date before ETA is flagged, not blocked | **gap** |
-| **Export CMS is keyed to the empty collection date, not the vessel ETA** | **gap** |
+| Delivery date before ETA is flagged, not blocked | **engine** |
+| **Export CMS is keyed to the empty collection date, not the vessel ETA** | **engine** |
 
 The CMS one is easy to get wrong and he says it twice: an export job's
 follow-up clock runs from when the empty is due to be collected, which can be
@@ -182,12 +184,12 @@ unfinished.
 |---|---|
 | Dates shown and typed as DD/MM/YYYY, tabular figures | **built** |
 | A calendar button beside every date field | **built** |
-| Times as a 30-minute dropdown, AM before PM | **gap** |
-| Business fields auto-uppercase; remarks stay sentence case | **gap** |
+| Times as a 30-minute dropdown, AM before PM | **built** |
+| Business fields auto-uppercase; remarks stay sentence case | **built** |
 | Container number checked 4 letters + 7 digits, warn not block | **built** |
-| Back always returns to where you were, not to a fixed screen | **gap** |
-| Global search: job, container, customer, vessel, BL, driver, chassis | **gap** |
-| 40HQ / 40RF offer Heavy Duty, 32.5 TONS, Tri-Axle | **gap** |
+| Back always returns to where you were, not to a fixed screen | **built** |
+| Global search: job, container, customer, vessel, BL, driver, chassis | **built** |
+| 40HQ / 40RF offer Heavy Duty, 32.5 TONS, Tri-Axle | **built** |
 
 The warn-not-block principle runs through his whole app and is worth stating
 plainly: a container number of the wrong shape, a permit whose number changed,
@@ -264,3 +266,38 @@ of the JavaScript in that file is unreachable. Where he patched the same thing
 repeatedly is where the *rule* was unclear, and those passages are worth
 reading closely — but the structure is a record of how the thinking arrived,
 not a design to reproduce.
+
+
+---
+
+## 9. What is left
+
+Checked against the source, not this file's own history.
+
+Nothing in his demo is unbuilt. What remains is the other half of the
+sentence: nine rules are written and tested in `@greenlit/engine` and no
+screen calls them. Each is marked **engine** above. They are, in the order
+they would be worth wiring:
+
+| rule | what it would show, and where |
+|---|---|
+| `documentGaps` / `documentsComplete` | the live outstanding list, and the Mark Document Completed button that stays disabled until it is empty |
+| `canHandOver` / `isHandedOver` | the per-container handover to a controller, which is the line his whole workflow is built on |
+| `deliveryDateWarning`, `cmsWarning`, `staleEtaWarning` | the three plausibility warnings — a delivery before the ETA, an export CMS clock, an ETA nobody has confirmed in a week |
+| `freeTimeTerm` | short / threshold / long, against the carrier's allowance |
+| `movementGaps` | a trip with no driver, named rather than called incomplete |
+| `wouldOverwrite` | which containers a bulk change would overwrite, by name |
+| `permitNumberChanged` | a permit number that changed under an existing job |
+
+A rule nothing calls is not worthless — it is proven, and wiring it is an
+afternoon rather than a design — but it is also invisible, and invisible is
+indistinguishable from absent to anybody using the system.
+
+Two things beyond the demo are open and are decisions rather than work:
+
+- **Which containers a permit covers.** One permit can cover all of a job,
+  some of it, or one box, and nothing models that yet. It blocks the separate
+  permit flow.
+- **PRD §41 and §40.2 still disagree** on whether a CMS of `NOT_REQUIRED`
+  satisfies the empty collection gate. Implemented toward §40.2. Operations
+  have not confirmed.

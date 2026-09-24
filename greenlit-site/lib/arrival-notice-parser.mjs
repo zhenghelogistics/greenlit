@@ -1,3 +1,5 @@
+import { lastFreeDayFrom } from "@greenlit/engine";
+
 const MONTHS = {
   JAN: "01", FEB: "02", MAR: "03", APR: "04", MAY: "05", JUN: "06",
   JUL: "07", AUG: "08", SEP: "09", OCT: "10", NOV: "11", DEC: "12",
@@ -94,10 +96,26 @@ export function addIsoDays(isoDate, days) {
  * an invented carrier term, and an invented deadline is worse than no deadline
  * because it looks like a fact.
  */
+/**
+ * §34.1, and the engine owns it.
+ *
+ * This counted the days itself, correctly — the ETA is day one, so seven free
+ * days end six days after arrival — and that is the problem rather than the
+ * excuse. A rule with two implementations has two answers the moment one of
+ * them is amended, and rules live in the engine (CLAUDE.md, ADR-0001).
+ *
+ * They already disagreed. The engine reads a day-first date as well as an ISO
+ * one, because both shapes reach it: the database stores ISO and the screens
+ * carry DD/MM/YYYY. This copy returned nothing for the second, which was
+ * harmless only because the parser happens to hand it ISO — a fact no caller
+ * is told, and one that could stop being true without anything saying so.
+ *
+ * Kept as a named export rather than replaced at its call sites: it answers ""
+ * where the engine answers null, and the screens render that value straight
+ * into a field.
+ */
 export function lastFreeDayFromEta(isoEta, freeDays) {
-  const days = Number(freeDays);
-  if (!isoEta || !Number.isInteger(days) || days <= 0) return "";
-  return addIsoDays(isoEta, days - 1);
+  return lastFreeDayFrom(isoEta, Number(freeDays)) ?? "";
 }
 
 export function parseArrivalNoticeText(rawText) {
