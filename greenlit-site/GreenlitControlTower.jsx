@@ -933,8 +933,8 @@ function DocumentsPanel({ jobId }) {
 
         {current.length === 0 ? (
           <p className="gl-body">
-            Nothing filed yet. An arrival notice applied through Document Intake
-            is filed here automatically.
+            Nothing filed yet. A document read while creating a job is filed
+            here automatically.
           </p>
         ) : (
           <ul className="grid gap-3">
@@ -4871,7 +4871,11 @@ export default function GreenlitControlTower() {
    * both halves, because overseeing them is the job — and an administrator
    * testing the system needs to reach every screen there is.
    */
-  const ASSISTANT_SECTIONS = ["dashboard", "actions", "jobs", "documents", "companies", "people"];
+  // Document Intake was a destination of its own, and reading a document was
+  // never the errand — filling in a job was. It now sits at the top of the New
+  // Job form, which is the only thing anybody did with it afterwards. The
+  // screen itself stays reachable for the batch flow; it is not a place to go.
+  const ASSISTANT_SECTIONS = ["dashboard", "actions", "jobs", "companies", "people"];
   const CONTROLLER_SECTIONS = ["controller", "planning", "drivers", "fleet", "emptyReturns", "jobs", "people"];
 
   const allSections = [
@@ -4879,7 +4883,6 @@ export default function GreenlitControlTower() {
     { id: "actions", label: "Action Required", count: actionJobs.length, icon: ListTodo },
     { id: "controller", label: "Controller Board", count: null, icon: CalendarRange },
     { id: "jobs", label: "Jobs", count: jobs.length, icon: ClipboardList },
-    { id: "documents", label: "Document Intake", count: documents.length, icon: FileSearch },
     { id: "planning", label: "Planning Board", count: null, icon: CalendarRange },
     { id: "drivers", label: "Drivers & Vehicles", count: fleet.loaded ? fleet.vehicles.length : null, icon: Truck },
     { id: "fleet", label: "Chassis Master", count: fleet.loaded ? fleet.available.length : null, icon: Container },
@@ -5147,7 +5150,6 @@ export default function GreenlitControlTower() {
               customers={customers}
               onCreate={createJob}
               onCancel={() => setCreatingJob(false)}
-              onUseDocument={() => { setCreatingJob(false); goTo("documents"); }}
               nextJobNumber={previewFor ? nextJobNumber : ""}
               onCustomerChosen={setPreviewFor}
             />

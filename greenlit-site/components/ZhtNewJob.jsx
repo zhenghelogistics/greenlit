@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { checkPermit } from "@greenlit/engine";
 
 /**
  * Creating a job by hand.
@@ -52,30 +53,130 @@ const TIMES = Array.from({ length: 48 }, (_, i) => {
  */
 const shout = (value) => String(value ?? "").toUpperCase();
 
-function Tabs({ tabs, active, onPick }) {
+/**
+ * The sections, across the top — as somewhere to jump to, not as a gate.
+ *
+ * This was a four-step wizard, and a wizard is the wrong shape for this work.
+ * Operations are not being walked through something unfamiliar: they have a
+ * notice in front of them and they fill in what it says, in whatever order it
+ * happens to be printed. A wizard makes that four clicks and hides the field
+ * they wanted from the field they are looking at.
+ *
+ * So everything is on one form and this bar only says where things are, and
+ * which sections still want something. A dot means outstanding; nothing means
+ * that section is happy. Clicking scrolls.
+ */
+function SectionNav({ sections, onJump }) {
   return (
-    <div className="import-create-tabs" role="tablist">
-      {tabs.map(([id, label]) => (
+    <nav className="import-create-tabs" aria-label="Sections of this form">
+      {sections.map((section) => (
         <button
-          key={id} type="button" role="tab" aria-selected={active === id}
-          className={`import-create-tab${active === id ? " active" : ""}`}
-          onClick={() => onPick(id)}
+          key={section.id} type="button"
+          className={`import-create-tab${section.outstanding ? " wants" : ""}`}
+          onClick={() => onJump(section.id)}
         >
-          {label}
+          {section.label}
+          {section.outstanding ? <i className="wants-dot" aria-label="needs something" /> : null}
         </button>
       ))}
-    </div>
+    </nav>
   );
 }
 
-function Field({ label, required, hint, children }) {
+/**
+ * Read the arrival notice, and let it fill the form in.
+ *
+ * This lived on its own screen called Document Intake, which made reading a
+ * document a separate errand from creating the job it belongs to — you went
+ * there, read it, came back, and typed the job anyway. The document is not a
+ * thing anybody wants for itself; it is how the form gets filled. So it sits
+ * at the top of the form it fills.
+ *
+ * What it will not do is choose the delivery address. The notice prints one as
+ * free text and the master holds the real ones, and quietly matching the two is
+ * how a job ends up delivering to a plausible address nobody confirmed. The
+ * read address is shown beside the picker instead, for a person to match.
+ */
+function NoaDrop({ onRead, note, busy, setBusy }) {
+  const input = useRef(null);
+  const [failed, setFailed] = useState("");
+  const [over, setOver] = useState(false);
+
+  async function read(files) {
+    const file = files?.[0];
+    if (!file) return;
+    setFailed("");
+    setBusy(file.name);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const response = await fetch("/api/extract", { method: "POST", body });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload?.error || "That document could not be read.");
+      const read = Array.isArray(payload.documents) ? payload.documents[0] : payload;
+      if (!read || read.error) throw new Error(read?.error || "Nothing could be read from that page.");
+      onRead(read, file.name);
+    } catch (problem) {
+      setFailed(problem?.message || "That document could not be read.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  return (
+    <section className="noa-module" aria-labelledby="noa-heading">
+      <div className="noa-head">
+        <div>
+          <div className="section-title" id="noa-heading">Start from the document</div>
+          <div className="muted">
+            Arrival notice, booking confirmation or permit. It fills in what it
+            can and you check it.
+          </div>
+        </div>
+      </div>
+
+      <div
+        className={`noa-drop${over ? " over" : ""}${busy ? " busy" : ""}`}
+        onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => { e.preventDefault(); setOver(false); read(e.dataTransfer.files); }}
+      >
+        <input
+          ref={input} type="file" className="noa-input"
+          accept="application/pdf,image/*"
+          onChange={(e) => read(e.target.files)}
+        />
+        {busy ? (
+          <>
+            <strong>Reading {busy}</strong>
+            <span>Around ten seconds for a notice, longer for a photograph.</span>
+          </>
+        ) : (
+          <>
+            <strong>Drop a document here</strong>
+            <span>PDF or a photo of one.</span>
+            <button type="button" className="btn secondary" onClick={() => input.current?.click()}>
+              Choose a file
+            </button>
+          </>
+        )}
+      </div>
+
+      {failed ? <div className="callout" role="alert">{failed}</div> : null}
+      {note ? <div className="noa-note" role="status">{note}</div> : null}
+    </section>
+  );
+}
+
+function Field({ label, required, hint, filled, children }) {
   // The label wraps its control rather than pointing at an id: one element, no
   // id to keep unique across eleven container rows, and it stays associated
   // however the rows are reordered.
   return (
-    <label className="field-wrap">
+    <label className={`field-wrap${filled ? " from-document" : ""}`}>
       <span className="field-label">
-        {label}{required ? <span className="req"> *</span> : <span className="optional-label"> Optional</span>}
+        {label}{required ? <span className="req"> *</span> : null}
+        {filled ? <span className="from-doc-tag">from the document</span> : null}
       </span>
       {children}
       {hint ? <span className="field-helper">{hint}</span> : null}
@@ -101,11 +202,26 @@ function WhenField({ label, required, date, time, onDate, onTime }) {
   );
 }
 
-export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDocument, nextJobNumber, onCustomerChosen }) {
+export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobNumber, onCustomerChosen }) {
   const [type, setType] = useState(null);
-  const [tab, setTab] = useState("customer");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState("");
+
+  /** Which fields the document filled, so the form can say so. */
+  const [filled, setFilled] = useState({});
+  const [reading, setReading] = useState("");
+  const [noaNote, setNoaNote] = useState("");
+  /** What the notice said the delivery address was. Shown, never applied. */
+  const [readAddress, setReadAddress] = useState("");
+
+  const form = useRef(null);
+  const jump = (id) => {
+    const target = form.current?.querySelector(`#${id}`);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Focus the first control in it, so a keyboard lands where the eye did.
+    target.querySelector("input, select, textarea, button")?.focus({ preventScroll: true });
+  };
 
   const [job, setJob] = useState({
     customerCode: "", pic: "",
@@ -113,6 +229,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
     vesselName: "", voyageNumber: "", etaDate: "", etaTime: "",
     carrier: "", blNumber: "", houseBlNumber: "",
     permitRequired: false, remarks: "",
+    permitNumber: "", permitExpiryDate: "", permitVesselVoyage: "",
     // export only
     bookingReference: "", exportClearanceReference: "", shipper: "",
     emptyCollectionYard: "", cmsStatus: "PENDING",
@@ -151,21 +268,21 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
     setRows((was) => was.map((r, n) => (n === i ? r : { ...r, ...Object.fromEntries(keys.map((k) => [k, was[i][k]])) })));
 
   function validate() {
-    if (!job.customerCode) return ["customer", "Choose a customer."];
+    if (!job.customerCode) return ["sec-customer", "Choose a customer."];
     if (job.addressMode === "job" && !job.deliveryAddress) {
-      return ["customer", "Choose the delivery address, or switch to asking per container."];
+      return ["sec-customer", "Choose the delivery address, or switch to asking per container."];
     }
     if (type === "IMPORT") {
-      if (!job.vesselName) return ["shipment", "Enter the vessel."];
-      if (!job.blNumber) return ["shipment", "Enter the master bill of lading."];
+      if (!job.vesselName) return ["sec-shipment", "Enter the vessel."];
+      if (!job.blNumber) return ["sec-shipment", "Enter the master bill of lading."];
       if (job.addressMode === "container" && rows.some((r) => !r.deliveryAddress)) {
-        return ["containers", "Every container needs a delivery address."];
+        return ["sec-containers", "Every container needs a delivery address."];
       }
     } else {
-      if (!job.bookingReference) return ["shipment", "Enter the booking reference."];
-      if (!job.emptyCollectionYard) return ["shipment", "Enter the empty collection yard."];
+      if (!job.bookingReference) return ["sec-shipment", "Enter the booking reference."];
+      if (!job.emptyCollectionYard) return ["sec-shipment", "Enter the empty collection yard."];
       if (slots.some((s) => REEFER.has(s.sizeType) && (!s.reeferMode || !s.reeferTemperature))) {
-        return ["containers", "A reefer needs its instruction and temperature."];
+        return ["sec-containers", "A reefer needs its instruction and temperature."];
       }
     }
     return null;
@@ -183,7 +300,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
   async function submit(event) {
     event.preventDefault();
     const failure = validate();
-    if (failure) { setTab(failure[0]); setProblem(failure[1]); return; }
+    if (failure) { setProblem(failure[1]); jump(failure[0]); return; }
 
     setBusy(true);
     setProblem("");
@@ -199,6 +316,9 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
           eta: when(job.etaDate, job.etaTime),
           deliveryAddress: job.addressMode === "job" ? job.deliveryAddress : null,
           permitRequired: job.permitRequired,
+          permitNumber: shout(job.permitNumber) || null,
+          permitExpiryDate: job.permitExpiryDate || null,
+          permitVesselVoyage: shout(job.permitVesselVoyage) || null,
           containers: rows.map((r) => ({
             containerNumber: shout(r.containerNumber) || null,
             sizeType: r.sizeType || null,
@@ -234,7 +354,8 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
           demurrageFreeDays: "", detentionFreeDays: "",
           deliveryCompany: "", deliveryAddress: "",
           heavyDuty: false, rated32_5: false, triAxle: false }]);
-        setTab("shipment");
+        setNoaNote("");
+        setFilled({});
       }
     } catch (failed) {
       setProblem(failed?.message || "The job could not be created.");
@@ -252,7 +373,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
             <div className="creation-kicker">NEW JOB</div>
             <h4>Which direction?</h4>
             <div className="muted">
-              Import and export are different pieces of work, not one form with a switch.
+              The two are different work, so they ask for different things.
             </div>
           </div>
           <div className="job-type-grid">
@@ -282,15 +403,123 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
   }
 
   const isImport = type === "IMPORT";
-  const tabs = isImport
-    ? [["customer", "1. Customer & delivery"], ["shipment", "2. Shipment"],
-       ["containers", "3. Containers"], ["permit", "4. Permit"]]
-    : [["customer", "1. Customer & delivery"], ["shipment", "2. Shipment"],
-       ["containers", "3. Containers"]];
+
+  /**
+   * What is wrong with the permit, if anything.
+   *
+   * Empty until a permit has actually been read — there is nothing to say
+   * about a permit nobody has uploaded, and an empty checklist reads as a
+   * failure rather than as an absence.
+   */
+  const permitIssues = job.permitNumber
+    ? checkPermit(
+        {
+          permitId: "draft", permitNumber: job.permitNumber,
+          expiryDate: job.permitExpiryDate || null,
+          permitVesselVoyage: job.permitVesselVoyage || null,
+          fileName: null, linkedContainerIds: [],
+        },
+        {
+          vesselName: job.vesselName || null,
+          voyageNumber: job.voyageNumber || null,
+          eta: job.etaDate || null,
+        },
+      ).issues
+    : [];
+
+  /**
+   * What each section still wants, computed live.
+   *
+   * The same conditions validate() refuses on, asked continuously rather than
+   * at the end. A form that only tells you what is missing once you press
+   * Create is a form you press Create to interrogate.
+   */
+  const sections = [
+    {
+      id: "sec-customer", label: "Customer & delivery",
+      outstanding: !job.customerCode || (job.addressMode === "job" && !job.deliveryAddress),
+    },
+    {
+      id: "sec-shipment", label: "Shipment",
+      outstanding: isImport
+        ? !job.vesselName || !job.blNumber
+        : !job.bookingReference || !job.emptyCollectionYard,
+    },
+    {
+      id: "sec-containers", label: "Containers",
+      outstanding: isImport
+        ? (job.addressMode === "container" && rows.some((r) => !r.deliveryAddress))
+        : slots.some((s) => REEFER.has(s.sizeType) && (!s.reeferMode || !s.reeferTemperature)),
+    },
+    ...(isImport ? [{ id: "sec-permit", label: "Permit", outstanding: permitIssues.length > 0 }] : []),
+  ];
+
+  /**
+   * Take what the document said.
+   *
+   * Everything it read is written in and marked as read, because a field left
+   * empty for a person to copy across from a PDF open in another window is the
+   * work this was meant to remove. Nothing here is silently authoritative:
+   * every filled field says where it came from and stays editable, and the one
+   * field that cannot be matched safely — the delivery address — is shown
+   * beside the picker rather than chosen.
+   */
+  function applyDocument(read, fileName) {
+    const values = Object.fromEntries(
+      (read.fields ?? []).map((f) => [f.name, String(f.value ?? "").trim()]).filter(([, v]) => v));
+    const took = {};
+    const take = (key, target) => {
+      if (!values[key]) return;
+      took[target ?? key] = values[key];
+    };
+
+    take("vesselName"); take("carrier"); take("blNumber"); take("houseBlNumber");
+    take("voyage", "voyageNumber");
+    take("bookingReference"); take("shipper"); take("emptyCollectionYard");
+    take("exportClearanceReference");
+    take("permitNumber"); take("permitExpiryDate"); take("permitVesselVoyage");
+
+    // An ETA arrives as a date, sometimes with a time on the end.
+    if (values.eta) {
+      const [date, time] = values.eta.split(/[ T]/);
+      took.etaDate = date;
+      if (time) took.etaTime = time.slice(0, 5);
+    }
+    if (values.permitNumber) took.permitRequired = true;
+
+    set(took);
+    setReadAddress(values.deliveryAddress || "");
+
+    // Containers, as rows. The document's own rows replace the blank one; a
+    // form already holding typed containers is left alone, because overwriting
+    // somebody's typing is worse than making them delete a row.
+    const readRows = (read.containers ?? []).filter((c) => c.containerNumber || c.sizeType);
+    const blank = rows.length === 1 && !rows[0].containerNumber && !rows[0].sizeType;
+    if (readRows.length && blank) {
+      setRows(readRows.map((c) => ({
+        containerNumber: shout(c.containerNumber), sizeType: shout(c.sizeType),
+        grossWeight: c.grossWeight ?? "", deliveryDate: "", deliveryTime: "",
+        emptyReturnYard: values.emptyReturnYard ?? "",
+        freeTimeModel: values.freeTimeModel === "SPLIT" ? "SPLIT" : "COMBINED",
+        combinedFreeDays: values.combinedFreeDays ?? "",
+        demurrageFreeDays: values.demurrageFreeDays ?? "",
+        detentionFreeDays: values.detentionFreeDays ?? "",
+        deliveryCompany: "", deliveryAddress: "",
+        heavyDuty: false, rated32_5: false, triAxle: false,
+      })));
+    }
+
+    setFilled((was) => ({ ...was, ...Object.fromEntries(Object.keys(took).map((k) => [k, true])) }));
+
+    const count = Object.keys(took).length + (readRows.length && blank ? readRows.length : 0);
+    setNoaNote(count
+      ? `Read ${count} ${count === 1 ? "thing" : "things"} from ${fileName}. Check them — the highlighted fields came from the document.`
+      : `Nothing usable was found in ${fileName}.`);
+  }
 
   return (
     <div className="zht"><div className="content">
-      <form onSubmit={submit}>
+      <form onSubmit={submit} ref={form}>
         <div className="creation-workspace-head">
           <button type="button" className="btn ghost" onClick={() => setType(null)}>
             ← Change direction
@@ -303,21 +532,24 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
           </div>
         </div>
 
-        <Tabs tabs={tabs} active={tab} onPick={setTab} />
+        <NoaDrop
+          onRead={applyDocument} note={noaNote}
+          busy={reading} setBusy={setReading}
+        />
+
+        <SectionNav sections={sections} onJump={jump} />
 
         {problem ? (
           <div className="callout" role="alert" style={{ marginBottom: 14 }}>{problem}</div>
         ) : null}
 
         {/* ---- 1. customer & delivery ------------------------------------ */}
-        {tab === "customer" ? (
-          <section className="creation-section">
+        <section id="sec-customer" className="creation-section">
             <div className="creation-section-head">
               <div>
                 <div className="section-title">Customer &amp; delivery</div>
                 <div className="muted">
-                  Destinations come from the customer master. Add a location there first
-                  if it is missing — a typed address is one nobody can plan against twice.
+                  Addresses come from this customer’s saved locations.
                 </div>
               </div>
             </div>
@@ -364,7 +596,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
                     }}
                   >
                     <b>One address for the job</b>
-                    <span>Every container goes to the same place. Most jobs.</span>
+                    <span>Every container goes to the same place.</span>
                   </button>
                   <button
                     type="button"
@@ -372,7 +604,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
                     onClick={() => set({ addressMode: "container" })}
                   >
                     <b>Ask for each container</b>
-                    <span>The job splits across more than one place.</span>
+                    <span>Each container is asked separately.</span>
                   </button>
                 </div>
               </div>
@@ -401,13 +633,22 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
                   </Field>
                 </>
               ) : null}
+
+              {/* What the notice said, beside the picker rather than in it.
+                  Matching "12 Jurong Port Rd" to a saved "12 Jurong Port Road"
+                  is a judgement with a delivery on the end of it, so a person
+                  makes it. Shown until they have chosen. */}
+              {readAddress && job.addressMode === "job" && !job.deliveryAddress ? (
+                <div className="nc-job-address-preview">
+                  <b>The document says:</b> {readAddress}
+                  <span>Pick the matching saved location, or add it to the customer first.</span>
+                </div>
+              ) : null}
             </div>
-          </section>
-        ) : null}
+        </section>
 
         {/* ---- 2. shipment ----------------------------------------------- */}
-        {tab === "shipment" ? (
-          <section className="creation-section">
+        <section id="sec-shipment" className="creation-section">
             <div className="creation-section-head">
               <div>
                 <div className="section-title">Shipment</div>
@@ -419,22 +660,6 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
               </div>
             </div>
 
-            {/* The accelerator, offered rather than imposed. Reading the notice
-                fills every field below it, so somebody holding the PDF should
-                not be typing — but somebody who has the details on the phone
-                and no document yet should not be sent away to find one. */}
-            {isImport ? (
-              <div className="permit-guidance" style={{ marginBottom: 14 }}>
-                <b>Have the arrival notice?</b>
-                <span>
-                  Reading it fills the vessel, the ETA, the bills of lading and every
-                  container.{" "}
-                  <button type="button" className="btn ghost" onClick={onUseDocument}>
-                    Upload it instead
-                  </button>
-                </span>
-              </div>
-            ) : null}
             <div className="formgrid job-create-grid">
               <Field label="Vessel" required>
                 <input value={job.vesselName} onChange={(e) => set({ vesselName: shout(e.target.value) })} />
@@ -516,19 +741,17 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
                 <textarea value={job.remarks} onChange={(e) => set({ remarks: e.target.value })} />
               </label>
             </div>
-          </section>
-        ) : null}
+        </section>
 
         {/* ---- 3. containers --------------------------------------------- */}
-        {tab === "containers" && isImport ? (
-          <section className="creation-section">
+        {isImport ? (
+          <section id="sec-containers" className="creation-section">
             <div className="creation-section-head">
               <div>
                 <div className="section-title">Containers</div>
                 <div className="muted">
-                  One row per box. The yard and the free time can be copied across
-                  once — they are the same for every container on a bill far more
-                  often than not.
+                  One row per box. Copy the yard and free time across with the
+                  button on any row.
                 </div>
               </div>
             </div>
@@ -691,14 +914,13 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
           </section>
         ) : null}
 
-        {tab === "containers" && !isImport ? (
-          <section className="creation-section">
+        {!isImport ? (
+          <section id="sec-containers" className="creation-section">
             <div className="creation-section-head">
               <div>
                 <div className="section-title">Containers</div>
                 <div className="muted">
-                  How many, and of what. Numbers, seals and tare weights are filled in
-                  by the controller after collection — nobody knows them yet.
+                  How many, and of what. Numbers and seals come later, after collection.
                 </div>
               </div>
             </div>
@@ -776,26 +998,65 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDoc
         ) : null}
 
         {/* ---- 4. permit -------------------------------------------------- */}
-        {tab === "permit" && isImport ? (
-          <section className="creation-section">
+        {isImport ? (
+          <section id="sec-permit" className="creation-section">
             <div className="creation-section-head">
               <div>
                 <div className="section-title">Permit</div>
                 <div className="muted">
-                  {job.permitRequired
-                    ? "Upload and allocate the permit from the job once it is created — the file is stored once and containers carry only its number."
-                    : "This customer does not require one. Change it on the shipment tab if that is wrong."}
+                  {job.permitNumber
+                    ? "Read from the permit. The file is stored on the job; containers carry the number."
+                    : "Drop the permit at the top of this form and its number, expiry and vessel are read from it."}
                 </div>
               </div>
+              <label className="checkline">
+                <input
+                  type="checkbox" checked={job.permitRequired}
+                  onChange={(e) => set({ permitRequired: e.target.checked })}
+                />
+                <span>This job needs a permit</span>
+              </label>
             </div>
-            {job.permitRequired ? (
-              <div className="permit-guidance">
-                <b>Why not here</b>
-                <span>
-                  A permit is checked against the vessel and the ETA, and both are
-                  easier to get right once the job exists and the notice has been read.
-                </span>
-              </div>
+
+            {job.permitNumber ? (
+              <>
+                <div className="job-create-grid">
+                  <Field label="Permit number" filled={filled.permitNumber}>
+                    <input
+                      className="app-input" value={job.permitNumber}
+                      onChange={(e) => set({ permitNumber: shout(e.target.value) })}
+                    />
+                  </Field>
+                  <Field label="Expires" filled={filled.permitExpiryDate}>
+                    <input
+                      className="app-date-input" type="date" value={job.permitExpiryDate}
+                      onChange={(e) => set({ permitExpiryDate: e.target.value })}
+                    />
+                  </Field>
+                  <Field label="Declared against" filled={filled.permitVesselVoyage}>
+                    <input
+                      className="app-input" value={job.permitVesselVoyage}
+                      onChange={(e) => set({ permitVesselVoyage: shout(e.target.value) })}
+                    />
+                  </Field>
+                </div>
+
+                {/* The same three checks the engine runs after the job exists,
+                    run here — so a permit for the wrong sailing is caught while
+                    the person who can fix it is still looking at the form,
+                    rather than at the gate. They warn; none of them refuses. */}
+                {permitIssues.length ? (
+                  <div className="permit-guidance warn" role="status">
+                    <b>Worth checking before you create this</b>
+                    {permitIssues.map((issue) => <span key={issue}>{issue}</span>)}
+                  </div>
+                ) : (
+                  <div className="permit-guidance ok" role="status">
+                    <b>Checks out</b>
+                    <span>Number, expiry and vessel all agree with this shipment.</span>
+                  </div>
+                )}
+              </>
             ) : null}
           </section>
         ) : null}

@@ -50,7 +50,14 @@ const FIELDS: Record<string, { type: string; description?: string }> = {
   detentionFreeDays: { type: "string", description: "Digits only. Only when the document states detention separately." },
   combinedFreeDays: { type: "string", description: "Digits only. Only when the document states a single combined D&D allowance." },
   freeTimeRemarks: { type: "string", description: "The free-time terms exactly as worded, when they carry a condition a number cannot, e.g. '10 combined calendar days from discharge' or 'detention starts after empty return notification'." },
-  permitNumber: { type: "string" },
+  // ---- The permit ---------------------------------------------------------
+  // A permit is its own document and arrives separately, and the engine checks
+  // three things about it: the number's shape, that it expires strictly after
+  // the ETA, and that its vessel matches the shipment. Reading only the number
+  // leaves two of those three still done by eye against a PDF.
+  permitNumber: { type: "string", description: "Singapore Customs permit number, AA9A999999A — two letters, a digit, a letter, six digits, a letter." },
+  permitExpiryDate: { type: "string", description: "When the permit stops being valid, as YYYY-MM-DD. Printed as Expiry Date, Valid Until, or Permit Validity." },
+  permitVesselVoyage: { type: "string", description: "The vessel and voyage the permit was declared against, exactly as printed, e.g. DALLAS EXPRESS 632S. It has to match the shipment's, so copy it verbatim rather than tidying it." },
   vgm: { type: "string", description: "Verified gross mass in kg, digits only" },
 
   // ---- Export ---------------------------------------------------------------

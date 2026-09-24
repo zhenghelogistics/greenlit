@@ -3464,3 +3464,174 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 @media (max-width: 1100px) {
   .zht .grid2, .zht .job-layout, .zht .clean-lower-grid { grid-template-columns: 1fr; }
 }
+
+/* ---- his job-creation chrome, which never got ported ----------------------
+   Written against these class names and they were not here, so the tabs
+   rendered as one run-on line of text and the two delivery choices as two
+   bold sentences. Taken from his v12.101 block, with his literal colours
+   swapped for the variables so both themes work. */
+
+.zht .import-create-tabs {
+  display: grid;
+  grid-template-columns: repeat(var(--tabs, 4), minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 6px;
+  background: var(--soft, #f4f7fb);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+.zht .import-create-tab {
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 9px;
+  padding: 10px 12px;
+  font-weight: 700;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: center;
+}
+.zht .import-create-tab:hover { color: var(--text); }
+.zht .import-create-tab.active {
+  background: var(--card);
+  border-color: var(--line);
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(31, 56, 82, .08);
+}
+.zht .export-create-tabs { --tabs: 3; }
+
+.zht .delivery-mode-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.zht .delivery-mode-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 700;
+}
+.zht .delivery-mode-btn span {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.zht .delivery-mode-btn.active {
+  border-color: var(--blue);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--blue);
+}
+.zht .import-tab-panel { display: none; }
+.zht .import-tab-panel.import-tab-visible { display: block; }
+
+@media (max-width: 720px) {
+  .zht .import-create-tabs { grid-template-columns: 1fr 1fr; }
+  .zht .delivery-mode-options { grid-template-columns: 1fr; }
+}
+
+/* ---- the document module, and what it filled in -------------------------- */
+
+.zht .noa-module {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  padding: 16px 18px;
+  margin: 0 0 16px;
+}
+.zht .noa-head { margin-bottom: 12px; }
+
+.zht .noa-drop {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  padding: 26px 18px;
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  transition: border-color .15s, background .15s;
+}
+.zht .noa-drop.over { border-color: var(--blue); background: var(--card); }
+.zht .noa-drop.busy { border-style: solid; }
+.zht .noa-drop strong { font-size: 15px; color: var(--text); }
+.zht .noa-drop span { font-size: 13px; color: var(--muted); }
+.zht .noa-drop .btn { margin-top: 8px; }
+/* The input covers the whole box so the drop target and the click target are
+   the same shape — hidden from the pointer where the real button is. */
+.zht .noa-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.zht .noa-drop.busy .noa-input { pointer-events: none; }
+
+.zht .noa-note {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--blue);
+  border-radius: 9px;
+  background: var(--bg);
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* A field the document filled. Marked, because "it is already typed in" and
+   "somebody typed it in" are different claims and only one of them has been
+   checked by a person. */
+.zht .field-wrap.from-document input,
+.zht .field-wrap.from-document select,
+.zht .field-wrap.from-document textarea {
+  border-color: var(--blue);
+  background: var(--bg);
+}
+.zht .from-doc-tag {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: var(--blue);
+  text-transform: uppercase;
+}
+
+/* A section that still wants something. A dot rather than a red state: this is
+   a form being filled in, and most of it is outstanding most of the time. */
+.zht .import-create-tab { position: relative; }
+.zht .import-create-tab .wants-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 7px;
+  border-radius: 50%;
+  background: var(--blue);
+  vertical-align: middle;
+}
+
+.zht .nc-job-address-preview {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  border-radius: 9px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--text);
+  margin-top: 10px;
+}
+.zht .nc-job-address-preview span { color: var(--muted); font-size: 12px; }
+
+.zht .permit-guidance.warn { border-left: 3px solid var(--warn, #b26a00); }
+.zht .permit-guidance.ok { border-left: 3px solid var(--blue); }

@@ -24,7 +24,11 @@ test("server-renders the Greenlit control tower", async () => {
   assert.match(html, /<title>Project Greenlit — Control Tower<\/title>/);
   assert.match(html, /Greenlit/);
   assert.match(html, /Action Required/);
-  assert.match(html, /Document Intake/);
+  // Document Intake is deliberately no longer a section: reading a document is
+  // how the New Job form gets filled, not an errand of its own, so the upload
+  // moved onto that form. Asserted as an absence so it cannot drift back in
+  // without somebody deciding to.
+  assert.doesNotMatch(html, /Document Intake/);
   // The rail carries the PM's section names now. "Chassis Fleet" became his
   // "Chassis Master", so asserting the old label would fail on a rename rather
   // than on a regression — what is worth pinning is that the rail still ships
