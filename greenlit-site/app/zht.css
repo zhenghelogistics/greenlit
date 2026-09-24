@@ -3684,3 +3684,270 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 
 .zht .permit-guidance.warn { border-left: 3px solid var(--warn, #b26a00); }
 .zht .permit-guidance.ok { border-left: 3px solid var(--blue); }
+
+/* ---- the arrival brief, which was markup with no rules ------------------
+   Same fault as his job-creation chrome: the section was ported and its
+   stylesheet was not, so the vessels rendered as a column of bare text.
+   His rules, with the literal colours taken from the variables so both themes
+   hold, and 800 dropped to 600 — the design gate refuses 700 and above, and a
+   date already carries its emphasis from being small and uppercase. */
+
+.zht .controller-arrival-brief {
+  display: grid;
+  /* auto-fit rather than a fixed count: a controller with two vessels this
+     week should not be looking at four columns, two of them empty. */
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.zht .arrival-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--card);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+.zht .arrival-card:hover {
+  border-color: var(--muted);
+  box-shadow: 0 4px 14px rgba(15, 23, 42, .08);
+}
+.zht .arrival-card:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+/* Today, marked by the brand's own colour rather than by a second pixel of
+   border. His `border-width:2px` moved the card's contents by a pixel against
+   the ones beside it, which reads as a misalignment rather than as emphasis. */
+.zht .arrival-card.today {
+  border-color: var(--blue);
+  box-shadow: inset 0 0 0 1px var(--blue);
+}
+
+.zht .arrival-card .arrival-date {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+}
+.zht .arrival-card.today .arrival-date { color: var(--blue); }
+.zht .arrival-card .arrival-vessel {
+  font-weight: 600;
+  margin: 4px 0;
+  color: var(--text);
+}
+.zht .arrival-card .arrival-stats {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.zht .controller-date-tools {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  /* His file sets this twice, flex-end then flex-start. The later one runs. */
+  justify-content: flex-start;
+}
+.zht .controller-date-tools .app-date-input { width: 135px; min-height: 40px; }
+.zht .controller-date-tools .btn { padding: 8px 10px; }
+/* Which range is being shown. His markup carries the class and his stylesheet
+   never drew it, so all four read identically whichever was active. */
+.zht .controller-date-tools .btn.range { border-color: var(--line); }
+.zht .controller-date-tools .btn.range.today,
+.zht .controller-date-tools .btn.range[aria-pressed="true"] {
+  border-color: var(--blue);
+  box-shadow: inset 0 0 0 1px var(--blue);
+  color: var(--text);
+}
+
+/* ---- export requirements and the special-equipment block ----------------
+   His rules, with three deliberate departures, each noted where it happens:
+   the literal colours take the variables so dark mode holds, his weight 800
+   drops to 600 because the design gate refuses 700 and above, and his
+   `font-size:10px` on a control label goes to 12px — ten is below what the
+   type scale allows and it is a label somebody reads at arm's length.
+
+   Where his file defines a rule twice, the later one runs, and that is the
+   one taken. */
+
+.zht .export-class-options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.zht .export-class-options .container-special-option { min-width: 140px; }
+
+.zht .container-special-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.zht .container-special-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.zht .container-special-option:hover { border-color: var(--muted); }
+/* His two !important flags, kept. They are not carelessness: the rule above
+   sizes every input in the block, and a checkbox is the one control that must
+   not be stretched to fill it. */
+.zht .container-special-option input {
+  width: auto !important;
+  min-height: auto !important;
+  margin: 0;
+  accent-color: var(--blue);
+}
+
+.zht .container-special-config {
+  grid-column: 1 / -1;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  border-radius: 9px;
+  padding: 12px;
+}
+.zht .container-special-config[hidden] { display: none !important; }
+.zht .container-special-title {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 3px;
+}
+.zht .container-special-help {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0 0 9px;
+}
+
+.zht .export-req-field { min-width: 0; }
+.zht .export-req-field input,
+.zht .export-req-field select {
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  box-sizing: border-box;
+}
+.zht .export-req-field select { cursor: pointer; }
+.zht .export-req-field input:focus,
+.zht .export-req-field select:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent);
+}
+.zht .export-req-remove {
+  min-height: 40px;
+  margin-bottom: 0;
+  justify-self: start;
+}
+
+.zht .export-reefer-config {
+  grid-column: 1 / -1;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.zht .reefer-setting-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.zht .export-later-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* His own stylesheet collapses both of these to one column on a narrow
+   screen, and so does this. Three equal columns at 360px is three unreadable
+   columns. */
+@media (max-width: 720px) {
+  .zht .container-special-options { grid-template-columns: 1fr; }
+  .zht .reefer-setting-grid { grid-template-columns: 1fr; }
+  .zht .export-req-remove { width: 100%; }
+}
+
+/* ---- ours, not his -------------------------------------------------------
+   These four are on screens that have no counterpart in his demo, so there
+   was nothing to port and nothing wrote them either. */
+
+/* A checkbox and its label on one line, hit as one target. */
+.zht .checkline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 14px;
+}
+.zht .checkline input {
+  width: auto;
+  min-height: auto;
+  margin: 0;
+  accent-color: var(--blue);
+}
+
+/* The one input class the ported form names directly. Everything else in the
+   form is drawn through `.formgrid input`; these are in a grid that is not
+   one, and rather than widen that selector's reach this draws them the same. */
+.zht .app-input {
+  width: 100%;
+  min-height: 40px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  box-sizing: border-box;
+}
+.zht .app-input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent);
+}
+
+/* One saved location on the customer screen. `.location-card-top` and
+   `.location-card-title` were drawn and the card holding them was not. */
+.zht .location-card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  padding: 12px 14px;
+}
+
+/* The dashboard's two panels. */
+.zht .control-tower-attention-card,
+.zht .control-tower-arrivals-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  padding: 14px 16px;
+}
