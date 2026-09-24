@@ -23,8 +23,12 @@
    `:root` is left global because it only declares custom properties. */
 
 :root {
-  --nav:#11345f;--nav2:#0b2748;--bg:#f4f7fb;--card:#fff;--text:#17324d;
-  --muted:#6d7e90;--line:#dce5ef;--blue:#2f78d0;--green:#2d9a62;--orange:#e68a2f;
+  /* ZHL Navy through to a deeper navy, so the rail reads as one field rather
+     than a gradient anybody notices. His #11345f was a guess at this. */
+  --nav:#003087;--nav2:#00205c;--bg:#f5f8fc;--card:#fff;--text:#11203a;
+  /* Harbor Gray, darkened until it clears 7:1 on the tinted rows it sits on.
+     Horizon Blue is the action colour and appears nowhere as a surface. */
+  --muted:#435060;--line:#c6d2e0;--blue:#0061e0;--green:#2d9a62;--orange:#e68a2f;
   --red:#c94242;--purple:#7254c7;--soft:#eef4fb;
 }
 /* ------------------------------------------------------------------
@@ -40,7 +44,10 @@
    that look like a mistake.
    ------------------------------------------------------------------ */
 :root[data-theme="dark"] {
-  --nav:#10131a; --nav2:#0b0e14;
+  /* The rail stays the brand's navy in the dark too. It is the one element on
+     the page that is a field of colour rather than a surface, and letting it
+     follow the theme turned it into another grey panel. */
+  --nav:#00205c; --nav2:#001640;
   --bg:#14161a; --card:#1b1e24; --soft:#22262e;
   --text:#e6e9ee; --muted:#b2bac6; --line:#2c313a;
   --blue:#8fb6ff; --green:#6ee7a0; --orange:#f0b968;
@@ -56,7 +63,7 @@
 .zht .nav button {width:100%;text-align:left;border:0;background:transparent;color:#fff;padding:12px 14px;border-radius:8px;margin:3px 0;cursor:pointer}
 .zht .nav button.active, .zht .nav button:hover {background:#1f5a9c}
 .zht .main {margin-left:230px;width:calc(100% - 230px)}
-.zht .topbar {height:66px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:10}
+.zht .topbar {height:66px;background:var(--card);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:10}
 .zht .search {width:380px;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
 .zht .content {padding:24px}
 .zht .view {display:none}
@@ -2867,7 +2874,6 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
    Regenerate rather than edit. The light rule above is the source of truth.
    ------------------------------------------------------------------ */
 :root[data-theme="dark"] {
-  .zht .topbar { background: #1f1c1c; }
   .zht .btn.secondary { background: #1b212a; }
   .zht .btn.ghost { background: #1f1c1c; }
   .zht .card { border-color: #323c48; }
@@ -3257,4 +3263,119 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   .zht .job-permit-target-panel { border-top-color: #323f48; }
   .zht .moves td { border-bottom-color: #323d48; }
   .zht .crew { border-bottom-color: #323d48; }
+}
+
+
+/* ---- the shell, which his demo never had to make small --------------------
+   His rail is fixed at 230px and his topbar is a single row. On a phone that
+   is a sidebar covering the screen and a toolbar three items wider than the
+   viewport. Neither is a disagreement with his design — it is the case he did
+   not need, because a demo is opened on a laptop.
+
+   The rail becomes a bottom bar below 900px: thumb-reachable, out of the way
+   of the table, and the same eight destinations in the same order. */
+
+@media (max-width: 900px) {
+  .zht .sidebar {
+    inset: auto 0 0 0;
+    width: 100%;
+    height: auto;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    background: var(--nav);
+    z-index: 40;
+  }
+  .zht .logo { display: none; }
+  .zht .nav {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 2px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .zht .nav::-webkit-scrollbar { display: none; }
+  .zht .nav button {
+    /* 44px is the floor for a thumb. His 12px padding gives 40. */
+    min-height: 44px;
+    margin: 0;
+    padding: 6px 10px;
+    text-align: center;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .zht .main {
+    margin-left: 0;
+    width: 100%;
+    /* Clear of the bar, so the last row of a table is not under it. */
+    padding-bottom: 68px;
+  }
+  .zht .topbar {
+    height: auto;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 14px;
+  }
+  .zht .global-search-wrap { order: 3; width: 100%; }
+}
+
+/* His nav marks the current screen with a background alone, which is the one
+   signal a person who cannot distinguish the two blues does not get. */
+.zht .nav button.active {
+  position: relative;
+  font-weight: 700;
+}
+.zht .nav button.active::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 8px; bottom: 8px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: #fff;
+}
+@media (max-width: 900px) {
+  .zht .nav button.active::before {
+    left: 10px; right: 10px; top: auto; bottom: 4px;
+    width: auto; height: 2px; border-radius: 2px;
+  }
+}
+
+/* Every interactive element in his stylesheet relies on colour alone when
+   focused, which leaves keyboard users with nothing. */
+.zht .nav button:focus-visible,
+.zht .btn:focus-visible,
+.zht .search:focus-visible,
+.zht input:focus-visible,
+.zht select:focus-visible,
+.zht textarea:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.zht .nav button:focus-visible { outline-color: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .zht * { transition-duration: 1ms !important; animation-duration: 1ms !important; }
+}
+
+/* His topbar was a literal #fff, so the generated dark pass had no hue to
+   preserve and produced a reddish grey. It takes his own card surface now,
+   which is what every other panel on the page uses and which both themes
+   already define correctly. */
+
+/* An input in his idiom. His stylesheet styles .formgrid inputs and .field
+   inputs but never a bare one, so our panels had nowhere to point. */
+.zht .zht-field, .zht-field {
+  min-height: 44px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  box-sizing: border-box;
+}
+.zht .zht-field:focus, .zht-field:focus {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-color: var(--blue);
 }

@@ -5,7 +5,8 @@
    Quiet, fast, keyboard-first. Density comes from whitespace, not from borders. */
 :root {
   /* Ground. White, not a grey canvas: panels stop needing to be white boxes. */
-  --gl-bg: #fbfbfa;
+  /* Sail White. The brand's page ground. */
+  --gl-bg: #f5f8fc;
   --gl-bg-subtle: #ffffff;
   --gl-bg-hover: #f1f2f4;
   --gl-bg-selected: #e8effc;
@@ -14,21 +15,33 @@
 
   /* Ink. Near-monochrome, four steps. */
   --gl-ink-strong: #0a0b0c;
-  --gl-ink: #1a1c20;
-  --gl-ink-muted: #464a52;
+  /* Ink Navy. Body text carries a trace of the brand rather than being grey. */
+  --gl-ink: #11203a;
+  /* Harbor Gray, darkened from the guide's #5a6b80. The brand value is 5.12:1
+     on Sail White, which is fine on a slide and under the 7:1 this codebase
+     holds. Darkened along its own hue until it clears 7:1 on the darkest
+     ground it ever sits on — a tinted row, not the page — because that is
+     where it was failing and the page was never the hard case. */
+  --gl-ink-muted: #435060;
   /* 4.57:1 on white. #9ca0a8 measured 2.62 and failed even the large-text
      threshold, while carrying captions, labels and navigation counts. */
   --gl-ink-faint: #494e55;
 
   /* Lines. Used sparingly — between sections, rarely around them. */
-  --gl-line: #dcdfe3;
+  /* The guide's rule colour, darkened: #d9e1ea on Sail White is 1.24:1, which
+     is a line nobody can see. A border has a lower bar than text and not a
+     bar of zero. */
+  --gl-line: #c6d2e0;
   --gl-line-strong: #b9bec5;
 
   /* One accent. Blue, and used where it means "you can act on this":
      links, the primary action, the current destination, the focused row.
      5.17:1 on white, and white on it also passes, so it works as both. */
-  --gl-accent: #1e40af;
-  --gl-accent-hover: #1e3a8a;
+  /* ZHL Navy, Pantone 287C. The brand's own colour, and 11.85:1 with white —
+     better than the #1e40af it replaces, which was near enough to look
+     deliberate and wrong enough to be off-brand on every screen. */
+  --gl-accent: #003087;
+  --gl-accent-hover: #002567;
   /* Text on the accent. White here, near-black in dark mode, where the
      accent is pale. Seventeen primary buttons read `text-white`, which was
      2.04:1 once the accent lightened. */
@@ -56,7 +69,7 @@
   /* The rail is a surface, not a link, and it stays dark in both themes.
      Painting it with the accent meant lightening the accent for dark mode
      turned the navy sidebar pale blue with white text on it. */
-  --gl-rail: #1e40af;
+  --gl-rail: #003087;
   --gl-rail-ink: #ffffff;
   /* The rail carries its own secondary ink. The page's muted grey measures
      1.02:1 on the blue — invisible — so a subtitle or a count on the rail

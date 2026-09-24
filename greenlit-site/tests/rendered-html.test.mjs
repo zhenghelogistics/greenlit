@@ -162,3 +162,37 @@ test("native controls follow the theme", async () => {
   assert.match(src, /\[data-theme="dark"\]\s*\{\s*color-scheme:\s*dark/,
     "dark mode never tells the browser it is dark");
 });
+
+test("the shell is his, not a Tailwind copy of it", async () => {
+  // The screens were his and the frame around them was not, which is visible
+  // even when both are fine: two design systems meeting at a seam. His own
+  // rules lay the shell out now — `.zht > .app > .sidebar + .main` — rather
+  // than Tailwind reproducing them beside his stylesheet.
+  const src = await readFile("GreenlitControlTower.jsx", "utf8");
+
+  for (const cls of ['className="app"', 'className="sidebar"', 'className="main"',
+                     'className="topbar"', 'className="nav"']) {
+    assert.ok(src.includes(cls), `the shell should use his ${cls}`);
+  }
+
+  // The rail used to be laid out with utilities. If those come back the two
+  // systems are fighting again.
+  const rail = src.slice(src.indexOf('className="sidebar"'), src.indexOf("</aside>", src.indexOf('className="sidebar"')));
+  assert.doesNotMatch(rail, /lg:w-\[|sticky top-0 z-40|bg-\[color:var\(--gl-rail\)\]/,
+    "the rail is laid out by his stylesheet, not by utilities");
+});
+
+test("his stylesheet works at phone width, which his demo never needed", async () => {
+  // A fixed 230px column is the whole screen on a phone, and his topbar is a
+  // single row three items wider than the viewport. Not a disagreement with
+  // his design — the case a demo opened on a laptop never meets.
+  const css = await readFile(new URL("../app/zht.css", import.meta.url), "utf8");
+
+  assert.match(css, /@media \(max-width: 900px\)[\s\S]*?\.zht \.sidebar/,
+    "the rail must become something usable on a phone");
+  assert.match(css, /min-height: 44px/,
+    "a thumb needs 44px; his nav buttons give 40");
+  assert.match(css, /\.zht \.nav button:focus-visible/,
+    "his stylesheet relies on colour alone when focused");
+  assert.match(css, /prefers-reduced-motion/);
+});
