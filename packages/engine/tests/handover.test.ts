@@ -148,3 +148,21 @@ test('a job with no containers is not ready, whatever else is filled in', () => 
   const job = importJob({ vesselName: 'X', eta: '2026-09-23', blNumber: 'B' } as Partial<ImportJob>);
   assert.deepEqual(documentGaps(job, [], []), [{ area: 'Container', field: 'At least one container' }]);
 });
+
+test('confirming the documents is a different claim from the list being empty', () => {
+  // "No field is empty" is arithmetic and the system can work it out. "I have
+  // checked this against the paperwork" is a judgement and it cannot. The
+  // controller plans free time against the second, so both have to be true
+  // before the mark means anything — which is why the command refuses while
+  // anything is outstanding.
+  const job = importJob({
+    vesselName: 'X', eta: '2026-09-24', blNumber: 'B',
+  } as Partial<ImportJob>);
+  const container = { containerId: 'ic1', containerNumber: 'A', containerSize: '20',
+    emptyReturnYard: 'Yard', freeTimeModel: 'COMBINED', combinedFreeDays: 14 } as never;
+
+  assert.equal(documentsComplete(job, [container], []), true, 'the arithmetic passes');
+  // The judgement is a stored instant, and nothing here sets it: a rule cannot
+  // confirm on somebody's behalf.
+  assert.equal(job.documentsCompletedAt ?? null, null);
+});

@@ -53,7 +53,18 @@ export interface FreeTimeClock {
  */
 export function lastFreeDayFrom(eta: IsoDate | null, freeDays: number | null): IsoDate | null {
   if (!eta || freeDays === null || !Number.isInteger(freeDays) || freeDays <= 0) return null;
-  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(eta);
+
+  // Both shapes, because both reach this. The database stores ISO and the
+  // screens carry DD/MM/YYYY, and a version of this that took only ISO
+  // returned null for a display date — no deadline at all, silently, which is
+  // a worse failure than a wrong one because nothing looks broken. The
+  // operations demo normalises the same two and it is right to.
+  //
+  // Singapore writes day first, so 09/10 is the ninth of October. There is no
+  // ambiguity to guess at.
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(eta);
+  const display = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(eta);
+  const parts = iso ? iso : display ? [display[0], display[3], display[2], display[1]] : null;
   if (!parts) return null;
   const counted = new Date(Date.UTC(
     Number(parts[1]),
@@ -354,3 +365,33 @@ export function chargeEstimate(
       : `${days} at ${rate.currency} ${rate.dailyRate.toFixed(2)} — estimated ${rate.currency} ${amount.toFixed(2)}`,
   };
 }
+
+
+/**
+ * How a carrier's allowance is classed, and why anybody cares.
+ *
+ * Ten days is the line. Under it the container has to move almost at once and
+ * the job is planned around the deadline; over it there is room to sequence
+ * the collection with everything else, and the deadline stops being the thing
+ * that decides the week.
+ *
+ * Exactly ten is called out separately rather than folded into one side. It is
+ * the commonest allowance there is, so a carrier restating its terms from nine
+ * to ten changes how a job is planned, and a label that said "long" for both
+ * ten and thirty would hide that.
+ */
+export type FreeTimeTerm = 'SHORT' | 'THRESHOLD' | 'LONG' | 'UNKNOWN';
+
+export function freeTimeTerm(freeDays: number | null): FreeTimeTerm {
+  if (freeDays === null || !Number.isFinite(freeDays) || freeDays <= 0) return 'UNKNOWN';
+  if (freeDays < 10) return 'SHORT';
+  if (freeDays > 10) return 'LONG';
+  return 'THRESHOLD';
+}
+
+export const TERM_LABEL: Record<FreeTimeTerm, string> = {
+  SHORT: 'Short term',
+  THRESHOLD: 'Ten days',
+  LONG: 'Long term',
+  UNKNOWN: 'Not recorded',
+};

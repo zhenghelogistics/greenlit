@@ -13,6 +13,7 @@ export * from './types.ts';
 export * from './gates.ts';
 export * from './handover.ts';
 export * from './controller-board.ts';
+export * from './plausibility.ts';
 export * from './location.ts';
 export * from './status.ts';
 export * from './next-action.ts';

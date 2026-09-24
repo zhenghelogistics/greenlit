@@ -101,7 +101,7 @@ function WhenField({ label, required, date, time, onDate, onTime }) {
   );
 }
 
-export default function ZhtNewJob({ customers = [], onCreate, onCancel }) {
+export default function ZhtNewJob({ customers = [], onCreate, onCancel, onUseDocument, nextJobNumber, onCustomerChosen }) {
   const [type, setType] = useState(null);
   const [tab, setTab] = useState("customer");
   const [busy, setBusy] = useState(false);
@@ -171,6 +171,15 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel }) {
     return null;
   }
 
+  /**
+   * Create, then stay here with the customer kept.
+   *
+   * Jobs arrive in runs — one customer, one vessel, four bookings — and going
+   * back to an empty form between them means retyping the half that never
+   * changed. What is cleared is what differs: the references, the containers.
+   */
+  const [again, setAgain] = useState(false);
+
   async function submit(event) {
     event.preventDefault();
     const failure = validate();
@@ -214,7 +223,19 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel }) {
         };
 
     try {
-      await onCreate(type, draft);
+      await onCreate(type, draft, { stayHere: again });
+      if (again) {
+        set({
+          vesselName: "", voyageNumber: "", blNumber: "", houseBlNumber: "",
+          bookingReference: "", exportClearanceReference: "", remarks: "",
+        });
+        setRows([{ containerNumber: "", sizeType: "", grossWeight: "", deliveryDate: "", deliveryTime: "",
+          emptyReturnYard: "", freeTimeModel: "COMBINED", combinedFreeDays: "",
+          demurrageFreeDays: "", detentionFreeDays: "",
+          deliveryCompany: "", deliveryAddress: "",
+          heavyDuty: false, rated32_5: false, triAxle: false }]);
+        setTab("shipment");
+      }
     } catch (failed) {
       setProblem(failed?.message || "The job could not be created.");
     } finally {
@@ -276,6 +297,9 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel }) {
           </button>
           <div className={`creation-type-badge ${isImport ? "import" : "export"}`}>
             {isImport ? "IMPORT JOB" : "EXPORT JOB"}
+            {/* The number it will get, before it gets it. Operations write it
+                on the paperwork while the form is still open. */}
+            {nextJobNumber ? <span style={{ marginLeft: 8, opacity: 0.8 }}>{nextJobNumber}</span> : null}
           </div>
         </div>
 
@@ -301,7 +325,12 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel }) {
               <Field label="Customer" required>
                 <select
                   value={job.customerCode}
-                  onChange={(e) => set({ customerCode: e.target.value, deliveryCompany: "", deliveryAddress: "" })}
+                  onChange={(e) => {
+                    set({ customerCode: e.target.value, deliveryCompany: "", deliveryAddress: "" });
+                    // The reference is the customer's next one, so it can only
+                    // be previewed once there is a customer.
+                    onCustomerChosen?.(e.target.value);
+                  }}
                 >
                   <option value="">Choose a customer</option>
                   {customers.map((c) => (
@@ -320,7 +349,19 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel }) {
                   <button
                     type="button"
                     className={`delivery-mode-btn${job.addressMode === "job" ? " active" : ""}`}
-                    onClick={() => set({ addressMode: "job" })}
+                    onClick={() => {
+                      // Switching back hides the per-container addresses, and
+                      // hiding them is how somebody loses twenty minutes of
+                      // typing without being told. Ask before, not after.
+                      const entered = rows.filter((r) => r.deliveryAddress).length;
+                      if (entered > 0 && !window.confirm(
+                        `${entered} container${entered === 1 ? " has" : "s have"} their own `
+                        + `delivery address. Using one address for the job will discard `
+                        + `${entered === 1 ? "it" : "them"}. Continue?`,
+                      )) return;
+                      setRows((was) => was.map((r) => ({ ...r, deliveryCompany: "", deliveryAddress: "" })));
+                      set({ addressMode: "job" });
+                    }}
                   >
                     <b>One address for the job</b>
                     <span>Every container goes to the same place. Most jobs.</span>
@@ -372,11 +413,28 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel }) {
                 <div className="section-title">Shipment</div>
                 <div className="muted">
                   {isImport
-                    ? "What the arrival notice says. Uploading the notice fills all of this."
+                    ? "What the arrival notice says."
                     : "The booking, and the two dates an export job is worked against."}
                 </div>
               </div>
             </div>
+
+            {/* The accelerator, offered rather than imposed. Reading the notice
+                fills every field below it, so somebody holding the PDF should
+                not be typing — but somebody who has the details on the phone
+                and no document yet should not be sent away to find one. */}
+            {isImport ? (
+              <div className="permit-guidance" style={{ marginBottom: 14 }}>
+                <b>Have the arrival notice?</b>
+                <span>
+                  Reading it fills the vessel, the ETA, the bills of lading and every
+                  container.{" "}
+                  <button type="button" className="btn ghost" onClick={onUseDocument}>
+                    Upload it instead
+                  </button>
+                </span>
+              </div>
+            ) : null}
             <div className="formgrid job-create-grid">
               <Field label="Vessel" required>
                 <input value={job.vesselName} onChange={(e) => set({ vesselName: shout(e.target.value) })} />
@@ -744,7 +802,16 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel }) {
 
         <div className="action-row" style={{ justifyContent: "flex-end", marginTop: 18 }}>
           <button className="btn secondary" type="button" onClick={onCancel}>Cancel</button>
-          <button className="btn primary" type="submit" disabled={busy}>
+          <button
+            className="btn secondary" type="submit" disabled={busy}
+            onClick={() => setAgain(true)}
+          >
+            Create &amp; add another
+          </button>
+          <button
+            className="btn primary" type="submit" disabled={busy}
+            onClick={() => setAgain(false)}
+          >
             {busy ? "Creating…" : "Create job"}
           </button>
         </div>

@@ -103,6 +103,7 @@ test('§20: truck and driver are required only to reach ASSIGNED', () => {
 
 const importJob: ImportJob = {
   closedAt: null, closedBy: null,
+  documentsCompletedAt: null, documentsCompletedBy: null,
   jobId: 'j', jobNumber: 'JOB-1', customer: 'ABC', blNumber: 'BL', houseBlNumber: null, vesselName: 'V',
   voyageNumber: '1E', eta: '2026-09-01', jobType: 'std', deliveryAddress: '12 Tuas',
   permitRequired: false, permitReceived: true, permitRejected: false,
@@ -111,6 +112,7 @@ const importJob: ImportJob = {
 };
 const importContainer: ImportContainer = {
   handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
+  plannedDeliveryDate: null, plannedDeliveryTime: null,
   containerId: 'c', containerNumber: 'ABCU1234567', jobId: 'j', containerSize: '40',
   containerType: 'HQ', sealNumber: null, grossWeight: 1, packageCount: null, packageType: null, cargoDescription: 'x',
   portTerminal: 'PSA', emptyReturnYard: 'Jurong', freeTimeModel: 'SPLIT',
@@ -157,6 +159,7 @@ test('§22: three movement types are never auto-created', () => {
 
 const exportJob: ExportJob = {
   closedAt: null, closedBy: null,
+  emptyCollectionDate: null, emptyCollectionTime: null,
   exportJobId: 'e', jobNumber: 'EXP-1', customer: 'ABC', shipper: 'XYZ',
   bookingReference: 'BK', exportClearanceReference: 'OP', carrier: 'ONE',
   vesselName: 'V', voyageNumber: '1E', etaSingapore: '2026-09-03',

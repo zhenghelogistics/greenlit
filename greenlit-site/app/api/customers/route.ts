@@ -1,3 +1,4 @@
+import { duplicateCustomerName } from "@greenlit/engine";
 import { authorize, badRequest, readJson } from "../../../lib/command";
 import { getRepository, jsonError } from "../../../lib/greenlit";
 
@@ -28,6 +29,14 @@ export async function POST(request: Request) {
 
     if (!body?.code?.trim()) return badRequest("code is required");
     if (!body.companyName?.trim()) return badRequest("companyName is required");
+
+    // A retainer business organises everything around the customer record, so
+    // a second copy of one is worse than it looks: the duplicate starts with
+    // no saved locations and no standing instructions, and whoever creates the
+    // next job picks whichever came up first.
+    const clash = duplicateCustomerName(
+      body.companyName, await getRepository().listCustomers());
+    if (clash) return badRequest(clash);
 
     const customer = await getRepository().createCustomer({
       code: body.code,

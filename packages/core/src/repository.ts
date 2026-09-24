@@ -417,6 +417,29 @@ export interface Repository {
   recordDischarged(containerId: string, actor: string): Promise<void>;
   /** Record that a container reached the customer. */
   recordDelivered(containerId: string, actor: string): Promise<void>;
+  /**
+   * Operations confirm the job is fully gathered.
+   *
+   * Refused while anything is outstanding, so the mark can never mean less
+   * than both claims: no field is empty, and a person checked it.
+   */
+  markDocumentsComplete(jobId: string, actor: string): Promise<void>;
+  /**
+   * §36.3. The customer has finished with the container.
+   *
+   * What moves it into the empty-return queue. The field has existed since the
+   * first schema and nothing wrote it, so the queue could only ever be reached
+   * by a status somebody set by hand.
+   */
+  confirmEmptyReady(
+    containerId: string,
+    /**
+     * §36.3. How the customer told us, which is the part worth keeping. "They
+     * said so" is not auditable; "WhatsApp, Tuesday, from their warehouse" is.
+     */
+    source: 'EMAIL' | 'WHATSAPP' | 'PHONE' | 'MANUAL',
+    actor: string,
+  ): Promise<void>;
   recordContainerReady(containerId: string, actor: string): Promise<void>;
   recordVgm(containerId: string, vgm: number, actor: string): Promise<void>;
 
@@ -674,6 +697,9 @@ export interface ExportJobDraft {
    */
   vesselClosingAt?: string | null;
   emptyCollectionYard?: string | null;
+  /** §47. When the empty is wanted. The clock the job actually runs on. */
+  emptyCollectionDate?: string | null;
+  emptyCollectionTime?: string | null;
   containerQuantity?: number;
   containerSizeType?: string | null;
   truckInDate?: string | null;

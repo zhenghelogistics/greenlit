@@ -165,3 +165,42 @@ export function sortCustomerJobs(jobs: readonly CustomerJobSummary[]): CustomerJ
       - (parseJobReference(a.jobReference)?.sequence ?? 0);
   });
 }
+
+
+/**
+ * A customer name already on file.
+ *
+ * The code is unique in the schema and the name is not, which is right — two
+ * genuine companies can share a trading name. But the usual cause of a
+ * duplicate is somebody creating a customer that already exists under a
+ * slightly different spelling, and the cost is larger here than it looks.
+ *
+ * This is a retainer business, not a series of one-off sales. The customer is
+ * the organising unit (ADR-0007): the saved locations, the standing
+ * instructions, the permit preference and the whole history of what has been
+ * agreed hang off one record. Split that in two and the second copy starts
+ * empty — no addresses, no instructions — so the next person creating a job
+ * picks whichever came up first and types the delivery address in by hand.
+ * Neither record then shows the relationship, and the one thing the business
+ * runs on is the relationship.
+ *
+ * Compared ignoring case and surrounding space, because "DKSH Singapore" and
+ * "dksh singapore " are the same company to everybody except a string
+ * comparison. Returns null when the name is new, or when it is the record's
+ * own name being saved again.
+ */
+export function duplicateCustomerName(
+  name: string,
+  existing: readonly { code: string; companyName: string }[],
+  ownCode?: string,
+): string | null {
+  const key = (value: string) => value.trim().toUpperCase().replace(/\s+/g, ' ');
+  const wanted = key(name);
+  if (!wanted) return null;
+
+  const clash = existing.find((c) => c.code !== ownCode && key(c.companyName) === wanted);
+  return clash
+    ? `${clash.companyName} already exists as ${clash.code}. `
+      + 'Use that customer, or give this one a name that tells them apart.'
+    : null;
+}

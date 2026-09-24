@@ -157,3 +157,24 @@ export function containersWithoutPermit(
   const covered = new Set(permits.flatMap((p) => p.linkedContainerIds));
   return containerIds.filter((id) => !covered.has(id));
 }
+
+
+/**
+ * A permit number that has changed on a record that already had one.
+ *
+ * Not an error and not refused: an amended permit genuinely gets a new number,
+ * and that is the whole reason permits are amended. But the numbers differ by
+ * a character or two and are typed from a PDF, so a change is equally likely
+ * to be a slip — and the old number is already printed on paperwork that has
+ * gone to a customer.
+ *
+ * So it is worth stopping to read once, which is all this is for. Returns null
+ * when there is nothing to check: a first number is not a change.
+ */
+export function permitNumberChanged(before: string | null, after: string | null): string | null {
+  const was = (before ?? '').trim().toUpperCase();
+  const now = (after ?? '').trim().toUpperCase();
+  if (!was || !now || was === now) return null;
+  return `This permit was ${was} and is now ${now}. `
+    + 'Check it against the permit before saving — the old number may already be on paperwork.';
+}

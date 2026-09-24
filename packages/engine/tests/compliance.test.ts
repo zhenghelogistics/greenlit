@@ -51,6 +51,7 @@ const mv = (o: Partial<Movement> = {}): Movement => ({
 
 const importJob = (o: Partial<ImportJob> = {}): ImportJob => ({
   closedAt: null, closedBy: null,
+  documentsCompletedAt: null, documentsCompletedBy: null,
   jobId: 'j', jobNumber: 'JOB-260901-001', customer: 'ABC', blNumber: 'BL', houseBlNumber: null,
   vesselName: 'V', voyageNumber: '1E', eta: '2026-09-01', jobType: 'std',
   deliveryAddress: '12 Tuas', permitRequired: true, permitReceived: true,
@@ -61,6 +62,7 @@ const importJob = (o: Partial<ImportJob> = {}): ImportJob => ({
 
 const importContainer = (o: Partial<ImportContainer> = {}): ImportContainer => ({
   handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
+  plannedDeliveryDate: null, plannedDeliveryTime: null,
   containerId: 'c', containerNumber: 'ABCU1234567', jobId: 'j', containerSize: '40',
   containerType: 'HQ', sealNumber: null, grossWeight: 1, packageCount: null, packageType: null, cargoDescription: 'x',
   portTerminal: 'PSA', emptyReturnYard: 'Jurong', freeTimeModel: 'SPLIT',
@@ -75,6 +77,7 @@ const importContainer = (o: Partial<ImportContainer> = {}): ImportContainer => (
 
 const exportJob = (o: Partial<ExportJob> = {}): ExportJob => ({
   closedAt: null, closedBy: null,
+  emptyCollectionDate: null, emptyCollectionTime: null,
   exportJobId: 'e', jobNumber: 'EXP-260901-001', customer: 'ABC', shipper: 'XYZ',
   bookingReference: 'BK', exportClearanceReference: 'OP', carrier: 'ONE',
   vesselName: 'V', voyageNumber: '1E', etaSingapore: '2026-09-03',

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { freeTimeClocks, carrierLastFreeDay, contradictoryFreeTime, freeTimeCountdown, mostUrgentClock, chargeEstimate, lastFreeDayFrom } from '../src/free-time.ts';
+import { freeTimeClocks, carrierLastFreeDay, contradictoryFreeTime, freeTimeCountdown, mostUrgentClock, chargeEstimate, lastFreeDayFrom, freeTimeTerm } from '../src/free-time.ts';
 
 const base = {
   demurrageFreeDays: 5, demurrageLfd: '2026-09-14',
@@ -269,7 +269,8 @@ test('§34.1: no ETA and no allowance means no deadline, never a guessed one', (
   assert.equal(lastFreeDayFrom('2026-09-23', null), null, 'no allowance');
   assert.equal(lastFreeDayFrom('2026-09-23', 0), null, 'zero free days is not a deadline today');
   assert.equal(lastFreeDayFrom('2026-09-23', -3), null, 'a negative allowance is not a date in the past');
-  assert.equal(lastFreeDayFrom('23/09/2026', 7), null, 'a display date is not an ISO one');
+  // A display date is now counted rather than refused: see the test below.
+  // Returning null for one meant no deadline at all, silently.
 });
 
 test('§34.1: the clock counts its own last free day when nobody has overridden it', () => {
@@ -322,4 +323,28 @@ test('§34.1: split clocks are counted from the same ETA, separately', () => {
     ...base, freeTimeModel: 'SPLIT', eta: '2026-09-23',
     demurrageFreeDays: 5, demurrageLfd: null, detentionFreeDays: 7, detentionLfd: null,
   }), '2026-09-27', 'the money deadline is demurrage');
+});
+
+test('ten days is its own class, not the bottom of "long"', () => {
+  // The commonest allowance there is, so a carrier moving from nine to ten
+  // changes how the job is planned. A label that said "long" for both ten and
+  // thirty would hide that.
+  assert.equal(freeTimeTerm(9), 'SHORT');
+  assert.equal(freeTimeTerm(10), 'THRESHOLD');
+  assert.equal(freeTimeTerm(11), 'LONG');
+  assert.equal(freeTimeTerm(null), 'UNKNOWN');
+  assert.equal(freeTimeTerm(0), 'UNKNOWN', 'zero free days is not a short allowance');
+});
+
+test('§34.1: a display date counts the same as a stored one', () => {
+  // The database stores ISO; the screens carry DD/MM/YYYY. A version that took
+  // only ISO returned null for a display date — no deadline at all, silently,
+  // which is worse than a wrong one because nothing looks broken.
+  assert.equal(lastFreeDayFrom('23/09/2026', 7), '2026-09-29');
+  assert.equal(lastFreeDayFrom('23/09/2026', 7), lastFreeDayFrom('2026-09-23', 7),
+    'the two shapes of the same day give the same answer');
+  // Singapore writes day first: 09/10 is the ninth of October, not September.
+  assert.equal(lastFreeDayFrom('09/10/2026', 1), '2026-10-09');
+  assert.equal(lastFreeDayFrom('2026-09-23T08:00:00Z', 7), '2026-09-29', 'a timestamp counts by its day');
+  assert.equal(lastFreeDayFrom('23/9/2026', 7), null, 'a half-written date is still refused');
 });

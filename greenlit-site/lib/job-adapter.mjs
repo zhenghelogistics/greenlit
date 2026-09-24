@@ -56,6 +56,11 @@ export function jobFromApi(view) {
     handoverShipmentGaps: view.handoverShipmentGaps ?? [],
     documentGaps: view.documentGaps ?? [],
     documentsComplete: Boolean(view.documentsComplete),
+    jobWarnings: view.jobWarnings ?? [],
+    documentsCompletedAt: view.documentsCompletedAt ?? null,
+    documentsCompletedBy: view.documentsCompletedBy ?? "",
+    emptyCollectionDate: r.emptyCollectionDate ?? null,
+    emptyCollectionTime: r.emptyCollectionTime ?? "",
     cmsCompleted: r.cmsStatus === "COMPLETED" || r.cmsStatus === "NOT_REQUIRED",
     emptyYard: r.emptyCollectionYard ?? "",
     deliveryAddress: r.deliveryAddress ?? first.stuffingLocation ?? "",
@@ -170,6 +175,9 @@ export function jobFromApi(view) {
       dischargedAt: view.containers?.[i]?.dischargedAt ?? null,
       deliveredAt: view.containers?.[i]?.deliveredAt ?? null,
       canPlanCollection: Boolean(view.containers?.[i]?.canPlanCollection),
+      plannedDeliveryDate: c.plannedDeliveryDate ?? null,
+      plannedDeliveryTime: c.plannedDeliveryTime ?? "",
+      warnings: view.containers?.[i]?.warnings ?? [],
     })),
     trips: (view.movements ?? []).map((m) => ({
       id: m.movementRef,
@@ -186,6 +194,13 @@ export function jobFromApi(view) {
       driver: m.driver,
       chassisId: m.chassisId,
       autoCreated: m.autoCreated,
+      // A trip with no driver is a row on a board, not a job anybody can do.
+      // Named individually rather than "incomplete", which sends somebody back
+      // to the form to work out which of the three it was. Not a refusal:
+      // scheduling a date before a driver is found is ordinary.
+      unassigned: ["driver", "truck", "chassisId"]
+        .filter((k) => !String(m[k] ?? "").trim())
+        .map((k) => ({ driver: "Driver", truck: "Vehicle", chassisId: "Chassis" }[k])),
     })),
     // The engine's answers. The accessors above read these and never recompute.
     derived: {

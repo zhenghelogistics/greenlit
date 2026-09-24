@@ -41,7 +41,17 @@ const Empty = ({ children }) => <div className="clean-empty">{children}</div>;
 /** §26. Every job, filterable by domain — his toolbar, our register. */
 export function ZhtJobs({ jobs, onOpenJob, onNewJob }) {
   const [type, setType] = useState("");
-  const rows = jobs.filter((j) => !type || j.type === type);
+  const [docs, setDocs] = useState("");
+
+  // Two questions a person actually opens this list to ask: what is still
+  // being chased, and what is finished and can be handed on. Neither is
+  // answerable from the operational status, which is about where the box is.
+  const rows = jobs.filter((j) => {
+    if (type && j.type !== type) return false;
+    if (docs === "outstanding" && (j.documentGaps ?? []).length === 0) return false;
+    if (docs === "ready" && (j.documentGaps ?? []).length > 0) return false;
+    return true;
+  });
 
   return (
     <Shell title="Jobs"
@@ -52,6 +62,11 @@ export function ZhtJobs({ jobs, onOpenJob, onNewJob }) {
             <option value="">All Types</option>
             <option value="Import">Import</option>
             <option value="Export">Export</option>
+          </select>
+          <select value={docs} onChange={(e) => setDocs(e.target.value)}>
+            <option value="">Any document status</option>
+            <option value="outstanding">Information outstanding</option>
+            <option value="ready">Documents ready</option>
           </select>
         </div>
         <table>
@@ -100,8 +115,43 @@ export function ZhtPlanning({ jobs, fleet, onOpenJob }) {
   }
   const vehicles = [...byVehicle.entries()];
 
+  // The board groups by truck, so a movement with no truck on it appeared
+  // nowhere: planned, invisible, and nobody doing it. They are listed first,
+  // because an unassigned trip is the only thing on this screen that needs
+  // somebody to act before the day can run.
+  const unassigned = jobs.flatMap((job) =>
+    (job.trips ?? [])
+      .filter((t) => (t.unassigned ?? []).length > 0 && t.status !== "CANCELLED")
+      .map((trip) => ({ trip, job })));
+
   return (
     <Shell title="Planning Board">
+      {unassigned.length ? (
+        <div className="card" style={{ marginBottom: 14, borderColor: "var(--gl-state-warn)" }}>
+          <div className="section-title">
+            Waiting on an assignment · {unassigned.length}
+          </div>
+          <div className="muted">
+            Planned, but nobody is doing them yet. Each is missing what it says.
+          </div>
+          <div style={{ marginTop: 10 }}>
+            {unassigned.map(({ trip, job }, i) => (
+              <div className="movement" key={`${job.id}-${trip.id}-${i}`}>
+                <strong>{trip.type}</strong>
+                {trip.origin} → {trip.destination}
+                <br />
+                <span className="muted">
+                  <button className="btn ghost" type="button" onClick={() => onOpenJob(job)}>
+                    {job.id}
+                  </button>
+                  {trip.plannedDate ? ` · ${trip.plannedDate}` : " · no date"}
+                  {" · needs "}{trip.unassigned.join(", ")}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {/* §17. The thing a controller reading job by job cannot see: a truck
           already committed to finish where some other job needs one to start.
           An empty leg is a truck, a driver and a slot on the day, paid for and

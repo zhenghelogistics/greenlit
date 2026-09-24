@@ -157,7 +157,7 @@ const IMPORT_JOBS: ImportJob[] = [
     jobId: 'ij1', jobNumber: 'JOB-260818-001', customer: 'ABC Company',
     blNumber: 'ABC123456', houseBlNumber: null, vesselName: 'Vessel XYZ', voyageNumber: '123E',
     eta: '2026-08-20', jobType: 'standard', deliveryAddress: '12 Tuas Ave 8',
-    permitRequired: true, permitReceived: false, permitRejected: false,
+    documentsCompletedAt: null, documentsCompletedBy: null, permitRequired: true, permitReceived: false, permitRejected: false,
     portnetRequired: true, portnetReleased: false,
     assignedController: 'Sarah', cancelled: false, onHold: false,
     createdAt: '2026-08-18T08:00:00Z',
@@ -168,7 +168,7 @@ const IMPORT_JOBS: ImportJob[] = [
     jobId: 'ij2', jobNumber: 'JOB-260816-004', customer: 'Lion City Traders',
     blNumber: 'BL778812', houseBlNumber: 'HBL-99120', vesselName: 'Kota Ratu', voyageNumber: '044W',
     eta: '2026-08-16', jobType: 'standard', deliveryAddress: '3 Pioneer Sector 2',
-    permitRequired: false, permitReceived: true, permitRejected: false,
+    documentsCompletedAt: null, documentsCompletedBy: null, permitRequired: false, permitReceived: true, permitRejected: false,
     portnetRequired: true, portnetReleased: true,
     assignedController: 'Brandon', cancelled: false, onHold: false,
     createdAt: '2026-08-16T02:00:00Z',
@@ -181,6 +181,7 @@ const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
   ij1: [{
     containerId: 'ic1', containerNumber: 'OOLU8841250', jobId: 'ij1',
     handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
+    plannedDeliveryDate: null, plannedDeliveryTime: null,
     containerSize: '40', containerType: 'HQ', sealNumber: null, grossWeight: 21400,
     packageCount: 300, packageType: 'CASE', cargoDescription: 'General cargo', portTerminal: 'PSA Pasir Panjang',
     emptyReturnYard: 'Jurong Yard', freeTimeModel: 'SPLIT', freeTimeCountsFrom: 'VESSEL_ETA',
@@ -195,6 +196,7 @@ const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
   ij2: [{
     containerId: 'ic2', containerNumber: 'CSNU7213366', jobId: 'ij2',
     handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
+    plannedDeliveryDate: null, plannedDeliveryTime: null,
     containerSize: '20', containerType: 'GP', sealNumber: 'SG88213', grossWeight: 14800,
     packageCount: null, packageType: null, cargoDescription: 'Machine parts', portTerminal: 'PSA Brani',
     emptyReturnYard: 'Jurong Yard', freeTimeModel: 'COMBINED', freeTimeCountsFrom: 'DISCHARGE',
@@ -216,6 +218,7 @@ const EXPORT_JOBS: ExportJob[] = [
     exportClearanceReference: 'OP-260818-77', carrier: 'ONE',
     vesselName: 'ONE Splendour', voyageNumber: '114E', etaSingapore: '2026-09-03',
     vesselClosingAt: null, emptyCollectionYard: 'EK11 Depot',
+    emptyCollectionDate: null, emptyCollectionTime: null,
     cmsRequired: true, cmsStatus: 'COMPLETED', containerQuantity: 1,
     containerSizeType: '40 HQ', truckInDate: '2026-08-18', truckOutDate: '2026-08-20',
     standbyRequired: false, standbyInstructionSource: null, standbyExpectedMinutes: null,
@@ -231,6 +234,7 @@ const EXPORT_JOBS: ExportJob[] = [
     exportClearanceReference: 'OP-260819-12', carrier: 'PIL',
     vesselName: 'Kota Nabil', voyageNumber: '072E', etaSingapore: '2026-09-05',
     vesselClosingAt: null, emptyCollectionYard: 'EK11 Depot',
+    emptyCollectionDate: null, emptyCollectionTime: null,
     cmsRequired: true, cmsStatus: 'COMPLETED', containerQuantity: 1,
     containerSizeType: '20 GP', truckInDate: '2026-08-19', truckOutDate: '2026-08-21',
     standbyRequired: false, standbyInstructionSource: null, standbyExpectedMinutes: null,
@@ -246,6 +250,7 @@ const EXPORT_JOBS: ExportJob[] = [
     exportClearanceReference: 'OP-260819-03', carrier: 'ONE',
     vesselName: 'ONE Splendour', voyageNumber: '114E', etaSingapore: '2026-09-03',
     vesselClosingAt: null, emptyCollectionYard: 'EK11 Depot',
+    emptyCollectionDate: null, emptyCollectionTime: null,
     cmsRequired: true, cmsStatus: 'PENDING', containerQuantity: 2,
     containerSizeType: '40 HQ', truckInDate: '2026-08-20', truckOutDate: '2026-08-22',
     standbyRequired: true, standbyInstructionSource: 'BOOKING', standbyExpectedMinutes: 120,
@@ -516,6 +521,8 @@ export function createMemoryRepository(): Repository {
         // §33 makes closure a stored fact and an absent one would read as
         // closed to Boolean().
         closedAt: null, closedBy: null,
+        // Nobody has checked a job that has just been created.
+        documentsCompletedAt: null, documentsCompletedBy: null,
         jobId, jobNumber, customer: customer.companyName,
         blNumber: draft.blNumber ?? null,
         houseBlNumber: draft.houseBlNumber ?? null,
@@ -551,6 +558,8 @@ export function createMemoryRepository(): Repository {
           handedOverBy: null,
           dischargedAt: null,
           deliveredAt: null,
+          plannedDeliveryDate: null,
+          plannedDeliveryTime: null,
           containerNumber: c.containerNumber?.trim() || null,
           secondaryContainerId: null,
           containerSize: size || '',
@@ -602,6 +611,8 @@ export function createMemoryRepository(): Repository {
         etaSingapore: draft.etaSingapore ?? null,
         vesselClosingAt: draft.vesselClosingAt ?? null,
         emptyCollectionYard: draft.emptyCollectionYard ?? null,
+        emptyCollectionDate: draft.emptyCollectionDate ?? null,
+        emptyCollectionTime: draft.emptyCollectionTime ?? null,
         cmsRequired: draft.cmsRequired ?? true,
         cmsStatus: 'PENDING',
         containerQuantity: quantity,
@@ -1350,6 +1361,26 @@ export function createMemoryRepository(): Repository {
       c.handedOverBy = actor;
       record(jobOfContainer(containerId), 'container.handedToController', actor,
         { field: 'handedOverAt', from: null, to: c.handedOverAt });
+    },
+    async confirmEmptyReady(containerId, source, actor) {
+      const c = Object.values(importContainers).flat()
+        .find((ic) => ic.containerId === containerId);
+      if (!c) throw new Error(`Unknown import container ${containerId}`);
+      if (c.emptyReadyConfirmed) return;
+      c.emptyReadyConfirmed = true;
+      c.emptyReadyConfirmedAt = new Date().toISOString();
+      c.emptyReadySource = source;
+      record(jobOfContainer(containerId), 'container.emptyReady', actor,
+        { field: 'emptyReadyConfirmed', from: false, to: true });
+    },
+    async markDocumentsComplete(jobId, actor) {
+      const job = importJobs.find((j) => j.jobId === jobId);
+      if (!job) throw new Error(`Unknown import job ${jobId}`);
+      if (job.documentsCompletedAt) return;
+      job.documentsCompletedAt = new Date().toISOString();
+      job.documentsCompletedBy = actor;
+      record(jobId, 'job.documentsCompleted', actor,
+        { field: 'documentsCompletedAt', from: null, to: job.documentsCompletedAt });
     },
     async recordDischarged(containerId, actor) {
       const c = Object.values(importContainers).flat()

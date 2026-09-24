@@ -1,8 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  checkPermit, permitNumberLooksValid, normalisePermitNumber, containersWithoutPermit,
-} from '../src/permits.ts';
+  checkPermit, permitNumberLooksValid, normalisePermitNumber, containersWithoutPermit, permitNumberChanged } from '../src/permits.ts';
 
 const JOB = { vesselName: 'CALLAO BRIDGE', voyageNumber: '256S', eta: '2026-09-19' };
 const PERMIT = {
@@ -106,4 +105,15 @@ test('§24: one permit covers many containers, one container takes many permits'
 
 test('normalising a permit number', () => {
   assert.equal(normalisePermitNumber(' ig6i-728642 h '), 'IG6I728642H');
+});
+
+test('a changed permit number is worth reading twice, and is never refused', () => {
+  // An amended permit genuinely gets a new number, which is the point of
+  // amending it. But the numbers differ by a character or two and are typed
+  // from a PDF, so a change is equally likely to be a slip — and the old one
+  // is already on paperwork that went to a customer.
+  assert.equal(permitNumberChanged(null, 'IG6I789494H'), null, 'a first number is not a change');
+  assert.equal(permitNumberChanged('IG6I789494H', 'IG6I789494H'), null);
+  assert.equal(permitNumberChanged('ig6i789494h', 'IG6I789494H'), null, 'case is not a change');
+  assert.match(permitNumberChanged('IG6I789494H', 'IG6I789494J') ?? '', /was IG6I789494H and is now IG6I789494J/);
 });

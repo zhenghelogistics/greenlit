@@ -10,7 +10,7 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "node --test tests/*.test.ts",
+    "test": "node --test tests/*.test.ts tests/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=85 --test-coverage-branches=70 tests/*.test.ts"
   },

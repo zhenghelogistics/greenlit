@@ -12,6 +12,9 @@ import {
   controllerStage,
   pendingReasons,
   canPlanCollection,
+  deliveryDateWarning,
+  cmsWarning,
+  staleEtaWarning,
   importHandoverShipmentGaps,
   exportHandoverShipmentGaps,
   documentGaps,
@@ -22,7 +25,7 @@ import {
   type FreeTimeCountdown,
   type ChargeEstimate,
 } from '@greenlit/engine';
-import type { ControllerStage, DocumentGap, IsoDate, PermitRecord } from '@greenlit/engine';
+import type { ControllerStage, DocumentGap, IsoDate, PermitRecord, Warning } from '@greenlit/engine';
 
 /**
  * I-25. The day the empty return actually completed, if it has.
@@ -95,6 +98,13 @@ export interface DerivedContainerView {
   /** Whether a truck can be sent: released and discharged, both. */
   canPlanCollection: boolean;
   /**
+   * Dates that are possible but almost certainly wrong.
+   *
+   * Warnings, never refusals: every one of them is sometimes right, and a
+   * refusal means the true answer cannot be recorded at all.
+   */
+  warnings: Warning[];
+  /**
    * §34.0. The third number: what the days already over are likely to cost.
    *
    * Derived here for the same reason the countdown is — two screens
@@ -147,6 +157,11 @@ export interface DerivedJobView {
    */
   documentGaps: DocumentGap[];
   documentsComplete: boolean;
+  /** Job-level oddities worth saying out loud. Never refusals. */
+  jobWarnings: Warning[];
+  /** When operations confirmed the job is gathered, and who. */
+  documentsCompletedAt: string | null;
+  documentsCompletedBy: string | null;
   containers: DerivedContainerView[];
   movements: Movement[];
   /**
@@ -361,6 +376,7 @@ export function deriveImportJob(
       dischargedAt: c.dischargedAt,
       deliveredAt: c.deliveredAt,
       canPlanCollection: canPlanCollection(boardFacts),
+      warnings: [deliveryDateWarning(job.eta, c.plannedDeliveryDate)].filter(Boolean) as Warning[],
       charge: chargeEstimate(clocks, { dailyRate: c.dailyRate, currency: c.currency }),
     };
   });
@@ -405,8 +421,17 @@ export function deriveImportJob(
     mandatoryComplete: missing.length === 0,
     missingInformation: missing,
     handoverShipmentGaps: importHandoverShipmentGaps(job),
+    documentsCompletedAt: job.documentsCompletedAt,
+    documentsCompletedBy: job.documentsCompletedBy,
     documentGaps: documentGaps(job, containers, permits),
     documentsComplete: documentGaps(job, containers, permits).length === 0,
+    // A ship being late is ordinary; an ETA days behind with containers still
+    // waiting means either the date is stale or a discharge went unrecorded,
+    // and both are answered by the same phone call.
+    jobWarnings: [staleEtaWarning(
+      job.eta, now.slice(0, 10),
+      views.some((v) => v.controllerStage === 'PENDING'),
+    )].filter(Boolean) as Warning[],
     containers: views,
     movements: [...movements],
     activity: [],
@@ -454,6 +479,7 @@ export function deriveExportJob(
       dischargedAt: null,
       deliveredAt: null,
       canPlanCollection: false,
+      warnings: [],
       charge: null,
     };
   });
@@ -502,8 +528,19 @@ export function deriveExportJob(
     missingInformation: missing,
     handoverShipmentGaps: exportHandoverShipmentGaps(job),
     // Export readiness is a different list and is not modelled yet.
+    documentsCompletedAt: null,
+    documentsCompletedBy: null,
     documentGaps: [],
     documentsComplete: false,
+    // §47. Counted against the empty collection, not the sailing: the empty is
+    // usually wanted weeks earlier, so a job measured against the vessel looks
+    // comfortable right up to the morning the truck cannot go.
+    // §47. Counted against the empty collection and never the sailing: the
+    // empty is usually due weeks before the ship, so a job measured against
+    // the vessel looks comfortable right up to the morning the truck cannot go.
+    jobWarnings: [cmsWarning(
+      job.cmsStatus, job.emptyCollectionDate, now.slice(0, 10),
+    )].filter(Boolean) as Warning[],
     containers: views,
     movements: [...movements],
     activity: [],

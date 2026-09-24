@@ -75,6 +75,16 @@ export interface ImportContainer {
   /** When it reached the customer. */
   deliveredAt: IsoInstant | null;
   /**
+   * The date agreed with the customer, which is not the date it arrived.
+   *
+   * What operations enter and the controller plans around. `deliveredAt`
+   * records what happened; this records what was promised, and the two are
+   * worth comparing.
+   */
+  plannedDeliveryDate: IsoDate | null;
+  /** A half-hour, or null when the day is agreed and the hour is not. */
+  plannedDeliveryTime: string | null;
+  /**
    * §39. Null until the arrival notice arrives.
    *
    * A job is opened when the customer calls and the notice follows, so the
@@ -177,6 +187,15 @@ export interface ImportJob {
   jobType: string;
   deliveryAddress: string | null;
   /** §31 gate conditions. Not mandatory fields — §30 forbids double-counting. */
+  /**
+   * When operations confirmed the job is fully gathered, if they have.
+   *
+   * Distinct from the computed outstanding list. That knows whether a field is
+   * empty; this records that a person checked the whole thing against the
+   * paperwork and agreed. The controller plans free time against the second.
+   */
+  documentsCompletedAt: IsoInstant | null;
+  documentsCompletedBy: string | null;
   permitRequired: boolean;
   permitReceived: boolean;
   permitRejected: boolean;
@@ -254,6 +273,16 @@ export interface ExportJob {
   etaSingapore: IsoDate | null;
   vesselClosingAt: IsoInstant | null;
   emptyCollectionYard: string | null;
+  /**
+   * §47. When the empty is wanted.
+   *
+   * The clock this job actually runs on. CMS is chased against it and never
+   * the vessel: the empty is usually due weeks before the ship sails, so a job
+   * measured against the sailing looks comfortable right up to the morning the
+   * truck cannot go.
+   */
+  emptyCollectionDate: IsoDate | null;
+  emptyCollectionTime: string | null;
   cmsRequired: boolean;
   cmsStatus: CmsStatus;
   containerQuantity: number;

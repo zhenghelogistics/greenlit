@@ -199,20 +199,23 @@ export default function SignInForm() {
           }}
         />
 
-        <div className="relative flex h-full flex-col justify-end p-16">
+        <div className="relative flex h-full flex-col justify-end p-14">
+          {/* Small on purpose. The mark is navy artwork inverted to white, so
+              its anti-aliased edges come back as semi-transparent white and read
+              soft at any size — the larger it is, the more obvious that is.
+              The signed-out page has already said whose system this is, in
+              full, on the other half. */}
           <Image
             src="/logo-blue.png"
             alt=""
             width={2217}
             height={676}
-            // White on navy: the guide's other permitted pairing, made from the
-            // one asset rather than shipping a second file that can drift.
-            className="h-9 w-auto brightness-0 invert"
+            className="h-6 w-auto opacity-90 brightness-0 invert"
           />
-          <p className="mt-7 max-w-[26ch] text-[30px] font-semibold leading-[1.22] tracking-[-0.015em] text-white">
+          <p className="mt-6 max-w-[22ch] text-[26px] font-semibold leading-[1.25] tracking-[-0.015em] text-white">
             Every container, and what it is waiting for.
           </p>
-          <p className="mt-4 max-w-[42ch] text-[17px] leading-relaxed text-[color:var(--zhl-on-navy-muted)]">
+          <p className="mt-3 max-w-[38ch] text-[16px] leading-relaxed text-[color:var(--zhl-on-navy-muted)]">
             Import and export, from the arrival notice to the empty going back.
           </p>
         </div>
