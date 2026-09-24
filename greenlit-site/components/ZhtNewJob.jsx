@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { checkPermit } from "@greenlit/engine";
+import { jobFromDocument, EMPTY_ROW } from "../lib/new-job-from-document.mjs";
 
 /**
  * Creating a job by hand.
@@ -179,10 +180,14 @@ function Field({ label, required, hint, filled, children }) {
   // id to keep unique across eleven container rows, and it stays associated
   // however the rows are reordered.
   return (
-    <label className={`field-wrap${filled ? " from-document" : ""}`}>
+    <label className={`field-wrap${filled ? ` from-document ${filled}` : ""}`}>
       <span className="field-label">
         {label}{required ? <span className="req"> *</span> : null}
-        {filled ? <span className="from-doc-tag">from the document</span> : null}
+        {filled ? (
+          <span className="from-doc-tag">
+            {filled === "review" ? "check this" : "from the document"}
+          </span>
+        ) : null}
       </span>
       {children}
       {hint ? <span className="field-helper">{hint}</span> : null}
@@ -275,13 +280,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
 
   const set = (patch) => setJob((was) => ({ ...was, ...patch }));
 
-  const [rows, setRows] = useState([
-    { containerNumber: "", sizeType: "", grossWeight: "", deliveryDate: "", deliveryTime: "",
-      emptyReturnYard: "", freeTimeModel: "COMBINED", combinedFreeDays: "",
-      demurrageFreeDays: "", detentionFreeDays: "",
-      deliveryCompany: "", deliveryAddress: "",
-      heavyDuty: false, rated32_5: false, triAxle: false },
-  ]);
+  const [rows, setRows] = useState([{ ...EMPTY_ROW }]);
   const [slots, setSlots] = useState([{ quantity: 1, sizeType: "20GP", reeferMode: "", reeferTemperature: "" }]);
 
   const customer = customers.find((c) => c.code === job.customerCode);
@@ -385,11 +384,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
           vesselName: "", voyageNumber: "", blNumber: "", houseBlNumber: "",
           bookingReference: "", exportClearanceReference: "", remarks: "",
         });
-        setRows([{ containerNumber: "", sizeType: "", grossWeight: "", deliveryDate: "", deliveryTime: "",
-          emptyReturnYard: "", freeTimeModel: "COMBINED", combinedFreeDays: "",
-          demurrageFreeDays: "", detentionFreeDays: "",
-          deliveryCompany: "", deliveryAddress: "",
-          heavyDuty: false, rated32_5: false, triAxle: false }]);
+        setRows([{ ...EMPTY_ROW }]);
         setNoaNote("");
         setFilled({});
       }
@@ -501,55 +496,17 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
    * beside the picker rather than chosen.
    */
   function applyDocument(read, fileName) {
-    const values = Object.fromEntries(
-      (read.fields ?? []).map((f) => [f.name, String(f.value ?? "").trim()]).filter(([, v]) => v));
-    const took = {};
-    const take = (key, target) => {
-      if (!values[key]) return;
-      took[target ?? key] = values[key];
-    };
+    const { job: patch, filled: marks, rows: readRows, readAddress: address, count } =
+      jobFromDocument(read, rows);
 
-    take("vesselName"); take("carrier"); take("blNumber"); take("houseBlNumber");
-    take("voyage", "voyageNumber");
-    take("bookingReference"); take("shipper"); take("emptyCollectionYard");
-    take("exportClearanceReference");
-    take("permitNumber"); take("permitExpiryDate"); take("permitVesselVoyage");
+    set(patch);
+    setReadAddress(address);
+    if (readRows) setRows(readRows);
+    setFilled((was) => ({ ...was, ...marks }));
 
-    // An ETA arrives as a date, sometimes with a time on the end.
-    if (values.eta) {
-      const [date, time] = values.eta.split(/[ T]/);
-      took.etaDate = date;
-      if (time) took.etaTime = time.slice(0, 5);
-    }
-    if (values.permitNumber) took.permitRequired = true;
-
-    set(took);
-    setReadAddress(values.deliveryAddress || "");
-
-    // Containers, as rows. The document's own rows replace the blank one; a
-    // form already holding typed containers is left alone, because overwriting
-    // somebody's typing is worse than making them delete a row.
-    const readRows = (read.containers ?? []).filter((c) => c.containerNumber || c.sizeType);
-    const blank = rows.length === 1 && !rows[0].containerNumber && !rows[0].sizeType;
-    if (readRows.length && blank) {
-      setRows(readRows.map((c) => ({
-        containerNumber: shout(c.containerNumber), sizeType: shout(c.sizeType),
-        grossWeight: c.grossWeight ?? "", deliveryDate: "", deliveryTime: "",
-        emptyReturnYard: values.emptyReturnYard ?? "",
-        freeTimeModel: values.freeTimeModel === "SPLIT" ? "SPLIT" : "COMBINED",
-        combinedFreeDays: values.combinedFreeDays ?? "",
-        demurrageFreeDays: values.demurrageFreeDays ?? "",
-        detentionFreeDays: values.detentionFreeDays ?? "",
-        deliveryCompany: "", deliveryAddress: "",
-        heavyDuty: false, rated32_5: false, triAxle: false,
-      })));
-    }
-
-    setFilled((was) => ({ ...was, ...Object.fromEntries(Object.keys(took).map((k) => [k, true])) }));
-
-    const count = Object.keys(took).length + (readRows.length && blank ? readRows.length : 0);
     setNoaNote(count
-      ? `Read ${count} ${count === 1 ? "thing" : "things"} from ${fileName}. Check them — the highlighted fields came from the document.`
+      ? `Read ${count} ${count === 1 ? "thing" : "things"} from ${fileName}. `
+        + "The marked fields came from the document — check the ones asking to be checked."
       : `Nothing usable was found in ${fileName}.`);
   }
 

@@ -3623,6 +3623,13 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   border-color: var(--blue);
   background: var(--bg);
 }
+/* Read clearly, and read poorly, are different things to tell somebody. The
+   first says "do not retype this"; the second says "look at this one". */
+.zht .field-wrap.from-document.review input,
+.zht .field-wrap.from-document.review select,
+.zht .field-wrap.from-document.review textarea {
+  border-color: var(--orange);
+}
 .zht .from-doc-tag {
   margin-left: 6px;
   font-size: 11px;
@@ -3631,6 +3638,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   color: var(--blue);
   text-transform: uppercase;
 }
+.zht .field-wrap.review .from-doc-tag { color: var(--orange); }
 
 /* A section that still wants something. A dot rather than a red state: this is
    a form being filled in, and most of it is outstanding most of the time. */
