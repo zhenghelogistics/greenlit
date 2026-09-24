@@ -335,6 +335,68 @@ function DateAmendments({ jobId, eta }) {
 }
 
 
+
+/**
+ * Document readiness.
+ *
+ * The other half of the pair, and the difference from the handover panel is
+ * the whole reason both exist. This asks whether operations have *finished*;
+ * the handover asks the least a controller needs to *start*. A job passes the
+ * second and fails the first all week — the controller is planning the
+ * collection while the free-time terms are still being chased.
+ *
+ * Grouped by the part of the job a person would open to fix it, because a flat
+ * list of eleven field names is a list somebody has to sort themselves.
+ */
+function DocumentReadiness({ job }) {
+  const gaps = job.documentGaps ?? [];
+  const done = gaps.length === 0;
+
+  const byArea = new Map();
+  for (const gap of gaps) {
+    const list = byArea.get(gap.area);
+    if (list) list.push(gap); else byArea.set(gap.area, [gap]);
+  }
+
+  return (
+    <div
+      className="card"
+      style={{
+        marginBottom: 18,
+        borderColor: done ? "var(--gl-state-ready)" : "var(--gl-line)",
+      }}
+    >
+      <div className="header-row" style={{ marginBottom: done ? 0 : 10 }}>
+        <div>
+          <div className="section-title">Document readiness</div>
+          <div className="muted">
+            {done
+              ? "Everything operations gather is on file."
+              : "What is still to gather. The controller can start before this is finished."}
+          </div>
+        </div>
+        <span className="tag" style={{ whiteSpace: "nowrap" }}>
+          {done ? "Complete" : `${gaps.length} outstanding`}
+        </span>
+      </div>
+
+      {done ? null : [...byArea.entries()].map(([area, items]) => (
+        <div className="stop" key={area}>
+          <b>{area}</b>
+          <div className="muted" style={{ marginTop: 4 }}>
+            {items.map((g, i) => (
+              <span key={i}>
+                {i > 0 ? " · " : ""}
+                {g.container ? `${g.container}: ` : ""}{g.field}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
  * The handover from operations to the controller.
  *
@@ -511,6 +573,7 @@ export default function ZhtJobDetail({
             <span>{job.derived?.status}</span>
           </div>
 
+          {job.type === "Import" ? <DocumentReadiness job={job} /> : null}
           {job.type === "Import" ? <Handover job={job} onHandOver={onHandOver} /> : null}
 
           {/* §31, §32. The trip the box makes, and the only place on this

@@ -14,6 +14,7 @@ import {
   canPlanCollection,
   importHandoverShipmentGaps,
   exportHandoverShipmentGaps,
+  documentGaps,
   chargeEstimate,
   importJourney,
   exportJourney,
@@ -21,7 +22,7 @@ import {
   type FreeTimeCountdown,
   type ChargeEstimate,
 } from '@greenlit/engine';
-import type { ControllerStage, IsoDate, PermitRecord } from '@greenlit/engine';
+import type { ControllerStage, DocumentGap, IsoDate, PermitRecord } from '@greenlit/engine';
 
 /**
  * I-25. The day the empty return actually completed, if it has.
@@ -137,6 +138,15 @@ export interface DerivedJobView {
    * ready to hand over, and usually is.
    */
   handoverShipmentGaps: string[];
+  /**
+   * What operations still have to gather before the job is document-ready.
+   *
+   * The longer of the two lists, and the one operations work down. The
+   * handover asks the least a controller needs to start; this asks whether
+   * anybody has finished.
+   */
+  documentGaps: DocumentGap[];
+  documentsComplete: boolean;
   containers: DerivedContainerView[];
   movements: Movement[];
   /**
@@ -395,6 +405,8 @@ export function deriveImportJob(
     mandatoryComplete: missing.length === 0,
     missingInformation: missing,
     handoverShipmentGaps: importHandoverShipmentGaps(job),
+    documentGaps: documentGaps(job, containers, permits),
+    documentsComplete: documentGaps(job, containers, permits).length === 0,
     containers: views,
     movements: [...movements],
     activity: [],
@@ -489,6 +501,9 @@ export function deriveExportJob(
     mandatoryComplete: missing.length === 0,
     missingInformation: missing,
     handoverShipmentGaps: exportHandoverShipmentGaps(job),
+    // Export readiness is a different list and is not modelled yet.
+    documentGaps: [],
+    documentsComplete: false,
     containers: views,
     movements: [...movements],
     activity: [],

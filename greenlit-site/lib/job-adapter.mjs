@@ -54,6 +54,8 @@ export function jobFromApi(view) {
     // What stops the controller starting, which is a much shorter list than
     // everything still to gather.
     handoverShipmentGaps: view.handoverShipmentGaps ?? [],
+    documentGaps: view.documentGaps ?? [],
+    documentsComplete: Boolean(view.documentsComplete),
     cmsCompleted: r.cmsStatus === "COMPLETED" || r.cmsStatus === "NOT_REQUIRED",
     emptyYard: r.emptyCollectionYard ?? "",
     deliveryAddress: r.deliveryAddress ?? first.stuffingLocation ?? "",
