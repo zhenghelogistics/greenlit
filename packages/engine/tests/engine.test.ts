@@ -53,7 +53,7 @@ const exportContainer = (over: Partial<ExportContainer> = {}): ExportContainer =
 });
 
 const importContainer = (): ImportContainer => ({
-  handedOverAt: null, handedOverBy: null,
+  handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
   containerId: 'c', containerNumber: 'ABCU1234567', jobId: 'j',
   containerSize: '40', containerType: 'HQ', sealNumber: null, grossWeight: 20000, packageCount: null, packageType: null,
   cargoDescription: 'Goods', portTerminal: 'PSA', emptyReturnYard: 'Yard',

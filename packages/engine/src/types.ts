@@ -65,6 +65,16 @@ export interface ImportContainer {
   handedOverAt: IsoInstant | null;
   handedOverBy: string | null;
   /**
+   * When this container came off the vessel.
+   *
+   * Per container, not per job: boxes on one bill of lading are discharged
+   * separately and sometimes days apart, and a job-level date would be wrong
+   * for all but one of them.
+   */
+  dischargedAt: IsoInstant | null;
+  /** When it reached the customer. */
+  deliveredAt: IsoInstant | null;
+  /**
    * §39. Null until the arrival notice arrives.
    *
    * A job is opened when the customer calls and the notice follows, so the

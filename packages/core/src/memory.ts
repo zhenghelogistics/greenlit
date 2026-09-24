@@ -180,7 +180,7 @@ const IMPORT_JOBS: ImportJob[] = [
 const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
   ij1: [{
     containerId: 'ic1', containerNumber: 'OOLU8841250', jobId: 'ij1',
-    handedOverAt: null, handedOverBy: null,
+    handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
     containerSize: '40', containerType: 'HQ', sealNumber: null, grossWeight: 21400,
     packageCount: 300, packageType: 'CASE', cargoDescription: 'General cargo', portTerminal: 'PSA Pasir Panjang',
     emptyReturnYard: 'Jurong Yard', freeTimeModel: 'SPLIT', freeTimeCountsFrom: 'VESSEL_ETA',
@@ -194,7 +194,7 @@ const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
   }],
   ij2: [{
     containerId: 'ic2', containerNumber: 'CSNU7213366', jobId: 'ij2',
-    handedOverAt: null, handedOverBy: null,
+    handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
     containerSize: '20', containerType: 'GP', sealNumber: 'SG88213', grossWeight: 14800,
     packageCount: null, packageType: null, cargoDescription: 'Machine parts', portTerminal: 'PSA Brani',
     emptyReturnYard: 'Jurong Yard', freeTimeModel: 'COMBINED', freeTimeCountsFrom: 'DISCHARGE',
@@ -549,6 +549,8 @@ export function createMemoryRepository(): Repository {
           // document has not been looked at by anybody yet.
           handedOverAt: null,
           handedOverBy: null,
+          dischargedAt: null,
+          deliveredAt: null,
           containerNumber: c.containerNumber?.trim() || null,
           secondaryContainerId: null,
           containerSize: size || '',

@@ -110,7 +110,7 @@ const importJob: ImportJob = {
   cancelled: false, onHold: false, createdAt: '2026-09-01T00:00:00Z',
 };
 const importContainer: ImportContainer = {
-  handedOverAt: null, handedOverBy: null,
+  handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
   containerId: 'c', containerNumber: 'ABCU1234567', jobId: 'j', containerSize: '40',
   containerType: 'HQ', sealNumber: null, grossWeight: 1, packageCount: null, packageType: null, cargoDescription: 'x',
   portTerminal: 'PSA', emptyReturnYard: 'Jurong', freeTimeModel: 'SPLIT',
