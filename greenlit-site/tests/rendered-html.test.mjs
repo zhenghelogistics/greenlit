@@ -196,3 +196,19 @@ test("his stylesheet works at phone width, which his demo never needed", async (
     "his stylesheet relies on colour alone when focused");
   assert.match(css, /prefers-reduced-motion/);
 });
+
+test("the shell adapts rather than assuming a width", async () => {
+  // His pair — a 230px rail and a calc(100% - 230px) column — holds only while
+  // both numbers agree, and they stop agreeing the moment anything wants a
+  // different rail. One variable drives both tracks now.
+  const css = await readFile(new URL("../app/zht.css", import.meta.url), "utf8");
+
+  assert.match(css, /grid-template-columns: var\(--rail\)/,
+    "the two tracks should follow one variable");
+  assert.doesNotMatch(css, /\.zht \.main \{margin-left:230px/,
+    "the column should not subtract a hard-coded rail width back out");
+  assert.match(css, /minmax\(0, 1fr\)/,
+    "without minmax(0,·) a wide table stretches the page instead of scrolling");
+  assert.match(css, /padding: clamp\(/,
+    "content padding should scale with the viewport, not sit at one number");
+});

@@ -111,9 +111,10 @@ function ArrivalBrief({ rows, range, today, onOpenJob }) {
   }
 
   const arrivals = [...groups.values()].sort((a, b) => a.eta.localeCompare(b.eta));
-  if (arrivals.length === 0) {
-    return <div className="clean-empty">Nothing arriving in this window.</div>;
-  }
+  // Nothing in the window is not worth a paragraph: the date buttons above it
+  // already say which window is open, and an empty strip between them and the
+  // piles below just separates two things that belong together.
+  if (arrivals.length === 0) return null;
 
   return (
     <div className="controller-arrival-brief">
@@ -307,18 +308,24 @@ export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany,
   return (
     <div className="zht">
       <div className="content">
-      <div className="clean-metrics control-tower-metrics">
-        {tabs.map(([id, label, n]) => (
-          <div className={`clean-metric${n > 0 && id !== "planned" ? " attention-soft" : ""}`} key={id}>
-            <span>{label}</span><strong>{n}</strong>
-            <small>
-              {id === "importReady" ? "Portnet released, ready to plan"
-                : id === "exportReady" ? "CMS done, ready for collection"
-                  : id === "emptyReturns" ? "Boxes to get back to the depot"
-                    : "Movements on today's plan"}
-            </small>
-          </div>
-        ))}
+      {/* The six counts used to be here as cards and again below as tabs, one
+          set of which could be clicked. Two readings of the same six numbers
+          is two things to keep in step and one of them always wrong.
+
+          What stays at the top is the only number that is not a pile: how much
+          of today is unplanned, which is the question the board exists to
+          answer and which no tab shows. */}
+      <div className="clean-metrics" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+        <div className={`clean-metric${q.importPending.length > 0 ? " attention-soft" : ""}`}>
+          <span>Waiting on Portnet or discharge</span>
+          <strong>{q.importPending.length}</strong>
+          <small>Nothing can be collected until both are done</small>
+        </div>
+        <div className="clean-metric">
+          <span>Ready, and not yet planned</span>
+          <strong>{q.importReady.filter(({ job, c }) => !(job.trips ?? []).some((t) => t.containerId === c.id)).length}</strong>
+          <small>A truck can go today</small>
+        </div>
       </div>
 
       <div className="card" style={{ marginBottom: 12 }}>

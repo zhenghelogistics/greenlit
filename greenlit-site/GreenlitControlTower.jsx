@@ -4491,19 +4491,28 @@ export default function GreenlitControlTower() {
    * same number. Shown before saving because operations write it on the
    * paperwork while the form is still open.
    */
+  /**
+   * New Job is a modal, not a destination.
+   *
+   * His opens it over whatever you were looking at, and that is right: a job
+   * is usually created while reading something else — a customer on the phone
+   * about a booking you have open. Routing to a screen loses the thing you
+   * were reading, and coming back lands you somewhere else again.
+   */
+  const [creatingJob, setCreatingJob] = useState(false);
   const [nextJobNumber, setNextJobNumber] = useState("");
   const [previewFor, setPreviewFor] = useState("");
   useEffect(() => {
     // Derived, not stored: with no customer there is no number, so the render
     // reads an empty string rather than an effect writing one.
-    if (current !== "newJob" || !previewFor) return;
+    if (!creatingJob || !previewFor) return;
     let cancelled = false;
     fetch(`/api/jobs/next-number?customer=${encodeURIComponent(previewFor)}`)
       .then((r) => (r.ok ? r.json() : {}))
       .then((d) => { if (!cancelled) setNextJobNumber(d.jobNumber ?? ""); })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [current, previewFor]);
+  }, [creatingJob, previewFor]);
 
   // §9. The customer master, for the addresses the new-job form offers. Loaded
   // here rather than in the form so switching away and back does not refetch.
@@ -4954,8 +4963,17 @@ export default function GreenlitControlTower() {
           That is in zht.css beside his own rules, not layered over them. */}
       <div className="zht"><div className="app">
       <aside className="sidebar">
+        {/* The reverse mark from the brand deck, which the guide permits on
+            navy and nowhere else. Its navy field was baked into the PNG and is
+            exactly the light rail's colour, so it blended there and would have
+            shown as a box the moment the rail was anything else — which it is
+            in the dark. Lifted to transparency, edges kept as alpha so the
+            strokes stay smooth on either ground. */}
         <div className="logo">
-          ZHL<small>LOGISTICS</small>
+          <img
+            src="/zhl-wordmark-white.png"
+            alt="Zheng He Logistics"
+          />
         </div>
         <nav className="nav" aria-label="Sections">
           {navItems.map((item) => {
@@ -5021,7 +5039,7 @@ export default function GreenlitControlTower() {
       {(current === "dashboard" || current === "actions") && source !== "engine" ? (
         <BoardState source={source} onRetry={loadJobs} onAddDocument={() => goTo("documents")} />
       ) : null}
-      {current === "dashboard" && source === "engine" ? <ZhtDashboard jobs={jobs} today={operationalToday()} onOpenJob={openJob} onNewJob={() => goTo("newJob")} onShowActions={showActions} /> : null}
+      {current === "dashboard" && source === "engine" ? <ZhtDashboard jobs={jobs} today={operationalToday()} onOpenJob={openJob} onNewJob={() => setCreatingJob(true)} onShowActions={showActions} /> : null}
       {current === "actions" && source === "engine" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}
       {current === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onApplyBatch={applyDocumentFor} onOpenJob={openJob} /> : null}
       {current === "people" ? <People /> : null}
@@ -5035,9 +5053,8 @@ export default function GreenlitControlTower() {
       {current === "fleet" ? <ZhtChassis fleet={fleet} onOpenJob={(job) => openJob(job.id)} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
       {current === "controller" ? <ZhtController jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)}
         onDischargeMany={dischargeMany} onPortnet={releasePortnet} onDeliver={markDelivered} /> : null}
-      {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => goTo("newJob")} /> : null}
-      {current === "newJob" ? <ZhtNewJob customers={customers} onCreate={createJob} onCancel={() => goTo("jobs")} onUseDocument={() => goTo("documents")} nextJobNumber={previewFor ? nextJobNumber : ""}
-        onCustomerChosen={setPreviewFor} /> : null}
+      {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => setCreatingJob(true)} /> : null}
+
       {current === "planning" ? <ZhtPlanning jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)} /> : null}
       {current === "drivers" ? <ZhtDrivers fleet={fleet} /> : null}
       {current === "emptyReturns" ? <ZhtEmptyReturns jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
@@ -5104,6 +5121,39 @@ export default function GreenlitControlTower() {
 
       </main>
       </div></div>
+
+      {/* Over the page, in his `.modal` — the overlay closes on the backdrop
+          and on Escape, which his does not, because a form this long is easy
+          to open by accident and hard to leave. */}
+      {creatingJob ? (
+        <div
+          className="zht"
+          role="presentation"
+          onClick={(event) => { if (event.target === event.currentTarget) setCreatingJob(false); }}
+          onKeyDown={(event) => { if (event.key === "Escape") setCreatingJob(false); }}
+          style={{
+            position: "fixed", inset: 0, zIndex: 60,
+            background: "rgba(12,30,50,.42)", overflow: "auto", padding: "24px 12px",
+          }}
+        >
+          <div
+            role="dialog" aria-modal="true" aria-label="Create a job"
+            style={{
+              width: "min(980px, 96vw)", margin: "0 auto",
+              background: "var(--card)", borderRadius: 14,
+            }}
+          >
+            <ZhtNewJob
+              customers={customers}
+              onCreate={createJob}
+              onCancel={() => setCreatingJob(false)}
+              onUseDocument={() => { setCreatingJob(false); goTo("documents"); }}
+              nextJobNumber={previewFor ? nextJobNumber : ""}
+              onCustomerChosen={setPreviewFor}
+            />
+          </div>
+        </div>
+      ) : null}
 
       {toast ? (
         <div role="status" aria-live="polite" className="fixed bottom-5 right-5 z-50 flex max-w-[560px] items-start gap-3 rounded-lg border border-emerald-300 bg-white p-5 text-[17px] font-semibold text-slate-900 shadow-[0_12px_32px_rgba(15,23,42,0.2)]">

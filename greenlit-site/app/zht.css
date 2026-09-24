@@ -56,13 +56,48 @@
 
 .zht * {box-sizing:border-box}
 .zht {margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
-.zht .app {display:flex;min-height:100vh}
-.zht .sidebar {width:230px;background:linear-gradient(180deg,var(--nav),var(--nav2));color:#fff;padding:22px 16px;position:fixed;inset:0 auto 0 0}
+.zht .app {
+  /* A grid rather than a fixed column beside a calc'd one. His pair --
+     `.sidebar` at 230px and `.main` at calc(100% - 230px) -- holds only while
+     both numbers agree, and they stop agreeing the moment anything wants a
+     different rail: a wider one for longer labels, a narrower one on a laptop,
+     none at all when a screen is printed or embedded.
+
+     One variable now, and the two tracks follow it. `minmax(0, 1fr)` rather
+     than `1fr`, because a grid child defaults to min-content width and a wide
+     table would otherwise push the column past the viewport instead of
+     scrolling inside it. */
+  --rail: 230px;
+  display: grid;
+  grid-template-columns: var(--rail) minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+/* Narrower where the space is tight, before the rail becomes a bottom bar. */
+@media (max-width: 1180px) { .zht .app { --rail: 196px; } }
+.zht .sidebar {
+  /* In the grid now, so it no longer has to be taken out of flow and have its
+     width subtracted back out of the page. Sticky rather than fixed: it stays
+     put while the work scrolls, and still ends where the page ends. */
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  overflow-y: auto;
+  background: linear-gradient(180deg, var(--nav), var(--nav2));
+  color: #fff;
+  padding: 22px 16px;
+}
 .zht .logo {font-size:34px;font-weight:800;letter-spacing:2px;margin-bottom:24px}
 .zht .logo small {display:block;font-size:11px;letter-spacing:4px}
 .zht .nav button {width:100%;text-align:left;border:0;background:transparent;color:#fff;padding:12px 14px;border-radius:8px;margin:3px 0;cursor:pointer}
 .zht .nav button.active, .zht .nav button:hover {background:#1f5a9c}
-.zht .main {margin-left:230px;width:calc(100% - 230px)}
+.zht .main {
+  /* No margin and no calc: the grid track already is the remaining space, at
+     whatever width that turns out to be. min-width: 0 lets a wide table scroll
+     inside the column instead of stretching it. */
+  min-width: 0;
+}
 .zht .topbar {height:66px;background:var(--card);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:10}
 .zht .search {width:380px;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
 .zht .content {padding:24px}
@@ -3276,7 +3311,9 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
    of the table, and the same eight destinations in the same order. */
 
 @media (max-width: 900px) {
+  .zht .app { grid-template-columns: minmax(0, 1fr); }
   .zht .sidebar {
+    position: fixed;
     inset: auto 0 0 0;
     width: 100%;
     height: auto;
@@ -3304,8 +3341,6 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
     white-space: nowrap;
   }
   .zht .main {
-    margin-left: 0;
-    width: 100%;
     /* Clear of the bar, so the last row of a table is not under it. */
     padding-bottom: 68px;
   }
@@ -3378,4 +3413,54 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   outline: 2px solid var(--blue);
   outline-offset: 2px;
   border-color: var(--blue);
+}
+
+/* The mark, and the space around it the guide asks for: clear space equal to
+   the height of the mark. His `.logo` was type at 34px, which needed none. */
+.zht .sidebar .logo {
+  margin: 4px 0 28px;
+  padding: 0 2px;
+  font-size: 0;
+}
+.zht .sidebar .logo img {
+  width: 100%;
+  max-width: 152px;
+  height: auto;
+  display: block;
+}
+@media (max-width: 900px) {
+  .zht .sidebar .logo { display: none; }
+}
+
+/* ---- the content column, at any width -------------------------------------
+   His `.content` is a flat 24px of padding, which is right at the width a demo
+   opens at and wrong at both ends: cramped on a laptop once the rail is taken
+   out, and a line of text sixty words long on a wide monitor.
+
+   So the padding grows with the viewport and the measure is capped — not the
+   column. Tables still use the whole width, because a table with fifteen
+   columns wants every pixel; it is prose and form fields that become unusable
+   when they run past about ninety characters. */
+.zht .content {
+  padding: clamp(16px, 2vw, 32px);
+}
+.zht .content > .card > .muted,
+.zht .content > .card > .section-title + .muted,
+.zht .creation-section .muted {
+  max-width: 88ch;
+}
+
+/* A table wider than the column scrolls inside it rather than stretching the
+   page. Without this the grid child grows and the whole shell scrolls, taking
+   the rail off-screen with it. */
+.zht .table-scroll,
+.zht .content table {
+  max-width: 100%;
+}
+.zht .table-scroll { overflow-x: auto; }
+
+/* Cards stack to one column where two will not fit, rather than at a width
+   somebody guessed. */
+@media (max-width: 1100px) {
+  .zht .grid2, .zht .job-layout, .zht .clean-lower-grid { grid-template-columns: 1fr; }
 }
