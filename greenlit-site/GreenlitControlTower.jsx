@@ -43,6 +43,7 @@ import {
 import { groupByCustomer, matchCustomer } from "@greenlit/engine";
 import ZhtDashboard from "./components/ZhtDashboard.jsx";
 import ZhtJobDetail from "./components/ZhtJobDetail.jsx";
+import ZhtNewJob from "./components/ZhtNewJob.jsx";
 import ZhtController from "./components/ZhtController.jsx";
 import {
   ZhtJobs, ZhtPlanning, ZhtDrivers, ZhtChassis, ZhtBilling,
@@ -4372,6 +4373,44 @@ export default function GreenlitControlTower() {
       "CMS recorded. The empty collection gate reopened.");
   }
 
+  // §9. The customer master, for the addresses the new-job form offers. Loaded
+  // here rather than in the form so switching away and back does not refetch.
+  const [customers, setCustomers] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/customers")
+      .then((r) => (r.ok ? r.json() : { customers: [] }))
+      .then((d) => { if (!cancelled) setCustomers(d.customers ?? []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  /**
+   * Create a job by hand.
+   *
+   * The other way in. Uploading a document is the common case and not the only
+   * one: a customer rings, the booking is agreed, and the notice follows two
+   * days later.
+   */
+  async function createJob(type, draft) {
+    const response = await fetch("/api/jobs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      // The route reads the draft from the top level beside `domain`, not from
+      // a nested object: `customerCode` is validated there before anything is
+      // created, so burying it a level down fails the request with
+      // "customerCode is required" and no clue why.
+      body: JSON.stringify({ domain: type, ...draft }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body?.error || "The job could not be created.");
+
+    const created = body?.job?.jobNumber;
+    showToast(`${created ?? "The job"} created.`);
+    await loadJobs();
+    if (created) openJob(created); else goTo("jobs");
+  }
+
   /**
    * Record that containers came off the vessel.
    *
@@ -4862,7 +4901,8 @@ export default function GreenlitControlTower() {
       {current === "fleet" ? <ZhtChassis fleet={fleet} onOpenJob={(job) => openJob(job.id)} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
       {current === "controller" ? <ZhtController jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)}
         onDischargeMany={dischargeMany} onPortnet={releasePortnet} onDeliver={markDelivered} /> : null}
-      {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => goTo("documents")} /> : null}
+      {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => goTo("newJob")} /> : null}
+      {current === "newJob" ? <ZhtNewJob customers={customers} onCreate={createJob} onCancel={() => goTo("jobs")} /> : null}
       {current === "planning" ? <ZhtPlanning jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)} /> : null}
       {current === "drivers" ? <ZhtDrivers fleet={fleet} /> : null}
       {current === "emptyReturns" ? <ZhtEmptyReturns jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}

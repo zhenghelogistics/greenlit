@@ -202,3 +202,18 @@ test("a control that shows a value also sends it", async () => {
       `${control} is offered but nothing sends it to ${route}`);
   }
 });
+
+test("the new-job form posts the shape the create route validates", async () => {
+  // The route reads `customerCode` from the top level of the body, beside
+  // `domain`, and rejects the request before creating anything if it is not
+  // there. Nesting the draft one level down fails with "customerCode is
+  // required" against a form that plainly has a customer in it, which is the
+  // kind of dead end that takes an afternoon to find.
+  const shell = await readFile("GreenlitControlTower.jsx", "utf8");
+  const call = shell.slice(shell.indexOf("async function createJob"), shell.indexOf("async function createJob") + 900);
+
+  assert.match(call, /domain: type, \.\.\.draft/,
+    "the draft must be spread beside domain, not nested");
+  assert.doesNotMatch(call, /\{ domain: type, draft \}/,
+    "a nested draft loses customerCode from where the route looks for it");
+});
