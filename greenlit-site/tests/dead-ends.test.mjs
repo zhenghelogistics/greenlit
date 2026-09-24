@@ -300,3 +300,38 @@ test("the bulk free-time route copies the allowance and never the dates", async 
   assert.match(src, /detentionLfd: null/);
   assert.match(src, /combinedLfd: null/);
 });
+
+
+test("every tab on the New Job form has a panel behind it", async () => {
+  // The same fault as an unreachable screen, one level down. The bar is built
+  // from `sections` and the panels are gated on the open tab, and the two are
+  // written two hundred lines apart: a section renamed in one place and not
+  // the other is a tab that highlights and shows nothing under it.
+  //
+  // It is not hypothetical — the permit section exists on imports only, so the
+  // pairing has to hold per direction, not just overall.
+  const source = await readFile("components/ZhtNewJob.jsx", "utf8");
+
+  const offered = [...source.matchAll(/id:\s*"(sec-[a-z]+)"/g)].map((m) => m[1]);
+  const shown = new Set([...source.matchAll(/openTab === "(sec-[a-z]+)"/g)].map((m) => m[1]));
+
+  assert.ok(offered.length >= 3, "expected the form to offer its sections");
+  assert.deepEqual(offered.filter((id) => !shown.has(id)), [],
+    "these tabs are offered in the bar and nothing renders for them");
+
+  // And the reverse: a panel nothing can open is a panel nobody sees.
+  const offeredSet = new Set(offered);
+  assert.deepEqual([...shown].filter((id) => !offeredSet.has(id)), [],
+    "these panels render for a tab the bar never offers");
+});
+
+test("a section that disappears cannot leave the form blank", async () => {
+  // Switching direction removes the permit section. Without a fallback the
+  // open tab would point at nothing and the form would render its bar over an
+  // empty space, which reads as a broken screen rather than as a changed one.
+  const source = await readFile("components/ZhtNewJob.jsx", "utf8");
+  assert.match(source, /const openTab =[\s\S]{0,160}?sections\[0\]\.id/,
+    "the open tab must fall back to a section that exists");
+  assert.doesNotMatch(source, /\{tab === "sec-/,
+    "panels must be gated on the checked tab, not the raw one");
+});

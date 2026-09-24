@@ -104,7 +104,7 @@ function SectionNav({ sections, current, onJump }) {
  * how a job ends up delivering to a plausible address nobody confirmed. The
  * read address is shown beside the picker instead, for a person to match.
  */
-function NoaDrop({ onRead, note, busy, setBusy }) {
+function NoaDrop({ onRead, onFile, note, busy, setBusy }) {
   const input = useRef(null);
   const [failed, setFailed] = useState("");
   const [over, setOver] = useState(false);
@@ -122,6 +122,7 @@ function NoaDrop({ onRead, note, busy, setBusy }) {
       if (!response.ok) throw new Error(payload?.error || "That document could not be read.");
       const read = Array.isArray(payload.documents) ? payload.documents[0] : payload;
       if (!read || read.error) throw new Error(read?.error || "Nothing could be read from that page.");
+      onFile(file);
       onRead(read, file.name);
     } catch (problem) {
       setFailed(problem?.message || "That document could not be read.");
@@ -246,41 +247,43 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
   const [slots, setSlots] = useState([{ quantity: 1, sizeType: "20GP", reeferMode: "", reeferTemperature: "" }]);
 
   /**
-   * Which section the eye is on, so the bar can say so.
+   * Which section is open.
    *
-   * Observed rather than set on click: the sections are one scroll now, and a
-   * bar that only moves when clicked goes wrong the moment somebody scrolls
-   * past it instead — which, on a form, is most of the time.
+   * It was one scrolling form for a while, on the reasoning that operations
+   * fill things in whatever order the notice prints them. In front of a real
+   * job it was too much at once: eleven container rows and a permit block
+   * below the customer you are still choosing. One section at a time, which is
+   * what his demo does and what this is going back to.
    *
-   * The band is the top third of the viewport. Whole-element visibility would
-   * never fire for a section taller than the screen, which the containers one
-   * always is.
+   * The bar above stays exactly as it is — every section is reachable from any
+   * other, so it is still navigation rather than a sequence of steps.
    */
-  const [current, setCurrent] = useState("sec-customer");
-  useEffect(() => {
-    const targets = form.current?.querySelectorAll("section[id^='sec-']");
-    if (!targets?.length) return;
-    const seen = new Map();
-    const watcher = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => seen.set(entry.target.id, entry.isIntersecting));
-        const first = [...targets].find((t) => seen.get(t.id));
-        if (first) setCurrent(first.id);
-      },
-      { rootMargin: "0px 0px -67% 0px", threshold: 0 },
-    );
-    targets.forEach((t) => watcher.observe(t));
-    return () => watcher.disconnect();
-    // Re-observed when the sections change, which they do when the permit
-    // section appears or the direction is switched.
-  }, [type, job.permitRequired]);
+  const [tab, setTab] = useState("sec-customer");
 
-  const jump = (id) => {
-    const target = form.current?.querySelector(`#${id}`);
-    if (!target) return;
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
-    // Focus the first control in it, so a keyboard lands where the eye did.
-    target.querySelector("input, select, textarea, button")?.focus({ preventScroll: true });
+  /**
+   * The document itself, beside the fields it filled.
+   *
+   * Reading a notice fills in most of a job and never all of it, and the part
+   * left over is exactly the part somebody has to find on the page. Sending
+   * them to another window to do that is how a free-time figure ends up typed
+   * from memory.
+   *
+   * An object URL rather than the file: it costs nothing until the browser
+   * draws it, and it is revoked when it is replaced or the form closes,
+   * because these leak for the life of the document otherwise.
+   */
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [sourceName, setSourceName] = useState("");
+  const [showSource, setShowSource] = useState(true);
+
+  useEffect(() => () => { if (sourceUrl) URL.revokeObjectURL(sourceUrl); }, [sourceUrl]);
+
+  const keepSource = (file) => {
+    setSourceUrl((previous) => {
+      if (previous) URL.revokeObjectURL(previous);
+      return file ? URL.createObjectURL(file) : "";
+    });
+    setSourceName(file?.name ?? "");
   };
 
   const customer = customers.find((c) => c.code === job.customerCode);
@@ -335,7 +338,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
   async function submit(event) {
     event.preventDefault();
     const failure = validate();
-    if (failure) { setProblem(failure[1]); jump(failure[0]); return; }
+    if (failure) { setProblem(failure[1]); setTab(failure[0]); return; }
 
     setBusy(true);
     setProblem("");
@@ -485,6 +488,11 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
     ...(isImport ? [{ id: "sec-permit", label: "Permit", outstanding: permitIssues.length > 0 }] : []),
   ];
 
+  // The permit section exists on imports only, so a controller who was reading
+  // it and then switched direction would be looking at a bar with nothing
+  // under it. Fall back to the first section rather than render a blank.
+  const openTab = sections.some((section) => section.id === tab) ? tab : sections[0].id;
+
   /**
    * Take what the document said.
    *
@@ -532,17 +540,21 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
         </div>
 
         <NoaDrop
-          onRead={applyDocument} note={noaNote}
+          onRead={applyDocument} onFile={keepSource} note={noaNote}
           busy={reading} setBusy={setReading}
         />
 
-        <SectionNav sections={sections} current={current} onJump={jump} />
+        <SectionNav sections={sections} current={openTab} onJump={setTab} />
+
+        <div className={`creation-split${sourceUrl && showSource ? " with-source" : ""}`}>
+        <div className="creation-panels">
 
         {problem ? (
           <div className="callout" role="alert" style={{ marginBottom: 14 }}>{problem}</div>
         ) : null}
 
         {/* ---- 1. customer & delivery ------------------------------------ */}
+        {openTab === "sec-customer" ? (
         <section id="sec-customer" className="creation-section">
             <div className="creation-section-head">
               <div>
@@ -645,8 +657,10 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
               ) : null}
             </div>
         </section>
+        ) : null}
 
         {/* ---- 2. shipment ----------------------------------------------- */}
+        {openTab === "sec-shipment" ? (
         <section id="sec-shipment" className="creation-section">
             <div className="creation-section-head">
               <div>
@@ -741,9 +755,10 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
               </label>
             </div>
         </section>
+        ) : null}
 
         {/* ---- 3. containers --------------------------------------------- */}
-        {isImport ? (
+        {openTab === "sec-containers" && isImport ? (
           <section id="sec-containers" className="creation-section">
             <div className="creation-section-head">
               <div>
@@ -913,7 +928,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
           </section>
         ) : null}
 
-        {!isImport ? (
+        {openTab === "sec-containers" && !isImport ? (
           <section id="sec-containers" className="creation-section">
             <div className="creation-section-head">
               <div>
@@ -997,7 +1012,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
         ) : null}
 
         {/* ---- 4. permit -------------------------------------------------- */}
-        {isImport ? (
+        {openTab === "sec-permit" && isImport ? (
           <section id="sec-permit" className="creation-section">
             <div className="creation-section-head">
               <div>
@@ -1060,7 +1075,46 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
           </section>
         ) : null}
 
+        </div>
+
+        {/* The page the fields came off, beside the fields.
+            Kept mounted while it is hidden — `<object>` refetches and redraws
+            a PDF from scratch every time it is remounted, and a controller
+            toggling it twice should not wait twice. */}
+        {sourceUrl ? (
+          <aside className={`creation-source${showSource ? "" : " hidden"}`}>
+            <div className="creation-source-head">
+              <span className="creation-source-name" title={sourceName}>{sourceName}</span>
+              <a href={sourceUrl} target="_blank" rel="noreferrer" className="btn ghost">
+                Open separately
+              </a>
+            </div>
+            <object
+              data={sourceUrl} type="application/pdf"
+              className="creation-source-page"
+              aria-label={`The document this job was read from: ${sourceName}`}
+            >
+              <div className="creation-source-fallback">
+                This browser cannot show the document here. Use
+                {" "}<a href={sourceUrl} target="_blank" rel="noreferrer">Open separately</a>
+                {" "}while you check the fields.
+              </div>
+            </object>
+          </aside>
+        ) : null}
+        </div>
+
         <div className="action-row" style={{ justifyContent: "flex-end", marginTop: 18 }}>
+          {sourceUrl ? (
+            <button
+              className="btn ghost" type="button"
+              style={{ marginRight: "auto" }}
+              onClick={() => setShowSource((was) => !was)}
+              aria-pressed={showSource}
+            >
+              {showSource ? "Hide the document" : "Show the document"}
+            </button>
+          ) : null}
           <button className="btn secondary" type="button" onClick={onCancel}>Cancel</button>
           <button
             className="btn secondary" type="submit" disabled={busy}
