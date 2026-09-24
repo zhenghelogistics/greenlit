@@ -43,6 +43,7 @@ import {
 import { groupByCustomer, matchCustomer } from "@greenlit/engine";
 import ZhtDashboard from "./components/ZhtDashboard.jsx";
 import ZhtJobDetail from "./components/ZhtJobDetail.jsx";
+import ZhtNewJob from "./components/ZhtNewJob.jsx";
 import ZhtController from "./components/ZhtController.jsx";
 import {
   ZhtJobs, ZhtPlanning, ZhtDrivers, ZhtChassis, ZhtBilling,
@@ -3920,7 +3921,7 @@ export default function GreenlitControlTower() {
   const [returnScreen, setReturnScreen] = useState("actions");
   /** Which container tab is open on the job detail screen. */
   const [containerIndex, setContainerIndex] = useState(0);
-  const [searchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedJobId, setSelectedJobId] = useState(null);
   // Held in the URL, so a reload keeps the filter and the view is shareable.
   const [actionFilter, setActionFilter] = useUrlState("filter", "all");
@@ -4372,6 +4373,76 @@ export default function GreenlitControlTower() {
       "CMS recorded. The empty collection gate reopened.");
   }
 
+  // §9. The customer master, for the addresses the new-job form offers. Loaded
+  // here rather than in the form so switching away and back does not refetch.
+  const [customers, setCustomers] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/customers")
+      .then((r) => (r.ok ? r.json() : { customers: [] }))
+      .then((d) => { if (!cancelled) setCustomers(d.customers ?? []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  /**
+   * Create a job by hand.
+   *
+   * The other way in. Uploading a document is the common case and not the only
+   * one: a customer rings, the booking is agreed, and the notice follows two
+   * days later.
+   */
+  async function createJob(type, draft) {
+    const response = await fetch("/api/jobs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      // The route reads the draft from the top level beside `domain`, not from
+      // a nested object: `customerCode` is validated there before anything is
+      // created, so burying it a level down fails the request with
+      // "customerCode is required" and no clue why.
+      body: JSON.stringify({ domain: type, ...draft }),
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body?.error || "The job could not be created.");
+
+    const created = body?.job?.jobNumber;
+    showToast(`${created ?? "The job"} created.`);
+    await loadJobs();
+    if (created) openJob(created); else goTo("jobs");
+  }
+
+  /**
+   * Record that containers came off the vessel.
+   *
+   * One request for the whole job rather than one per box. Two clicks per
+   * container to say one thing about one bill of lading is the largest piece
+   * of repetition in the workflow; a thirty-container job was sixty clicks.
+   */
+  async function dischargeMany(job, containerIds) {
+    if (!containerIds?.length) { showToast("Choose the containers to discharge."); return; }
+    await runJobCommand(
+      job,
+      "/discharge-many",
+      { containerIds },
+      `${containerIds.length} container${containerIds.length === 1 ? "" : "s"} discharged.`,
+    );
+  }
+
+  /** §31. The shipment is cleared to leave the terminal. */
+  async function releasePortnet(job) {
+    await runJobCommand(job, "/portnet", {}, "Portnet release recorded.");
+  }
+
+  /** The container reached the customer. */
+  async function markDelivered(job, container) {
+    await runJobCommand(
+      job,
+      `/containers/${encodeURIComponent(container.id)}/delivered`,
+      {},
+      `${container.number || "The container"} is at the customer.`,
+    );
+  }
+
   /**
    * Put one container on the controller's board.
    *
@@ -4802,7 +4873,30 @@ export default function GreenlitControlTower() {
         {/* When the board last updated, and who is acting. Off the blue now:
             on a white bar these are two quiet facts rather than two things
             competing with the brand. */}
-        <header className="sticky top-0 z-30 flex min-h-14 items-center justify-end gap-5 border-b border-[color:var(--gl-line)] bg-[color:var(--gl-bg)] px-4 sm:px-6 lg:min-h-16 lg:gap-6 lg:px-8">
+        <header className="sticky top-0 z-30 flex min-h-14 items-center gap-5 border-b border-[color:var(--gl-line)] bg-[color:var(--gl-bg)] px-4 sm:px-6 lg:min-h-16 lg:gap-6 lg:px-8">
+          {/* One field for everything with a reference on it. A controller
+              looking for a container has the number in front of them and not
+              the job it belongs to, and the screen that answered this existed
+              already with nothing able to reach it: `searchQuery` was a
+              useState with no setter, so the results view could never be
+              given a query. */}
+          <form
+            className="min-w-0 flex-1"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const term = new FormData(event.currentTarget).get("q")?.toString().trim() ?? "";
+              if (!term) return;
+              setSearchQuery(term);
+              goTo("search");
+            }}
+          >
+            <input
+              name="q" type="search" defaultValue={searchQuery}
+              placeholder="Job, container, customer, vessel, bill of lading"
+              aria-label="Search"
+              className="min-h-11 w-full max-w-[520px] rounded-md border border-[color:var(--gl-line)] bg-[color:var(--gl-bg-subtle)] px-3.5 text-[15px] text-[color:var(--gl-ink)] placeholder:text-[color:var(--gl-ink-faint)]"
+            />
+          </form>
           {/* Reload and Reset used to sit here. A control tower asking to be
               reloaded is admitting it does not keep itself current, and Reset
               refused on a Supabase-backed instance anyway, so it was a button
@@ -4828,8 +4922,10 @@ export default function GreenlitControlTower() {
           onBack={() => { setSelectedCompany(null); setScreen("companies"); }} />
       ) : null}
       {current === "fleet" ? <ZhtChassis fleet={fleet} onOpenJob={(job) => openJob(job.id)} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
-      {current === "controller" ? <ZhtController jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)} /> : null}
-      {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => goTo("documents")} /> : null}
+      {current === "controller" ? <ZhtController jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)}
+        onDischargeMany={dischargeMany} onPortnet={releasePortnet} onDeliver={markDelivered} /> : null}
+      {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => goTo("newJob")} /> : null}
+      {current === "newJob" ? <ZhtNewJob customers={customers} onCreate={createJob} onCancel={() => goTo("jobs")} /> : null}
       {current === "planning" ? <ZhtPlanning jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)} /> : null}
       {current === "drivers" ? <ZhtDrivers fleet={fleet} /> : null}
       {current === "emptyReturns" ? <ZhtEmptyReturns jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}

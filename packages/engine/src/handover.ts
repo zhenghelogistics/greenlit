@@ -138,3 +138,82 @@ export function isHandedOver(container: { handedOverAt: string | null }): boolea
 export function handoverSurvivesEdit(): boolean {
   return false;
 }
+
+
+/**
+ * Document readiness — the job-level gate that sits before any handover.
+ *
+ * Two gates, and the difference between them is the point. The handover asks
+ * the least a controller needs to *start*; this asks whether operations have
+ * *finished*. A job can pass the first and fail the second all week, and
+ * usually does: the controller is planning the collection while the free-time
+ * terms are still being chased.
+ *
+ * So this is the longer list, and it is the one operations work down. It is
+ * computed from the record every time rather than stored, so saving a field
+ * clears its line at once — a stored checklist goes stale the moment somebody
+ * edits the job from a different screen.
+ */
+export interface DocumentGap {
+  /** Which part of the job: what a person would click to fix it. */
+  area: 'Customer & delivery' | 'Shipment' | 'Container' | 'Permit';
+  /** Which container, when it is one container's problem rather than the job's. */
+  container?: string;
+  field: string;
+}
+
+export function documentGaps(
+  job: ImportJob,
+  containers: readonly (ImportContainer & { containerRef?: string })[],
+  permits: readonly PermitRecord[],
+): DocumentGap[] {
+  const gaps: DocumentGap[] = [];
+  const need = (area: DocumentGap['area'], field: string, value: unknown, container?: string) => {
+    if (missing(value)) gaps.push(container ? { area, field, container } : { area, field });
+  };
+
+  need('Customer & delivery', 'Customer', job.customer);
+  need('Customer & delivery', 'Delivery address', job.deliveryAddress);
+  need('Shipment', 'Vessel', job.vesselName);
+  need('Shipment', 'ETA', job.eta);
+  need('Shipment', 'Master bill of lading', job.blNumber);
+
+  containers.forEach((c, index) => {
+    const name = c.containerNumber || c.containerRef || `Container ${index + 1}`;
+    need('Container', 'Container number', c.containerNumber, name);
+    need('Container', 'Size', c.containerSize, name);
+    need('Container', 'Empty return yard', c.emptyReturnYard, name);
+
+    // The free-time terms, whichever shape this carrier issues them in. An
+    // unconfirmed model is itself the gap: nobody has read the terms yet.
+    if (c.freeTimeModel === 'COMBINED') {
+      need('Container', 'Combined free days', c.combinedFreeDays, name);
+    } else if (c.freeTimeModel === 'SPLIT') {
+      need('Container', 'Demurrage free days', c.demurrageFreeDays, name);
+      need('Container', 'Detention free days', c.detentionFreeDays, name);
+    } else {
+      gaps.push({ area: 'Container', container: name, field: 'Free time terms' });
+    }
+
+    if (job.permitRequired) {
+      const covered = permits.some((p) =>
+        !missing(p.permitNumber) && p.linkedContainerIds.includes(c.containerId));
+      if (!covered) gaps.push({ area: 'Permit', container: name, field: 'Permit' });
+    }
+  });
+
+  if (containers.length === 0) {
+    gaps.push({ area: 'Container', field: 'At least one container' });
+  }
+
+  return gaps;
+}
+
+/** Whether operations have finished gathering this job. */
+export function documentsComplete(
+  job: ImportJob,
+  containers: readonly ImportContainer[],
+  permits: readonly PermitRecord[],
+): boolean {
+  return documentGaps(job, containers, permits).length === 0;
+}

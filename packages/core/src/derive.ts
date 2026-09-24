@@ -9,8 +9,12 @@ import {
   freeTimeCountdown,
   carrierLastFreeDay,
   containerHandoverGaps,
+  controllerStage,
+  pendingReasons,
+  canPlanCollection,
   importHandoverShipmentGaps,
   exportHandoverShipmentGaps,
+  documentGaps,
   chargeEstimate,
   importJourney,
   exportJourney,
@@ -18,7 +22,7 @@ import {
   type FreeTimeCountdown,
   type ChargeEstimate,
 } from '@greenlit/engine';
-import type { IsoDate, PermitRecord } from '@greenlit/engine';
+import type { ControllerStage, DocumentGap, IsoDate, PermitRecord } from '@greenlit/engine';
 
 /**
  * I-25. The day the empty return actually completed, if it has.
@@ -77,6 +81,20 @@ export interface DerivedContainerView {
    */
   handoverGaps: string[];
   /**
+   * Which of the controller's four piles this container is in.
+   *
+   * Derived from four facts — Portnet, discharge, delivery, empty — and never
+   * set. The nine-step chain this replaces was advanced by hand and recorded
+   * what somebody remembered to click.
+   */
+  controllerStage: ControllerStage;
+  /** Why it is still pending, named so the chasing goes to the right place. */
+  pendingReasons: string[];
+  dischargedAt: string | null;
+  deliveredAt: string | null;
+  /** Whether a truck can be sent: released and discharged, both. */
+  canPlanCollection: boolean;
+  /**
    * §34.0. The third number: what the days already over are likely to cost.
    *
    * Derived here for the same reason the countdown is — two screens
@@ -120,6 +138,15 @@ export interface DerivedJobView {
    * ready to hand over, and usually is.
    */
   handoverShipmentGaps: string[];
+  /**
+   * What operations still have to gather before the job is document-ready.
+   *
+   * The longer of the two lists, and the one operations work down. The
+   * handover asks the least a controller needs to start; this asks whether
+   * anybody has finished.
+   */
+  documentGaps: DocumentGap[];
+  documentsComplete: boolean;
   containers: DerivedContainerView[];
   movements: Movement[];
   /**
@@ -297,6 +324,14 @@ export function deriveImportJob(
     // the job rather than the container, so it has to be handed down. Without
     // it the clocks can only report the dates somebody typed.
     const counted = { ...c, eta: job.eta };
+    // Portnet is granted against the bill of lading, so it lives on the job;
+    // discharge happens to one box at a time. The board needs both together.
+    const boardFacts = {
+      portnetReleased: job.portnetReleased,
+      dischargedAt: c.dischargedAt,
+      deliveredAt: c.deliveredAt,
+      emptyReadyAt: c.emptyReadyConfirmedAt,
+    };
     const clocks = freeTimeCountdown(
       counted, now.slice(0, 10), thresholds.ddCriticalDays, emptyReturnedOn(own),
     );
@@ -321,6 +356,11 @@ export function deriveImportJob(
       handedOverAt: c.handedOverAt,
       handedOverBy: c.handedOverBy,
       handoverGaps: containerHandoverGaps(job, c, permits),
+      controllerStage: controllerStage(boardFacts),
+      pendingReasons: pendingReasons(boardFacts),
+      dischargedAt: c.dischargedAt,
+      deliveredAt: c.deliveredAt,
+      canPlanCollection: canPlanCollection(boardFacts),
       charge: chargeEstimate(clocks, { dailyRate: c.dailyRate, currency: c.currency }),
     };
   });
@@ -365,6 +405,8 @@ export function deriveImportJob(
     mandatoryComplete: missing.length === 0,
     missingInformation: missing,
     handoverShipmentGaps: importHandoverShipmentGaps(job),
+    documentGaps: documentGaps(job, containers, permits),
+    documentsComplete: documentGaps(job, containers, permits).length === 0,
     containers: views,
     movements: [...movements],
     activity: [],
@@ -406,6 +448,12 @@ export function deriveExportJob(
       handedOverAt: null,
       handedOverBy: null,
       handoverGaps: [],
+      // Export containers do not sit on the import board.
+      controllerStage: 'PENDING' as ControllerStage,
+      pendingReasons: [],
+      dischargedAt: null,
+      deliveredAt: null,
+      canPlanCollection: false,
       charge: null,
     };
   });
@@ -453,6 +501,9 @@ export function deriveExportJob(
     mandatoryComplete: missing.length === 0,
     missingInformation: missing,
     handoverShipmentGaps: exportHandoverShipmentGaps(job),
+    // Export readiness is a different list and is not modelled yet.
+    documentGaps: [],
+    documentsComplete: false,
     containers: views,
     movements: [...movements],
     activity: [],

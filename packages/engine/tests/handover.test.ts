@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   importHandoverShipmentGaps, exportHandoverShipmentGaps, containerHandoverGaps,
-  canHandOver, isHandedOver, handoverSurvivesEdit,
+  canHandOver, isHandedOver, handoverSurvivesEdit, documentGaps, documentsComplete,
 } from '../src/handover.ts';
 import type { ImportJob, ExportJob } from '../src/types.ts';
 import type { PermitRecord } from '../src/permits.ts';
@@ -111,4 +111,40 @@ test('an edit afterwards does not take the container back', () => {
   // controller's board because operations corrected a typo, mid-plan, with no
   // explanation. A person hands over and a person unmakes it.
   assert.equal(handoverSurvivesEdit(), false);
+});
+
+test('document readiness is the longer list, and a different question', () => {
+  // The pair only makes sense together: this asks whether operations have
+  // finished, the handover asks the least a controller needs to start. A job
+  // passes the second and fails the first all week.
+  const job = importJob({
+    vesselName: 'DALLAS EXPRESS', eta: '2026-09-23', blNumber: 'HLCU123',
+  } as Partial<ImportJob>);
+  const container = {
+    containerId: 'ic1', containerNumber: 'SEGU3218850', containerSize: '40',
+    emptyReturnYard: 'Jurong Depot', freeTimeModel: 'COMBINED', combinedFreeDays: 14,
+  } as never;
+
+  assert.deepEqual(documentGaps(job, [container], []), [], 'nothing outstanding');
+  assert.equal(documentsComplete(job, [container], []), true);
+
+  // Handover needs two fields; readiness needs all of them.
+  const bare = importJob();
+  assert.deepEqual(importHandoverShipmentGaps(bare), [], 'the controller could start');
+  assert.ok(documentGaps(bare, [container], []).length > 0, 'operations have not finished');
+});
+
+test('an unconfirmed free-time model is itself the gap', () => {
+  // Not "no free days" but "nobody has read the carrier's terms yet", which is
+  // a different thing to chase and a different person to ask.
+  const job = importJob({ vesselName: 'X', eta: '2026-09-23', blNumber: 'B' } as Partial<ImportJob>);
+  const unread = { containerId: 'ic1', containerNumber: 'A', containerSize: '20',
+    emptyReturnYard: 'Yard', freeTimeModel: 'NOT_CONFIRMED' } as never;
+  const gaps = documentGaps(job, [unread], []);
+  assert.ok(gaps.some((g) => g.field === 'Free time terms'));
+});
+
+test('a job with no containers is not ready, whatever else is filled in', () => {
+  const job = importJob({ vesselName: 'X', eta: '2026-09-23', blNumber: 'B' } as Partial<ImportJob>);
+  assert.deepEqual(documentGaps(job, [], []), [{ area: 'Container', field: 'At least one container' }]);
 });
