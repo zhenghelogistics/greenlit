@@ -496,17 +496,23 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
    * beside the picker rather than chosen.
    */
   function applyDocument(read, fileName) {
-    const { job: patch, filled: marks, rows: readRows, readAddress: address, count } =
-      jobFromDocument(read, rows);
+    const {
+      job: patch, filled: marks, rows: readRows,
+      readAddress: address, count, documentType,
+    } = jobFromDocument(read, rows);
 
     set(patch);
     setReadAddress(address);
     if (readRows) setRows(readRows);
     setFilled((was) => ({ ...was, ...marks }));
 
+    // What it read, and what it is unsure of, said separately. "12 fields" is
+    // reassurance; "2 of them need a look" is the only part that is work.
+    const doubted = Object.values(marks).filter((mark) => mark === "review").length;
     setNoaNote(count
-      ? `Read ${count} ${count === 1 ? "thing" : "things"} from ${fileName}. `
-        + "The marked fields came from the document — check the ones asking to be checked."
+      ? `Read ${count} ${count === 1 ? "value" : "values"} from `
+        + `${documentType ? `${documentType.toLowerCase()} ` : ""}${fileName}.`
+        + (doubted ? ` ${doubted} came off the page unclearly — they are marked.` : "")
       : `Nothing usable was found in ${fileName}.`);
   }
 

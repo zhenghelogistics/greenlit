@@ -80,10 +80,20 @@ test("the ETA keeps its time, and splits into the two controls the form has", ()
   assert.equal(dateOnly.job.etaTime, undefined, "no time invented where none was printed");
 });
 
-test("voyage is the one field renamed on the way in", () => {
-  const result = jobFromDocument(read([sure("voyage", "632S")]));
+test("intake's vocabulary is translated into this form's", () => {
+  // Intake speaks the review screen's names and this form speaks its own.
+  // Both are arbitrary; what matters is that the join is one table and not a
+  // second reading of the document.
+  const result = jobFromDocument(read([
+    sure("voyage", "632S"), sure("blNumber", "HLCU123"),
+    sure("bookingReference", "34416855"), sure("vesselName", "DALLAS EXPRESS"),
+  ]));
   assert.equal(result.job.voyageNumber, "632S");
-  assert.equal(result.job.voyage, undefined);
+  assert.equal(result.job.blNumber, "HLCU123");
+  assert.equal(result.job.bookingReference, "34416855");
+  assert.equal(result.job.vesselName, "DALLAS EXPRESS");
+  assert.equal(result.job.voyage, undefined, "intake's own names do not leak through");
+  assert.equal(result.job.vessel, undefined);
 });
 
 test("a permit on the document is a job that needs a permit", () => {

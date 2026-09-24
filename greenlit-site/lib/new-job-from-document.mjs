@@ -1,50 +1,46 @@
 /**
- * What a read document becomes on the New Job form.
+ * The read document, on the New Job form.
  *
- * The join between the carrier's vocabulary and this form's, the same job
- * `intake-fields.mjs` does for the review screen — and here for the same
- * reason. It lived inside the component, where it could not be tested, and it
- * read `response.fields` as a list. The route returns it keyed by field name.
- * Nothing caught that because nothing could: the only way to run the mapping
- * was to render the form and upload a PDF.
+ * This is a join and nothing else. Reading the document, scoring how clearly
+ * each value came off the page, keeping each container's own row together and
+ * deciding what counts as needing a second look all happen in
+ * `toIntakeResult`, which is the intake module and is already tested. Doing
+ * any of it a second time here would mean two answers to the same question and
+ * one of them going stale.
  *
- * So the mapping is a function that takes the response and returns what to
- * write, and the component does the writing. Every rule about what may be
- * taken from a document now has somewhere to be asserted.
+ * What is left is genuinely local: the intake module speaks the review
+ * screen's vocabulary and this form speaks its own, and an ETA that arrives as
+ * one string has to land in two controls.
  */
-import { REVIEW_BELOW } from "./intake-fields.mjs";
+import { toIntakeResult } from "./intake-fields.mjs";
 
 /**
- * Document field to form field, where the names differ.
+ * Intake's name for a value, and this form's name for the same value.
  *
- * Only the differences: a name absent here is taken as it stands, and the list
- * of what is taken at all is `TAKEN` below. Two tables rather than one because
- * "what may be copied onto this form" is a decision and "what it is called
- * here" is a detail, and only the first is interesting when reading this.
- */
-const RENAMED = {
-  voyage: "voyageNumber",
-};
-
-/**
- * What may be written onto the form from a document.
- *
- * An allowlist, not everything the reader can find. The reader returns ports,
- * terminals, consignees and package counts that this form has nowhere to put,
- * and a field written into a job nobody can see on the form is worse than one
- * not written at all.
+ * An allowlist as well as a translation: the reader finds ports, terminals,
+ * consignees and package counts that this form has nowhere to put, and a value
+ * written into a job with nowhere on screen to show it is one nobody can check.
  *
  * `deliveryAddress` is deliberately absent and always will be. The notice
  * prints one as free text, the customer master holds the real ones, and
  * matching "12 Jurong Port Rd" to a saved "12 Jurong Port Road" is a judgement
- * with a delivery on the end of it. It is returned separately, to show beside
- * the picker, and never applied.
+ * with a delivery on the end of it. It comes back separately, to be shown
+ * beside the picker.
  */
-const TAKEN = [
-  "vesselName", "voyage", "carrier", "blNumber", "houseBlNumber",
-  "bookingReference", "shipper", "emptyCollectionYard", "exportClearanceReference",
-  "permitNumber", "permitExpiryDate", "permitVesselVoyage",
-];
+const INTAKE_TO_JOB = {
+  vessel: "vesselName",
+  voyage: "voyageNumber",
+  carrier: "carrier",
+  billOfLading: "blNumber",
+  houseBillOfLading: "houseBlNumber",
+  bookingNumber: "bookingReference",
+  shipper: "shipper",
+  emptyCollectionYard: "emptyCollectionYard",
+  exportClearanceReference: "exportClearanceReference",
+  permitNumber: "permitNumber",
+  permitExpiryDate: "permitExpiryDate",
+  permitVesselVoyage: "permitVesselVoyage",
+};
 
 /** The blank container row, which is also what "nothing typed yet" looks like. */
 export const EMPTY_ROW = {
@@ -58,69 +54,60 @@ export const EMPTY_ROW = {
 /**
  * Read an /api/extract response into a patch for the form.
  *
- * Returns what to write and nothing else — no state is touched here, so the
- * whole of it can be asserted against a response without rendering anything.
+ * Returns what to write and writes nothing, so the whole of it can be asserted
+ * against a response without rendering anything — which is the fault this was
+ * pulled out of the component to fix.
  *
- * @param read     one document from /api/extract: { fields, containers }
+ * @param read     one document from /api/extract
  * @param existing the container rows already on the form, so typing is not lost
  */
 export function jobFromDocument(read, existing = []) {
-  // §11.1's envelope: keyed by field name, each entry carrying the value with
-  // its confidence, the page and the line it was read from.
-  const fields = read?.fields && typeof read.fields === "object" && !Array.isArray(read.fields)
-    ? read.fields
-    : {};
-
-  const values = {};
-  for (const [name, entry] of Object.entries(fields)) {
-    const value = String(entry?.value ?? "").trim();
-    if (value) values[name] = value;
-  }
-  const unsure = (name) => (fields[name]?.confidence ?? 0) < REVIEW_BELOW;
+  const intake = toIntakeResult(read ?? {});
+  const { values, confidence } = intake;
 
   const job = {};
   const filled = {};
-  const mark = (key, from) => { filled[key] = unsure(from) ? "review" : "read"; };
+  /** Intake has already reduced the score to the only question worth asking. */
+  const mark = (key, from) => { filled[key] = confidence[from] === "high" ? "read" : "review"; };
 
-  for (const name of TAKEN) {
-    if (!values[name]) continue;
-    const key = RENAMED[name] ?? name;
-    job[key] = values[name];
-    mark(key, name);
+  for (const [from, key] of Object.entries(INTAKE_TO_JOB)) {
+    if (!values[from]) continue;
+    job[key] = values[from];
+    mark(key, from);
   }
 
-  // An ETA arrives as a date, sometimes with a time on the end. The time is
-  // kept: an arrival at 1700 and one at midnight are different days' work.
+  // An ETA arrives as one string and the form asks for it in two controls. The
+  // time is kept where the document gave one: an arrival at 1700 and one at
+  // midnight are different days' work.
   if (values.eta) {
-    const [date, time] = values.eta.split(/[ T]/);
+    const [date, time] = String(values.eta).split(/[ T]/);
     job.etaDate = date;
     mark("etaDate", "eta");
     if (time) job.etaTime = time.slice(0, 5);
   }
 
-  // A document carrying a permit number is a job that needs a permit. The
-  // customer's own setting can say so too; this only ever turns it on, because
-  // a permit in hand is evidence and a blank customer record is not.
+  // A document carrying a permit number is a job that needs a permit. This only
+  // ever turns the flag on: a permit in hand is evidence, and a customer record
+  // that says nothing is not evidence of the opposite.
   if (values.permitNumber) job.permitRequired = true;
 
-  // Containers, as rows. The document's rows replace a form nobody has typed
-  // into; a form already holding containers is left alone, because overwriting
-  // somebody's typing is worse than making them delete a row.
-  const readRows = (Array.isArray(read?.containers) ? read.containers : [])
-    .filter((c) => c?.containerNumber || c?.sizeType);
+  // Containers, as this form's rows. Intake always returns at least one row so
+  // its own screen has somewhere to type; an empty one here means the document
+  // listed none, which is not a reason to overwrite anything.
+  const read_rows = (intake.containers ?? []).filter((c) => c.number || c.type);
   const untouched = existing.length === 0
     || (existing.length === 1 && !existing[0]?.containerNumber && !existing[0]?.sizeType);
 
-  const rows = readRows.length && untouched
-    ? readRows.map((c) => ({
+  const rows = read_rows.length && untouched
+    ? read_rows.map((c) => ({
         ...EMPTY_ROW,
-        containerNumber: String(c.containerNumber ?? "").toUpperCase(),
-        sizeType: String(c.sizeType ?? "").toUpperCase(),
+        containerNumber: String(c.number ?? "").toUpperCase(),
+        sizeType: String(c.type ?? "").toUpperCase(),
         grossWeight: c.grossWeight ?? "",
         emptyReturnYard: values.emptyReturnYard ?? "",
-        // SPLIT and COMBINED are not interchangeable and the reader is told to
-        // omit the shape rather than guess it. Absent means combined, which is
-        // the form's own default, not a reading of the document.
+        // SPLIT and COMBINED are not interchangeable, and the reader is told to
+        // omit the shape rather than guess it. Absent means the form's own
+        // default, not a reading of the document.
         freeTimeModel: values.freeTimeModel === "SPLIT" ? "SPLIT" : "COMBINED",
         combinedFreeDays: values.combinedFreeDays ?? "",
         demurrageFreeDays: values.demurrageFreeDays ?? "",
@@ -134,8 +121,10 @@ export function jobFromDocument(read, existing = []) {
     rows,
     /** Shown beside the address picker, never written into it. */
     readAddress: values.deliveryAddress ?? "",
-    /** What to open the job as, when the document says. */
-    domain: values.domain === "IMPORT" || values.domain === "EXPORT" ? values.domain : null,
+    /** Which direction to open the job in, when the document says. */
+    domain: intake.domain === "IMPORT" || intake.domain === "EXPORT" ? intake.domain : null,
+    /** What intake called the document, so the form can say what it read. */
+    documentType: intake.documentType ?? null,
     count: Object.keys(job).length + (rows?.length ?? 0),
   };
 }

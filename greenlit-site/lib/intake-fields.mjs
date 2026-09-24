@@ -40,6 +40,8 @@ export const API_TO_FORM = {
   demurrageFreeDays: "demurrageFreeDays",
   detentionFreeDays: "detentionFreeDays",
   permitNumber: "permitNumber",
+  permitExpiryDate: "permitExpiryDate",
+  permitVesselVoyage: "permitVesselVoyage",
   vgm: "vgm",
 };
 
