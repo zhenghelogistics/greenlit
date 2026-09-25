@@ -96,3 +96,27 @@ test('no script deletes from a table the schema protects', () => {
     'these scripts delete from a table whose trigger refuses deletes, so they '
     + 'abort the whole transaction when run');
 });
+
+test('every code in the customer seed is one the database will accept', () => {
+  // A code is issued once and never changes, because every job number for that
+  // customer is built from it. A seed that proposes an invalid one fails at the
+  // moment somebody pastes it into a live database, which is the worst moment
+  // to find out — half the list is in and the transaction has rolled back.
+  //
+  // The rule is the table's own: two to six letters, no digits, unique.
+  const seed = readFileSync(join(DIR, '..', '..', '..', 'scripts', 'seed-customers.sql'), 'utf8');
+  const rows = [...seed.matchAll(/\('([^']*)',\s*'([^']*)',/g)];
+  assert.ok(rows.length > 20, `expected the customer list, found ${rows.length}`);
+
+  const codes = rows.map((r) => r[2]!);
+  const invalid = codes.filter((c) => !/^[A-Z]{2,6}$/.test(c));
+  assert.deepEqual(invalid, [], 'these codes fail the check the customers table enforces');
+
+  const seen = new Set<string>();
+  const duplicated = codes.filter((c) => !seen.add(c));
+  assert.deepEqual(duplicated, [], 'a code is unique, and a job number depends on which customer it means');
+
+  const ids = rows.map((r) => r[1]!);
+  const seenIds = new Set<string>();
+  assert.deepEqual(ids.filter((i) => !seenIds.add(i)), [], 'customer_id is the primary key');
+});
