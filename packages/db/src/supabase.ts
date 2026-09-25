@@ -1,4 +1,4 @@
-import { canSendContainerDetails,
+import { canSendContainerDetails, refuseEmptyCollection,
   suggestedUserId, suggestedDisplayName, normalisePermitNumber, locationProblem,
   documentProblem, storagePathFor, type DocumentRecord,
   type PermitRecord } from '@greenlit/engine';
@@ -557,6 +557,13 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       const job = await this.getImportJob(draft.jobId)
         ?? await this.getExportJob(draft.jobId);
       if (!job) throw new Error(`Unknown job ${draft.jobId}`);
+
+      // Operations: the CMS authorises the collection, so the driver cannot be
+      // assigned before it is done. Enforced in the adapter rather than in the
+      // route so it holds for every caller and identically in both stores.
+      const refusal = refuseEmptyCollection(
+        'cmsStatus' in job ? job : null, draft.movementType);
+      if (refusal) throw new Error(refusal);
 
       // §18. MOV-NNN, unique within the job and never reused after a
       // cancellation, so the next number comes from the highest ever issued

@@ -726,12 +726,11 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                   />
                   <Field
                     label="CMS"
-                    hint="Chased against the empty collection date, not the vessel — the empty is usually wanted weeks earlier."
+                    hint="Required before a driver can be sent for the empty."
                   >
                     <select value={job.cmsStatus} onChange={(e) => set({ cmsStatus: e.target.value })}>
                       <option value="PENDING">Pending</option>
                       <option value="COMPLETED">Done</option>
-                      <option value="NOT_REQUIRED">Not required</option>
                     </select>
                   </Field>
                   <div className="field-wrap full">

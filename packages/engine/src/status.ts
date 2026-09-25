@@ -139,7 +139,10 @@ export function exportContainerStatus(
   if (has(own, 'EMPTY_COLLECTION', ['COLLECTED', 'IN_TRANSIT'])) return 'Empty Collected';
   if (has(own, 'EMPTY_COLLECTION', ['SCHEDULED', 'ASSIGNED'])) return 'Empty Collection Scheduled';
   if (emptyGate) return 'Ready for Empty Collection';
-  if (job.cmsRequired && job.cmsStatus === 'PENDING' && mandatoryComplete) return 'Awaiting CMS';
+  // Anything but COMPLETED is awaiting it. A job left on NOT_REQUIRED from
+  // before operations settled this reads as awaiting CMS, which is true and is
+  // the only way anybody finds it.
+  if (job.cmsRequired && job.cmsStatus !== 'COMPLETED' && mandatoryComplete) return 'Awaiting CMS';
   if (!mandatoryComplete) return 'Incomplete';
   return 'New Export Job';
 }

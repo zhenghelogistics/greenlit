@@ -27,10 +27,15 @@ test('CMS is chased against the empty, not the vessel', () => {
   assert.match(cmsWarning('PENDING', '2026-09-22', '2026-09-24')?.says ?? '', /due 2 days ago/);
 });
 
-test('CMS that is done, or was never needed, is never chased', () => {
+test('only a completed CMS stops the chasing', () => {
   assert.equal(cmsWarning('COMPLETED', '2026-09-24', '2026-09-24'), null);
-  assert.equal(cmsWarning('NOT_REQUIRED', '2026-09-24', '2026-09-24'), null);
   assert.equal(cmsWarning('PENDING', null, '2026-09-24'), null, 'no collection date to count to');
+
+  // NOT_REQUIRED used to count as done. Operations settled that no export job
+  // is exempt, so a job still carrying it is one whose CMS nobody has done —
+  // which is the case this warning exists for, not an exception to it.
+  assert.ok(cmsWarning('NOT_REQUIRED', '2026-09-24', '2026-09-24'),
+    'a job left on NOT_REQUIRED is chased like any other');
 });
 
 test('a late vessel is ordinary; a stale ETA with nothing moving is not', () => {

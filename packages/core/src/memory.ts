@@ -1,4 +1,5 @@
-import { suggestedUserId, suggestedDisplayName, normalisePermitNumber, locationProblem,
+import { refuseEmptyCollection,
+  suggestedUserId, suggestedDisplayName, normalisePermitNumber, locationProblem,
   documentProblem, storagePathFor,
   type CustomerLocation, type DocumentRecord,
   type PermitRecord } from '@greenlit/engine';
@@ -851,6 +852,13 @@ export function createMemoryRepository(): Repository {
       const job = importJobs.find((j) => j.jobId === draft.jobId)
         ?? exportJobs.find((j) => j.exportJobId === draft.jobId);
       if (!job) throw new Error(`Unknown job ${draft.jobId}`);
+
+      // Operations: the CMS authorises the collection, so the driver cannot be
+      // assigned before it is done. Enforced here rather than in the route so
+      // it holds for every caller and for both stores.
+      const refusal = refuseEmptyCollection(
+        'cmsStatus' in job ? job : null, draft.movementType);
+      if (refusal) throw new Error(refusal);
 
       const movement = {
         movementId: `${draft.jobId}-${movementRef}`,

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canCollect, canCollectEmpty, canStartLaden, isVgmPlausible, missingMandatoryFields } from '../src/gates.ts';
+import { canCollect, canCollectEmpty, refuseEmptyCollection, canStartLaden, isVgmPlausible, missingMandatoryFields } from '../src/gates.ts';
 import { currentLocation, isLocationUnknown } from '../src/location.ts';
 import { exportContainerStatus, exportJobStatus, importJobStatus } from '../src/status.ts';
 import type { ExportContainer, ExportJob, ImportContainer, ImportJob, Movement } from '../src/types.ts';
@@ -95,8 +95,20 @@ test('§41: CMS pending blocks empty collection, and names itself', () => {
   assert.ok(blocked.failures.includes('CMS'));
 });
 
-test('§40.2: CMS Not Required satisfies the gate', () => {
-  assert.equal(canCollectEmpty(exportJob({ cmsStatus: 'NOT_REQUIRED' }), NO_FIELDS).passed, true);
+test('CMS is required for every empty collection, so only COMPLETED passes', () => {
+  // Settled by operations, 24 September 2026, against how this was first
+  // built. §41 and §40.2 disagreed; the question put to operations was whether
+  // a job marked exempt could proceed, and the answer was that no export job
+  // is exempt: the CMS is what authorises the collection, so a driver cannot
+  // be sent for the empty until it is done.
+  //
+  // NOT_REQUIRED therefore satisfies nothing. It stays in the enum for rows
+  // that already carry it and is no longer offered on the form, so it can
+  // strand nothing new and the existing ones read as Awaiting CMS rather than
+  // as quietly ready.
+  assert.equal(canCollectEmpty(exportJob({ cmsStatus: 'NOT_REQUIRED' }), NO_FIELDS).passed, false);
+  assert.equal(canCollectEmpty(exportJob({ cmsStatus: 'PENDING' }), NO_FIELDS).passed, false);
+  assert.equal(canCollectEmpty(exportJob({ cmsStatus: 'COMPLETED' }), NO_FIELDS).passed, true);
 });
 
 test('§44.2: laden gate needs identity, ready, VGM, stuffing and transhipment', () => {
@@ -213,4 +225,27 @@ test('§27.3: an open blocking exception outranks progression', () => {
 test('§24: unknown location is detectable for the Critical exception', () => {
   assert.equal(isLocationUnknown('Unknown / Exception'), true);
   assert.equal(isLocationUnknown('Port'), false);
+});
+
+test('an empty collection cannot be planned before the CMS is done', () => {
+  // Operations, 24 September 2026. A refusal rather than a warning, because
+  // the CMS is what authorises the collection: there is no case where sending
+  // the driver anyway is the right answer, so there is nothing to override.
+  const pending = exportJob({ cmsStatus: 'PENDING' });
+  assert.ok(refuseEmptyCollection(pending, 'EMPTY_COLLECTION'));
+  assert.ok(refuseEmptyCollection(exportJob({ cmsStatus: 'NOT_REQUIRED' }), 'EMPTY_COLLECTION'),
+    'no export job is exempt');
+  assert.equal(refuseEmptyCollection(exportJob({ cmsStatus: 'COMPLETED' }), 'EMPTY_COLLECTION'), null);
+
+  // Every other trip on the job is unaffected: this gate is about the empty,
+  // not about the job being workable.
+  assert.equal(refuseEmptyCollection(pending, 'DIRECT_LADEN_TO_PORT'), null);
+  assert.equal(refuseEmptyCollection(pending, 'CARPARK_TO_PORT'), null);
+
+  // An import empty is a return, not a collection, and nothing authorises it:
+  // the box is already ours to send back. Import jobs carry no CMS at all, so
+  // the adapters hand null through — which is what this asserts, rather than
+  // pretending an ImportJob has a cmsStatus to read.
+  assert.equal(refuseEmptyCollection(null, 'EMPTY_RETURN'), null);
+  assert.equal(refuseEmptyCollection(null, 'EMPTY_COLLECTION'), null);
 });

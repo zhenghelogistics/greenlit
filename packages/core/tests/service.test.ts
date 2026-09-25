@@ -42,12 +42,19 @@ test('§41: a CMS-pending job is blocked, and completing CMS unblocks it', async
   assert.notEqual(after?.nextActionRequired, 'Complete CMS');
 });
 
-test('§40.2: CMS Not Required also satisfies the gate', async () => {
+test('CMS Not Required no longer satisfies the gate, end to end', async () => {
+  // Operations settled this on 24 September 2026: no export job is exempt,
+  // because the CMS is what authorises the collection. A job carrying the old
+  // status reads as Awaiting CMS, which is both true and the only way anybody
+  // finds it — the alternative is a job that looks ready and has no authority
+  // behind it.
   const repo = createMemoryRepository();
   const service = new JobService(repo, at('2026-09-01T00:00:00Z'));
   await repo.recordCms('ej3', 'NOT_REQUIRED', 'winnie', 'Customer exempt');
-  const after = await service.getJob('ej3');
-  assert.notEqual(after?.jobStatus, 'Awaiting CMS');
+  assert.equal((await service.getJob('ej3'))?.jobStatus, 'Awaiting CMS');
+
+  await repo.recordCms('ej3', 'COMPLETED', 'winnie', 'Done');
+  assert.notEqual((await service.getJob('ej3'))?.jobStatus, 'Awaiting CMS');
 });
 
 test('§31: recording permit and Portnet moves an import job to Ready', async () => {

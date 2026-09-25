@@ -590,7 +590,10 @@ export default function ZhtJobDetail({
     ["Terminal", job.terminal],
     ["Delivery Address", job.deliveryAddress],
     ["Empty Yard", job.emptyYard],
-    ["CMS", job.cmsCompleted ? "Completed" : "Pending"],
+    // Export only. Import has no CMS — operations were explicit that it should
+    // not appear there at all, and a field showing "Pending" forever is one
+    // somebody eventually tries to clear.
+    ...(job.type === "Export" ? [["CMS", job.cmsCompleted ? "Completed" : "Pending"]] : []),
   ];
 
   const containerFields = [

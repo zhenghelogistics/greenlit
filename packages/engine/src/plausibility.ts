@@ -57,7 +57,11 @@ export function cmsWarning(
   today: IsoDate,
   withinDays = 3,
 ): Warning | null {
-  const done = cmsStatus === 'COMPLETED' || cmsStatus === 'NOT_REQUIRED';
+  // Only a completed CMS is done. NOT_REQUIRED used to count, and operations
+  // have since said no export job is exempt — so a job still carrying that
+  // status is one nobody has done the CMS for, which is exactly what this is
+  // for warning about.
+  const done = cmsStatus === 'COMPLETED';
   const due = dayOf(emptyCollectionDate);
   if (done || !due) return null;
 

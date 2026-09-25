@@ -552,10 +552,14 @@ const RULES: Rule[] = [
       assert.equal(canCollectEmpty(exportJob({ cmsStatus: 'PENDING' }), NO_FIELDS).passed, false);
       assert.equal(canCollectEmpty(exportJob(), NO_FIELDS).passed, true);
     } },
-  { id: 'E-32', text: 'CMS Not Required is an explicit permissioned choice with a mandatory reason',
+  { id: 'E-32', text: 'CMS is required for every empty collection; no export job is exempt',
     verify: () => {
-      // The gate accepts it (ADR-0002); the reason is enforced at the command boundary.
-      assert.equal(canCollectEmpty(exportJob({ cmsStatus: 'NOT_REQUIRED' }), NO_FIELDS).passed, true);
+      // Was "NOT_REQUIRED is a permissioned choice", per §40.2 and ADR-0002.
+      // Operations settled it the other way on 24 September 2026: the CMS is
+      // what authorises the collection, so nothing releases the gate but a
+      // completed one. ADR-0002 is superseded by ADR-0009.
+      assert.equal(canCollectEmpty(exportJob({ cmsStatus: 'NOT_REQUIRED' }), NO_FIELDS).passed, false);
+      assert.equal(canCollectEmpty(exportJob({ cmsStatus: 'COMPLETED' }), NO_FIELDS).passed, true);
     } },
   { id: 'E-33', text: 'EMPTY_COLLECTION cannot reach COMPLETED without container, seal and tare',
     verify: () => {
