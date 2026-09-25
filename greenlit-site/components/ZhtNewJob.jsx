@@ -67,7 +67,7 @@ const shout = (value) => String(value ?? "").toUpperCase();
  * which sections still want something. A dot means outstanding; nothing means
  * that section is happy. Clicking scrolls.
  */
-function SectionNav({ sections, current, onJump }) {
+export function SectionNav({ sections, current, onJump }) {
   return (
     <nav className="import-create-tabs" aria-label="Sections of this form">
       {sections.map((section) => (

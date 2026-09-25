@@ -36,7 +36,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ code: stri
   try {
     const { code } = await ctx.params;
     const body = await readJson<{
-      label?: string; address?: string; isDefault?: boolean;
+      company?: string; label?: string; address?: string; isDefault?: boolean;
+      operationalInstructions?: string | null;
       doubleMountingPermitted?: boolean; standbyUsual?: boolean;
     }>(request);
     if (!body) return badRequest("A JSON body is required");
@@ -45,8 +46,12 @@ export async function POST(request: Request, ctx: { params: Promise<{ code: stri
     if (!auth.ok) return auth.response;
 
     const location = await getRepository().addCustomerLocation(code, {
+      // The company at this address, which is usually one of the customer's
+      // own customers. Absent, the adapter uses the customer's own name.
+      company: body.company,
       label: body.label,
       address: body.address,
+      operationalInstructions: body.operationalInstructions ?? null,
       isDefault: body.isDefault ?? false,
       doubleMountingPermitted: body.doubleMountingPermitted ?? true,
       standbyUsual: body.standbyUsual ?? false,
@@ -68,7 +73,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ code: stri
 export async function PATCH(request: Request) {
   try {
     const body = await readJson<{
-      locationId?: string; label?: string; address?: string; isDefault?: boolean;
+      locationId?: string; company?: string; label?: string; address?: string;
+      operationalInstructions?: string | null; isDefault?: boolean;
       doubleMountingPermitted?: boolean; standbyUsual?: boolean; active?: boolean;
     }>(request);
     if (!body) return badRequest("A JSON body is required");

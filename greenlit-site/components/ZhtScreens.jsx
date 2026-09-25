@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SectionNav } from "./ZhtNewJob.jsx";
 
 /**
  * The remaining nine screens, in the PM's markup.
@@ -449,7 +450,11 @@ export function ZhtCustomers({ onOpenCustomer }) {
 
       {adding ? (
         <AddCustomer onCancel={() => setAdding(false)}
-          onSaved={() => { setAdding(false); load(); }} />
+          onSaved={(created) => {
+            setAdding(false);
+            load();
+            if (created) onOpenCustomer?.(created);
+          }} />
       ) : null}
 
       <div className="card">
@@ -481,66 +486,317 @@ export function ZhtCustomers({ onOpenCustomer }) {
 }
 
 /** §9.1. The code is chosen by a person and immutable once issued. */
+/**
+ * One address on a customer's record, as a set of fields.
+ *
+ * The same component whether it is being added or corrected, because the two
+ * are the same work and operations were doing one of them by creating a second
+ * record. It was add-only before: a saved location offered "make default" and
+ * "take out of use", and no way at all to fix a typo in the address.
+ */
+function LocationFields({ value, onChange, customerName }) {
+  const set = (key) => (event) => onChange({
+    ...value,
+    [key]: event.target.type === "checkbox" ? event.target.checked : event.target.value,
+  });
+
+  return (
+    <div className="job-create-grid formgrid">
+      <label className="field">
+        <span className="field-label">Company at this address</span>
+        <input
+          value={value.company} onChange={set("company")}
+          placeholder={customerName || "The company receiving the container"}
+        />
+        <span className="field-helper">
+          Usually one of this customer&rsquo;s own customers. Leave it blank for
+          {customerName ? ` ${customerName}` : " the customer"} itself.
+        </span>
+      </label>
+      <label className="field">
+        <span className="field-label">Site name</span>
+        <input value={value.label} onChange={set("label")} placeholder="Tuas warehouse" required />
+        <span className="field-helper">What someone says on the phone.</span>
+      </label>
+      <label className="field full">
+        <span className="field-label">Address</span>
+        <input value={value.address} onChange={set("address")} required
+          placeholder="12 Jurong Port Road, Singapore 619098" />
+      </label>
+      <label className="field full">
+        <span className="field-label">Operational instructions</span>
+        <textarea
+          rows={2} value={value.operationalInstructions} onChange={set("operationalInstructions")}
+          placeholder="Gate 3 only. Call site office 30 minutes ahead. Forklift before 12pm."
+        />
+        {/* Shown on the job the moment this address is chosen, which is the
+            whole point of keeping it here rather than in somebody's head. */}
+        <span className="field-helper">
+          Shown when this address is picked on a job. A job can still add
+          something for one delivery without changing this.
+        </span>
+      </label>
+      <div className="field full">
+        <div className="action-row" style={{ gap: 14, flexWrap: "wrap" }}>
+          <label className="checkline">
+            <input type="checkbox" checked={value.isDefault} onChange={set("isDefault")} />
+            <span>Default for this customer</span>
+          </label>
+          <label className="checkline">
+            <input type="checkbox" checked={value.doubleMountingPermitted}
+              onChange={set("doubleMountingPermitted")} />
+            <span>Double mounting permitted</span>
+          </label>
+          <label className="checkline">
+            <input type="checkbox" checked={value.standbyUsual} onChange={set("standbyUsual")} />
+            <span>Standby usual here</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** A location nobody has saved yet. */
+const BLANK_LOCATION = {
+  company: "", label: "", address: "", operationalInstructions: "",
+  isDefault: false, doubleMountingPermitted: true, standbyUsual: false,
+};
+
+/**
+ * Create a customer, and everything about it, in one pass.
+ *
+ * It asked for three fields — code, company name, short name — and made a
+ * record you then had to open and fill in field by field, screen by screen.
+ * Operations described that exactly: *"what customer creation is doing is to
+ * just build the main folder. Once main folder is built, then I must enter the
+ * folder to amend the relevant fields individually."*
+ *
+ * So: the same shape as job creation. Sections across the top, one open at a
+ * time, and the addresses are here rather than behind a second visit — a new
+ * customer almost always arrives with at least one.
+ *
+ * Several addresses before anything is saved, because they arrive together.
+ * Operations were clicking Add Location, saving, and clicking it again for
+ * each one.
+ */
 function AddCustomer({ onCancel, onSaved }) {
-  const [form, setForm] = useState({ code: "", companyName: "", shortName: "" });
+  const [tab, setTab] = useState("profile");
+  const [form, setForm] = useState({
+    code: "", companyName: "", shortName: "", billingName: "",
+    defaultContact: "", emailDomains: "", notes: "",
+  });
+  const [locations, setLocations] = useState([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (key) => (event) => setForm((f) => ({ ...f, [key]: event.target.value }));
+
+  const sections = [
+    { id: "profile", label: "Profile", outstanding: !form.code.trim() || !form.companyName.trim() },
+    {
+      id: "locations",
+      label: "Delivery Companies & Addresses",
+      outstanding: locations.some((l) => !l.label.trim() || !l.address.trim()),
+    },
+  ];
 
   async function submit(event) {
     event.preventDefault();
-    setSaving(true); setError("");
-    const response = await fetch("/api/customers", {
+    if (!form.code.trim() || !form.companyName.trim()) {
+      setTab("profile");
+      setError("A code and a company name are required.");
+      return;
+    }
+    const unfinished = locations.findIndex((l) => !l.label.trim() || !l.address.trim());
+    if (unfinished >= 0) {
+      setTab("locations");
+      setError(`Address ${unfinished + 1} needs a site name and an address.`);
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    const code = form.code.trim().toUpperCase();
+
+    const created = await fetch("/api/customers", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        code: form.code.trim().toUpperCase(),
+        code,
         companyName: form.companyName.trim(),
         shortName: form.shortName.trim() || null,
+        emailDomains: form.emailDomains.split(/[,\s]+/).map((d) => d.trim()).filter(Boolean),
       }),
     }).catch(() => null);
-    const payload = await response?.json().catch(() => ({}));
+    const payload = await created?.json().catch(() => ({}));
+    if (!created?.ok) {
+      setSaving(false);
+      setTab("profile");
+      setError(payload?.error ?? "That customer was not saved.");
+      return;
+    }
+
+    // The rest of the profile in one amendment, because creation takes only
+    // what makes a customer exist and the rest is a correction to it.
+    const rest = {};
+    if (form.billingName.trim()) rest.billingName = form.billingName.trim();
+    if (form.defaultContact.trim()) rest.defaultContact = form.defaultContact.trim();
+    if (form.notes.trim()) rest.notes = form.notes.trim();
+    if (Object.keys(rest).length) {
+      await fetch(`/api/customers/${encodeURIComponent(code)}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(rest),
+      }).catch(() => null);
+    }
+
+    // One at a time, in order: each writes its own history line, and a failure
+    // halfway should leave the ones already saved saved rather than rolled
+    // back into nothing.
+    const failed = [];
+    for (const [index, site] of locations.entries()) {
+      const response = await fetch(`/api/customers/${encodeURIComponent(code)}/locations`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(site),
+      }).catch(() => null);
+      if (!response?.ok) failed.push(site.label || `Address ${index + 1}`);
+    }
+
     setSaving(false);
-    if (!response?.ok) { setError(payload?.error ?? "That customer was not saved."); return; }
-    onSaved();
+    if (failed.length) {
+      setTab("locations");
+      setError(
+        `${code} was created, but ${failed.join(", ")} could not be saved. `
+        + "Add them from the customer's own screen.",
+      );
+      return;
+    }
+    onSaved(code);
   }
 
   return (
-    <form className="card" style={{ marginTop: 12 }} onSubmit={submit}>
-      <div className="section-title">Add Customer</div>
-      <div className="formgrid">
-        <div className="field">
-          <label htmlFor="zht-cust-code">Code</label>
-          <input id="zht-cust-code" required value={form.code} onChange={set("code")}
-            placeholder="ABC" maxLength={6} />
-        </div>
-        <div className="field">
-          <label htmlFor="zht-cust-name">Company name</label>
-          <input id="zht-cust-name" required value={form.companyName}
-            onChange={set("companyName")} placeholder="ABC Pte Ltd" />
-        </div>
-        <div className="field">
-          <label htmlFor="zht-cust-short">Short name</label>
-          <input id="zht-cust-short" value={form.shortName} onChange={set("shortName")} />
-        </div>
-      </div>
-      {error ? <div className="callout" style={{ marginTop: 8 }}>{error}</div> : null}
-      <div className="action-row" style={{ marginTop: 10, gap: 8 }}>
+    <form className="zht" onSubmit={submit} style={{ marginTop: 12 }}>
+      <SectionNav sections={sections} current={tab} onJump={setTab} />
+      {error ? <div className="callout" role="alert">{error}</div> : null}
+
+      {tab === "profile" ? (
+        <section className="creation-section">
+          <div className="creation-section-head">
+            <div>
+              <div className="section-title">Profile</div>
+              <div className="muted">The code cannot be changed later. Everything else can.</div>
+            </div>
+          </div>
+          <div className="job-create-grid formgrid">
+            <div className="field">
+              <label htmlFor="zht-cust-code">Code<span className="req"> *</span></label>
+              <input id="zht-cust-code" required value={form.code} maxLength={6}
+                onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
+                placeholder="ABC" />
+              <span className="field-helper">
+                Every job number for this customer is built from it, so it is issued once.
+              </span>
+            </div>
+            <div className="field">
+              <label htmlFor="zht-cust-name">Company name<span className="req"> *</span></label>
+              <input id="zht-cust-name" required value={form.companyName}
+                onChange={set("companyName")} placeholder="ABC Pte Ltd" />
+            </div>
+            <div className="field">
+              <label htmlFor="zht-cust-short">Short name</label>
+              <input id="zht-cust-short" value={form.shortName} onChange={set("shortName")} />
+            </div>
+            <div className="field">
+              <label htmlFor="zht-cust-billing">Billing name</label>
+              <input id="zht-cust-billing" value={form.billingName} onChange={set("billingName")} />
+              <span className="field-helper">Only if the invoice reads differently.</span>
+            </div>
+            <div className="field">
+              <label htmlFor="zht-cust-contact">Contact</label>
+              <input id="zht-cust-contact" value={form.defaultContact} onChange={set("defaultContact")} />
+            </div>
+            <div className="field">
+              <label htmlFor="zht-cust-domains">Email domains</label>
+              <input id="zht-cust-domains" value={form.emailDomains} onChange={set("emailDomains")}
+                placeholder="abc.com.sg, abc-logistics.com" />
+              <span className="field-helper">
+                How an arrival notice is matched to this customer automatically.
+              </span>
+            </div>
+            <div className="field full">
+              <label htmlFor="zht-cust-notes">Account notes</label>
+              <textarea id="zht-cust-notes" rows={2} value={form.notes} onChange={set("notes")} />
+              <span className="field-helper">
+                About the account. Instructions for a place go on its address.
+              </span>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      {tab === "locations" ? (
+        <section className="creation-section">
+          <div className="creation-section-head">
+            <div>
+              <div className="section-title">Delivery Companies &amp; Addresses</div>
+              <div className="muted">
+                Add as many as you have. Nothing is saved until you save the customer.
+              </div>
+            </div>
+            <button type="button" className="btn secondary"
+              onClick={() => setLocations((was) => [...was, { ...BLANK_LOCATION }])}>
+              + Add address
+            </button>
+          </div>
+
+          {locations.length === 0 ? (
+            <Empty>
+              No addresses yet. A customer can be saved without one, but no job can be
+              created for them until they have at least one.
+            </Empty>
+          ) : null}
+
+          {locations.map((site, index) => (
+            <div className="container-entry" key={index}>
+              <div className="header-row">
+                <b>{site.label || `Address ${index + 1}`}</b>
+                <button type="button" className="btn ghost"
+                  onClick={() => setLocations((was) => was.filter((_, n) => n !== index))}>
+                  Remove
+                </button>
+              </div>
+              <LocationFields
+                value={site} customerName={form.companyName}
+                onChange={(next) => setLocations((was) =>
+                  was.map((l, n) => (n === index
+                    // One default per customer, held true while it is still a
+                    // draft: two rows both ticked would otherwise both be sent
+                    // and the last would quietly win.
+                    ? next
+                    : (next.isDefault ? { ...l, isDefault: false } : l))))}
+              />
+            </div>
+          ))}
+        </section>
+      ) : null}
+
+      <div className="action-row" style={{ marginTop: 12, gap: 8, justifyContent: "flex-end" }}>
+        <button className="btn ghost" type="button" onClick={onCancel}>Cancel</button>
         <button className="btn primary" type="submit" disabled={saving}>
           {saving ? "Saving…" : "Save customer"}
         </button>
-        <button className="btn ghost" type="button" onClick={onCancel}>Cancel</button>
       </div>
     </form>
   );
 }
 
-/** §9 and §9.3. One customer: profile, its locations, instructions, history. */
+/** §9 and §9.3. One customer: profile, its addresses, and what has changed. */
 export function ZhtCustomerDetail({ code, onBack }) {
   const [tab, setTab] = useState("profile");
   const [state, setState] = useState({ loading: true, customer: null, locations: [] });
-  const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
+  const [note, setNote] = useState("");
 
   function load() {
     Promise.all([
@@ -552,164 +808,384 @@ export function ZhtCustomerDetail({ code, onBack }) {
   }
   useEffect(load, [code]);
 
-  async function save(method, body) {
+  async function saveLocation(method, body) {
     setError("");
     const response = await fetch(`/api/customers/${encodeURIComponent(code)}/locations`, {
       method, headers: { "content-type": "application/json" }, body: JSON.stringify(body),
     }).catch(() => null);
     const payload = await response?.json().catch(() => ({}));
-    if (!response?.ok) { setError(payload?.error ?? "That site was not saved."); return false; }
+    if (!response?.ok) { setError(payload?.error ?? "That address was not saved."); return false; }
     load();
     return true;
   }
 
   const c = state.customer;
-  const tabs = [["profile", "Profile"], ["locations", "Delivery Companies & Addresses"],
-                ["instructions", "Operational Instructions"], ["history", "Change History"]];
+  const sections = [
+    { id: "profile", label: "Profile" },
+    { id: "locations", label: "Delivery Companies & Addresses" },
+    { id: "history", label: "Change History" },
+  ];
 
   return (
     <Shell title={c?.companyName || code}
       action={<button className="btn secondary" type="button" onClick={onBack}>← Back</button>}>
-      <div className="card">
-        <div className="tabs">
-          {tabs.map(([id, label]) => (
-            <button type="button" key={id} className={`tab ${tab === id ? "active" : ""}`}
-              onClick={() => setTab(id)}>{label}</button>
-          ))}
+      <div className="zht">
+        <SectionNav sections={sections} current={tab} onJump={setTab} />
+        {error ? <div className="callout" role="alert">{error}</div> : null}
+        {note ? <div className="noa-note" role="status">{note}</div> : null}
+
+        {tab === "profile" ? (
+          <CustomerProfile
+            customer={c} loading={state.loading}
+            onSaved={(saved) => {
+              setState((was) => ({ ...was, customer: saved }));
+              setNote("Profile saved.");
+            }}
+            onError={setError}
+          />
+        ) : null}
+
+        {tab === "locations" ? (
+          <CustomerLocations
+            customerName={c?.companyName} locations={state.locations}
+            loading={state.loading} onSave={saveLocation}
+          />
+        ) : null}
+
+        {tab === "history" ? <CustomerHistory code={code} /> : null}
+      </div>
+    </Shell>
+  );
+}
+
+/**
+ * The customer's own details, editable.
+ *
+ * This was a read-only list of nine labelled values, which is why operations
+ * reported that the profile tab cannot amend anything. Two of those nine are
+ * gone: default consignee, which operations said is not required, and default
+ * address, which is one of the addresses on the next tab and was a second
+ * place to say the same thing.
+ */
+function CustomerProfile({ customer, loading, onSaved, onError }) {
+  const [edits, setEdits] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  if (loading) return <Empty>Loading…</Empty>;
+  if (!customer) return <Empty>That customer could not be loaded.</Empty>;
+
+  const form = {
+    companyName: customer.companyName ?? "",
+    shortName: customer.shortName ?? "",
+    billingName: customer.billingName ?? "",
+    defaultContact: customer.defaultContact ?? "",
+    emailDomains: (customer.emailDomains ?? []).join(", "),
+    accountStatus: customer.accountStatus ?? "ACTIVE",
+    notes: customer.notes ?? "",
+    ...edits,
+  };
+
+  const set = (key) => (event) => setEdits((was) => ({ ...was, [key]: event.target.value }));
+
+  async function save(event) {
+    event.preventDefault();
+    setSaving(true);
+    onError("");
+    const response = await fetch(`/api/customers/${encodeURIComponent(customer.code)}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        companyName: form.companyName.trim(),
+        shortName: form.shortName.trim() || null,
+        billingName: form.billingName.trim() || null,
+        defaultContact: form.defaultContact.trim() || null,
+        emailDomains: form.emailDomains.split(/[,\s]+/).map((d) => d.trim()).filter(Boolean),
+        accountStatus: form.accountStatus,
+        notes: form.notes.trim() || null,
+      }),
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    setSaving(false);
+    if (!response?.ok) { onError(payload?.error ?? "Those changes were not saved."); return; }
+    // Cleared so the saved record becomes the truth again, rather than the
+    // edits shadowing it and hiding a value the server normalised.
+    setEdits({});
+    onSaved(payload.customer);
+  }
+
+  return (
+    <form className="creation-section" onSubmit={save}>
+      <div className="creation-section-head">
+        <div>
+          <div className="section-title">Profile</div>
+          <div className="muted">Every field here can be corrected. The code cannot.</div>
         </div>
       </div>
+      <div className="job-create-grid formgrid">
+        <label className="field">
+          <span className="field-label">Code</span>
+          {/* Shown, never editable: every job reference already printed for
+              this customer is built from it. */}
+          <input value={customer.code} readOnly disabled />
+          <span className="field-helper">Issued once. Job numbers depend on it.</span>
+        </label>
+        <div className="field">
+          <label htmlFor="cp-name">Company name<span className="req"> *</span></label>
+          <input id="cp-name" required value={form.companyName} onChange={set("companyName")} />
+        </div>
+        <div className="field">
+          <label htmlFor="cp-short">Short name</label>
+          <input id="cp-short" value={form.shortName} onChange={set("shortName")} />
+        </div>
+        <div className="field">
+          <label htmlFor="cp-billing">Billing name</label>
+          <input id="cp-billing" value={form.billingName} onChange={set("billingName")} />
+        </div>
+        <div className="field">
+          <label htmlFor="cp-contact">Contact</label>
+          <input id="cp-contact" value={form.defaultContact} onChange={set("defaultContact")} />
+        </div>
+        <div className="field">
+          <label htmlFor="cp-domains">Email domains</label>
+          <input id="cp-domains" value={form.emailDomains} onChange={set("emailDomains")} />
+          <span className="field-helper">How a notice is matched to this customer.</span>
+        </div>
+        <div className="field">
+          <label htmlFor="cp-status">Status</label>
+          <select id="cp-status" value={form.accountStatus} onChange={set("accountStatus")}>
+            <option value="ACTIVE">Active</option>
+            <option value="ON_HOLD">On hold</option>
+            <option value="CLOSED">Closed</option>
+          </select>
+        </div>
+        <div className="field full">
+          <label htmlFor="cp-notes">Account notes</label>
+          <textarea id="cp-notes" rows={3} value={form.notes} onChange={set("notes")} />
+          <span className="field-helper">
+            About the account. Instructions for a place go on its address.
+          </span>
+        </div>
+      </div>
+      <div className="action-row" style={{ marginTop: 10, justifyContent: "flex-end" }}>
+        <button className="btn primary" type="submit" disabled={saving}>
+          {saving ? "Saving…" : "Save changes"}
+        </button>
+      </div>
+    </form>
+  );
+}
 
-      {tab === "profile" ? (
-        <div className="card" style={{ marginTop: 16 }}>
-          <div className="section-title">Customer Profile</div>
-          <div className="formgrid">
-            {[["Company", c?.companyName], ["Code", c?.code], ["Short name", c?.shortName],
-              ["Billing name", c?.billingName], ["Default consignee", c?.defaultConsignee],
-              ["Default address", c?.defaultDeliveryAddress], ["Contact", c?.defaultContact],
-              ["Email domains", (c?.emailDomains ?? []).join(", ")],
-              ["Status", c?.accountStatus]].map(([label, value]) => (
-                <div className="field" key={label}>
-                  <span className="field-label">{label}</span><b>{value || "—"}</b>
-                </div>
-              ))}
+/**
+ * The customer's addresses: add several, and correct any of them.
+ *
+ * Both were impossible. Adding was one-at-a-time behind a button that closed
+ * itself on save, and a saved address could only be made default or taken out
+ * of use — a wrong address had to be retired and retyped.
+ */
+function CustomerLocations({ customerName, locations, loading, onSave }) {
+  const [drafts, setDrafts] = useState([]);
+  const [editing, setEditing] = useState({});
+  const [saving, setSaving] = useState(false);
+
+  async function saveAll() {
+    setSaving(true);
+    for (const site of drafts) {
+      if (!site.label.trim() || !site.address.trim()) continue;
+      await onSave("POST", site);
+    }
+    setDrafts([]);
+    setSaving(false);
+  }
+
+  return (
+    <section className="creation-section">
+      <div className="creation-section-head">
+        <div>
+          <div className="section-title">Delivery Companies &amp; Addresses</div>
+          <div className="muted">
+            The places this customer&rsquo;s containers go. A job can only pick from here.
           </div>
+        </div>
+        <button type="button" className="btn secondary"
+          onClick={() => setDrafts((was) => [...was, { ...BLANK_LOCATION }])}>
+          + Add address
+        </button>
+      </div>
+
+      {drafts.map((site, index) => (
+        <div className="container-entry" key={`draft-${index}`}>
+          <div className="header-row">
+            <b>{site.label || `New address ${index + 1}`}</b>
+            <button type="button" className="btn ghost"
+              onClick={() => setDrafts((was) => was.filter((_, n) => n !== index))}>
+              Remove
+            </button>
+          </div>
+          <LocationFields
+            value={site} customerName={customerName}
+            onChange={(next) => setDrafts((was) => was.map((l, n) => (n === index ? next : l)))}
+          />
+        </div>
+      ))}
+
+      {drafts.length ? (
+        <div className="action-row" style={{ marginTop: 10, justifyContent: "flex-end" }}>
+          <button type="button" className="btn primary" onClick={saveAll} disabled={saving}>
+            {saving ? "Saving…" : `Save ${drafts.length} address${drafts.length === 1 ? "" : "es"}`}
+          </button>
         </div>
       ) : null}
 
-      {tab === "locations" ? (
-        <div className="card" style={{ marginTop: 16 }}>
-          <div className="header-row">
-            <div className="section-title">Delivery Companies &amp; Addresses</div>
-            <button className="btn secondary" type="button" onClick={() => setAdding(true)}>
-              + Add Location
-            </button>
-          </div>
-          {error ? <div className="callout">{error}</div> : null}
-
-          {adding ? (
-            <AddLocation onCancel={() => setAdding(false)}
-              onSave={async (draft) => { if (await save("POST", draft)) setAdding(false); }} />
-          ) : null}
-
-          <div className="location-card-list">
-            {state.locations.length ? state.locations.map((loc) => (
-              <div className="location-card" key={loc.locationId}>
-                <b>{loc.label}</b>
-                {loc.isDefault ? <span className="tag green" style={{ marginLeft: 8 }}>Default</span> : null}
-                {!loc.active ? <span className="tag gray" style={{ marginLeft: 8 }}>Out of use</span> : null}
-                <br />{loc.address}
+      <div className="location-card-list" style={{ marginTop: drafts.length ? 16 : 0 }}>
+        {locations.length ? locations.map((loc) => (
+          <div className="location-card" key={loc.locationId}>
+            {editing[loc.locationId] ? (
+              <>
+                <LocationFields
+                  value={editing[loc.locationId]} customerName={customerName}
+                  onChange={(next) => setEditing((was) => ({ ...was, [loc.locationId]: next }))}
+                />
+                <div className="action-row" style={{ marginTop: 8, gap: 8 }}>
+                  <button type="button" className="btn primary" onClick={async () => {
+                    const ok = await onSave("PATCH", {
+                      locationId: loc.locationId, ...editing[loc.locationId],
+                    });
+                    if (ok) setEditing((was) => ({ ...was, [loc.locationId]: undefined }));
+                  }}>
+                    Save address
+                  </button>
+                  <button type="button" className="btn ghost"
+                    onClick={() => setEditing((was) => ({ ...was, [loc.locationId]: undefined }))}>
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="location-card-top">
+                  <b className="location-card-title">{loc.company}</b>
+                  {loc.isDefault ? <span className="tag green">Default</span> : null}
+                  {!loc.active ? <span className="tag gray">Out of use</span> : null}
+                </div>
+                <div>{loc.label}</div>
+                <div className="muted">{loc.address}</div>
+                {loc.operationalInstructions ? (
+                  <div className="nc-job-address-preview" style={{ marginTop: 8 }}>
+                    <b>Always here</b>
+                    {loc.operationalInstructions}
+                  </div>
+                ) : null}
                 <div className="muted" style={{ marginTop: 4 }}>
                   {loc.doubleMountingPermitted ? "Double mounting permitted" : "No double mounting"}
                   {loc.standbyUsual ? " · standby usual" : ""}
                 </div>
                 <div className="action-row" style={{ marginTop: 6, gap: 8 }}>
+                  <button className="btn ghost" type="button"
+                    onClick={() => setEditing((was) => ({
+                      ...was,
+                      [loc.locationId]: {
+                        company: loc.company ?? "", label: loc.label ?? "",
+                        address: loc.address ?? "",
+                        operationalInstructions: loc.operationalInstructions ?? "",
+                        isDefault: Boolean(loc.isDefault),
+                        doubleMountingPermitted: loc.doubleMountingPermitted !== false,
+                        standbyUsual: Boolean(loc.standbyUsual),
+                      },
+                    }))}>
+                    Edit
+                  </button>
                   {!loc.isDefault ? (
                     <button className="btn ghost" type="button"
-                      onClick={() => save("PATCH", { locationId: loc.locationId, isDefault: true })}>
+                      onClick={() => onSave("PATCH", { locationId: loc.locationId, isDefault: true })}>
                       Make default
                     </button>
                   ) : null}
                   <button className="btn ghost" type="button"
-                    onClick={() => save("PATCH", { locationId: loc.locationId, active: !loc.active })}>
+                    onClick={() => onSave("PATCH", { locationId: loc.locationId, active: !loc.active })}>
                     {loc.active ? "Take out of use" : "Put back in use"}
                   </button>
                 </div>
-              </div>
-            )) : <Empty>
-              {state.loading ? "Loading…" : "No delivery locations recorded for this customer."}
-            </Empty>}
+              </>
+            )}
           </div>
-        </div>
-      ) : null}
-
-      {tab === "instructions" ? (
-        <div className="card" style={{ marginTop: 16 }}>
-          <div className="section-title">Operational Instructions</div>
-          <div className="muted">{c?.notes || "No standing instructions recorded."}</div>
-        </div>
-      ) : null}
-
-      {tab === "history" ? (
-        <div className="card" style={{ marginTop: 16 }}>
-          <div className="section-title">Change History</div>
-          {/* §13. Customer-level audit is not published by the API yet, so this
-              says so rather than showing an empty list that reads as "nothing
-              has ever changed here". */}
-          <Empty>Customer change history is not published by the API yet.</Empty>
-        </div>
-      ) : null}
-    </Shell>
+        )) : (
+          <Empty>
+            {loading ? "Loading…" : "No addresses yet. A job cannot be created without one."}
+          </Empty>
+        )}
+      </div>
+    </section>
   );
 }
 
-/** §9.3. A delivery location. Double mounting defaults on; §57 gap 2.1-3. */
-function AddLocation({ onCancel, onSave }) {
-  const [form, setForm] = useState({
-    label: "", address: "", isDefault: false,
-    doubleMountingPermitted: true, standbyUsual: false,
-  });
-  const [saving, setSaving] = useState(false);
-  const set = (k) => (e) => setForm((f) => ({
-    ...f, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value,
-  }));
+/**
+ * §13. What has changed about this customer, and who changed it.
+ *
+ * This tab existed and said the API did not publish the history. It does now,
+ * keyed by the customer's code — which is also where creation files its own
+ * event, having previously filed it under the lowercase id where nothing looks.
+ */
+function CustomerHistory({ code }) {
+  const [state, setState] = useState({ loading: true, events: [] });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/customers/${encodeURIComponent(code)}/history`)
+      .then((r) => (r.ok ? r.json() : { events: [] }))
+      .then((d) => { if (!cancelled) setState({ loading: false, events: d.events ?? [] }); })
+      .catch(() => { if (!cancelled) setState({ loading: false, events: [] }); });
+    return () => { cancelled = true; };
+  }, [code]);
+
+  const said = (event) => {
+    if (event.event === "customer.created") return "Customer created";
+    if (event.event === "location.added") return "Address added";
+    if (event.event === "location.amended") return "Address changed";
+    if (event.event === "customer.amended") return "Profile changed";
+    return event.event;
+  };
 
   return (
-    <form className="card" style={{ marginTop: 10 }} onSubmit={async (event) => {
-      event.preventDefault(); setSaving(true); await onSave(form); setSaving(false);
-    }}>
-      <div className="section-title">Add Location</div>
-      <div className="formgrid">
-        <div className="field">
-          <label htmlFor="zht-loc-label">Company at this address</label>
-          <input id="zht-loc-label" required value={form.label} onChange={set("label")} />
-        </div>
-        <div className="field">
-          <label htmlFor="zht-loc-address">Address</label>
-          <input id="zht-loc-address" required value={form.address} onChange={set("address")} />
+    <section className="creation-section">
+      <div className="creation-section-head">
+        <div>
+          <div className="section-title">Change History</div>
+          <div className="muted">Newest first.</div>
         </div>
       </div>
-      <div className="action-row" style={{ marginTop: 8, gap: 14, flexWrap: "wrap" }}>
-        <label htmlFor="zht-loc-default">
-          <input id="zht-loc-default" type="checkbox" checked={form.isDefault}
-            onChange={set("isDefault")} /> Default for this customer
-        </label>
-        <label htmlFor="zht-loc-dm">
-          <input id="zht-loc-dm" type="checkbox" checked={form.doubleMountingPermitted}
-            onChange={set("doubleMountingPermitted")} /> Double mounting permitted
-        </label>
-        <label htmlFor="zht-loc-standby">
-          <input id="zht-loc-standby" type="checkbox" checked={form.standbyUsual}
-            onChange={set("standbyUsual")} /> Standby usual here
-        </label>
-      </div>
-      <div className="action-row" style={{ marginTop: 10, gap: 8 }}>
-        <button className="btn primary" type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Save location"}
-        </button>
-        <button className="btn ghost" type="button" onClick={onCancel}>Cancel</button>
-      </div>
-    </form>
+      {state.loading ? <Empty>Loading…</Empty> : null}
+      {!state.loading && state.events.length === 0
+        ? <Empty>Nothing has changed on this customer yet.</Empty> : null}
+      {state.events.map((event, index) => (
+        <div className="movement" key={`${event.createdAt}-${index}`}>
+          <strong>{said(event)}</strong>
+          {event.field ? <span className="muted"> · {event.field}</span> : null}
+          <br />
+          {event.previousValue || event.newValue ? (
+            <span>
+              {event.previousValue ? <s className="muted">{event.previousValue}</s> : null}
+              {event.previousValue && event.newValue ? " → " : null}
+              {event.newValue}
+            </span>
+          ) : null}
+          <div className="muted" style={{ marginTop: 2 }}>
+            {event.actor} · {formatWhen(event.createdAt)}
+          </div>
+        </div>
+      ))}
+    </section>
   );
+}
+
+/** A timestamp as somebody in Singapore reads one. */
+function formatWhen(iso) {
+  if (!iso) return "";
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return String(iso);
+  return at.toLocaleString("en-SG", {
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: true,
+  });
 }
 
 /** Global search across jobs, containers and customers. */
