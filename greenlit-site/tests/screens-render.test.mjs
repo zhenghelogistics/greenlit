@@ -30,7 +30,7 @@ import { SCREENS, BUILT } from "./build-screens.mjs";
 
 before(async () => { await import("./build-screens.mjs"); });
 
-const load = async (name) => (await import(`${SCREENS}/components/${name}.js`));
+const load = async (name) => (await import(`${SCREENS}/${name}.js`));
 const html = (element) => renderToStaticMarkup(element);
 
 /** A customer as `/api/customers` returns one. */

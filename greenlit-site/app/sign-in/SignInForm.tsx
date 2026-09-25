@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import PixelBarge from "./PixelBarge";
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
@@ -200,19 +201,13 @@ export default function SignInForm() {
         />
 
         <div className="relative flex h-full flex-col justify-end p-14">
-          {/* Small on purpose. The mark is navy artwork inverted to white, so
-              its anti-aliased edges come back as semi-transparent white and read
-              soft at any size — the larger it is, the more obvious that is.
-              The signed-out page has already said whose system this is, in
-              full, on the other half. */}
-          <Image
-            src="/logo-blue.png"
-            alt=""
-            width={2217}
-            height={676}
-            className="h-6 w-auto opacity-90 brightness-0 invert"
-          />
-          <p className="mt-6 max-w-[22ch] text-[26px] font-semibold leading-[1.25] tracking-[-0.015em] text-white">
+          {/* The mark was here and was navy artwork inverted to white, so its
+              anti-aliased edges came back as semi-transparent white and it read
+              as a smear at any size. It is already on the other half of this
+              page, in its own colours, at a size that suits it — so this half
+              gets a ship instead. */}
+          <PixelBarge className="mb-8 w-full max-w-[520px]" />
+          <p className="mt-0 max-w-[22ch] text-[26px] font-semibold leading-[1.25] tracking-[-0.015em] text-white">
             Every container, and what it is waiting for.
           </p>
           <p className="mt-3 max-w-[38ch] text-[16px] leading-relaxed text-[color:var(--zhl-on-navy-muted)]">
