@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import PixelBarge from "./PixelBarge";
+import PixelTruck from "./PixelTruck";
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
@@ -206,7 +206,7 @@ export default function SignInForm() {
               as a smear at any size. It is already on the other half of this
               page, in its own colours, at a size that suits it — so this half
               gets a ship instead. */}
-          <PixelBarge className="mb-10 w-full" />
+          <PixelTruck className="mb-10 w-full" />
           <p className="mt-0 max-w-[22ch] px-14 text-[30px] font-semibold leading-[1.25] tracking-[-0.015em] text-white">
             Every container, and what it is waiting for.
           </p>
