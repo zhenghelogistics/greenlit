@@ -146,6 +146,23 @@
 
   --background: var(--gl-bg);
   --foreground: var(--gl-ink);
+
+  /* ---- corner radius, as a scale rather than thirteen opinions ----------
+     The ported stylesheet had accumulated 2, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+     14, 15, 16, 17 and 20px, which is what happens when each block is written
+     on its own: no two are wrong, no two agree, and the result reads as
+     careless without anybody being able to say where.
+
+     Four steps, each a band of what was there and each a little softer.
+     Defined here rather than in zht.css because this file loads first and
+     because Tailwind's @theme reads these at build time.
+
+     999px and 50% are left alone: they mean "as round as it goes" rather than
+     a size, so they are not on the scale. */
+  --r-sm: 8px;    /* tags, chips, small controls */
+  --r-md: 10px;   /* inputs, selects, buttons */
+  --r-lg: 14px;   /* cards, sections, panels */
+  --r-xl: 18px;   /* modals and anything that frames a screen */
 }
 
 @theme inline {
@@ -153,6 +170,14 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--gl-font-sans);
   --font-mono: var(--gl-font-mono);
+
+  /* Tailwind's own radii, pointed at the same scale. `rounded-md` has 55 uses
+     and `rounded-lg` 13, so leaving them at Tailwind's defaults would round
+     most of our screens differently from his and make the seam visible. */
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
 }
 
 body {
@@ -236,7 +261,7 @@ body {
   min-height: 92px; padding: 14px 15px; text-align: left;
   background: var(--gl-bg-subtle);
   border: 1px solid var(--gl-line);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
   box-shadow: 0 2px 8px rgba(27, 45, 58, .035);
   transition: transform .15s ease, border-color .15s ease;
 }
@@ -277,7 +302,7 @@ button.gl-tile:hover { border-color: var(--gl-line-strong); transform: translate
 .gl-ref:hover { color: var(--gl-accent-hover); text-decoration: underline; text-underline-offset: 3px; }
 
 .gl-raised  { box-shadow: var(--gl-raised); }
-.gl-overlay { box-shadow: var(--gl-overlay); border-radius: 8px; }
+.gl-overlay { box-shadow: var(--gl-overlay); border-radius: var(--r-md); }
 
 /* ---- State. A small mark plus the word. Never a filled block. ---- */
 .gl-pill {
@@ -296,7 +321,7 @@ button.gl-tile:hover { border-color: var(--gl-line-strong); transform: translate
 
 a:focus-visible, button:focus-visible, [tabindex]:focus-visible,
 input:focus-visible, select:focus-visible {
-  outline: 2px solid var(--gl-focus); outline-offset: 1px; border-radius: 4px;
+  outline: 2px solid var(--gl-focus); outline-offset: 1px; border-radius: var(--r-sm);
 }
 
 button, a { cursor: pointer; -webkit-tap-highlight-color: transparent; }

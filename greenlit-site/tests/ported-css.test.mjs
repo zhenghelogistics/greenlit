@@ -103,3 +103,40 @@ test("the scan reads literal classes and ignores the JavaScript beside them", ()
   assert.equal(found.has("today ? "), false);
   assert.equal([...found].some((c) => c.includes(".")), false, "no expression fragments");
 });
+
+test("every custom property the stylesheets use is defined by one of them", async () => {
+  // A `var(--x)` with no `--x` anywhere resolves to nothing, and the
+  // declaration is simply dropped. There is no error, no warning and no
+  // fallback — the element just renders without whatever that property was.
+  //
+  // For a colour that is loud and somebody reports it. For `border-radius` it
+  // is silent: every corner goes sharp, which looks like a design choice. The
+  // radius scale is split across two files on purpose — globals.css defines
+  // it because it loads first and Tailwind's @theme reads it at build time,
+  // zht.css does the 84 uses — so nothing in either file can see the whole.
+  const files = ["app/globals.css", "app/zht.css"];
+  const sources = await Promise.all(files.map((f) => readFile(f, "utf8")));
+  const all = sources.join("\n");
+
+  // next/font declares its variables on the body element from layout.tsx, so
+  // they are genuinely defined and genuinely not in any stylesheet.
+  const layout = await readFile("app/layout.tsx", "utf8");
+  const defined = new Set([
+    ...[...all.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]),
+    ...[...layout.matchAll(/variable:\s*"(--[\w-]+)"/g)].map((m) => m[1]),
+  ]);
+  const used = new Set([...all.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]));
+
+  // A `var(--x, fallback)` states its own default and survives a missing
+  // definition, so it is not a fault.
+  const withFallback = new Set(
+    [...all.matchAll(/var\(\s*(--[\w-]+)\s*,/g)].map((m) => m[1]),
+  );
+
+  const undefined_ = [...used].filter((name) =>
+    !defined.has(name) && !withFallback.has(name));
+
+  assert.deepEqual(undefined_.sort(), [],
+    "these custom properties are used and never defined, so the declarations "
+    + "using them are silently dropped");
+});
