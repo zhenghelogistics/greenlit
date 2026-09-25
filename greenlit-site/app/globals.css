@@ -163,6 +163,20 @@
   --r-md: 10px;   /* inputs, selects, buttons */
   --r-lg: 14px;   /* cards, sections, panels */
   --r-xl: 18px;   /* modals and anything that frames a screen */
+
+  /* ---- how wide a screen is allowed to get --------------------------------
+     Four different caps had grown here — 1100, 1100, 1600 and 1800 — which is
+     why the app looked like it stopped adapting somewhere past a laptop: his
+     ported screens fill the window and ours stopped at whichever number that
+     screen happened to be written with.
+
+     Two answers rather than one, because the screens want different things.
+     A table of jobs is read by scanning columns and wants the width. A form
+     or a list of people is read as sentences, and a line of text 2000px wide
+     is one the eye loses its place in — which is the whole reason the narrow
+     cap was there. */
+  --gl-screen-wide: 2200px;   /* boards, tables, anything scanned in columns */
+  --gl-screen-read: 1100px;   /* forms and prose, held to a readable measure */
 }
 
 @theme inline {

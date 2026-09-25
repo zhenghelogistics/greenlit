@@ -140,3 +140,24 @@ test("every custom property the stylesheets use is defined by one of them", asyn
     "these custom properties are used and never defined, so the declarations "
     + "using them are silently dropped");
 });
+
+test("a screen's width comes from the scale, not from a number typed that day", async () => {
+  // Four different caps had grown on the four `<main>` elements — 1100, 1100,
+  // 1600 and 1800 — which is why the app looked like it stopped adapting
+  // somewhere past a laptop. His ported screens fill the window; ours stopped
+  // at whichever number that screen happened to be written with, and on a wide
+  // monitor the difference reads as the layout being broken.
+  //
+  // Two named widths now, because the screens want different things: a table
+  // is scanned in columns and wants the width, a form is read as sentences and
+  // a 2000px line is one the eye loses its place in.
+  const shell = await readFile("GreenlitControlTower.jsx", "utf8");
+
+  const mains = [...shell.matchAll(/<main[^>]*className="([^"]*)"/g)].map((m) => m[1]);
+  assert.ok(mains.length >= 4, `expected the screens to be found, saw ${mains.length}`);
+
+  const hardcoded = mains.filter((c) => /max-w-\[\d+px\]/.test(c));
+  assert.deepEqual(hardcoded, [],
+    "these screens cap their width with a number rather than one of the two "
+    + "named widths, which is how the four caps diverged in the first place");
+});

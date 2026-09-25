@@ -266,7 +266,7 @@ function People() {
   }
 
   return (
-    <main id="main-content" className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8">
+    <main id="main-content" className="mx-auto w-full max-w-[var(--gl-screen-read)] px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex flex-wrap items-end justify-between gap-4 pb-2">
         <div>
           <h1 className="gl-display">People</h1>
@@ -1019,7 +1019,7 @@ function BatchReview({ batch, customers, onApplyAll, onDiscard, applying }) {
   );
 
   return (
-    <main id="main-content" className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 lg:px-8">
+    <main id="main-content" className="mx-auto w-full max-w-[var(--gl-screen-read)] px-4 py-6 sm:px-6 lg:px-8">
       <h1 className="gl-display">{batch.length} documents</h1>
       <p className="gl-body-plain mt-1 text-[color:var(--gl-ink-muted)]">
         {inFlight.length + queued.length > 0
@@ -1985,6 +1985,7 @@ function ageInDays(job) {
 
 function ageLabel(job) {
   const days = ageInDays(job);
+  if (!Number.isFinite(days)) return "—";
   return `${days} day${days === 1 ? "" : "s"}`;
 }
 
@@ -1992,6 +1993,14 @@ function requiredBy(job) {
   if (job.type === "Import") {
     const deadline = jobStatus(job) === "Empty Return Pending" ? job.detentionLastFreeDay : job.demurrageLastFreeDay;
     const days = daysUntil(deadline);
+    // A job whose free time nobody has confirmed has no last free day, so
+    // `daysUntil` is NaN — and NaN is neither negative nor zero, so it fell
+    // through to the template and the column read "NaN days".
+    //
+    // Saying so is the right answer rather than a dash: no deadline is not
+    // "no rush", it is nobody having read the carrier's terms yet, and that is
+    // work this screen exists to surface.
+    if (!Number.isFinite(days)) return "Free time not set";
     if (days < 0) return `${Math.abs(days)}d overdue`;
     if (days === 0) return "Today";
     return `${days} days`;
@@ -2501,7 +2510,7 @@ function ActionRequired({ jobs, filter, setFilter, dashboardFilter, clearDashboa
   const dashboardLabels = { active: "Active jobs", blocked: "Blocked jobs", exceptions: "Exceptions open", carpark: "At our carpark", freeTime: "Free time at risk" };
 
   return (
-    <main id="main-content" className="mx-auto max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
+    <main id="main-content" className="mx-auto w-full max-w-[var(--gl-screen-wide)] px-4 py-6 sm:px-6 lg:px-8">
       <div className="pb-2">
         <h1 className="text-3xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-[2rem]">Action Required</h1>
         <p className="mt-2 text-[17px] font-normal text-slate-600">Work top to bottom. Doing the action removes the row.</p>
@@ -3682,7 +3691,7 @@ function DocumentIntake({ documents, onApply, onApplyBatch, onOpenJob }) {
   const reviewCount = Object.values(confidence).filter((level) => level === "review").length;
 
   return (
-    <main id="main-content" className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+    <main id="main-content" className="mx-auto w-full max-w-[var(--gl-screen-wide)] px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-4 border-b border-slate-200 pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-3xl font-semibold tracking-[-0.02em] text-slate-950 sm:text-[2rem]">Document intake</h1>
