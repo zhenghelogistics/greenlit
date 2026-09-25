@@ -5084,9 +5084,9 @@ export default function GreenlitControlTower() {
       {(current === "dashboard" || current === "actions") && source !== "engine" ? (
         <BoardState source={source} onRetry={loadJobs} onNewJob={() => setCreatingJob(true)} />
       ) : null}
-      {current === "dashboard" && source === "engine" ? <ZhtDashboard jobs={jobs} today={operationalToday()} onOpenJob={openJob} onNewJob={() => setCreatingJob(true)} onShowActions={showActions} /> : null}
+      {current === "dashboard" && source === "engine" ? <ZhtDashboard jobs={jobs} today={operationalToday()} onOpenJob={(job) => openJob(job.id)} onNewJob={() => setCreatingJob(true)} onShowActions={showActions} /> : null}
       {current === "actions" && source === "engine" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}
-      {current === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onApplyBatch={applyDocumentFor} onOpenJob={openJob} /> : null}
+      {current === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onApplyBatch={applyDocumentFor} onOpenJob={(job) => openJob(job.id)} /> : null}
       {current === "people" ? <People /> : null}
       {current === "companies" ? (
         <ZhtCustomers onOpenCustomer={(code) => { setSelectedCompany(code); setScreen("company"); }} />

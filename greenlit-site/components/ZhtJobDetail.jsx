@@ -572,7 +572,21 @@ export default function ZhtJobDetail({
 
   // After the hook: hooks must run in the same order on every render, and an
   // early return above one is how that order changes between renders.
-  if (!job) return null;
+  if (!job) {
+    return (
+      <div className="zht"><div className="content">
+        <div className="card">
+          <div className="section-title">That job could not be opened</div>
+          <div className="muted">
+            It may have been closed or removed since this list was loaded.
+          </div>
+          <div className="action-row" style={{ marginTop: 14 }}>
+            <button className="btn secondary" type="button" onClick={onBack}>← Back</button>
+          </div>
+        </div>
+      </div></div>
+    );
+  }
 
   const containers = job.containers ?? [];
   const container = containers[containerIndex] ?? containers[0] ?? {};

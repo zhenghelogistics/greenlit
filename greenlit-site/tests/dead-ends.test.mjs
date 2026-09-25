@@ -388,3 +388,23 @@ test("every filter a dashboard card asks for is a filter that exists", async () 
   assert.deepEqual(unknown, [],
     "these cards ask for a filter showActions does not know, so they show every job");
 });
+
+test("every screen handed onOpenJob gives it an id, not a job", async () => {
+  // `openJob` takes an id. Most screens unwrap it — `onOpenJob={(job) =>
+  // openJob(job.id)}` — and two handed over the whole job object. So
+  // `selectedJobId` became an object, the lookup by id found nothing, and the
+  // detail screen rendered null: a blank page with the rail still drawn.
+  //
+  // Nothing threw, so nothing caught it. The dashboard and Batch Intake were
+  // the two, which means the board people use most was the one that did not
+  // open a job.
+  const shell = await readFile("GreenlitControlTower.jsx", "utf8");
+  const wirings = [...shell.matchAll(/onOpenJob=\{([^}]*(?:\{[^}]*\})?[^}]*)\}/g)]
+    .map((m) => m[1].trim());
+  assert.ok(wirings.length > 5, `expected the screens' wirings, found ${wirings.length}`);
+
+  const raw = wirings.filter((w) => !/\.id\b/.test(w) && !/jobNumber/.test(w));
+  assert.deepEqual(raw, [],
+    "these hand openJob a whole job rather than its id, so the detail screen "
+    + "finds nothing and renders blank");
+});
