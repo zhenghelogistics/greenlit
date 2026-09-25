@@ -24,10 +24,10 @@ test("server-renders the Greenlit control tower", async () => {
   assert.match(html, /<title>Project Greenlit — Control Tower<\/title>/);
   assert.match(html, /Greenlit/);
   assert.match(html, /Action Required/);
-  // Document Intake is deliberately no longer a section: reading a document is
-  // how the New Job form gets filled, not an errand of its own, so the upload
-  // moved onto that form. Asserted as an absence so it cannot drift back in
-  // without somebody deciding to.
+  // Reading one document is how the New Job form gets filled and is not a
+  // destination; reading a morning's post is, and that is what this screen is
+  // now. Both halves asserted, so neither drifts back into the other.
+  assert.match(html, /Batch Intake/);
   assert.doesNotMatch(html, /Document Intake/);
   // The rail carries the PM's section names now. "Chassis Fleet" became his
   // "Chassis Master", so asserting the old label would fail on a rename rather

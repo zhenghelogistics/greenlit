@@ -300,3 +300,36 @@ test("a component is only handed props it declares", async () => {
     "a prop the component never destructures arrives as undefined, and the "
     + "first property read off it throws");
 });
+
+test("the fields a screen reads off a customer are fields a customer has", async () => {
+  // The New Job form listed every customer as a blank line. The option's
+  // `value` was right, so choosing one worked and its addresses loaded — only
+  // the words were missing, because it rendered `c.name` and a customer has
+  // `companyName`.
+  //
+  // Nothing could catch that. It is not a type error in a .jsx file, it does
+  // not throw, and it does not even look wrong until you open the dropdown:
+  // undefined renders as nothing at all. This is the third time a screen has
+  // read a field that does not exist — `location.company` and
+  // `customer.locations` were the other two — so it is worth a guard.
+  const source = await readFile("components/ZhtNewJob.jsx", "utf8");
+  const types = await readFile("../packages/engine/src/customers.ts", "utf8");
+
+  const shape = /export interface Customer \{([\s\S]*?)\n\}/.exec(types);
+  assert.ok(shape, "expected to find the Customer shape");
+  const real = new Set([...shape[1].matchAll(/^ {2}([a-zA-Z]\w*)\??:/gm)].map((m) => m[1]));
+  assert.ok(real.has("companyName"), "sanity: the shape was parsed");
+
+  // Whatever the map's parameter is called, and only inside that map — `c` is
+  // a container two hundred lines further down.
+  const block = /customers\.map\(\((\w+)\)\s*=>([\s\S]*?)\)\)\}/.exec(source);
+  assert.ok(block, "expected the customer list to be rendered by a map");
+  const [, binding, body] = block;
+
+  const read = [...body.matchAll(new RegExp(`\\b${binding}\\.(\\w+)`, "g"))].map((m) => m[1]);
+  assert.ok(read.length > 0, "expected the option to read something off the customer");
+
+  const unknown = [...new Set(read)].filter((field) => !real.has(field));
+  assert.deepEqual(unknown, [],
+    "the customer list reads fields a Customer does not have, which render as blank");
+});

@@ -621,7 +621,9 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                 >
                   <option value="">Choose a customer</option>
                   {customers.map((c) => (
-                    <option key={c.code} value={c.code}>{c.name}</option>
+                    <option key={c.code} value={c.code}>
+                      {c.companyName ?? c.code}
+                    </option>
                   ))}
                 </select>
               </Field>

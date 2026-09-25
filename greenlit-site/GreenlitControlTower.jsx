@@ -4874,22 +4874,18 @@ export default function GreenlitControlTower() {
    */
   // Screens that are still built and deliberately cannot be reached.
   //
-  // Document Intake is parked, not deleted: the batch flow it holds — a
-  // morning's post read in one go — is wanted later, and deleting it to
-  // satisfy a guard would mean writing it again. Everything a single job needs
-  // now happens on the New Job form.
-  //
-  // This list is what makes the parking deliberate rather than an accident.
-  // A screen that stops being reachable without being named here still fails
-  // the dead-ends guard, which is the fault this was written for.
-  const PARKED_SCREENS = ["documents"];
+  // Empty now, and kept because it is the mechanism rather than the list: a
+  // screen that stops being reachable without being named here fails the
+  // dead-ends guard, which is what tells an accident from a decision.
+  const PARKED_SCREENS = [];
   void PARKED_SCREENS;
 
-  // Document Intake was a destination of its own, and reading a document was
-  // never the errand — filling in a job was. It now sits at the top of the New
-  // Job form, which is the only thing anybody did with it afterwards. The
-  // screen itself stays reachable for the batch flow; it is not a place to go.
-  const ASSISTANT_SECTIONS = ["dashboard", "actions", "jobs", "companies", "people"];
+  // Batch Intake is back. It was parked when reading a document stopped being
+  // an errand of its own — one notice now fills in the New Job form where it
+  // is needed — and what it still does is the thing that form cannot: a
+  // morning's post, twenty notices at once, grouped by the company each names
+  // as consignee and turned into jobs in one pass.
+  const ASSISTANT_SECTIONS = ["dashboard", "actions", "jobs", "documents", "companies", "people"];
   const CONTROLLER_SECTIONS = ["controller", "planning", "drivers", "fleet", "emptyReturns", "jobs", "people"];
 
   const allSections = [
@@ -4897,6 +4893,10 @@ export default function GreenlitControlTower() {
     { id: "actions", label: "Action Required", count: actionJobs.length, icon: ListTodo },
     { id: "controller", label: "Controller Board", count: null, icon: CalendarRange },
     { id: "jobs", label: "Jobs", count: jobs.length, icon: ClipboardList },
+    // Named for what it is now. It was "Document Intake" when it was the only
+    // way a document became a job; a single notice goes on the New Job form,
+    // and what is left here is the batch.
+    { id: "documents", label: "Batch Intake", count: documents.length, icon: FileSearch },
     { id: "planning", label: "Planning Board", count: null, icon: CalendarRange },
     { id: "drivers", label: "Drivers & Vehicles", count: fleet.loaded ? fleet.vehicles.length : null, icon: Truck },
     { id: "fleet", label: "Chassis Master", count: fleet.loaded ? fleet.available.length : null, icon: Container },
