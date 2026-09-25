@@ -4553,6 +4553,11 @@ export default function GreenlitControlTower() {
     // Creating several in a run: stay on the form rather than walking back to
     // it four times.
     if (stayHere) return;
+
+    // The wizard is a modal over the screen behind it, and it navigated
+    // without closing — so the job opened underneath and the form stayed on
+    // top of it, which reads as the button having done nothing.
+    setCreatingJob(false);
     if (created) openJob(created); else goTo("jobs");
   }
 

@@ -292,8 +292,10 @@ Two decisions are settled that were not:
 
 What remains is work rather than uncertainty:
 
-| | why it is not done |
+| | state |
 |---|---|
-| The permit allocation screen | The model and the route exist; nothing renders the all / selected / one choice |
-| Batch document intake | Parked deliberately, in `PARKED_SCREENS`. The flow is intact and reachable again by putting it back in the rail |
-| Rotating the Supabase service_role and Anthropic keys | Pasted into a transcript. Only the account owner can do it, and nothing in this repository fixes it |
+| Permit allocation | **Built.** An earlier reading of this file said otherwise and was wrong: `PermitPanel` adds a permit and allocates it to all containers, to selected ones or to one, behind the job's Shipment Permits drawer. Exercised against the repository — selecting replaces rather than adds, which is the part that would have been silently wrong |
+| Batch intake | **Built and reachable again**, as Batch Intake. Reading one notice belongs on the New Job form; reading a morning's post does not, and that is what this is |
+| Rotating the Supabase service_role and Anthropic keys | **Outstanding.** Pasted into a transcript. Only the account owner can do it, and nothing in this repository fixes it |
+
+Which leaves the key rotation, and nothing else that is known.

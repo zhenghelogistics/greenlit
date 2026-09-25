@@ -335,3 +335,27 @@ test("a section that disappears cannot leave the form blank", async () => {
   assert.doesNotMatch(source, /\{tab === "sec-/,
     "panels must be gated on the checked tab, not the raw one");
 });
+
+test("creating a job closes the wizard before it navigates", async () => {
+  // The wizard is a modal drawn over whatever is behind it. Creating a job
+  // opened the new job and left the form on top of it, so the screen did not
+  // visibly change and the button read as broken — the one outcome a create
+  // button must never have.
+  //
+  // Nothing else could see it: the request succeeded, the job existed, the
+  // toast appeared, and every test of any of those passed.
+  const shell = await readFile("GreenlitControlTower.jsx", "utf8");
+  const createJob = /async function createJob\([\s\S]*?\n {2}\}/.exec(shell);
+  assert.ok(createJob, "expected to find createJob");
+
+  const body = createJob[0];
+  assert.match(body, /setCreatingJob\(false\)/,
+    "createJob must close the wizard");
+
+  // Before, not after: navigating first and closing second leaves a frame
+  // where both are drawn, and the order is the whole fix.
+  const closes = body.indexOf("setCreatingJob(false)");
+  const opens = body.search(/openJob\(|goTo\(/);
+  assert.ok(closes >= 0 && opens >= 0 && closes < opens,
+    "the wizard must be closed before the job is opened");
+});
