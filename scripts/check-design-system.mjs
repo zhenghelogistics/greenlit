@@ -76,7 +76,16 @@ const RULES = [
     applies: (f) => extname(f) === ".css",
     // The same floor as the utility-class rule above, for stylesheets that
     // write the number out. 15px caption, 17px body, 22px+ heading.
-    pattern: /font-size:\s*(?:[0-9]|1[0-4])px/g,
+    //
+    // Decimals count. The first version of this matched `\d+px`, so 10.5px did
+    // not match and eighty sizes survived it — one of them 7.5px, and the one
+    // operations pointed at twice was 10.5px. A size written with a decimal is
+    // not a different kind of size.
+    //
+    // `em` and `rem` are refused outright rather than computed: whether 0.8em
+    // clears the floor depends on what it inherits, so it cannot be judged
+    // here and a number that can be judged is the right thing to write.
+    pattern: /font-size:\s*(?:(?:[0-9]|1[0-4])(?:\.[0-9]+)?px|[0-9.]+r?em)/g,
     message: "Below 15px is under the v4 floor. Use 15px caption, 17px body, 22px+ heading.",
   },
   {

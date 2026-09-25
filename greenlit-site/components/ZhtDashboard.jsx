@@ -74,10 +74,19 @@ export default function ZhtDashboard({ jobs, today, onOpenJob, onNewJob, onShowA
   const active = jobs.filter((j) => j.derived?.jobStatus !== "Completed");
   const imports = active.filter((j) => j.type === "Import");
 
-  const needInfo = active.filter((j) => !j.infoComplete);
-  const permitAttention = active.filter((j) => j.permitRequired && !j.permitReceived);
-  const readyForController = active.filter((j) => j.infoComplete
-    && !(j.permitRequired && !j.permitReceived));
+  const exports = active.filter((j) => j.type === "Export");
+
+  /**
+   * Jobs still waiting on something before a controller can take them.
+   *
+   * A missing permit is one of those things rather than a category of its own.
+   * Permit Attention was its own card and its jobs were counted in Requires
+   * Information as well, so one job appeared under two headings and the board
+   * read as more work than there was. Operations asked for it plainly: "so I
+   * do not need that permit attention tab".
+   */
+  const needInfo = active.filter((j) =>
+    !j.infoComplete || (j.permitRequired && !j.permitReceived));
 
   // His list, capped at six, each job carrying at most five visible issues.
   // Today and future only; a passed ETA belongs in Attention, not here.
@@ -127,17 +136,17 @@ export default function ZhtDashboard({ jobs, today, onOpenJob, onNewJob, onShowA
               <span>Active Jobs</span><strong>{active.length}</strong>
               <small>Jobs being prepared / monitored</small>
             </button>
-            <button type="button" className="clean-metric attention-soft" onClick={() => onShowActions("blocked")}>
-              <span>Requires Information</span><strong>{needInfo.length}</strong>
-              <small>Jobs not handover-ready</small>
+            <button type="button" className="clean-metric" onClick={() => onShowActions("import")}>
+              <span>Import Jobs</span><strong>{imports.length}</strong>
+              <small>Arriving: terminal to customer, then the empty back</small>
+            </button>
+            <button type="button" className="clean-metric" onClick={() => onShowActions("export")}>
+              <span>Export Jobs</span><strong>{exports.length}</strong>
+              <small>Leaving: empties out, stuffed, back to the port</small>
             </button>
             <button type="button" className="clean-metric attention-soft" onClick={() => onShowActions("blocked")}>
-              <span>Permit Attention</span><strong>{permitAttention.length}</strong>
-              <small>Missing, untagged or invalid permits</small>
-            </button>
-            <button type="button" className="clean-metric" onClick={() => onShowActions("active")}>
-              <span>Ready for Controller</span><strong>{readyForController.length}</strong>
-              <small>Required handover information complete</small>
+              <span>Required Information</span><strong>{needInfo.length}</strong>
+              <small>Import and export jobs still missing something, permits included</small>
             </button>
           </div>
 

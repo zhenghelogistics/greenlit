@@ -359,3 +359,32 @@ test("creating a job closes the wizard before it navigates", async () => {
   assert.ok(closes >= 0 && opens >= 0 && closes < opens,
     "the wizard must be closed before the job is opened");
 });
+
+test("every filter a dashboard card asks for is a filter that exists", async () => {
+  // The dashboard's cards are shortcuts into Action Required, and the shortcut
+  // is a string. `showActions` keeps a list of the ones it recognises and
+  // silently falls back to "all" for anything else — so a card asking for a
+  // filter that is not on that list shows every job instead, which looks like
+  // the card working and is the opposite of what it says.
+  //
+  // It happened: Import Jobs and Export Jobs were added as cards before
+  // `showActions` knew those words.
+  const shell = await readFile("GreenlitControlTower.jsx", "utf8");
+  const dashboard = await readFile("components/ZhtDashboard.jsx", "utf8");
+
+  const accepted = new Set([
+    ...[.../const standard = \[([^\]]*)\]/.exec(shell)?.[1].matchAll(/"(\w+)"/g) ?? []]
+      .map((m) => m[1]),
+    ...[.../setDashboardFilter\(\[([^\]]*)\]/.exec(shell)?.[1].matchAll(/"(\w+)"/g) ?? []]
+      .map((m) => m[1]),
+    "all",
+  ]);
+  assert.ok(accepted.size > 3, "expected to find the filters showActions accepts");
+
+  const asked = [...dashboard.matchAll(/onShowActions\("(\w+)"\)/g)].map((m) => m[1]);
+  assert.ok(asked.length > 0, "expected the dashboard to link into Action Required");
+
+  const unknown = [...new Set(asked)].filter((f) => !accepted.has(f));
+  assert.deepEqual(unknown, [],
+    "these cards ask for a filter showActions does not know, so they show every job");
+});

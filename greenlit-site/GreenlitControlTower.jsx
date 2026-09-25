@@ -4064,7 +4064,12 @@ export default function GreenlitControlTower() {
   }
 
   function showActions(filter = "all") {
-    const standard = ["us", "customer", "carrier"].includes(filter) ? filter : "all";
+    // The tabs on Action Required, which is where these land. `import` and
+    // `export` were missing from this list, so the dashboard's two new cards
+    // would have fallen through to "all" and shown every job — which is the
+    // one thing operations asked them not to do.
+    const standard = ["us", "customer", "carrier", "import", "export"].includes(filter)
+      ? filter : "all";
     setActionFilter(standard);
     setDashboardFilter(["active", "blocked", "exceptions", "carpark", "freeTime"].includes(filter) ? filter : null);
     goTo("actions");
