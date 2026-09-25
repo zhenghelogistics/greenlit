@@ -161,3 +161,73 @@ test("a screen's width comes from the scale, not from a number typed that day", 
     "these screens cap their width with a number rather than one of the two "
     + "named widths, which is how the four caps diverged in the first place");
 });
+
+test("a rule scoped to an id is scoped to an id something renders", async () => {
+  // His demo wrapped each screen in `<section id="dashboard">` and ours does
+  // not, so fifteen rules setting the dashboard table's type applied to
+  // nothing. The base rule won, the cells stayed at 15px, and `<small>` — the
+  // line carrying the container number — had no rule at all and fell to the
+  // browser's 0.8em.
+  //
+  // Nothing could see it. The selector is valid, the stylesheet parses, the
+  // page renders. It just silently loses to whatever is less specific, which
+  // reads as a design choice rather than as a dead rule.
+  // Comments stripped first. The note explaining that `#dashboard` renders for
+  // nobody names `#dashboard`, and a guard that fails on its own explanation
+  // teaches people to delete the explanation.
+  const css = (await readFile("app/zht.css", "utf8")).replace(/\/\*[\s\S]*?\*\//g, " ");
+  const sources = await Promise.all([
+    ...(await readdir("components")).filter((f) => f.endsWith(".jsx"))
+      .map((f) => readFile(`components/${f}`, "utf8")),
+    readFile("GreenlitControlTower.jsx", "utf8"),
+  ]);
+  const markup = sources.join("\n");
+
+  // Id *selectors* only. A hex colour is a `#` followed by hex digits and is
+  // the overwhelming majority of `#` in a stylesheet.
+  const ids = new Set(
+    [...css.matchAll(/#([A-Za-z][\w-]*)/g)].map((m) => m[1])
+      .filter((id) => !/^[0-9a-fA-F]{3,8}$/.test(id)),
+  );
+
+  /**
+   * His ids, for screens this app builds differently.
+   *
+   * Each names a modal or a panel in his demo that we render as a component
+   * with its own classes, so the rules under these were never going to apply
+   * and their absence is not a fault. They are listed rather than filtered by
+   * a pattern so that a *new* dead id — a screen of ours that lost its id, or
+   * a rule written against one that never existed — still fails.
+   *
+   * Left in place rather than deleted because the rules under them are the
+   * record of how his screens looked, and the ports are not all finished.
+   * Anything that turns out to matter gets folded into the class rules, which
+   * is what happened to the dashboard table's type.
+   */
+  const HIS = new Set([
+    "additionalCompanyGroups", "containerAddressRowsWrap", "controllerAlerts",
+    "createCustomerLocations", "dashboard", "dataDropdown", "dataMenu",
+    "editContainerAddressModal", "editContainerFields", "editContainerModal",
+    "editShipmentFields", "editShipmentModal", "jobCreationWorkspace",
+    "jobPermitModal", "resetDemoDataButton",
+  ]);
+
+  const dead = [...ids].filter((id) =>
+    !HIS.has(id)
+    && !markup.includes(`id="${id}"`) && !markup.includes(`id={"${id}"}`));
+
+  assert.deepEqual(dead.sort(), [],
+    "these ids are styled and rendered by nothing, so the rules quietly lose "
+    + "to whatever is less specific");
+
+  // And nothing on that list may set type. That is the one thing an unapplied
+  // rule did real damage with: the dashboard table's readable sizes lived
+  // under #dashboard, so the cells stayed at 15px and the line under every job
+  // number fell to the browser's 0.8em.
+  const sizedByADeadId = [...HIS].filter((id) => {
+    const rules = [...css.matchAll(new RegExp(`#${id}(?![\\w-])[^{]*\\{([^}]*)\\}`, "g"))];
+    return rules.some((r) => /font-size/.test(r[1]));
+  });
+  assert.deepEqual(sizedByADeadId.sort(), [],
+    "these ids set a font size and render for nobody, so the size never applies");
+});

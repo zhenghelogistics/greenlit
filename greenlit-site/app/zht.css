@@ -1425,19 +1425,37 @@
 }
 .zht /* v12.6 dashboard cleanup */
 .clean-dashboard-head {margin-bottom:18px}
+/* The dashboard's own type rules lived under `#dashboard`, which his demo
+   rendered and this app does not, so none of them applied. Their values are
+   on the classes below, where they take effect. */
 .zht .clean-metrics {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
 .zht .clean-metric {appearance:none;border:1px solid #e4e9ed;background:#fff;border-radius: var(--r-lg);padding:14px 15px;text-align:left;min-height:92px;box-shadow:0 2px 8px rgba(27,45,58,.035);color:inherit}
 .zht button.clean-metric {cursor:pointer}
 .zht button.clean-metric:hover {border-color:#c8d6df;transform:translateY(-1px)}
 .zht .clean-metric span {display:block;font-size:15px;font-weight:750;color:#71808b;text-transform:uppercase;letter-spacing:.045em}
-.zht .clean-metric strong {display:block;font-size:24px;line-height:1.1;margin:7px 0 5px;color:#263f52}
+.zht .clean-metric strong {display:block;font-size:28px;line-height:1.1;margin:7px 0 5px;color:#263f52}
 .zht .clean-metric small {font-size:15px;color:#96a1a9}
 .zht .clean-metric.attention-soft {background:#fffdf9;border-color:#eee5d8}
 .zht .clean-main-card {padding:0;overflow:hidden;margin-bottom:14px}
 .zht .clean-section-head {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid #edf0f2}
 .zht .clean-table {width:100%;border-collapse:collapse}
-.zht .clean-table th {padding:9px 12px;background:#fafbfc;color:#7a8791;font-size:15px;letter-spacing:.04em;text-transform:uppercase;text-align:left;white-space:nowrap}
-.zht .clean-table td {padding:11px 12px;border-top:1px solid #eef1f3;font-size:15px;vertical-align:middle}
+/* The board operations read all day, so it is sized for that and not for a
+   demo screenshot.
+
+   These carried 15px cells, and the larger sizes were written under an
+   `#dashboard` prefix — his markup wrapped each screen in `<section
+   id="dashboard">` and ours does not, so fifteen rules that set this table's
+   type applied to nothing and the base 15px won. `<small>` had no rule at all
+   under that, which left it at the browser's 0.8em: about 12px, and it is the
+   line carrying the container number.
+
+   19px for a cell and 17px for the line under it. Above the 17px body on
+   purpose — this is the one table somebody scans for eight hours, and
+   operations have now said twice that it was too small. */
+.zht .clean-table th {padding:10px 12px;background:#fafbfc;color:#7a8791;font-size:15px;letter-spacing:.04em;text-transform:uppercase;text-align:left;white-space:nowrap}
+.zht .clean-table td {padding:13px 12px;border-top:1px solid #eef1f3;font-size:19px;vertical-align:middle}
+.zht .clean-table td small,
+.zht .clean-table td .muted {display:block;font-size:17px;color:var(--muted)}
 .zht .clean-table.compact td {padding-top:9px;padding-bottom:9px}
 .zht .clean-lower-grid {display:grid;grid-template-columns:minmax(0,1.65fr) minmax(260px,.65fr);gap:14px}
 .zht .clean-lower-grid>.card {margin:0}
@@ -1452,7 +1470,7 @@
 .zht button.clean-alert-item {cursor:pointer}
 .zht .clean-alert-item.danger {background:#fff5f3;border-color:#eed7d2;color:#8a554c}
 .zht .clean-row-action {margin-top:6px;padding:5px 8px!important;font-size:15px!important}
-.zht .clean-empty {padding:18px;text-align:center;color:#8a969f}
+.zht .clean-empty {padding:18px;text-align:center;color:#8a969f;font-size:17px}
 @media(max-width:1000px) {
 .zht .clean-metrics {grid-template-columns:repeat(2,1fr)}
 .zht .clean-lower-grid {grid-template-columns:1fr}
@@ -1465,19 +1483,6 @@
 .zht .clean-alert-strip {align-items:flex-start;flex-direction:column}
 }
 .zht /* v12.7 dashboard typography correction */
-#dashboard .clean-metric span {font-size:15px}
-.zht #dashboard .clean-metric strong {font-size:28px}
-.zht #dashboard .clean-metric small {font-size:15px}
-.zht #dashboard .clean-table th {font-size:15px;padding:10px 12px}
-.zht #dashboard .clean-table td {font-size:17px;padding:12px}
-.zht #dashboard .clean-table td small, .zht #dashboard .clean-table .muted {font-size:15px}
-.zht #dashboard .clean-row-action {font-size:15px!important}
-.zht #dashboard .clean-alert-item {font-size:15px}
-.zht #dashboard .clean-empty {font-size:15px}
-.zht #dashboard .section-title {font-size:17px}
-.zht #dashboard .clean-section-head>.muted, .zht #dashboard .clean-section-head .muted {font-size:15px}
-.zht #dashboard .clean-dashboard-head .muted {font-size:15px}
-.zht #dashboard .role-view-switch button {font-size:15px}
 .zht /* v12.8 shipment editor + audit history */
 .shipment-edit-modal {width:820px!important;padding:0!important;overflow:hidden!important}
 .zht .shipment-edit-head {padding:20px 22px;border-bottom:1px solid #e8edf1;margin:0!important}

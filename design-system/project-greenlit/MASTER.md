@@ -128,21 +128,62 @@ Quiet, fast, keyboard-first.
 - **Interface:** `"Inter", ui-sans-serif, system-ui, sans-serif`
 - **Data:** `"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace`
 
+### 2.0 Who reads this
+
+Operations and controller staff, roughly fifty to seventy years old. Several
+have poor eyesight. None would call themselves technical. They read this screen
+for a whole shift and are tired by the end of it.
+
+That is the only fact this section is derived from, and it is worth stating
+first because every size below was once set by something else — the taste of
+whoever wrote the component, or a stylesheet ported from a demo — and every one
+of those was too small. Operations said so three times about the same table
+before it was fixed.
+
+**When a size is arguable, it goes up.** A screen that is slightly larger than
+it needed to be costs a little scrolling. A screen that is slightly smaller
+than it needed to be costs somebody their afternoon.
+
+### 2.1 The scale
+
 | Token | Size / line | Weight | Used for |
 |---|---|---|---|
-| `display` | 21 / 28 | 600 | Page title, one per screen |
-| `title` | 15 / 20 | 500 | Section headings |
-| `body` | 14 / 20 | 400 | Everything ordinary |
-| `label` | 12 / 16 | 500 | Column heads, field labels. Sentence case, not uppercase |
-| `data` | 13 / 18 | 450 mono | Identifiers, weights, dates, counts. Tabular figures |
-| `caption` | 12 / 16 | 400 | Supporting notes |
-| `metric` | 24 / 28 | 600 | Counts on attention cards |
+| `display` | 28 / 34 | 600 | Page title, one per screen |
+| `section` | 24 / 30 | 600 | Section heading |
+| `title` | 20 / 26 | 600 | Heading inside a card |
+| `table` | 19 / 26 | 400 | Cells in the boards read all day |
+| `body` | 17 / 24 | 400 | Everything ordinary |
+| `caption` | 15 / 21 | 400 | Labels, helper text, the line under a value |
+| `metric` | 34 / 38 | 600 | Counts on attention cards |
 
-Hierarchy comes from **weight and ink depth**, not from size jumps. The scale
-is deliberately tight: 12, 13, 14, 15, 21.
+### 2.2 The floor
 
-Labels are sentence case. v2's uppercase tracking added visual noise for no
-information.
+**Nothing is below 15px.** Not a caption, not a table footnote, not a badge.
+
+This is enforced in `scripts/check-design-system.mjs`, and the enforcement has
+been wrong twice in ways worth remembering:
+
+- it read only `.jsx` and `.tsx`, so the ported stylesheet carried 122 sizes
+  under the floor, nine of them at 8px;
+- it matched `font-size:\d+px`, so `10.5px` did not match and eighty more
+  survived — including the line under every job number on the dashboard.
+
+Decimals are sizes. `em` and `rem` are refused outright, because whether
+`0.8em` clears the floor depends on what it inherits and that cannot be judged
+from the stylesheet.
+
+**A rule scoped to an `id` is not enforcement.** The dashboard table's readable
+sizes were written under `#dashboard`, which his demo rendered and ours does
+not, so fifteen rules applied to nothing and the smaller base rule won.
+
+### 2.3 Hierarchy
+
+From weight and ink depth first, size second. The scale has six steps and they
+are far enough apart to be told apart — the previous scale was 12, 13, 14, 15,
+which is four steps nobody can distinguish and all of them too small.
+
+Labels are sentence case. Uppercase tracking adds visual noise for no
+information, and it is harder to read at length.
 
 ## 3. Colour
 
