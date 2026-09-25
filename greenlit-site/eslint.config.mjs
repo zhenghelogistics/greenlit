@@ -14,6 +14,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Screens bundled for the render tests. Generated on every run from the
+    // sources that are linted already, so linting the bundle reports the same
+    // code twice and reports it in a shape nobody wrote.
+    ".test-build/**",
   ]),
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

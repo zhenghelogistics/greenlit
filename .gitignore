@@ -37,3 +37,7 @@ next-env.d.ts
 
 # macOS duplicate copies. These once reached main and broke the build.
 *[[:space:]]2.*
+
+# Screens bundled for the render tests. Rebuilt by tests/build-screens.mjs on
+# every run, so it is always derived and never a source of truth.
+greenlit-site/.test-build/
