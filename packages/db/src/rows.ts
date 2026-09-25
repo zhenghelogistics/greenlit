@@ -24,6 +24,7 @@ export const toCustomer = (r: Record<string, unknown>): Customer => ({
   defaultDeliveryAddress: nn(r.default_delivery_address as string),
   defaultContact: nn(r.default_contact as string),
   emailDomains: (r.email_domains as string[]) ?? [],
+  requiresPermit: Boolean(r.requires_permit),
   accountStatus: r.account_status as Customer['accountStatus'],
   notes: nn(r.notes as string),
   createdAt: r.created_at as string,

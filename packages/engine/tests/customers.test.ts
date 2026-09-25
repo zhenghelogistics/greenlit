@@ -8,7 +8,7 @@ import {
 const customer = (code: string, companyName: string): Customer => ({
   customerId: code.toLowerCase(), code, companyName, shortName: null,
   billingName: null, defaultConsignee: null, defaultDeliveryAddress: null,
-  defaultContact: null, emailDomains: [], accountStatus: 'ACTIVE', notes: null,
+  defaultContact: null, emailDomains: [], requiresPermit: false, accountStatus: 'ACTIVE', notes: null,
   createdAt: '2026-01-01T00:00:00Z',
 });
 const existing = [customer('ABC', 'ABC Company'), customer('LCT', 'Lion City Traders')];

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CARRIERS, LOOKUP_WORDS, carrierByCode, checkPermit } from "@greenlit/engine";
+import {
+  CARRIERS, LOOKUP_WORDS, carrierByCode, checkPermit, wouldOverwrite,
+} from "@greenlit/engine";
 import { jobFromDocument, EMPTY_ROW } from "../lib/new-job-from-document.mjs";
 
 /**
@@ -35,7 +37,23 @@ import { jobFromDocument, EMPTY_ROW } from "../lib/new-job-from-document.mjs";
 const SIZES = ["20GP", "40GP", "40HQ", "20RF", "40RF", "40RQ"];
 const REEFER = new Set(["20RF", "40RF", "40RQ"]);
 /** 40ft equipment that has to be asked for and cannot be assumed. */
-const HEAVY_SIZES = new Set(["40HQ", "40RF"]);
+/**
+ * What equipment a job can ask for, and which direction asks for it.
+ *
+ * Operations were explicit: an import needs a tri-axle and nothing else, and
+ * an export needs heavy duty and 32.5 tonnes. The reason is the direction of
+ * the weight — an import comes in loaded and the question is whether a chassis
+ * can carry it away, while an export goes out loaded and the question is what
+ * the box is rated to before it is stuffed.
+ *
+ * Offered on every size rather than only on the 40-footers. It was gated on
+ * 40HQ and 40RF, so a 20GP that genuinely needed a tri-axle had nowhere to say
+ * so, and operations asked for all sizes.
+ */
+const EQUIPMENT = {
+  IMPORT: [["triAxle", "Tri-axle"]],
+  EXPORT: [["heavyDuty", "Heavy duty"], ["rated32_5", "32.5 tonnes"]],
+};
 
 /** Half-hours, morning first — the way a person reads a working day. */
 const TIMES = Array.from({ length: 48 }, (_, i) => {
@@ -196,6 +214,91 @@ function Field({ label, required, hint, filled, children }) {
   );
 }
 
+/**
+ * Copy one container's answer to the others — all of them, or the ones picked.
+ *
+ * The terms on a bill of lading are the same for every box on it far more
+ * often than not, and typing the empty return yard eleven times is not only
+ * slow: it is how eleven containers on one bill come to disagree about a
+ * deadline the paperwork only ever stated once.
+ *
+ * Both shapes, because operations asked for both. A job of ten containers
+ * usually shares everything; a job that splits across two yards shares one of
+ * them with six and the other with four, and "all" cannot say that.
+ *
+ * What it will not do is replace a figure somebody typed without saying so.
+ * That is the failure worth designing against here, because it is invisible
+ * afterwards — the containers all agree, which is exactly what the control is
+ * for, so nothing looks wrong.
+ */
+function Distribute({ rows, from, fields, what, onApply }) {
+  const [picking, setPicking] = useState(false);
+  const [ticked, setTicked] = useState(() => new Set());
+
+  const others = rows.map((row, index) => ({ row, index })).filter((r) => r.index !== from);
+  if (!others.length) return null;
+
+  const nameOf = (row, index) => row.containerNumber || `Container ${index + 1}`;
+  const incoming = Object.fromEntries(fields.map((f) => [f, rows[from][f]]));
+
+  const apply = (targets) => {
+    const clashes = wouldOverwrite(
+      targets.map((t) => t.row), fields, incoming, (row) =>
+        nameOf(row, rows.indexOf(row)));
+    if (clashes.length && !window.confirm(
+      `This replaces the ${what} already entered on ${clashes.join(", ")}. Continue?`,
+    )) return;
+    onApply(targets.map((t) => t.index), fields);
+    setPicking(false);
+    setTicked(new Set());
+  };
+
+  return (
+    <div className="field-wrap full">
+      <div className="action-row" style={{ gap: 8, flexWrap: "wrap" }}>
+        <button type="button" className="btn ghost" onClick={() => apply(others)}>
+          Apply {what} to all {rows.length}
+        </button>
+        <button
+          type="button" className="btn ghost"
+          aria-expanded={picking}
+          onClick={() => setPicking((was) => !was)}
+        >
+          {picking ? "Cancel" : "Apply to selected…"}
+        </button>
+      </div>
+
+      {picking ? (
+        <div className="container-special-config">
+          <div className="container-special-options">
+            {others.map(({ row, index }) => (
+              <label className="container-special-option" key={index}>
+                <input
+                  type="checkbox" checked={ticked.has(index)}
+                  onChange={() => setTicked((was) => {
+                    const next = new Set(was);
+                    if (next.has(index)) next.delete(index); else next.add(index);
+                    return next;
+                  })}
+                />
+                {" "}{nameOf(row, index)}
+              </label>
+            ))}
+          </div>
+          <div className="action-row" style={{ marginTop: 8 }}>
+            <button
+              type="button" className="btn primary" disabled={ticked.size === 0}
+              onClick={() => apply(others.filter((o) => ticked.has(o.index)))}
+            >
+              Apply to {ticked.size || "…"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /** A date and a half-hour, side by side, the way every date is asked here. */
 function WhenField({ label, required, date, time, onDate, onTime }) {
   return (
@@ -248,7 +351,10 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
   const set = (patch) => setJob((was) => ({ ...was, ...patch }));
 
   const [rows, setRows] = useState([{ ...EMPTY_ROW }]);
-  const [slots, setSlots] = useState([{ quantity: 1, sizeType: "20GP", reeferMode: "", reeferTemperature: "" }]);
+  const [slots, setSlots] = useState([{
+    quantity: 1, sizeType: "20GP", reeferMode: "", reeferTemperature: "",
+    heavyDuty: false, rated32_5: false,
+  }]);
 
   /**
    * Which section is open.
@@ -346,8 +452,17 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
    * box on a bill of lading far more often than not, and typing them eleven
    * times is how they end up inconsistent.
    */
-  const spread = (i, keys) =>
-    setRows((was) => was.map((r, n) => (n === i ? r : { ...r, ...Object.fromEntries(keys.map((k) => [k, was[i][k]])) })));
+  /**
+   * Copy the named fields from one container onto the ones chosen.
+   *
+   * Took "every row but this one" before, which could only ever express
+   * "apply to the whole job". Operations wanted both that and "apply to these
+   * three", and the difference is a list of indices.
+   */
+  const spread = (from, targets, keys) =>
+    setRows((was) => was.map((row, n) => (targets.includes(n)
+      ? { ...row, ...Object.fromEntries(keys.map((k) => [k, was[from][k]])) }
+      : row)));
 
   function validate() {
     if (!job.customerCode) return ["sec-customer", "Choose a customer."];
@@ -613,7 +728,16 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                 <select
                   value={job.customerCode}
                   onChange={(e) => {
-                    set({ customerCode: e.target.value, deliveryCompany: "", deliveryAddress: "" });
+                    // The customer's own setting becomes this job's default.
+                    // It is a default and not a rule: a customer who never
+                    // needs a permit occasionally ships something that does,
+                    // and the toggle on the Permit section still decides.
+                    const chosen = customers.find((c) => c.code === e.target.value);
+                    set({
+                      customerCode: e.target.value,
+                      deliveryCompany: "", deliveryAddress: "",
+                      permitRequired: Boolean(chosen?.requiresPermit),
+                    });
                     // The reference is the customer's next one, so it can only
                     // be previewed once there is a customer.
                     onCustomerChosen?.(e.target.value);
@@ -922,26 +1046,24 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                     />
                   </Field>
 
-                  {HEAVY_SIZES.has(r.sizeType) ? (
-                    <div className="container-special-config">
-                      <div className="container-special-title">Equipment</div>
-                      <div className="container-special-help">
-                        Asked rather than assumed: a tri-axle that was needed and not
-                        booked is a truck that turns up and cannot load.
-                      </div>
-                      <div className="container-special-options">
-                        <label className="container-special-option">
-                          <input type="checkbox" checked={r.heavyDuty} onChange={(e) => setRow(i, { heavyDuty: e.target.checked })} /> Heavy duty
-                        </label>
-                        <label className="container-special-option">
-                          <input type="checkbox" checked={r.rated32_5} onChange={(e) => setRow(i, { rated32_5: e.target.checked })} /> 32.5 tonnes
-                        </label>
-                        <label className="container-special-option">
-                          <input type="checkbox" checked={r.triAxle} onChange={(e) => setRow(i, { triAxle: e.target.checked })} /> Tri-axle
-                        </label>
-                      </div>
+                  <div className="container-special-config">
+                    <div className="container-special-title">Equipment</div>
+                    <div className="container-special-help">
+                      Asked rather than assumed: a tri-axle that was needed and not
+                      booked is a truck that turns up and cannot load.
                     </div>
-                  ) : null}
+                    <div className="container-special-options">
+                      {EQUIPMENT.IMPORT.map(([key, label]) => (
+                        <label className="container-special-option" key={key}>
+                          <input
+                            type="checkbox" checked={Boolean(r[key])}
+                            onChange={(e) => setRow(i, { [key]: e.target.checked })}
+                          />
+                          {" "}{label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
 
                   {job.addressMode === "container" ? (
                     <>
@@ -980,12 +1102,11 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                         onChange={(e) => setRow(i, { emptyReturnYard: shout(e.target.value) })}
                       />
                     </label>
-                    {rows.length > 1 ? (
-                      <button
-                        type="button" className="btn ghost" style={{ marginTop: 6 }}
-                        onClick={() => spread(i, ["emptyReturnYard"])}
-                      >Copy to the other {rows.length - 1}</button>
-                    ) : null}
+                    <Distribute
+                      rows={rows} from={i} fields={["emptyReturnYard"]}
+                      what="this yard"
+                      onApply={(targets, fields) => spread(i, targets, fields)}
+                    />
                   </div>
 
                   <Field label="Free time">
@@ -1024,12 +1145,12 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                   ) : null}
 
                   {rows.length > 1 ? (
-                    <div className="field-wrap full">
-                      <button
-                        type="button" className="btn ghost"
-                        onClick={() => spread(i, ["freeTimeModel", "combinedFreeDays", "demurrageFreeDays", "detentionFreeDays"])}
-                      >Copy this free time to the other {rows.length - 1}</button>
-                    </div>
+                    <Distribute
+                      rows={rows} from={i}
+                      fields={["freeTimeModel", "combinedFreeDays", "demurrageFreeDays", "detentionFreeDays"]}
+                      what="this free time"
+                      onApply={(targets, fields) => spread(i, targets, fields)}
+                    />
                   ) : null}
                 </div>
               </div>
@@ -1080,6 +1201,26 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                   >Remove</button>
                 ) : <span />}
 
+                {/* Export asks the other two. An export goes out loaded, so
+                    the question is what the box is rated to before it is
+                    stuffed — an import comes in loaded and the question is
+                    whether a chassis can carry it away. */}
+                <div className="container-special-config">
+                  <div className="container-special-title">Equipment</div>
+                  <div className="container-special-options">
+                    {EQUIPMENT.EXPORT.map(([key, label]) => (
+                      <label className="container-special-option" key={key}>
+                        <input
+                          type="checkbox" checked={Boolean(s[key])}
+                          onChange={(e) => setSlots((was) => was.map((x, n) =>
+                            (n === i ? { ...x, [key]: e.target.checked } : x)))}
+                        />
+                        {" "}{label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
                 {REEFER.has(s.sizeType) ? (
                   <div className="export-reefer-config">
                     <div className="container-special-title">Reefer</div>
@@ -1116,7 +1257,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
 
             <button
               type="button" className="btn secondary"
-              onClick={() => setSlots((was) => [...was, { quantity: 1, sizeType: "20GP", reeferMode: "", reeferTemperature: "" }])}
+              onClick={() => setSlots((was) => [...was, { quantity: 1, sizeType: "20GP", reeferMode: "", reeferTemperature: "", heavyDuty: false, rated32_5: false }])}
             >
               + Another requirement
             </button>

@@ -51,6 +51,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ code: str
     const allowed = [
       "companyName", "shortName", "billingName",
       "defaultContact", "emailDomains", "accountStatus", "notes",
+      "requiresPermit",
     ] as const;
     const changes: Record<string, unknown> = {};
     for (const field of allowed) if (field in body) changes[field] = body[field];

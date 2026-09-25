@@ -881,6 +881,7 @@ function CustomerProfile({ customer, loading, onSaved, onError }) {
     defaultContact: customer.defaultContact ?? "",
     emailDomains: (customer.emailDomains ?? []).join(", "),
     accountStatus: customer.accountStatus ?? "ACTIVE",
+    requiresPermit: Boolean(customer.requiresPermit),
     notes: customer.notes ?? "",
     ...edits,
   };
@@ -901,6 +902,7 @@ function CustomerProfile({ customer, loading, onSaved, onError }) {
         defaultContact: form.defaultContact.trim() || null,
         emailDomains: form.emailDomains.split(/[,\s]+/).map((d) => d.trim()).filter(Boolean),
         accountStatus: form.accountStatus,
+        requiresPermit: Boolean(form.requiresPermit),
         notes: form.notes.trim() || null,
       }),
     }).catch(() => null);
@@ -950,6 +952,21 @@ function CustomerProfile({ customer, loading, onSaved, onError }) {
           <input id="cp-domains" value={form.emailDomains} onChange={set("emailDomains")} />
           <span className="field-helper">How a notice is matched to this customer.</span>
         </div>
+        <label className="field">
+          <span className="field-label">Permits</span>
+          <select
+            value={form.requiresPermit ? "yes" : "no"}
+            onChange={(event) => setEdits((was) => ({
+              ...was, requiresPermit: event.target.value === "yes",
+            }))}
+          >
+            <option value="no">Not normally required</option>
+            <option value="yes">Normally required</option>
+          </select>
+          <span className="field-helper">
+            The default for a new job. A job can still say otherwise.
+          </span>
+        </label>
         <div className="field">
           <label htmlFor="cp-status">Status</label>
           <select id="cp-status" value={form.accountStatus} onChange={set("accountStatus")}>

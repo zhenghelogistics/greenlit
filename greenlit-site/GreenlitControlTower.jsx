@@ -2987,7 +2987,10 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                         onChange={(event) => setDraft((d) => ({ ...d, combinedFreeDays: event.target.value }))}
                         className={drawerInputClass} />
                     </DrawerField>
-                    <DrawerField label="Last free day">
+                    <DrawerField
+                      label="Override the counted date"
+                      hint="Only if the carrier agreed something different. Left blank, it is counted from the ETA."
+                    >
                       <input type="date" value={draft.combinedLfd || ""}
                         onChange={(event) => setDraft((d) => ({ ...d, combinedLfd: event.target.value }))}
                         className={drawerInputClass} />
@@ -3002,7 +3005,10 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                         onChange={(event) => setDraft((d) => ({ ...d, demurrageFreeDays: event.target.value }))}
                         className={drawerInputClass} />
                     </DrawerField>
-                    <DrawerField label="Demurrage last free day">
+                    <DrawerField
+                      label="Override the counted demurrage date"
+                      hint="Only if the carrier agreed something different. Left blank, it is counted from the ETA."
+                    >
                       <input type="date" value={draft.demurrageLfd || ""}
                         onChange={(event) => setDraft((d) => ({ ...d, demurrageLfd: event.target.value }))}
                         className={drawerInputClass} />
@@ -3012,7 +3018,10 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                         onChange={(event) => setDraft((d) => ({ ...d, detentionFreeDays: event.target.value }))}
                         className={drawerInputClass} />
                     </DrawerField>
-                    <DrawerField label="Detention last free day">
+                    <DrawerField
+                      label="Override the counted detention date"
+                      hint="Only if the carrier agreed something different. Left blank, it is counted from the ETA."
+                    >
                       <input type="date" value={draft.detentionLfd || ""}
                         onChange={(event) => setDraft((d) => ({ ...d, detentionLfd: event.target.value }))}
                         className={drawerInputClass} />

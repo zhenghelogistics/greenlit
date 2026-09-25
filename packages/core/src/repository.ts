@@ -552,6 +552,8 @@ export interface DocumentDraft {
  */
 export interface CustomerChanges {
   companyName?: string;
+  /** Whether this customer's jobs normally need a permit. */
+  requiresPermit?: boolean;
   shortName?: string | null;
   billingName?: string | null;
   defaultContact?: string | null;

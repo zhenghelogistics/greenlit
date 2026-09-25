@@ -24,6 +24,15 @@ export interface Customer {
   defaultContact: string | null;
   /** §9. Assists automated customer detection during matching (§11.2). */
   emailDomains: string[];
+  /**
+   * Whether this customer's jobs normally need a Customs permit.
+   *
+   * A default for a new job rather than a rule about one: a customer who never
+   * needs a permit occasionally ships something that does, and the job is
+   * where that is known. Recorded here so nobody has to remember which
+   * customers are which.
+   */
+  requiresPermit: boolean;
   accountStatus: 'ACTIVE' | 'ON_HOLD' | 'CLOSED';
   notes: string | null;
   createdAt: string;
