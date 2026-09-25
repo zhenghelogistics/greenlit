@@ -33,6 +33,21 @@ const TOKEN_FILES = [/globals\.css$/, /MASTER.*\.md$/];
  */
 const PORTED_VERBATIM = [/zht\.css$/, /ZhtDashboard\.jsx$/];
 
+/**
+ * Rules that apply even to the ported files.
+ *
+ * The exemption exists so his stylesheet can keep his spacing and his
+ * borders. It was never meant to cover legibility, and it quietly did: the
+ * ported sheet carried 122 font sizes below the floor — nine of them at 8px —
+ * and nothing looked, because the size rule only ever read .jsx and .tsx.
+ *
+ * Operations found it instead, which is the wrong way round: "the job
+ * preparation & handover is too small, got old people using this application".
+ * The people who use this are controllers in their fifties and sixties reading
+ * it all day, and that is the whole reason §2.2 has a floor.
+ */
+const APPLIES_EVERYWHERE = new Set(["type-too-small"]);
+
 const RULES = [
   {
     id: "weight-ceiling",
@@ -52,6 +67,16 @@ const RULES = [
     // rule now protects — v3's 12-14px sizes are the regression to catch, not
     // a collapsed band. 15px caption, 17px body, 22px+ headings.
     pattern: /text-\[(?:[0-9]|1[0-4])px\]|(?<![\w-])text-(?:xs|sm)(?![\w-])/g,
+    message: "Below 15px is under the v4 floor. Use 15px caption, 17px body, 22px+ heading.",
+  },
+  {
+    id: "type-too-small",
+    clause: "§2.2",
+    level: "error",
+    applies: (f) => extname(f) === ".css",
+    // The same floor as the utility-class rule above, for stylesheets that
+    // write the number out. 15px caption, 17px body, 22px+ heading.
+    pattern: /font-size:\s*(?:[0-9]|1[0-4])px/g,
     message: "Below 15px is under the v4 floor. Use 15px caption, 17px body, 22px+ heading.",
   },
   {
@@ -178,12 +203,15 @@ const findings = [];
 for (const file of walk(ROOT)) {
   const rel = relative(ROOT, file);
   if (TOKEN_FILES.some((r) => r.test(rel))) continue;
-  if (PORTED_VERBATIM.some((r) => r.test(rel))) continue;
+  const ported = PORTED_VERBATIM.some((r) => r.test(rel));
   let text;
   try { text = readFileSync(file, "utf8"); } catch { continue; }
 
   for (const rule of RULES) {
     if (!rule.applies(rel)) continue;
+    // A ported file keeps his spacing and his borders, and is still held to
+    // the rules that decide whether somebody can read it.
+    if (ported && !APPLIES_EVERYWHERE.has(rule.id)) continue;
     const matches = [...text.matchAll(rule.pattern)];
     if (!matches.length) continue;
     const lines = new Set(matches.map((m) => text.slice(0, m.index).split("\n").length));

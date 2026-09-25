@@ -12,6 +12,7 @@
  * screen's vocabulary and this form speaks its own, and an ETA that arrives as
  * one string has to land in two controls.
  */
+import { matchCarrier } from "@greenlit/engine";
 import { toIntakeResult } from "./intake-fields.mjs";
 
 /**
@@ -72,6 +73,19 @@ export function jobFromDocument(read, existing = []) {
 
   for (const [from, key] of Object.entries(INTAKE_TO_JOB)) {
     if (!values[from]) continue;
+    // The carrier is the one field where what the document prints and what
+    // this form holds are different things. A notice says "ORIENT OVERSEAS
+    // CONTAINER LINE" and the form holds OR, because that is what operations
+    // say and what fits in a column.
+    //
+    // A name that matches nothing is left out rather than written in as
+    // itself: the field is a list of known carriers, and a value that is not
+    // on it would sit there looking chosen while selecting nothing.
+    if (key === "carrier") {
+      const carrier = matchCarrier(values[from]);
+      if (carrier) { job.carrier = carrier.code; mark("carrier", from); }
+      continue;
+    }
     job[key] = values[from];
     mark(key, from);
   }
@@ -103,7 +117,11 @@ export function jobFromDocument(read, existing = []) {
         ...EMPTY_ROW,
         containerNumber: String(c.number ?? "").toUpperCase(),
         sizeType: String(c.type ?? "").toUpperCase(),
-        grossWeight: c.grossWeight ?? "",
+        // Deliberately not taken. Operations enter the weight themselves once
+        // Portnet has been updated, so a figure read off the notice is a
+        // number somebody has to check against the one they are about to type
+        // — which is work, not help.
+        grossWeight: "",
         emptyReturnYard: values.emptyReturnYard ?? "",
         // SPLIT and COMBINED are not interchangeable, and the reader is told to
         // omit the shape rather than guess it. Absent means the form's own

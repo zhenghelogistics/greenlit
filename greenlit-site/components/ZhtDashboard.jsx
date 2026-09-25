@@ -16,8 +16,6 @@
  * So: his front end, our facts behind it.
  */
 
-const DAY = 86_400_000;
-
 const dayPart = (value) => (value ? String(value).slice(0, 10) : "");
 
 /** DD/MM/YYYY, the way every other date in this system is written. */
@@ -27,18 +25,6 @@ function formatDay(value) {
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
 }
-
-function dayLabel(iso, today) {
-  if (!iso) return "—";
-  if (iso === today) return "Today";
-  const date = new Date(`${iso}T00:00:00Z`);
-  return new Intl.DateTimeFormat("en-SG", {
-    weekday: "short", day: "numeric", month: "short", timeZone: "UTC",
-  }).format(date);
-}
-
-const daysBetween = (from, to) =>
-  Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY);
 
 /**
  * §26.1. What this job still needs, as his attention list wants it.
@@ -84,16 +70,6 @@ export function attentionItems(job, today) {
   return items;
 }
 
-function AttentionItem({ item }) {
-  const kind = item.kind === "attention" ? " attention" : item.kind === "gate" ? " gate" : "";
-  return (
-    <div className={`attention-detail-item${kind}`} title={item.detail || item.label}>
-      <span className="attention-detail-label">{item.label}</span>
-      {item.detail ? <small>{item.detail}</small> : null}
-    </div>
-  );
-}
-
 export default function ZhtDashboard({ jobs, today, onOpenJob, onNewJob, onShowActions }) {
   const active = jobs.filter((j) => j.derived?.jobStatus !== "Completed");
   const imports = active.filter((j) => j.type === "Import");
@@ -104,10 +80,6 @@ export default function ZhtDashboard({ jobs, today, onOpenJob, onNewJob, onShowA
     && !(j.permitRequired && !j.permitReceived));
 
   // His list, capped at six, each job carrying at most five visible issues.
-  const attentionJobs = active
-    .map((job) => ({ job, issues: attentionItems(job, today) }))
-    .filter((entry) => entry.issues.length > 0);
-
   // Today and future only; a passed ETA belongs in Attention, not here.
   const arrivals = [];
   for (const job of imports) {
@@ -125,21 +97,7 @@ export default function ZhtDashboard({ jobs, today, onOpenJob, onNewJob, onShowA
   arrivals.sort((a, b) => a.date.localeCompare(b.date));
 
   // Next three days of incoming work, counted by vessel ETA.
-  const workload = [0, 1, 2].map((offset) => {
-    const iso = new Date(Date.parse(`${today}T00:00:00Z`) + offset * DAY)
-      .toISOString().slice(0, 10);
-    return { iso, label: dayLabel(iso, today), count: imports.filter((j) => dayPart(j.eta) === iso).length };
-  });
-  const peak = Math.max(1, ...workload.map((w) => w.count));
-
   // §34.5. Inside two days of the last free day, or past it.
-  const lfdRisk = imports.filter((j) => {
-    const lfd = dayPart(j.demurrageLastFreeDay);
-    return lfd && daysBetween(today, lfd) <= 2;
-  });
-  const etaPassed = imports.filter((j) => dayPart(j.eta) && dayPart(j.eta) < today);
-  const portnetPending = imports.filter((j) => !j.portnetReleased);
-
   return (
     <div className="zht">
       <div className="content">
@@ -225,127 +183,20 @@ export default function ZhtDashboard({ jobs, today, onOpenJob, onNewJob, onShowA
             </div>
           </div>
 
-          <div className="control-tower-grid">
-            <div className="card control-tower-attention-card">
-              <div className="clean-section-head">
-                <div>
-                  <div className="section-title">Requires Information / Attention</div>
-                  <div className="muted">
-                    Required job information, validation issues and handover items to resolve.
-                  </div>
-                </div>
-                <button className="btn secondary" type="button" onClick={() => onShowActions("blocked")}>
-                  View jobs
-                </button>
-              </div>
-              <div className="ops-attention-list">
-                {attentionJobs.length ? attentionJobs.slice(0, 6).map(({ job, issues }) => {
-                  const visible = issues.slice(0, 5);
-                  const extra = issues.length - visible.length;
-                  return (
-                    <div className="ops-attention-job" key={job.id}>
-                      <div className="ops-attention-job-head">
-                        <div>
-                          <button type="button" className="job-link" onClick={() => onOpenJob(job)}>{job.id}</button>
-                          <small>{job.customer || "Customer TBA"}</small>
-                        </div>
-                        <span className="attention-count">
-                          {issues.length} item{issues.length === 1 ? "" : "s"}
-                        </span>
-                      </div>
-                      <div className="ops-attention-issues">
-                        {visible.map((item) => <AttentionItem key={item.label} item={item} />)}
-                        {extra > 0 ? (
-                          <button className="attention-more" type="button" onClick={() => onOpenJob(job)}>
-                            +{extra} more — open job
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                }) : (
-                  <div className="clean-empty">No active jobs currently require attention.</div>
-                )}
-              </div>
-            </div>
+          {/* Requires Information / Attention, Vessel Arrivals, Next 3 Days
+              and Operational Alerts were all here, and all four were
+              answering the same question. Operations put it plainly: "too
+              many same prompters — everything is showing required
+              information".
 
-            <div className="card control-tower-arrivals-card">
-              <div className="clean-section-head">
-                <div>
-                  <div className="section-title">Vessel Arrivals</div>
-                  <div className="muted">Today and future arrivals only. Passed ETAs move to Attention.</div>
-                </div>
-              </div>
-              <div id="opsVesselTimeline">
-                {arrivals.length ? arrivals.slice(0, 6).map((group) => (
-                  <button className="vessel-timeline-item" type="button" key={group.key}
-                    onClick={() => onShowActions("active")}>
-                    <b>{dayLabel(group.date, today).toUpperCase()}</b>
-                    <span>{group.vessel}</span>
-                    <small>{group.jobs.length} job{group.jobs.length === 1 ? "" : "s"} · {group.containers} container{group.containers === 1 ? "" : "s"}</small>
-                  </button>
-                )) : (
-                  <div className="clean-empty">No upcoming vessel arrivals recorded.</div>
-                )}
-              </div>
-            </div>
-          </div>
+              They were right. Job Preparation & Handover above already
+              lists every job and says what each one is waiting for, so the
+              panels below repeated its rows under four headings and the
+              screen read as four times as much work as there was.
 
-          <div className="control-tower-grid control-tower-bottom">
-            <div className="card">
-              <div className="clean-section-head">
-                <div>
-                  <div className="section-title">Next 3 Days — Incoming Workload</div>
-                  <div className="muted">
-                    Import workload by Vessel ETA, showing upcoming documentation / preparation demand.
-                  </div>
-                </div>
-              </div>
-              <div className="workload-chart">
-                {workload.map((day) => (
-                  <div className="workload-row" key={day.iso}>
-                    <div className="workload-day">{day.label}</div>
-                    <div className="workload-track">
-                      <div className="workload-fill" style={{ width: `${(day.count / peak) * 100}%` }} />
-                    </div>
-                    <b>{day.count}</b>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="card clean-alert-card">
-              <div className="section-title">Operational Alerts</div>
-              <div className="muted control-tower-alert-note">
-                Vessel ETA, LFD and permit alerts requiring awareness.
-              </div>
-              {etaPassed.length ? (
-                <div className="clean-alert-item danger">
-                  <b>🔴 Vessel ETA passed</b>
-                  <div>{etaPassed.length} job{etaPassed.length === 1 ? "" : "s"} · Confirm / update ETA · {etaPassed.slice(0, 3).map((j) => j.id).join(", ")}</div>
-                </div>
-              ) : null}
-              {portnetPending.length ? (
-                <div className="clean-alert-item">
-                  <b>🟡 Portnet not released</b>
-                  <div>{portnetPending.length} import container{portnetPending.length === 1 ? "" : "s"} pending</div>
-                </div>
-              ) : null}
-              {lfdRisk.length ? (
-                <div className="clean-alert-item danger">
-                  <b>🔴 Last Free Day approaching</b>
-                  <div>
-                    {lfdRisk.slice(0, 4).map((j) => (
-                      <div key={j.id}>{j.id} · {j.container || "container"} ({formatDay(j.demurrageLastFreeDay)})</div>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {!etaPassed.length && !portnetPending.length && !lfdRisk.length ? (
-                <div className="clean-empty">No operational alerts.</div>
-              ) : null}
-            </div>
-          </div>
+              Arrivals by vessel live on the controller's board, which is
+              where somebody planning trucks looks; the alerts are the same
+              rows filtered, and Action Required is that list already. */}
         </section>
       </div>
     </div>

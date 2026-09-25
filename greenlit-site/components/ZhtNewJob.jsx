@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { checkPermit } from "@greenlit/engine";
+import { CARRIERS, LOOKUP_WORDS, carrierByCode, checkPermit } from "@greenlit/engine";
 import { jobFromDocument, EMPTY_ROW } from "../lib/new-job-from-document.mjs";
 
 /**
@@ -777,9 +777,32 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                     label="Vessel ETA" date={job.etaDate} time={job.etaTime}
                     onDate={(v) => set({ etaDate: v })} onTime={(v) => set({ etaTime: v })}
                   />
-                  <Field label="Carrier">
-                    <input value={job.carrier} onChange={(e) => set({ carrier: shout(e.target.value) })} />
+                  {/* A notice issued by the carrier names itself; one issued
+                      by a forwarder often does not, so this has to be
+                      selectable rather than only read. The code is what
+                      operations say and what fits in a table — the notice
+                      prints "ORIENT OVERSEAS CONTAINER LINE" and this shows
+                      OOCL. */}
+                  <Field label="Master carrier" filled={filled.carrier}>
+                    <select value={job.carrier} onChange={(e) => set({ carrier: e.target.value })}>
+                      <option value="">Not known yet</option>
+                      {CARRIERS.map((c) => (
+                        <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
+                      ))}
+                    </select>
                   </Field>
+                  {carrierByCode(job.carrier) ? (
+                    <div className="nc-job-address-preview full">
+                      <b>{carrierByCode(job.carrier).name}</b>
+                      <span>
+                        Empty return yard: {LOOKUP_WORDS[carrierByCode(job.carrier).returnYard]}.
+                        {" "}Last free day: {LOOKUP_WORDS[carrierByCode(job.carrier).lastFreeDay]}.
+                      </span>
+                      {carrierByCode(job.carrier).note
+                        ? <span>{carrierByCode(job.carrier).note}</span> : null}
+                    </div>
+                  ) : null}
+
                   <Field label="Master bill of lading" required>
                     <input value={job.blNumber} onChange={(e) => set({ blNumber: shout(e.target.value) })} />
                   </Field>

@@ -92,7 +92,7 @@
   padding: 22px 16px;
 }
 .zht .logo {font-size:34px;font-weight:800;letter-spacing:2px;margin-bottom:24px}
-.zht .logo small {display:block;font-size:11px;letter-spacing:4px}
+.zht .logo small {display:block;font-size:15px;letter-spacing:4px}
 .zht .nav button {width:100%;text-align:left;border:0;background:transparent;color:#fff;padding:12px 14px;border-radius: var(--r-md);margin:3px 0;cursor:pointer}
 .zht .nav button.active, .zht .nav button:hover {background:#1f5a9c}
 .zht .main {
@@ -116,15 +116,15 @@
 .zht .btn.ghost {background:#fff;border:1px solid var(--line);color:var(--text)}
 .zht .cards {display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px}
 .zht .card {background:var(--card);border:1px solid #e7edf4;border-radius: var(--r-lg);padding:16px;box-shadow:0 2px 8px rgba(20,50,80,.04)}
-.zht .metric span {font-size:12px;color:var(--muted)}
-.zht .metric strong {display:block;font-size:27px;margin-top:4px}
+.zht .metric span {font-size:17px;color:var(--muted)}
+.zht .metric strong {display:block;font-size:28px;margin-top:4px}
 .zht .grid2 {display:grid;grid-template-columns:2fr 1fr;gap:18px}
 .zht .job-layout {display:grid;grid-template-columns:1.55fr 1fr;gap:18px}
-.zht .section-title {font-size:16px;font-weight:700;margin-bottom:12px}
-.zht table {width:100%;border-collapse:collapse;font-size:13px}
+.zht .section-title {font-size:20px;font-weight:700;margin-bottom:12px}
+.zht table {width:100%;border-collapse:collapse;font-size:17px}
 .zht th {background:#eef3f8;text-align:left;padding:10px}
 .zht td {padding:11px 10px;border-bottom:1px solid #edf1f5}
-.zht .tag {display:inline-block;padding:5px 8px;border-radius:999px;font-size:11px;font-weight:700}
+.zht .tag {display:inline-block;padding:5px 8px;border-radius:999px;font-size:15px;font-weight:700}
 .zht .pending {background:#fff0dd;color:#b96508}
 .zht .ready {background:#e6f0ff;color:#2164b0}
 .zht .green {background:#def4e7;color:#24784f}
@@ -137,16 +137,16 @@
 .zht .toolbar input, .zht .toolbar select {padding:9px 10px;border:1px solid var(--line);border-radius: var(--r-md);background:#fff}
 .zht .fieldgrid {display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
 .zht .field {padding:10px 12px;border:1px solid var(--line);border-radius: var(--r-md);background:#fbfdff}
-.zht .field label {display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
+.zht .field label {display:block;font-size:15px;color:var(--muted);margin-bottom:4px}
 .zht .tabs {display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .zht .tab {padding:9px 12px;border-radius: var(--r-md);background:#eef3f8;cursor:pointer;border:1px solid transparent}
 .zht .tab.active {background:#e3efff;color:#1f64b3;border-color:#9dc1ec}
 .zht .timeline {display:flex;gap:8px;flex-wrap:wrap}
-.zht .step {padding:8px 10px;border-radius: var(--r-md);background:#eef2f6;font-size:12px}
+.zht .step {padding:8px 10px;border-radius: var(--r-md);background:#eef2f6;font-size:17px}
 .zht .step.done {background:#ddf4e7;color:#247c51}
 .zht .step.current {background:#e4efff;color:#1f64b3;border:1px solid #9fc0ea}
 .zht .action-row {display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
-.zht .note {padding:9px 0;border-bottom:1px solid #edf1f5;font-size:12px}
+.zht .note {padding:9px 0;border-bottom:1px solid #edf1f5;font-size:17px}
 .zht .stop {padding:10px;border:1px solid var(--line);border-radius: var(--r-md);margin-bottom:8px;background:#fbfdff}
 .zht .movement {padding:12px;border-left:4px solid var(--blue);background:#fbfdff;border-radius: var(--r-md);margin-bottom:10px}
 .zht .movement strong {display:block;margin-bottom:5px}
@@ -160,7 +160,7 @@
 .zht .container-entry-head {display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .zht .board {display:grid;grid-template-columns:140px repeat(4,1fr);gap:8px}
 .zht .board>div {background:#fff;border:1px solid var(--line);border-radius: var(--r-md);padding:10px;min-height:68px}
-.zht .alert {padding:10px 0;border-bottom:1px solid #edf1f5;font-size:13px}
+.zht .alert {padding:10px 0;border-bottom:1px solid #edf1f5;font-size:17px}
 .zht .callout {padding:12px;border-radius: var(--r-md);background:#fff7e6;border:1px solid #f0d19e;color:#8a5900;margin-top:10px}
 @media(max-width:1100px) {
 .zht .cards {grid-template-columns:repeat(3,1fr)}
@@ -169,12 +169,12 @@
 .zht .validation-warn {color:#a45c00;background:#fff3df;border:1px solid #edc786;padding:6px 8px;border-radius: var(--r-sm)}
 .zht .validation-ok {color:#24784f;background:#e7f6ed;border:1px solid #abd9bf;padding:6px 8px;border-radius: var(--r-sm)}
 .zht .permit-row {border:1px solid var(--line);border-radius: var(--r-md);padding:10px;margin-top:8px;background:white}
-.zht .permit-alert {margin-top:6px;padding:7px 9px;border-radius: var(--r-sm);background:#fff3df;color:#9a5900;font-size:12px}
+.zht .permit-alert {margin-top:6px;padding:7px 9px;border-radius: var(--r-sm);background:#fff3df;color:#9a5900;font-size:17px}
 .zht .export-req-row {display:grid;grid-template-columns:110px 1fr auto;gap:8px;align-items:center;margin-bottom:8px}
 .zht .export-slot {border:1px solid var(--line);border-radius: var(--r-md);padding:10px;margin:8px 0;background:#fff}
 .zht .blank-value {color:#9aa5b1;font-style:italic}
 .zht .metric-btn {width:100%;text-align:left;border:1px solid var(--line);cursor:pointer;font:inherit;color:inherit;background:var(--card);transition:.15s ease}
-.zht .metric-btn small {display:block;margin-top:7px;color:var(--muted);font-size:11px;font-weight:600}
+.zht .metric-btn small {display:block;margin-top:7px;color:var(--muted);font-size:15px;font-weight:600}
 .zht .metric-btn:hover {transform:translateY(-1px);border-color:#8faec9}
 .zht .metric-btn:focus {outline:3px solid rgba(40,104,160,.18);outline-offset:2px}
 .zht .queue-card {border:1px solid var(--line);border-radius: var(--r-md);padding:12px;margin-bottom:10px;background:#fff}
@@ -190,12 +190,12 @@
 .zht .save-state-wrap {display:flex;align-items:center;gap:8px;white-space:nowrap}
 /* --border and --panel were never defined, here or in his demo, so these
    rules were dropped whole and the borders never drew. */
-.zht .save-state {font-size:12px;color:var(--muted);padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:var(--card)}
+.zht .save-state {font-size:17px;color:var(--muted);padding:7px 10px;border:1px solid var(--line);border-radius:999px;background:var(--card)}
 .zht .save-state.saving {font-weight:600}
 @media(max-width:900px) {
 .zht .save-state-wrap {display:none}
 }
-.zht .field-label {display:block;font-size:11px;color:#6d7b8a;margin-bottom:5px}
+.zht .field-label {display:block;font-size:15px;color:#6d7b8a;margin-bottom:5px}
 .zht .customer-location-row {
   display:grid;
   grid-template-columns:1.1fr 1.7fr 120px 90px;
@@ -205,8 +205,8 @@
   border-bottom:1px solid var(--line);
 }
 .zht .customer-location-row:last-child {border-bottom:none}
-.zht .customer-location-head {font-size:12px;font-weight:700;color:var(--muted);padding-bottom:8px}
-.zht .location-default-cell {display:flex;align-items:center;gap:6px;font-size:12px}
+.zht .customer-location-head {font-size:17px;font-weight:700;color:var(--muted);padding-bottom:8px}
+.zht .location-default-cell {display:flex;align-items:center;gap:6px;font-size:17px}
 .zht .customer-tab-panel .formgrid {margin-top:14px}
 @media(max-width:900px) {
 .zht .customer-location-row {grid-template-columns:1fr}
@@ -226,7 +226,7 @@
   white-space:nowrap;
 }
 .zht .topbar-title-main {
-  font-size:20px;
+  font-size:24px;
   line-height:1.15;
   font-weight:800;
   letter-spacing:-0.3px;
@@ -234,7 +234,7 @@
 }
 .zht .topbar-title-sub {
   margin-top:4px;
-  font-size:11px;
+  font-size:15px;
   line-height:1;
   font-weight:600;
   color:var(--muted);
@@ -271,7 +271,7 @@
     padding-left:18px;
     padding-right:18px;
   }
-  .topbar-title-main{font-size:18px}
+  .topbar-title-main{font-size:20px}
   #resetDemoDataButton{display:none}
 }
 @media(max-width:980px) {
@@ -317,11 +317,11 @@
 }
 .zht .customer-modal-head h3 {
   margin:4px 0 5px;
-  font-size:25px;
+  font-size:24px;
   letter-spacing:-.5px;
 }
 .zht .eyebrow {
-  font-size:10px;
+  font-size:15px;
   font-weight:800;
   letter-spacing:1.4px;
   color:#6b7c93;
@@ -382,7 +382,7 @@
   display:flex;
   align-items:center;
   gap:10px;
-  font-size:13px;
+  font-size:17px;
   font-weight:800;
 }
 .zht .location-number {
@@ -394,14 +394,14 @@
   justify-content:center;
   background:#e8f1ff;
   color:#1763b8;
-  font-size:11px;
+  font-size:15px;
   font-weight:800;
 }
 .zht .default-choice {
   display:flex;
   align-items:center;
   gap:7px;
-  font-size:12px;
+  font-size:17px;
   font-weight:700;
   color:#536170;
 }
@@ -431,7 +431,7 @@
   color:#8a5660;
   cursor:pointer;
   font-weight:700;
-  font-size:12px;
+  font-size:17px;
 }
 .zht .location-summary-strip {
   display:grid;
@@ -448,7 +448,7 @@
 .zht .summary-label {
   display:block;
   color:var(--muted);
-  font-size:10px;
+  font-size:15px;
   text-transform:uppercase;
   letter-spacing:.7px;
   font-weight:700;
@@ -464,7 +464,7 @@
   border:1px solid #dce7f3;
   background:#f7fbff;
   border-radius: var(--r-lg);
-  font-size:12px;
+  font-size:17px;
 }
 .zht .location-info-title {
   font-weight:800;
@@ -478,7 +478,7 @@
 .zht .location-info-grid span {
   display:block;
   color:var(--muted);
-  font-size:10px;
+  font-size:15px;
   text-transform:uppercase;
   letter-spacing:.5px;
   margin-bottom:3px;
@@ -507,7 +507,7 @@
   overflow:visible;
 }
 .zht .topbar-title-main {
-  font-size:18px;
+  font-size:20px;
   line-height:1.12;
   font-weight:800;
   letter-spacing:-.25px;
@@ -540,7 +540,7 @@
   border:none;
   background:transparent;
   padding:0;
-  font-size:11px;
+  font-size:15px;
   font-weight:700;
   color:#738194;
 }
@@ -548,7 +548,7 @@
   content:'•';
   display:inline-block;
   margin-right:6px;
-  font-size:16px;
+  font-size:20px;
   line-height:0;
   vertical-align:-1px;
 }
@@ -567,7 +567,7 @@
   gap:7px;
 }
 .zht .data-menu-button:hover {background:#f7f9fc}
-.zht .data-menu-button .chevron {font-size:13px;color:#758396}
+.zht .data-menu-button .chevron {font-size:17px;color:#758396}
 .zht .data-menu {
   display:none;
   position:absolute;
@@ -597,9 +597,9 @@
 }
 .zht .data-menu button:hover {background:#f5f8fc}
 .zht .data-menu button span:last-child {display:flex;flex-direction:column;gap:2px}
-.zht .data-menu button b {font-size:12px}
+.zht .data-menu button b {font-size:17px}
 .zht .data-menu button small {font-size:10.5px;color:#7b8794;font-weight:500}
-.zht .menu-icon {width:22px;font-size:16px;color:#5a7189;text-align:center}
+.zht .menu-icon {width:22px;font-size:20px;color:#5a7189;text-align:center}
 .zht .data-menu-divider {height:1px;background:#e9edf2;margin:5px 7px}
 .zht .danger-menu-item b {color:#9a4c58}
 @media(max-width:1180px) {
@@ -608,8 +608,8 @@
     gap:12px;
   }
 .zht .topbar-title {min-width:245px}
-.zht .topbar-title-main {font-size:16px}
-.zht .topbar-title-sub {font-size:10px}
+.zht .topbar-title-main {font-size:20px}
+.zht .topbar-title-sub {font-size:15px}
 .zht .save-state {display:none}
 }
 @media(max-width:940px) {
@@ -638,7 +638,7 @@
   border-radius:999px;
   background:#eaf3ff;
   color:#2a6fbb;
-  font-size:9px;
+  font-size:15px;
   font-weight:800;
   letter-spacing:.8px;
   white-space:nowrap;
@@ -658,7 +658,7 @@
   background:#fafbfd;
   color:#8995a3;
   text-align:center;
-  font-size:12px;
+  font-size:17px;
 }
 .zht #createCustomerLocations:not(:empty) + .empty-location-hint {
   display:none;
@@ -693,7 +693,7 @@
 }
 .zht .company-group-name {
   margin-top:7px;
-  font-size:15px;
+  font-size:17px;
   font-weight:800;
   color:#203a57;
 }
@@ -726,7 +726,7 @@
   display:flex;
   align-items:center;
   gap:8px;
-  font-size:12px;
+  font-size:17px;
   font-weight:800;
 }
 .zht .address-index {
@@ -738,7 +738,7 @@
   justify-content:center;
   background:#edf4fb;
   color:#406b98;
-  font-size:10px;
+  font-size:15px;
   font-weight:800;
 }
 .zht .address-fields-grid {
@@ -757,7 +757,7 @@
   background:transparent;
   color:#925966;
   cursor:pointer;
-  font-size:11px;
+  font-size:15px;
   font-weight:750;
 }
 .zht #additionalCompanyGroups:not(:empty) + .empty-location-hint {
@@ -784,7 +784,7 @@
 }
 .zht .updated-meta span {
   display:block;
-  font-size:9px;
+  font-size:15px;
   text-transform:uppercase;
   letter-spacing:.7px;
   color:var(--muted);
@@ -793,7 +793,7 @@
 .zht .updated-meta strong {
   display:block;
   margin-top:3px;
-  font-size:11px;
+  font-size:15px;
   color:#42566c;
   font-weight:700;
 }
@@ -807,7 +807,7 @@
   min-width:0;
 }
 .zht .time-separator {
-  font-size:11px;
+  font-size:15px;
   color:var(--muted);
   font-weight:700;
 }
@@ -853,7 +853,7 @@
   border-radius: var(--r-lg);
   background:#203a57;
   color:#fff;
-  font-size:12px;
+  font-size:17px;
   font-weight:700;
   box-shadow:0 16px 40px rgba(20,44,70,.22);
   opacity:0;
@@ -885,7 +885,7 @@
   align-items:center;
 }
 .zht .company-heading-copy {display:flex;flex-direction:column;align-items:flex-start}
-.zht .company-group-name {font-size:17px;margin-top:8px;letter-spacing:-.2px}
+.zht .company-group-name {font-size:20px;margin-top:8px;letter-spacing:-.2px}
 .zht .company-group-caption {margin-top:3px;font-size:10.5px;color:#7b8999}
 .zht .company-head-note {
   max-width:360px;
@@ -917,11 +917,11 @@
   border-bottom:1px solid #edf1f5;
 }
 .zht .location-identity {display:flex;align-items:center;gap:11px}
-.zht .location-title {font-size:13px;font-weight:800;color:#1f3956}
+.zht .location-title {font-size:17px;font-weight:800;color:#1f3956}
 .zht .location-subtitle {font-size:9.5px;color:#8996a4;margin-top:2px}
 .zht .address-index {
   width:29px;height:29px;border-radius: var(--r-md);
-  background:#eaf3fd;color:#2b6eb6;font-size:11px;
+  background:#eaf3fd;color:#2b6eb6;font-size:15px;
 }
 .zht .location-head-actions {display:flex;align-items:center;gap:8px;position:relative}
 .zht .default-location-toggle {
@@ -981,7 +981,7 @@
   background:#fff;
   min-height:39px;
   padding:8px 10px;
-  font-size:12px;
+  font-size:17px;
   box-sizing:border-box;
 }
 .zht .location-workspace-card input:focus, .zht .location-workspace-card select:focus, .zht .location-workspace-card textarea:focus {
@@ -989,7 +989,7 @@
   box-shadow:0 0 0 3px rgba(52,126,204,.09);
 }
 .zht .location-workspace-card .field-label {
-  display:block;margin-bottom:6px;font-size:10px;color:#607287;font-weight:650;
+  display:block;margin-bottom:6px;font-size:15px;color:#607287;font-weight:650;
 }
 @media(max-width:900px) {
 .zht .location-workspace-body {grid-template-columns:1fr}
@@ -1023,7 +1023,7 @@
   border-radius:999px;
   background:#eaf3ff;
   color:#2a6fbb;
-  font-size:9px;
+  font-size:15px;
   font-weight:850;
   letter-spacing:.85px;
 }
@@ -1059,7 +1059,7 @@
   flex:0 0 27px;
   background:#f0f5fb;
   color:#5b7898;
-  font-size:12px;
+  font-size:17px;
 }
 .zht .company-name-modern {
   width:100%;
@@ -1069,7 +1069,7 @@
   background:transparent !important;
   padding:0 !important;
   min-height:46px !important;
-  font-size:15px !important;
+  font-size:17px !important;
   font-weight:800 !important;
   letter-spacing:-.15px;
   color:#183552;
@@ -1091,7 +1091,7 @@
 @media(max-width:760px) {
 .zht .company-identity-editor {max-width:none}
 .zht .company-name-field-shell {min-height:46px}
-.zht .company-name-modern {font-size:14px !important}
+.zht .company-name-modern {font-size:17px !important}
 }
 .zht /* ----------------------------------------------------------------------- */
 
@@ -1228,7 +1228,7 @@
   padding:9px 0;
   border-bottom:1px solid #f0f3f6;
   align-items:center;
-  font-size:10px;
+  font-size:15px;
 }
 .zht .audit-field {font-weight:750;color:#52677d}
 .zht .audit-old {color:#8e6570;background:#fbf5f6;padding:6px 8px;border-radius: var(--r-md)}
@@ -1241,7 +1241,7 @@
   border-radius: var(--r-lg);
   background:#fafbfd;
 }
-.zht .audit-empty-title {font-size:12px;font-weight:800;color:#52667b;margin-bottom:4px}
+.zht .audit-empty-title {font-size:17px;font-weight:800;color:#52667b;margin-bottom:4px}
 @media(max-width:900px) {
 .zht .customer-search-main {flex-direction:column;align-items:stretch}
 .zht .customer-search-controls {min-width:0;width:100%}
@@ -1258,9 +1258,9 @@
 .zht /* v11.1 Job Creation ---------------------------------------------------- */
 .job-type-chooser {padding:12px 0 4px}
 .zht .creation-intro {padding:6px 2px 16px}
-.zht .creation-intro h4 {margin:4px 0 6px;font-size:18px;color:#21384f}
+.zht .creation-intro h4 {margin:4px 0 6px;font-size:20px;color:#21384f}
 .zht .creation-kicker {
-  font-size:9px;
+  font-size:15px;
   letter-spacing:.14em;
   font-weight:850;
   color:#6e87a1;
@@ -1293,11 +1293,11 @@
   width:42px;height:42px;border-radius: var(--r-lg);
   display:grid;place-items:center;
   background:#eef5fb;color:#3e78aa;
-  font-size:20px;font-weight:900;
+  font-size:24px;font-weight:900;
 }
-.zht .job-type-card strong {display:block;font-size:14px;color:#203950;margin-bottom:4px}
+.zht .job-type-card strong {display:block;font-size:17px;color:#203950;margin-bottom:4px}
 .zht .job-type-card span {display:block;font-size:10.5px;line-height:1.45;color:#7b8998}
-.zht .job-type-arrow {font-size:18px;color:#8ba0b4;text-align:right}
+.zht .job-type-arrow {font-size:20px;color:#8ba0b4;text-align:right}
 .zht .creation-workspace-head {
   display:flex;
   align-items:center;
@@ -1309,7 +1309,7 @@
 .zht .creation-type-badge {
   border-radius:999px;
   padding:6px 10px;
-  font-size:9px;
+  font-size:15px;
   letter-spacing:.1em;
   font-weight:850;
 }
@@ -1339,7 +1339,7 @@
   gap:5px;
   margin-bottom:6px;
   color:#53687d;
-  font-size:10px;
+  font-size:15px;
   font-weight:750;
 }
 .zht .req {color:#b75757}
@@ -1376,8 +1376,8 @@
 .zht .role-view-switch button.active {background:#fff;color:#294963;box-shadow:0 1px 4px rgba(35,58,77,.1)}
 .zht .role-callout {display:flex;align-items:center;gap:12px;border:1px solid #dfe8f0;background:#f8fbfd;border-radius: var(--r-lg);padding:13px 15px;margin-bottom:14px}
 .zht .controller-callout {background:#f8fafc}
-.zht .role-callout-icon {flex:0 0 38px;width:38px;height:38px;border-radius: var(--r-md);background:#e8f2fa;display:grid;place-items:center;font-size:10px;font-weight:900;color:#4b7598}
-.zht .role-callout strong {display:block;color:#2b465d;font-size:12px;margin-bottom:3px}
+.zht .role-callout-icon {flex:0 0 38px;width:38px;height:38px;border-radius: var(--r-md);background:#e8f2fa;display:grid;place-items:center;font-size:15px;font-weight:900;color:#4b7598}
+.zht .role-callout strong {display:block;color:#2b465d;font-size:17px;margin-bottom:3px}
 .zht .role-callout span {font-size:10.5px;color:#758493;line-height:1.4}
 .zht .attention-metric strong {color:#9a5a1c}
 .zht .dashboard-table-card {margin-bottom:14px}
@@ -1388,11 +1388,11 @@
 .zht .controller-summary {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
 .zht .controller-stat {background:#fff;border:1px solid #e1e8ef;border-radius: var(--r-lg);padding:13px 14px}
 .zht .controller-stat span {display:block;font-size:9.5px;color:#7c8996;margin-bottom:5px}
-.zht .controller-stat strong {font-size:19px;color:#263f55}
+.zht .controller-stat strong {font-size:24px;color:#263f55}
 .zht .controller-table {min-width:1050px}
 .zht .controller-table th {white-space:nowrap}
 .zht .controller-table td {vertical-align:top}
-.zht .compact-link {font-size:9px}
+.zht .compact-link {font-size:15px}
 .zht .lfd-urgent b {color:#a4473e}
 @media(max-width:900px) {
 .zht .dashboard-role-head {flex-direction:column}
@@ -1412,11 +1412,11 @@
 .zht .extract-field {border:1px solid #e5ebf0;border-radius: var(--r-md);padding:9px;background:#fbfcfd}
 .zht .extract-field span {display:block;font-size:8.5px;color:#84909a;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
 .zht .extract-field b {font-size:10.5px;color:#304b60;word-break:break-word}
-.zht .extract-confidence {font-size:8px;font-weight:800;border-radius:999px;padding:3px 6px;background:#eaf5ee;color:#467359}
+.zht .extract-confidence {font-size:15px;font-weight:800;border-radius:999px;padding:3px 6px;background:#eaf5ee;color:#467359}
 .zht .extract-confidence.review {background:#fff2e7;color:#95612e}
 .zht .extract-table {width:100%;border-collapse:collapse}
 .zht .extract-table th, .zht .extract-table td {padding:7px 8px;border-bottom:1px solid #edf1f4;text-align:left;font-size:9.5px}
-.zht .extract-table th {font-size:8px;text-transform:uppercase;color:#7c8994}
+.zht .extract-table th {font-size:15px;text-transform:uppercase;color:#7c8994}
 .zht .extract-actions {display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
 .zht .extract-warning {padding:9px 10px;border-radius: var(--r-md);background:#fff8e9;color:#806331;font-size:9.5px;margin-bottom:10px}
 @media(max-width:800px) {
@@ -1429,14 +1429,14 @@
 .zht .clean-metric {appearance:none;border:1px solid #e4e9ed;background:#fff;border-radius: var(--r-lg);padding:14px 15px;text-align:left;min-height:92px;box-shadow:0 2px 8px rgba(27,45,58,.035);color:inherit}
 .zht button.clean-metric {cursor:pointer}
 .zht button.clean-metric:hover {border-color:#c8d6df;transform:translateY(-1px)}
-.zht .clean-metric span {display:block;font-size:9px;font-weight:750;color:#71808b;text-transform:uppercase;letter-spacing:.045em}
+.zht .clean-metric span {display:block;font-size:15px;font-weight:750;color:#71808b;text-transform:uppercase;letter-spacing:.045em}
 .zht .clean-metric strong {display:block;font-size:24px;line-height:1.1;margin:7px 0 5px;color:#263f52}
-.zht .clean-metric small {font-size:9px;color:#96a1a9}
+.zht .clean-metric small {font-size:15px;color:#96a1a9}
 .zht .clean-metric.attention-soft {background:#fffdf9;border-color:#eee5d8}
 .zht .clean-main-card {padding:0;overflow:hidden;margin-bottom:14px}
 .zht .clean-section-head {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid #edf0f2}
 .zht .clean-table {width:100%;border-collapse:collapse}
-.zht .clean-table th {padding:9px 12px;background:#fafbfc;color:#7a8791;font-size:8px;letter-spacing:.04em;text-transform:uppercase;text-align:left;white-space:nowrap}
+.zht .clean-table th {padding:9px 12px;background:#fafbfc;color:#7a8791;font-size:15px;letter-spacing:.04em;text-transform:uppercase;text-align:left;white-space:nowrap}
 .zht .clean-table td {padding:11px 12px;border-top:1px solid #eef1f3;font-size:9.5px;vertical-align:middle}
 .zht .clean-table.compact td {padding-top:9px;padding-bottom:9px}
 .zht .clean-lower-grid {display:grid;grid-template-columns:minmax(0,1.65fr) minmax(260px,.65fr);gap:14px}
@@ -1448,10 +1448,10 @@
 .zht .clean-alert-strip {display:flex;align-items:center;gap:18px;padding:12px 16px;margin-top:14px}
 .zht .clean-alert-strip .section-title {margin:0;white-space:nowrap}
 .zht #controllerAlerts {display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.zht .clean-alert-item {appearance:none;border:1px solid #eadfcf;background:#fffaf3;border-radius:999px;padding:6px 10px;display:inline-flex;gap:6px;align-items:center;font-size:9px;color:#705d43}
+.zht .clean-alert-item {appearance:none;border:1px solid #eadfcf;background:#fffaf3;border-radius:999px;padding:6px 10px;display:inline-flex;gap:6px;align-items:center;font-size:15px;color:#705d43}
 .zht button.clean-alert-item {cursor:pointer}
 .zht .clean-alert-item.danger {background:#fff5f3;border-color:#eed7d2;color:#8a554c}
-.zht .clean-row-action {margin-top:6px;padding:5px 8px!important;font-size:8px!important}
+.zht .clean-row-action {margin-top:6px;padding:5px 8px!important;font-size:15px!important}
 .zht .clean-empty {padding:18px;text-align:center;color:#8a969f}
 @media(max-width:1000px) {
 .zht .clean-metrics {grid-template-columns:repeat(2,1fr)}
@@ -1465,37 +1465,37 @@
 .zht .clean-alert-strip {align-items:flex-start;flex-direction:column}
 }
 .zht /* v12.7 dashboard typography correction */
-#dashboard .clean-metric span {font-size:11px}
+#dashboard .clean-metric span {font-size:15px}
 .zht #dashboard .clean-metric strong {font-size:28px}
-.zht #dashboard .clean-metric small {font-size:11px}
-.zht #dashboard .clean-table th {font-size:10px;padding:10px 12px}
+.zht #dashboard .clean-metric small {font-size:15px}
+.zht #dashboard .clean-table th {font-size:15px;padding:10px 12px}
 .zht #dashboard .clean-table td {font-size:11.5px;padding:12px}
 .zht #dashboard .clean-table td small, .zht #dashboard .clean-table .muted {font-size:10.5px}
-.zht #dashboard .clean-row-action {font-size:10px!important}
-.zht #dashboard .clean-alert-item {font-size:11px}
-.zht #dashboard .clean-empty {font-size:11px}
-.zht #dashboard .section-title {font-size:13px}
+.zht #dashboard .clean-row-action {font-size:15px!important}
+.zht #dashboard .clean-alert-item {font-size:15px}
+.zht #dashboard .clean-empty {font-size:15px}
+.zht #dashboard .section-title {font-size:17px}
 .zht #dashboard .clean-section-head>.muted, .zht #dashboard .clean-section-head .muted {font-size:10.5px}
-.zht #dashboard .clean-dashboard-head .muted {font-size:11px}
-.zht #dashboard .role-view-switch button {font-size:11px}
+.zht #dashboard .clean-dashboard-head .muted {font-size:15px}
+.zht #dashboard .role-view-switch button {font-size:15px}
 .zht /* v12.8 shipment editor + audit history */
 .shipment-edit-modal {width:820px!important;padding:0!important;overflow:hidden!important}
 .zht .shipment-edit-head {padding:20px 22px;border-bottom:1px solid #e8edf1;margin:0!important}
 .zht .shipment-edit-grid {padding:20px 22px;display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .zht .shipment-edit-field {display:flex;flex-direction:column;gap:6px}
 .zht .shipment-edit-field.span-2 {grid-column:span 2}
-.zht .shipment-edit-field>span {font-size:11px;font-weight:700;color:#617487}
+.zht .shipment-edit-field>span {font-size:15px;font-weight:700;color:#617487}
 .zht .shipment-edit-field input, .zht .shipment-edit-field select {width:100%;box-sizing:border-box;border:1px solid #cfdbe5;border-radius: var(--r-md);padding:11px 12px;font:inherit;background:#fff;color:#173650}
 .zht .shipment-edit-field input:focus, .zht .shipment-edit-field select:focus {outline:none;border-color:#76a7d4;box-shadow:0 0 0 3px rgba(75,139,197,.10)}
 .zht .shipment-edit-footer {padding:14px 22px;border-top:1px solid #e8edf1;background:#fafbfd;display:flex;justify-content:flex-end;gap:9px}
 .zht .shipment-history-card {padding-bottom:8px}
-.zht .shipment-history-empty {padding:12px 0;color:#8795a2;font-size:11px}
+.zht .shipment-history-empty {padding:12px 0;color:#8795a2;font-size:15px}
 .zht .shipment-history-list {margin-top:10px}
 .zht .shipment-history-entry {padding:12px 0;border-top:1px solid #edf1f4}
 .zht .shipment-history-entry:first-child {border-top:0}
 .zht .shipment-history-meta {display:flex;justify-content:space-between;gap:15px;align-items:center;margin-bottom:9px}
 .zht .shipment-history-meta b {font-size:11.5px;color:#29465e}
-.zht .shipment-history-meta span {font-size:10px;color:#8795a2}
+.zht .shipment-history-meta span {font-size:15px;color:#8795a2}
 .zht .shipment-history-changes {display:grid;gap:6px}
 .zht .shipment-history-change {display:grid;grid-template-columns:190px 1fr;gap:12px;align-items:center;font-size:10.5px}
 .zht .shipment-history-change>span {font-weight:700;color:#607386}
@@ -1521,20 +1521,20 @@
 .zht .address-mode-option {display:flex;gap:11px;align-items:flex-start;border:1px solid #dfe7ed;border-radius: var(--r-md);padding:12px 13px;margin-bottom:10px;cursor:pointer;background:#fff}
 .zht .address-mode-option input {margin-top:3px}
 .zht .address-mode-option b {display:block;font-size:11.5px;color:#29465e;margin-bottom:3px}
-.zht .address-mode-option span {display:block;font-size:10px}
+.zht .address-mode-option span {display:block;font-size:15px}
 .zht #containerAddressRowsWrap {margin-top:16px;border:1px solid #e4eaef;border-radius: var(--r-md);overflow:hidden}
 .zht .address-editor-head {background:#fafbfd}
 .zht .container-address-row {border-top:1px solid #e9eef2}
 .zht .container-address-row:first-child {border-top:0}
 .zht .container-address-row-head {display:flex;justify-content:space-between;align-items:center;padding:10px 18px 0}
-.zht .container-address-row-head b {font-size:11px;color:#506678}
+.zht .container-address-row-head b {font-size:15px;color:#506678}
 .zht .address-row-grid {padding-top:10px!important}
-.zht .address-remove-btn {font-size:9px!important;padding:5px 7px!important}
+.zht .address-remove-btn {font-size:15px!important;padding:5px 7px!important}
 .zht /* v12.11 Demurrage / Detention free-time controls */
 .free-time-editor {grid-column:1/-1;border:1px solid #dfe7ed;border-radius: var(--r-md);background:#fbfcfd;overflow:hidden;margin-top:2px}
 .zht .free-time-head {padding:13px 14px;border-bottom:1px solid #e6ebef;background:#f7fafc}
-.zht .free-time-head b {display:block;font-size:12px;color:#29465e;margin-bottom:3px}
-.zht .free-time-head span {font-size:10px;color:#7c8b96}
+.zht .free-time-head b {display:block;font-size:17px;color:#29465e;margin-bottom:3px}
+.zht .free-time-head span {font-size:15px;color:#7c8b96}
 .zht .free-time-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:14px}
 .zht .free-time-grid+.free-time-grid {border-top:1px solid #edf1f4}
 .zht .lfd-preview {border:1px dashed #cbd8e1;border-radius: var(--r-md);padding:10px 12px;min-height:44px;display:flex;flex-direction:column;justify-content:center;gap:3px;background:#fff}
@@ -1550,11 +1550,11 @@
 .free-time-basis {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px 14px;background:#fff;border-bottom:1px solid #edf1f4}
 .zht .free-time-basis>div {border:1px solid #e4eaef;border-radius: var(--r-md);padding:9px 10px}
 .zht .free-time-basis span {display:block;font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;color:#84929d;margin-bottom:4px}
-.zht .free-time-basis b {font-size:10px;color:#38566d}
+.zht .free-time-basis b {font-size:15px;color:#38566d}
 .zht .readonly-value {border:1px solid #d7e1e8;border-radius: var(--r-md);padding:10px 11px;background:#f5f8fa;font-size:10.5px;font-weight:700;color:#35536a;min-height:18px}
-.zht .readonly-value span {display:block;font-size:9px;font-weight:500;color:#7d8c97;margin-top:3px}
+.zht .readonly-value span {display:block;font-size:15px;font-weight:500;color:#7d8c97;margin-top:3px}
 .zht .controller-override-field {border-left:3px solid #d3a967;padding-left:10px}
-.zht .controller-override-field small {font-size:9px;color:#8a7961}
+.zht .controller-override-field small {font-size:15px;color:#8a7961}
 @media(max-width:800px) {
 .zht .free-time-basis {grid-template-columns:1fr}
 }
@@ -1562,13 +1562,13 @@
 .separate-dd-wrap {display:block;padding:0 14px 14px}
 .zht .dd-row {border:1px solid #dfe7ed;border-radius: var(--r-md);background:#fff;margin-top:12px;overflow:hidden}
 .zht .dd-row-title {padding:11px 13px;border-bottom:1px solid #e8edf1;background:#f8fafb}
-.zht .dd-row-title b {display:block;font-size:12px;color:#29465e;margin-bottom:3px}
+.zht .dd-row-title b {display:block;font-size:17px;color:#29465e;margin-bottom:3px}
 .zht .dd-row-title span {font-size:9.5px;color:#7d8b95}
 .zht .dd-row-fields {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:13px}
 .zht .demurrage-row {border-left:4px solid #7ca6c6}
 .zht .detention-row {border-left:4px solid #b99570}
 .zht .create-dd-row-title {padding:10px 12px;border:1px solid #dfe7ed;border-bottom:0;border-radius: var(--r-md) var(--r-md) 0 0;background:#f8fafb}
-.zht .create-dd-row-title b {display:block;font-size:11px;color:#29465e;margin-bottom:2px}
+.zht .create-dd-row-title b {display:block;font-size:15px;color:#29465e;margin-bottom:2px}
 .zht .create-dd-row-title span {font-size:9.5px;color:#7d8b95}
 .zht .create-dd-row-fields {display:grid;grid-template-columns:minmax(180px,.7fr) minmax(240px,1.3fr);gap:10px;padding:12px;border:1px solid #dfe7ed;border-radius: 0 0 var(--r-md) var(--r-md);background:#fff}
 .zht .nc-demurrage-row {border-left:4px solid #7ca6c6;padding-left:8px}
@@ -1644,7 +1644,7 @@
 .zht /* v12.15 compact D&D editor so both separate rows remain visible */
 .compact-free-time-head {padding:10px 13px!important}
 .zht .compact-free-time-head b {font-size:11.5px!important}
-.zht .compact-free-time-head span {font-size:9px!important}
+.zht .compact-free-time-head span {font-size:15px!important}
 .zht .compact-free-time-basis {
   grid-template-columns:repeat(3,minmax(0,1fr))!important;
   gap:8px!important;
@@ -1655,7 +1655,7 @@
 .zht .compact-free-time-basis b {font-size:9.5px!important}
 .zht .free-time-structure-line {padding:9px 12px 4px}
 .zht .free-time-structure-line .shipment-edit-field {max-width:300px}
-.zht .free-time-structure-line .shipment-edit-field>span {font-size:10px}
+.zht .free-time-structure-line .shipment-edit-field>span {font-size:15px}
 .zht .free-time-structure-line select {padding:9px 10px!important}
 .zht .compact-separate-dd {padding:0 12px 8px!important}
 .zht .compact-separate-dd .dd-row {margin-top:8px!important}
@@ -1667,10 +1667,10 @@
   padding:9px 11px 7px!important;
 }
 .zht .compact-dd-fields .shipment-edit-field {gap:4px!important}
-.zht .compact-dd-fields .shipment-edit-field>span {font-size:9px!important}
+.zht .compact-dd-fields .shipment-edit-field>span {font-size:15px!important}
 .zht .compact-dd-fields input {padding:9px 10px!important}
 .zht .compact-dd-fields .readonly-value {padding:9px 10px!important;min-height:16px!important}
-.zht .compact-dd-fields small {font-size:8px!important}
+.zht .compact-dd-fields small {font-size:15px!important}
 .zht .compact-lfd-status {
   display:flex;
   align-items:center;
@@ -1682,7 +1682,7 @@
   color:#617484;
   font-size:8.5px;
 }
-.zht .compact-lfd-status b {font-size:9px;color:#365870}
+.zht .compact-lfd-status b {font-size:15px;color:#365870}
 .zht .compact-lfd-status span {font-size:8.5px;color:#788995}
 .zht .compact-combined-row {
   display:block;
@@ -1743,7 +1743,7 @@
 }
 .zht .dd-section-head b {
   display:block;
-  font-size:12px;
+  font-size:17px;
   color:#29465e;
   margin-bottom:3px;
 }
@@ -1766,7 +1766,7 @@
 }
 .zht .dd-summary-item span {
   display:block;
-  font-size:8px;
+  font-size:15px;
   text-transform:uppercase;
   letter-spacing:.04em;
   color:#85939e;
@@ -1819,7 +1819,7 @@
   background:#f8fafb;
 }
 .zht .dd-line-name b {
-  font-size:11px;
+  font-size:15px;
   color:#29465e;
   min-width:82px;
 }
@@ -1954,7 +1954,7 @@
 .job-log-card {padding:0!important;overflow:hidden}
 .zht .job-log-head {display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:14px 16px;border-bottom:1px solid #e8edf1}
 .zht .job-log-head .section-title {margin-bottom:3px}
-.zht .job-log-legend {display:flex;gap:12px;flex-wrap:wrap;padding:8px 16px;background:#fafbfd;border-bottom:1px solid #edf1f4;font-size:9px;color:#71818e}
+.zht .job-log-legend {display:flex;gap:12px;flex-wrap:wrap;padding:8px 16px;background:#fafbfd;border-bottom:1px solid #edf1f4;font-size:15px;color:#71818e}
 .zht .job-log-legend span {display:flex;align-items:center;gap:5px}
 .zht .job-log-dot {width:7px;height:7px;border-radius:50%;display:inline-block;background:#98a7b2}
 .zht .job-log-dot.shipment, .zht .job-log-rail.shipment {background:#6e99bb}
@@ -1984,15 +1984,15 @@
 .zht .job-log-change del {background:#fbf3f4;color:#8b666d}
 .zht .job-log-change ins {background:#eef7f1;color:#4e7358}
 .zht .job-log-change b {color:#9aa5ae}
-.zht .job-log-source {font-size:8px;color:#9aa5ae;margin-top:7px}
-.zht .job-log-empty {padding:18px 16px;color:#8795a2;font-size:10px}
+.zht .job-log-source {font-size:15px;color:#9aa5ae;margin-top:7px}
+.zht .job-log-empty {padding:18px 16px;color:#8795a2;font-size:15px}
 @media(max-width:700px) {
 .zht .job-log-meta {flex-direction:column;gap:5px}
 .zht .job-log-change {grid-template-columns:1fr}
 }
 .zht /* v12.21 shipment-level permit allocation */
 .permit-workspace {border:1px solid #d9e4ec!important;background:#fbfcfd}
-.zht .permit-guidance {display:flex;gap:10px;align-items:flex-start;margin:0 14px 12px;padding:10px 12px;border-radius: var(--r-md);background:#eef6fb;color:#536d80;font-size:10px}
+.zht .permit-guidance {display:flex;gap:10px;align-items:flex-start;margin:0 14px 12px;padding:10px 12px;border-radius: var(--r-md);background:#eef6fb;color:#536d80;font-size:15px}
 .zht .permit-guidance b {white-space:nowrap;color:#35566e}
 .zht .permit-empty-state {margin:12px 14px;padding:16px;border:1px dashed #cbd8e1;border-radius: var(--r-md);text-align:center;color:#7c8d99;font-size:10.5px;background:#fff}
 .zht .shipment-permit-card {margin:12px 14px;border:1px solid #dce5eb;border-radius: var(--r-md);background:#fff;overflow:hidden}
@@ -2002,7 +2002,7 @@
 .zht .permit-card-status {font-size:8.5px;color:#7d8c97}
 .zht .shipment-permit-fields {display:grid;grid-template-columns:1fr 1fr .8fr;gap:12px;padding:12px}
 .zht .permit-file-state {display:flex;flex-direction:column;gap:6px}
-.zht .permit-file-state>span {font-size:10px;font-weight:700;color:#617487}
+.zht .permit-file-state>span {font-size:15px;font-weight:700;color:#617487}
 .zht .permit-file-state>b {min-height:20px;padding:10px;border:1px solid #e0e7ec;border-radius: var(--r-md);background:#f6f8fa;font-size:9.5px;color:#536b7c;word-break:break-word}
 .zht .shipment-permit-actions {display:flex;gap:8px;padding:0 12px 12px;flex-wrap:wrap}
 .zht .permit-selection-panel {margin:0 12px 12px;border:1px solid #e0e7ec;border-radius: var(--r-md);background:#fafbfd;overflow:hidden}
@@ -2014,19 +2014,19 @@
 .zht .permit-target-option input {width:auto!important}
 .zht .permit-target-option span {display:flex;flex-direction:column;min-width:0}
 .zht .permit-target-option b {font-size:9.5px;color:#35556d}
-.zht .permit-target-option small {font-size:8px;color:#8997a1}
+.zht .permit-target-option small {font-size:15px;color:#8997a1}
 .zht .permit-selection-actions {display:flex;justify-content:flex-end;gap:8px;padding:9px 10px;border-top:1px solid #e7edf1}
-.zht .permit-copy-summary {padding:0 12px 11px;font-size:9px;color:#627787}
+.zht .permit-copy-summary {padding:0 12px 11px;font-size:15px;color:#627787}
 .zht .permit-copy-summary b {color:#385970}
 .zht .container-permit-panel {border-top:1px solid #edf1f4;padding-top:10px}
 .zht .container-permit-panel-head {display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:7px}
-.zht .container-permit-panel-head b {font-size:11px;color:#35556d}
+.zht .container-permit-panel-head b {font-size:15px;color:#35556d}
 .zht .container-permit-panel-head span {font-size:8.5px}
 .zht .container-permit-help {font-size:8.5px!important;margin-top:6px}
 .zht .permit-link {display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 9px;border:1px solid #dfe7ed;border-radius: var(--r-md);background:#f8fafb;margin-top:6px}
 .zht .permit-link>div {display:flex;flex-direction:column;gap:2px;min-width:0}
 .zht .permit-link b {font-size:9.5px;color:#33556d}
-.zht .permit-link span {font-size:8px;color:#7d8c97;word-break:break-word}
+.zht .permit-link span {font-size:15px;color:#7d8c97;word-break:break-word}
 .zht .permit-linked-badge {padding:3px 6px!important;border-radius:999px;background:#eaf5ee;color:#557961!important;font-weight:800;font-size:7.5px!important;white-space:nowrap}
 @media(max-width:850px) {
 .zht .shipment-permit-fields {grid-template-columns:1fr}
@@ -2049,7 +2049,7 @@
 }
 .zht .permit-vessel-check>div {display:flex;flex-direction:column;gap:4px}
 .zht .permit-vessel-check span {font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;color:#85939d}
-.zht .permit-vessel-check b {font-size:10px;color:#35556d}
+.zht .permit-vessel-check b {font-size:15px;color:#35556d}
 .zht .permit-vessel-check small {font-size:8.5px;line-height:1.4;color:#7b8b96}
 .zht .permit-vessel-status.pending {color:#8a704e}
 .zht .permit-vessel-status.match {color:#4e765a}
@@ -2074,7 +2074,7 @@
   color:#477b9d !important;
 }
 .zht /* v12.24 ETA DD/MM/YYYY */
-.date-format-help {font-size:9px;color:#8997a1;margin-top:5px}
+.date-format-help {font-size:15px;color:#8997a1;margin-top:5px}
 .zht .date-format-help.valid {color:#52785d}
 .zht .date-format-help.invalid {color:#9a5a52}
 .zht /* v12.25 application-wide date display standard */
@@ -2086,7 +2086,7 @@ input[placeholder="DD/MM/YYYY"] {font-variant-numeric:tabular-nums}
   border-radius: var(--r-md);
   background:#f8fbfd;
   color:#60798a;
-  font-size:9px;
+  font-size:15px;
   line-height:1.45;
 }
 .zht .create-dd-basis-note b {color:#395d75}
@@ -2125,7 +2125,7 @@ input[placeholder="DD/MM/YYYY"] {font-variant-numeric:tabular-nums}
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:14px;
+  font-size:17px;
 }
 .zht .app-date-button:hover {background:#edf4f8;color:#365d78}
 .zht input.app-date-input {font-variant-numeric:tabular-nums}
@@ -2178,8 +2178,8 @@ select.app-time-input {
   gap:6px;
   flex-direction:column;
 }
-.zht .permit-attention-alert b {font-size:12px}
-.zht .permit-attention-alert span {font-size:11px;line-height:1.45}
+.zht .permit-attention-alert b {font-size:17px}
+.zht .permit-attention-alert span {font-size:15px;line-height:1.45}
 .zht /* v12.30 — repaired time selectors */
 select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht select.nested-time-to {
   appearance:auto;
@@ -2210,14 +2210,14 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   margin-bottom:7px;
 }
 .zht .permit-check-name > span {
-  font-size:10px;
+  font-size:15px;
   letter-spacing:.04em;
   color:#7990a1;
   font-weight:700;
 }
-.zht .permit-check-name b {font-size:12px}
+.zht .permit-check-name b {font-size:17px}
 .zht .permit-check-message {
-  font-size:11px;
+  font-size:15px;
   line-height:1.45;
   color:#60778a;
 }
@@ -2232,7 +2232,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 .zht .permit-attention-alert[style*="display:none"] {display:none !important}
 .zht .permit-alert-pass, .zht .permit-alert-fail {
   display:block;
-  font-size:11px;
+  font-size:15px;
   line-height:1.45;
 }
 @media(max-width:760px) {
@@ -2278,14 +2278,14 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   margin-bottom:5px;
 }
 .zht .container-date-check-head span {
-  font-size:10px;
+  font-size:15px;
   letter-spacing:.04em;
   color:#7990a1;
   font-weight:700;
 }
-.zht .container-date-check-head b {font-size:11px}
+.zht .container-date-check-head b {font-size:15px}
 .zht .container-date-check-message {
-  font-size:11px;
+  font-size:15px;
   line-height:1.4;
   color:#60778a;
 }
@@ -2338,7 +2338,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 }
 .zht .attention-detail-label {
   display:block;
-  font-size:11px;
+  font-size:15px;
   line-height:1.3;
   font-weight:700;
   color:#173b57;
@@ -2346,7 +2346,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 .zht .attention-detail-item small {
   display:block;
   margin-top:2px;
-  font-size:10px;
+  font-size:15px;
   line-height:1.3;
   color:#6f8292;
 }
@@ -2361,19 +2361,19 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   padding:0 2px;
 }
 .zht .control-tower-kicker {
-  font-size:10px;
+  font-size:15px;
   letter-spacing:.08em;
   font-weight:800;
   color:#70889a;
 }
 .zht .control-tower-date {
   margin-top:4px;
-  font-size:15px;
+  font-size:17px;
   font-weight:800;
   color:#173b57;
 }
 .zht .control-tower-summary-note {
-  font-size:11px;
+  font-size:15px;
   color:#7a8f9f;
 }
 .zht .control-tower-metrics .clean-metric {
@@ -2418,7 +2418,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 }
 .zht .attention-count {
   flex:0 0 auto;
-  font-size:10px;
+  font-size:15px;
   font-weight:800;
   padding:4px 7px;
   border-radius:999px;
@@ -2435,7 +2435,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   border:0;
   background:transparent;
   color:#2774cf;
-  font-size:10px;
+  font-size:15px;
   font-weight:700;
   cursor:pointer;
   text-align:left;
@@ -2461,20 +2461,20 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 }
 .zht .vessel-timeline-item:hover {background:#f7fafc}
 .zht .vessel-day {
-  font-size:10px;
+  font-size:15px;
   font-weight:800;
   color:#2774cf;
   letter-spacing:.03em;
 }
 .zht .vessel-info b {
   display:block;
-  font-size:12px;
+  font-size:17px;
   color:#173b57;
 }
 .zht .vessel-info small {
   display:block;
   margin-top:3px;
-  font-size:10px;
+  font-size:15px;
   color:#778c9d;
   line-height:1.35;
 }
@@ -2491,7 +2491,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   align-items:center;
 }
 .zht .workload-day {
-  font-size:11px;
+  font-size:15px;
   font-weight:700;
   color:#405d72;
 }
@@ -2508,13 +2508,13 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   border-radius:999px;
 }
 .zht .workload-row b {
-  font-size:12px;
+  font-size:17px;
   text-align:right;
   color:#173b57;
 }
 .zht .control-tower-alert-note {
   margin:4px 0 10px;
-  font-size:10px;
+  font-size:15px;
 }
 .zht .today-operations-table td {vertical-align:top}
 .zht .today-operations-table th {white-space:nowrap}
@@ -2531,24 +2531,24 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 .zht .job-permit-summary-list {display:flex;flex-direction:column;gap:10px;margin-top:12px}
 .zht .job-permit-summary-card {border:1px solid #dfe8ef;border-radius: var(--r-md);padding:12px;background:#fbfdff}
 .zht .job-permit-summary-head {display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:10px}
-.zht .job-permit-summary-head span:first-child {display:block;font-size:9px;font-weight:800;letter-spacing:.06em;color:#7a8f9f}
-.zht .job-permit-summary-head b {display:block;margin-top:3px;font-size:13px;color:#173b57}
-.zht .permit-summary-status {font-size:9px;font-weight:800;border-radius:999px;padding:5px 8px;background:#eef3f6;color:#637887}
+.zht .job-permit-summary-head span:first-child {display:block;font-size:15px;font-weight:800;letter-spacing:.06em;color:#7a8f9f}
+.zht .job-permit-summary-head b {display:block;margin-top:3px;font-size:17px;color:#173b57}
+.zht .permit-summary-status {font-size:15px;font-weight:800;border-radius:999px;padding:5px 8px;background:#eef3f6;color:#637887}
 .zht .permit-summary-status.valid {background:#e7f6ee;color:#16794a}
 .zht .permit-summary-status.attention {background:#fff0e5;color:#aa5e21}
 .zht .permit-summary-status.review {background:#eef3f6;color:#637887}
 .zht .job-permit-summary-grid {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
 .zht .job-permit-summary-grid>div {border:1px solid #edf2f5;border-radius: var(--r-md);padding:8px;background:#fff}
-.zht .job-permit-summary-grid span {display:block;font-size:9px;color:#8293a0;margin-bottom:3px}
-.zht .job-permit-summary-grid b {font-size:10px;color:#36566d;word-break:break-word}
+.zht .job-permit-summary-grid span {display:block;font-size:15px;color:#8293a0;margin-bottom:3px}
+.zht .job-permit-summary-grid b {font-size:15px;color:#36566d;word-break:break-word}
 .zht .permit-ok {color:#16794a!important}
 .zht .permit-bad {color:#a4512d!important}
 .zht .permit-review {color:#788c9b!important}
 .zht #jobPermitModal .job-permit-modal-card {max-width:1040px;max-height:92vh;overflow:auto}
 .zht .permit-manager-context {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:12px 0 16px}
 .zht .permit-manager-context>div {border:1px solid #e1e9ef;border-radius: var(--r-md);padding:9px;background:#f9fbfd}
-.zht .permit-manager-context span {display:block;font-size:9px;color:#8293a0}
-.zht .permit-manager-context b {display:block;margin-top:3px;font-size:10px;color:#294c66}
+.zht .permit-manager-context span {display:block;font-size:15px;color:#8293a0}
+.zht .permit-manager-context b {display:block;margin-top:3px;font-size:15px;color:#294c66}
 .zht .permit-manager-head {margin:4px 0 10px}
 .zht .job-permit-editor-card {margin-bottom:12px}
 .zht .job-permit-target-panel {margin-top:10px;border-top:1px solid #edf1f4;padding-top:10px}
@@ -2576,7 +2576,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
    markup says what it means, and given his label's exact appearance. */
 .zht .field > .field-label {
   display: block;
-  font-size: 11px;
+  font-size:15px;
   color: var(--muted);
   margin-bottom: 4px;
 }
@@ -2619,7 +2619,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   min-height: 0;
 }
 .zht section.rounded-lg > div:first-child h2 {
-  font-size: 15px;
+  font-size:17px;
   font-weight: 700;
   letter-spacing: 0;
   color: var(--text);
@@ -2627,15 +2627,15 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 
 /* His type ramp, applied to ours. */
 .zht .gl-label {
-  font-size: 11px;
+  font-size:15px;
   font-weight: 700;
   color: var(--muted);
   text-transform: none;
   letter-spacing: 0;
 }
-.zht .gl-caption { font-size: 11px; color: var(--muted); }
-.zht .gl-body, .zht .gl-body-plain { font-size: 13px; color: var(--text); }
-.zht .gl-metric { font-size: 24px; line-height: 1.1; color: var(--text); }
+.zht .gl-caption { font-size:15px; color: var(--muted); }
+.zht .gl-body, .zht .gl-body-plain { font-size:17px; color: var(--text); }
+.zht .gl-metric { font-size:24px; line-height: 1.1; color: var(--text); }
 
 /* Links and inline actions take his blue rather than our accent. */
 .zht .text-\[color\:var\(--gl-accent\)\],
@@ -2646,7 +2646,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 .zht .bg-\[color\:var\(--gl-accent\)\] {
   background: var(--blue);
   border-radius: var(--r-md);
-  font-size: 13px;
+  font-size:17px;
   min-height: 34px;
 }
 
@@ -2678,7 +2678,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   padding: 11px 14px;
   cursor: pointer;
   list-style: none;
-  font-size: 13px;
+  font-size:17px;
   font-weight: 700;
   color: var(--text);
   border-radius: var(--r-md);
@@ -2708,7 +2708,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 /* How much is inside, so a closed section never hides work silently. */
 .zht .drawer-count {
   margin-left: auto;
-  font-size: 11px;
+  font-size:15px;
   font-weight: 600;
   color: var(--muted);
 }
@@ -2729,8 +2729,8 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   padding: 14px;
   margin-bottom: 12px;
 }
-.zht .lede-action { font-size: 17px; font-weight: 700; color: var(--text); }
-.zht .lede-why { font-size: 13px; color: var(--muted); margin-top: 3px; }
+.zht .lede-action { font-size:20px; font-weight: 700; color: var(--text); }
+.zht .lede-why { font-size:17px; color: var(--muted); margin-top: 3px; }
 .zht .lede--blocked { border-left-color: var(--red); }
 
 /* ------------------------------------------------------------------
@@ -2756,25 +2756,25 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   padding: 11px 14px;
 }
 .zht .alarm--money { border-left-color: var(--red); }
-.zht .alarm-what { font-size: 15px; font-weight: 700; color: var(--text); }
-.zht .alarm-why { font-size: 12px; color: var(--muted); }
+.zht .alarm-what { font-size:17px; font-weight: 700; color: var(--text); }
+.zht .alarm-why { font-size:17px; color: var(--muted); }
 
 /* Movements: the work, so the table is roomier than his and the next one to
    arrange is not competing with eight columns of history. */
 .zht .moves { width: 100%; border-collapse: collapse; margin-top: 8px; }
 .zht .moves th {
   text-align: left; padding: 7px 10px;
-  font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  font-size:15px; font-weight: 700; letter-spacing: .04em;
   text-transform: uppercase; color: var(--muted);
   border-bottom: 1px solid var(--line);
 }
 .zht .moves td {
-  padding: 10px; font-size: 13px; color: var(--text);
+  padding: 10px; font-size:17px; color: var(--text);
   border-bottom: 1px solid #eef2f6; vertical-align: top;
 }
 .zht .moves tr:last-child td { border-bottom: 0; }
 .zht .moves .route { font-weight: 600; }
-.zht .moves .sub { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.zht .moves .sub { display: block; font-size:15px; color: var(--muted); margin-top: 2px; }
 
 /* The container strip: identity at a glance, not eleven boxes. */
 .zht .idstrip {
@@ -2783,10 +2783,10 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 }
 .zht .idstrip > div { min-width: 0; }
 .zht .idstrip .k {
-  display: block; font-size: 10px; text-transform: uppercase;
+  display: block; font-size:15px; text-transform: uppercase;
   letter-spacing: .04em; color: var(--muted);
 }
-.zht .idstrip .v { font-size: 15px; font-weight: 700; color: var(--text); }
+.zht .idstrip .v { font-size:17px; font-weight: 700; color: var(--text); }
 
 /* ------------------------------------------------------------------
    Controller workspace.
@@ -2801,7 +2801,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   display: inline-flex; align-items: center; gap: 8px;
   border: 1px solid var(--line); background: var(--card);
   border-radius: 999px; padding: 8px 14px;
-  font: inherit; font-size: 13px; font-weight: 600; color: var(--text);
+  font: inherit; font-size:17px; font-weight: 600; color: var(--text);
   cursor: pointer;
 }
 .zht .queue-tab[aria-selected="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
@@ -2809,7 +2809,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 .zht .queue-tab .n {
   min-width: 20px; text-align: center;
   background: var(--soft); color: var(--text);
-  border-radius: 999px; padding: 1px 7px; font-size: 11px;
+  border-radius: 999px; padding: 1px 7px; font-size:15px;
 }
 .zht .queue-tab[aria-selected="true"] .n { background: rgba(255,255,255,.25); color: #fff; }
 
@@ -2823,11 +2823,11 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   padding: 11px 12px; border-bottom: 1px solid #eef2f6;
 }
 .zht .crew:last-child { border-bottom: 0; }
-.zht .crew-who { font-size: 13px; font-weight: 700; color: var(--text); }
-.zht .crew-who small { display: block; font-weight: 500; color: var(--muted); font-size: 11px; }
-.zht .crew-now { font-size: 12px; color: var(--text); }
+.zht .crew-who { font-size:17px; font-weight: 700; color: var(--text); }
+.zht .crew-who small { display: block; font-weight: 500; color: var(--muted); font-size:15px; }
+.zht .crew-now { font-size:17px; color: var(--text); }
 .zht .crew-now small { display: block; color: var(--muted); }
-.zht .crew-idle { font-size: 12px; color: var(--muted); padding: 10px 12px; }
+.zht .crew-idle { font-size:17px; color: var(--muted); padding: 10px 12px; }
 @media (max-width: 900px) { .zht .crew { grid-template-columns: 1fr; } }
 
 /* ------------------------------------------------------------------
@@ -2859,17 +2859,17 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   border: 2px solid var(--line); background: var(--card);
   margin-top: 1px; z-index: 1;
   display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 800; color: var(--muted);
+  font-size:15px; font-weight: 800; color: var(--muted);
 }
-.zht .leg-label { font-size: 14px; font-weight: 700; color: var(--text); }
-.zht .leg-detail { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.zht .leg-label { font-size:17px; font-weight: 700; color: var(--text); }
+.zht .leg-detail { font-size:17px; color: var(--muted); margin-top: 2px; }
 
 .zht .leg--done .leg-node { background: var(--green); border-color: var(--green); color: #fff; }
 .zht .leg--done .leg-label { color: var(--muted); font-weight: 600; }
 
 .zht .leg--current { background: var(--soft); border-radius: var(--r-md); }
 .zht .leg--current .leg-node { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(47,120,208,.18); }
-.zht .leg--current .leg-label { font-size: 16px; }
+.zht .leg--current .leg-label { font-size:20px; }
 
 .zht .leg--waiting .leg-node { border-color: var(--orange); color: var(--orange); }
 .zht .leg--blocked .leg-node { border-color: var(--red); color: var(--red); }
@@ -3342,7 +3342,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
     margin: 0;
     padding: 6px 10px;
     text-align: center;
-    font-size: 12px;
+    font-size:17px;
     white-space: nowrap;
   }
   .zht .main {
@@ -3502,7 +3502,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   background: var(--card);
   color: var(--text);
   font-family: inherit;
-  font-size: 14px;
+  font-size:17px;
   font-weight: 600;
   line-height: 1.25;
   text-align: center;
@@ -3552,7 +3552,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   font-weight: 700;
 }
 .zht .delivery-mode-btn span {
-  font-size: 12px;
+  font-size:17px;
   color: var(--muted);
   font-weight: 500;
 }
@@ -3595,8 +3595,8 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 }
 .zht .noa-drop.over { border-color: var(--blue); background: var(--card); }
 .zht .noa-drop.busy { border-style: solid; }
-.zht .noa-drop strong { font-size: 15px; color: var(--text); }
-.zht .noa-drop span { font-size: 13px; color: var(--muted); }
+.zht .noa-drop strong { font-size:17px; color: var(--text); }
+.zht .noa-drop span { font-size:17px; color: var(--muted); }
 .zht .noa-drop .btn { margin-top: 8px; }
 /* The input covers the whole box so the drop target and the click target are
    the same shape — hidden from the pointer where the real button is. */
@@ -3615,7 +3615,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   border-radius: var(--r-md);
   background: var(--bg);
   padding: 10px 12px;
-  font-size: 13px;
+  font-size:17px;
   color: var(--text);
 }
 
@@ -3637,7 +3637,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 }
 .zht .from-doc-tag {
   margin-left: 6px;
-  font-size: 11px;
+  font-size:15px;
   font-weight: 600;
   letter-spacing: .02em;
   color: var(--blue);
@@ -3681,11 +3681,11 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   background: var(--bg);
   border-radius: var(--r-md);
   padding: 10px 12px;
-  font-size: 13px;
+  font-size:17px;
   color: var(--text);
   margin-top: 10px;
 }
-.zht .nc-job-address-preview span { color: var(--muted); font-size: 12px; }
+.zht .nc-job-address-preview span { color: var(--muted); font-size:17px; }
 
 .zht .permit-guidance.warn { border-left: 3px solid var(--warn, #b26a00); }
 .zht .permit-guidance.ok { border-left: 3px solid var(--blue); }
@@ -3733,7 +3733,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 }
 
 .zht .arrival-card .arrival-date {
-  font-size: 12px;
+  font-size:17px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .04em;
@@ -3746,7 +3746,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   color: var(--text);
 }
 .zht .arrival-card .arrival-stats {
-  font-size: 12px;
+  font-size:17px;
   color: var(--muted);
   line-height: 1.5;
 }
@@ -3775,7 +3775,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
    His rules, with three deliberate departures, each noted where it happens:
    the literal colours take the variables so dark mode holds, his weight 800
    drops to 600 because the design gate refuses 700 and above, and his
-   `font-size:10px` on a control label goes to 12px — ten is below what the
+   `font-size:15px` on a control label goes to 12px — ten is below what the
    type scale allows and it is a label somebody reads at arm's length.
 
    Where his file defines a rule twice, the later one runs, and that is the
@@ -3804,7 +3804,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   border-radius: var(--r-md);
   background: var(--card);
   cursor: pointer;
-  font-size: 12px;
+  font-size:17px;
   font-weight: 600;
   color: var(--text);
 }
@@ -3829,13 +3829,13 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 .zht .container-special-config[hidden] { display: none !important; }
 .zht .container-special-title {
   color: var(--text);
-  font-size: 13px;
+  font-size:17px;
   font-weight: 600;
   margin: 0 0 3px;
 }
 .zht .container-special-help {
   color: var(--muted);
-  font-size: 12px;
+  font-size:17px;
   margin: 0 0 9px;
 }
 
@@ -3886,7 +3886,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   border-radius: var(--r-md);
   background: var(--bg);
   color: var(--muted);
-  font-size: 12px;
+  font-size:17px;
 }
 
 /* His own stylesheet collapses both of these to one column on a narrow
@@ -3910,7 +3910,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   min-height: 40px;
   cursor: pointer;
   color: var(--text);
-  font-size: 14px;
+  font-size:17px;
 }
 .zht .checkline input {
   width: auto;
@@ -4008,7 +4008,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   background: var(--soft);
 }
 .zht .creation-source-name {
-  font-size: 12px;
+  font-size:17px;
   font-weight: 600;
   color: var(--muted);
   /* A carrier's filename is long and not worth a second line. */
@@ -4025,7 +4025,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 }
 .zht .creation-source-fallback {
   padding: 16px;
-  font-size: 13px;
+  font-size:17px;
   color: var(--muted);
 }
 .zht .creation-source-fallback a { color: var(--blue); }
