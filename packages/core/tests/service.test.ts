@@ -237,8 +237,44 @@ test('ADR-0007: creating a customer validates and audits', async () => {
   // Relative, not a pinned count: seeding another fixture customer is not a
   // reason for this test to fail.
   assert.equal((await repo.listCustomers()).length, before + 1);
-  const events = await repo.listAuditEvents('zen');
+  // Keyed by CODE, like every other customer event. It used to key itself by
+  // the lowercase customerId under the event name 'job.created', so the one
+  // row saying who created the customer never appeared in that customer's own
+  // history — which is what operations reported as "change history is not
+  // capturing after I have added new customers".
+  const events = await repo.listAuditEvents('ZEN');
   assert.equal(events[0]?.actor, 'John Tan');
+  assert.equal(events[0]?.event, 'customer.created');
+  assert.equal(await repo.listAuditEvents('zen').then((e) => e.length), 0,
+    'the lowercase id is not where a customer\'s history lives');
+});
+
+test('a customer can be corrected, and every field says who changed it', async () => {
+  // There was no way to amend a customer at all: three fields at creation and
+  // read-only afterwards, so fixing a misspelled name meant creating a second
+  // customer — the one mistake ADR-0007 most wants to prevent.
+  const repo = createMemoryRepository();
+  await repo.createCustomer({ code: 'ZEN', companyName: 'Zenith Shiping' }, 'John Tan');
+
+  const fixed = await repo.amendCustomer(
+    'ZEN', { companyName: 'Zenith Shipping', notes: 'Retainer since 2019' }, 'Winnie Lim');
+  assert.equal(fixed.companyName, 'Zenith Shipping');
+  assert.equal(fixed.notes, 'Retainer since 2019');
+
+  // One line per field, naming what it was. "Customer amended" would say that
+  // something changed and not what, which is activity rather than history.
+  const events = await repo.listAuditEvents('ZEN');
+  const amendments = events.filter((e) => e.event === 'customer.amended');
+  assert.equal(amendments.length, 2);
+  const name = amendments.find((e) => e.field === 'companyName');
+  assert.equal(name?.previousValue, 'Zenith Shiping');
+  assert.equal(name?.newValue, 'Zenith Shipping');
+  assert.equal(name?.actor, 'Winnie Lim');
+
+  // A field set to what it already was is not a change.
+  await repo.amendCustomer('ZEN', { companyName: 'Zenith Shipping' }, 'Winnie Lim');
+  assert.equal(
+    (await repo.listAuditEvents('ZEN')).filter((e) => e.event === 'customer.amended').length, 2);
 });
 
 test('ADR-0007: a duplicate code or company name is refused', async () => {

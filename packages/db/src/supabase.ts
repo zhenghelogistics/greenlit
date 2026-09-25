@@ -319,9 +319,43 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         await db.from('customers').insert(row).select().single(),
         'create customer',
       ) as Record<string, unknown>;
-      await record(row.customer_id, 'job.created', actor,
-        { field: 'customer', to: `${row.code} ${row.company_name}` });
+      // Keyed by code, like every other customer event, and named for what it
+      // is. It was keyed by customer_id under 'job.created', so the row that
+      // says who created the customer never appeared in that customer's
+      // history — which is exactly what operations reported missing.
+      await record(row.code, 'customer.created', actor,
+        { field: 'customer', from: null, to: `${row.code} ${row.company_name}` });
       return toCustomer(created);
+    },
+    async amendCustomer(code, changes, actor) {
+      const key = code.trim().toUpperCase();
+      const found = await db.from('customers').select('*').eq('code', key).maybeSingle();
+      if (found.error) throw new Error(`customer lookup: ${found.error.message}`);
+      if (!found.data) throw new Error(`Unknown customer ${key}`);
+
+      const before = found.data as Record<string, unknown>;
+      const patch: Record<string, unknown> = {};
+      const changed: Array<{ field: string; from: unknown; to: unknown }> = [];
+      for (const [field, to] of Object.entries(changes)) {
+        if (to === undefined) continue;
+        const column = camelToSnake(field);
+        const from = before[column] ?? null;
+        if (String(from ?? '') === String(to ?? '')) continue;
+        patch[column] = to;
+        changed.push({ field, from, to });
+      }
+      if (changed.length === 0) return toCustomer(before);
+
+      const updated = unwrap(
+        await db.from('customers').update(patch).eq('code', key).select().single(),
+        'amend customer',
+      ) as Record<string, unknown>;
+
+      // One line per field, naming what it was. "Customer amended" says that
+      // something changed and not what, which is a log of activity rather than
+      // a history.
+      for (const entry of changed) await record(key, 'customer.amended', actor, entry);
+      return toCustomer(updated);
     },
     async listJobReferences() { return issuedReferences(); },
     async nextReferenceFor(customerCode) {

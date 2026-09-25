@@ -150,6 +150,19 @@ export interface Repository {
   listCustomers(): Promise<Customer[]>;
   getCustomerByCode(code: string): Promise<Customer | null>;
   createCustomer(draft: CustomerDraft, actor: string): Promise<Customer>;
+  /**
+   * Amend a customer's own details.
+   *
+   * Everything except the code, which is immutable once issued: every job
+   * reference already printed on a document is built from it, so changing it
+   * would silently orphan them.
+   *
+   * There was no way to do this at all — a customer was created with three
+   * fields and the rest of the record could only be read. So the way to fix a
+   * misspelled company name was to make a second customer, which is the one
+   * thing ADR-0007 most wants to avoid.
+   */
+  amendCustomer(code: string, changes: CustomerChanges, actor: string): Promise<Customer>;
   /** Every job reference issued, for deriving the next one. */
   listJobReferences(): Promise<string[]>;
   /**
@@ -531,6 +544,22 @@ export interface DocumentDraft {
  * new site the engine's locationProblem decides what is required, so the rule
  * lives in one place rather than in every caller.
  */
+/**
+ * What may be changed about a customer after it exists.
+ *
+ * No `code`. It is issued once and every reference printed from it depends on
+ * it staying put.
+ */
+export interface CustomerChanges {
+  companyName?: string;
+  shortName?: string | null;
+  billingName?: string | null;
+  defaultContact?: string | null;
+  emailDomains?: string[];
+  accountStatus?: Customer['accountStatus'];
+  notes?: string | null;
+}
+
 export interface CustomerLocationDraft {
   /** The company at this address. Defaults to the customer's own name. */
   company?: string;

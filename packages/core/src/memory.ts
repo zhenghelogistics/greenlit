@@ -488,9 +488,26 @@ export function createMemoryRepository(): Repository {
         createdAt: new Date().toISOString(),
       };
       customers.push(created);
-      record(created.customerId, 'job.created', actor,
-        { field: 'customer', to: `${created.code} ${created.companyName}` });
+      record(created.code, 'customer.created', actor,
+        { field: 'customer', from: null, to: `${created.code} ${created.companyName}` });
       return clone(created);
+    },
+
+    async amendCustomer(code, changes, actor) {
+      const found = customers.find((c) => c.code === code.trim().toUpperCase());
+      if (!found) throw new Error(`Unknown customer ${code}`);
+
+      // One audit line per field, naming what it was. "Customer amended" tells
+      // somebody that something changed and not what, which is the difference
+      // between a history and a log of activity.
+      for (const [field, to] of Object.entries(changes)) {
+        if (to === undefined) continue;
+        const from = (found as unknown as Record<string, unknown>)[field] ?? null;
+        if (String(from ?? '') === String(to ?? '')) continue;
+        (found as unknown as Record<string, unknown>)[field] = to;
+        record(found.code, 'customer.amended', actor, { field, from, to });
+      }
+      return clone(found);
     },
 
     /** Every reference issued, so ADR-0007's per-customer sequence can derive. */
