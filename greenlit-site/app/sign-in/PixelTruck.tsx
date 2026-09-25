@@ -26,38 +26,40 @@
 
 /** `.` is sky, and the panel behind shows through it. */
 const ART = [
-  "............................................................................",
-  "............................................................................",
-  "............................................................................",
-  "............................................................................",
-  "............................................................................",
-  "............................................................................",
-  "..................................................SS........................",
-  "..................................................ss........................",
-  "..................................................ss........................",
-  "...CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC..ss........................",
-  "...CcccccccccccccccccccccccccccccccccccccccccccC..ss........................",
-  "...CccvccvccvccvccvccvccvccvccvccvccvccvccvccvcC..ssbbbbbbbbbbbbbbbbb.......",
-  "...CccvccvccvccvpppppppppppppppppppppccvccvccvcC..bbwwwwwwwwwwwwwwwbb.......",
-  "...CccvccvccvccvppLLLLppLppLppLppppppccvccvccvcC..bbwwwwwwwwwwwwwwwbb.......",
-  "...CccvccvccvccvpppppLppLppLppLppppppccvccvccvcC..bbwwwwwwwwwwwwwwwbb.......",
-  "...CccvccvccvccvppppLpppLLLLppLppppppccvccvccvcC..bbwwwwwwwwwwwwwwwbb.......",
-  "...CccvccvccvccvpppLppppLppLppLppppppccvccvccvcC..bbbbbbbbbbbbbbbbbbb.......",
-  "...CccvccvccvccvppLLLLppLppLppLLLLpppccvccvccvcC..bbbbbbbbbbbbbbbbbgg.......",
-  "...CccvccvccvccvpppppppppppppppppppppccvccvccvcC..bbbbbbbbbbbbbbbbbgg.......",
-  "...CccvccvccvccvccvccvccvccvccvccvccvccvccvccvcC..bbbbbbbbbbbbbbbbbgg.......",
-  "...CccvccvccvccvccvccvccvccvccvccvccvccvccvccvcC..bbbbbbbbbbbbbbbbbgg.......",
-  "...CcccccccccccccccccccccccccccccccccccccccccccC..bbbbbbbbbbbbbbbbbbb.......",
-  "....hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh.........",
-  "....hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh.........",
-  ".......ttttttt.ttttttt...............................tttttttttttttt.........",
-  ".......ttTTTtt.ttTTTtt...............................ttTTTttttTTTtt.........",
-  ".......ttttttt.ttttttt...............................tttttttttttttt.........",
-  "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
-  "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
-  "rrRRRRRrrrrrRRRRRrrrrrRRRRRrrrrrRRRRRrrrrrRRRRRrrrrrRRRRRrrrrrRRRRRrrrrrRRRR",
-  "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
-  "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+  "....................................................................................",
+  "....................................................................................",
+  "....................................................................................",
+  "...................................................SSSS.............................",
+  "....................................................ss..............................",
+  "....................................................ss..............................",
+  "....................................................ss..............................",
+  "....CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC...ss..............................",
+  "...CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC..ss..............................",
+  "...CcccccccccccccccccccccccccccccccccccccccccccccC..ss..............................",
+  "...CccvccvccvccvccvccvccvccvccvccvccvccvccvccvcccC..ss..bbbbbbbbbbbbbbbbbb..........",
+  "...CccvccvccvccpppppppppppppppppppppppcvccvccvcccC..ssbbbbbbbbbbbbbbbbbbbbbb........",
+  "...CccvccvccvccppLLLLLppLpppLppLppppppcvccvccvcccC....bbbbWWWWWWWWWWWWWWWbbbb.......",
+  "...CccvccvccvccppppppLppLpppLppLppppppcvccvccvcccC....bbbbwwwwwwwwwwwwwwwbbbb.......",
+  "...CccvccvccvccpppppLpppLLLLLppLppppppcvccvccvcccC....bbbbwwwwwwwwwwwwwwwbbbb.......",
+  "...CccvccvccvccppppLppppLpppLppLppppppcvccvccvcccC....bbbbwwwwwwwwwwwwwwwbbbb.......",
+  "...CccvccvccvccpppLpppppLpppLppLppppppcvccvccvcccC....bbbbwwwwwwwwwwwwwwwbbb........",
+  "...CccvccvccvccppLLLLLppLpppLppLLLLLppcvccvccvcccC....bbbbbbbbbbbbbbbbbbbyyy........",
+  "...CccvccvccvccpppppppppppppppppppppppcvccvccvcccC....bbbbbbbbbbbbbbbbbbbyyy........",
+  "...CccvccvccvccpppppppppppppppppppppppcvccvccvcccC....bbbbbbbbbbbbbbbbbbbbbb........",
+  "...CccvccvccvccvccvccvccvccvccvccvccvccvccvccvcccC....bbbbbbbbbbbbbbbbbbbuuuu.......",
+  "...CccvccvccvccvccvccvccvccvccvccvccvccvccvccvcccC....bbbbbbbbbbbbbbbbbbbuuuu.......",
+  "...CcccccccccccccccccccccccccccccccccccccccccccccC....bbbbbbbbbbbbbbbbbbbuuuu.......",
+  "....hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh.........",
+  "....hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh.........",
+  "..........ttttttt.....ttttttt............................ttttttt....ttttttt.........",
+  ".........tttTTTttt...tttTTTttt..........................tttTTTttt..tttTTTttt........",
+  "..........ttttttt.....ttttttt............................ttttttt....ttttttt.........",
+  "....................................................................................",
+  "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+  "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+  "rrrRRRRRRrrrrrRRRRRRrrrrrRRRRRRrrrrrRRRRRRrrrrrRRRRRRrrrrrRRRRRRrrrrrRRRRRRrrrrrRRRR",
+  "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+  "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
 ];
 
 /**
@@ -77,8 +79,11 @@ const INK: Record<string, string> = {
   b: "#e8eef7",                        // the cab
   w: "#006eff",                        // its windscreen
   g: "#9fb6d4",                        // grille
-  s: "#c8d6ea",                        // exhaust stack
-  S: "#006eff",                        // its band
+  s: "#9fb6d4",                        // exhaust stack
+  S: "#c8d6ea",                        // its cap
+  W: "#8fb6ff",                        // the top of the windscreen
+  u: "#9fb6d4",                        // bumper
+  y: "#ffd166",                        // headlight
   t: "#0a1f3d",                        // tyres
   T: "#9fb6d4",                        // hubs
   r: "rgba(255,255,255,.07)",          // road
