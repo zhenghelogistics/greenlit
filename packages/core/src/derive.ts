@@ -8,6 +8,7 @@ import {
   type MandatoryFieldSet, type Movement, type Thresholds, type WaitingOn,
   freeTimeCountdown,
   carrierLastFreeDay,
+  canHandOver,
   containerHandoverGaps,
   isHandedOver,
   freeTimeTerm,
@@ -387,9 +388,7 @@ export function deriveImportJob(
       // screen's to decide, and the first was subtly wrong — a blank string is
       // not an instant, and it read as handed over.
       handedOver: isHandedOver(c),
-      readyForHandover: !isHandedOver(c)
-        && shipmentGaps.length === 0
-        && containerHandoverGaps(job, c, permits).length === 0,
+      readyForHandover: !isHandedOver(c) && canHandOver(job, c, permits).passed,
       controllerStage: controllerStage(boardFacts),
       pendingReasons: pendingReasons(boardFacts),
       dischargedAt: c.dischargedAt,

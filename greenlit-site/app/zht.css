@@ -4026,3 +4026,8 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   .zht .creation-source { margin-top: 16px; position: static; }
   .zht .creation-source-page { height: 60vh; min-height: 320px; }
 }
+
+/* A trip that cannot be driven yet, and which of the three it is missing.
+   Orange because it is outstanding work rather than an error: most trips look
+   like this for a while, and red would make the board shout all morning. */
+.zht .trip-gaps { color: var(--orange); font-weight: 600; }

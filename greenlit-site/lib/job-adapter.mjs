@@ -1,3 +1,4 @@
+import { movementGaps } from "@greenlit/engine";
 // Extracted from the control tower component so it can be unit-tested.
 // Pure data mapping: API shape in, screen shape out. No JSX, no React.
 
@@ -198,6 +199,11 @@ export function jobFromApi(view) {
       truck: m.truck,
       driver: m.driver,
       chassisId: m.chassisId,
+      // §18. What this trip still needs before anybody can do it, named one by
+      // one. The screens showed "Unassigned" against the driver and said
+      // nothing about the vehicle or the chassis, so a controller learned that
+      // a trip was incomplete by opening it.
+      gaps: movementGaps({ driver: m.driver, vehicle: m.truck, chassis: m.chassisId }),
       autoCreated: m.autoCreated,
       // A trip with no driver is a row on a board, not a job anybody can do.
       // Named individually rather than "incomplete", which sends somebody back

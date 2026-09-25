@@ -1,4 +1,4 @@
-import { checkPermit, permitNumberLooksValid } from "@greenlit/engine";
+import { checkPermit, permitNumberChanged, permitNumberLooksValid } from "@greenlit/engine";
 import { authorize, badRequest, readJson } from "../../../../../lib/command";
 import { currentPrincipal } from "../../../../../lib/auth";
 import { getRepository, getJobService, jsonError } from "../../../../../lib/greenlit";
@@ -75,6 +75,14 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       return badRequest("Enter the permit number, or attach the permit.");
     }
 
+    // What this job's permit number was before this call, so a replacement can
+    // be pointed out. A permit number that changes is ordinary — an amended
+    // permit is issued with a new one — and it is also how the number on the
+    // paperwork at the gate stops matching the number on the job.
+    const previous = (await getRepository().listPermitsForJob(id))
+      .map((permit) => permit.permitNumber)
+      .filter((number): number is string => Boolean(number));
+
     const permit = await getRepository().recordPermit(id, {
       permitNumber: body.permitNumber ?? null,
       expiryDate: body.expiryDate ?? null,
@@ -98,8 +106,13 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       // Said once, here, rather than refusing: Customs can issue a shape we
       // have not seen, so an unfamiliar number is worth a second look and not
       // worth losing the permit over.
+      // Two different second looks, so neither hides the other: an unfamiliar
+      // shape, and a number that has replaced one already on this job.
       warning: body.permitNumber && !permitNumberLooksValid(body.permitNumber)
         ? "That is not the usual permit-number shape. Worth checking against the permit itself."
+        : null,
+      replaces: previous.length === 1
+        ? permitNumberChanged(previous[0], body.permitNumber ?? null)
         : null,
     }, { status: 201 });
   } catch (error) {

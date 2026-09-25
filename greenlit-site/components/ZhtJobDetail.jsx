@@ -736,6 +736,11 @@ export default function ZhtJobDetail({
                       <td>
                         {[m.driver, m.truck].filter(Boolean).join(" / ") || "Not assigned"}
                         {m.chassisId ? <small style={{ display: "block" }}>Chassis {m.chassisId}</small> : null}
+                        {(m.gaps ?? []).length ? (
+                          <small className="trip-gaps" style={{ display: "block" }}>
+                            Needs {m.gaps.join(", ").toLowerCase()}
+                          </small>
+                        ) : null}
                       </td>
                       <td>
                         {formatDay(m.plannedDate)}

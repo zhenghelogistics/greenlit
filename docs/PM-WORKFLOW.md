@@ -272,32 +272,28 @@ not a design to reproduce.
 
 ## 9. What is left
 
-Checked against the source, not this file's own history.
+Checked against the source on 25 September 2026, not against this file's own
+history.
 
-Nothing in his demo is unbuilt. What remains is the other half of the
-sentence: nine rules are written and tested in `@greenlit/engine` and no
-screen calls them. Each is marked **engine** above. They are, in the order
-they would be worth wiring:
+**Nothing in his demo is unbuilt, and no rule is written without a caller.**
+The nine that were proven-but-invisible are all reached from a screen or a
+route now. `canHandOver` was the last, and it was worse than unused: the
+derivation layer had restated the gate rather than calling it, so there were
+two answers to one question waiting to disagree.
 
-| rule | what it would show, and where |
+Two decisions are settled that were not:
+
+- **CMS.** Operations ruled on 24 September 2026 that CMS is required for
+  every empty collection and that import carries none at all. ADR-0009,
+  superseding ADR-0002.
+- **Permit allocation.** Not a question — his demo specifies all, selected or
+  one, and `PermitRecord.linkedContainerIds` already models it. What was
+  missing was the allocating screen, not the decision.
+
+What remains is work rather than uncertainty:
+
+| | why it is not done |
 |---|---|
-| `documentGaps` / `documentsComplete` | the live outstanding list, and the Mark Document Completed button that stays disabled until it is empty |
-| `canHandOver` / `isHandedOver` | the per-container handover to a controller, which is the line his whole workflow is built on |
-| `deliveryDateWarning`, `cmsWarning`, `staleEtaWarning` | the three plausibility warnings — a delivery before the ETA, an export CMS clock, an ETA nobody has confirmed in a week |
-| `freeTimeTerm` | short / threshold / long, against the carrier's allowance |
-| `movementGaps` | a trip with no driver, named rather than called incomplete |
-| `wouldOverwrite` | which containers a bulk change would overwrite, by name |
-| `permitNumberChanged` | a permit number that changed under an existing job |
-
-A rule nothing calls is not worthless — it is proven, and wiring it is an
-afternoon rather than a design — but it is also invisible, and invisible is
-indistinguishable from absent to anybody using the system.
-
-Two things beyond the demo are open and are decisions rather than work:
-
-- **Which containers a permit covers.** One permit can cover all of a job,
-  some of it, or one box, and nothing models that yet. It blocks the separate
-  permit flow.
-- **PRD §41 and §40.2 still disagree** on whether a CMS of `NOT_REQUIRED`
-  satisfies the empty collection gate. Implemented toward §40.2. Operations
-  have not confirmed.
+| The permit allocation screen | The model and the route exist; nothing renders the all / selected / one choice |
+| Batch document intake | Parked deliberately, in `PARKED_SCREENS`. The flow is intact and reachable again by putting it back in the rail |
+| Rotating the Supabase service_role and Anthropic keys | Pasted into a transcript. Only the account owner can do it, and nothing in this repository fixes it |

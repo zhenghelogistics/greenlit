@@ -1,4 +1,6 @@
+import { wouldOverwrite } from "@greenlit/engine";
 import { authorize, badRequest, readJson, runCommand } from "../../../../../lib/command";
+import { getRepository } from "../../../../../lib/greenlit";
 
 /**
  * §34. Apply one carrier's free-time terms to several containers at once.
@@ -16,6 +18,8 @@ import { authorize, badRequest, readJson, runCommand } from "../../../../../lib/
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
   const body = await readJson<{
+    /** Ask what this would replace, and write nothing. */
+    preview?: boolean;
     containerIds?: string[];
     freeTimeModel?: string;
     demurrageFreeDays?: number; detentionFreeDays?: number; combinedFreeDays?: number;
@@ -41,6 +45,33 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   if (model === "SPLIT" && body.combinedFreeDays != null) {
     return badRequest("§34.3: split allowances are two clocks. Send demurrage and detention, not a combined figure.");
   }
+
+  // What this would replace, named one container at a time.
+  //
+  // Applying one container's terms to the rest is the point of the control.
+  // Silently replacing a figure somebody entered by hand is not, and it is
+  // invisible afterwards: the containers all agree, which is exactly what the
+  // control is for, so nothing looks wrong.
+  //
+  // A general "this will overwrite existing values" is a warning nobody reads.
+  // Naming the boxes lets the question be asked properly.
+  const containers = await getRepository().listContainersForImportJob(id);
+  const incoming = {
+    freeTimeModel: model,
+    demurrageFreeDays: body.demurrageFreeDays ?? null,
+    detentionFreeDays: body.detentionFreeDays ?? null,
+    combinedFreeDays: body.combinedFreeDays ?? null,
+  };
+  const replaced = wouldOverwrite(
+    containers.filter((c) => ids.includes(c.containerId)) as unknown as Array<Record<string, unknown>>,
+    ["freeTimeModel", "demurrageFreeDays", "detentionFreeDays", "combinedFreeDays"],
+    incoming,
+    (c) => String(c.containerNumber ?? c.containerRef ?? c.containerId),
+  );
+
+  // Asked, not refused: the containers were named deliberately, and the answer
+  // to "yes, replace them" has to be able to be yes.
+  if (body.preview) return Response.json({ replaced });
 
   return runCommand(id, async (repo) => {
     for (const containerId of ids) {
