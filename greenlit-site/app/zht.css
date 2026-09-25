@@ -4075,3 +4075,12 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   /* Lets the layout inside ask how wide *this* is. */
   container-type: inline-size;
 }
+
+/* A row that opens what it is about.
+   Only the job number was clickable, which is a small target on a wide row —
+   and the rest of the row is what somebody reads before deciding to open it,
+   so the pointer is already there. The link stays inside it because a row is
+   not focusable and a keyboard needs something to land on. */
+.zht tr.row-opens { cursor: pointer; }
+.zht tr.row-opens:hover > td { background: var(--soft); }
+.zht tr.row-opens:focus-within > td { background: var(--soft); }

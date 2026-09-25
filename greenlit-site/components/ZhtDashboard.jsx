@@ -176,9 +176,18 @@ export default function ZhtDashboard({ jobs, today, onOpenJob, onNewJob, onShowA
                 </thead>
                 <tbody>
                   {active.length ? active.slice(0, 12).map((job) => (
-                    <tr key={job.id}>
+                    <tr
+                      key={job.id}
+                      className="row-opens"
+                      onClick={() => onOpenJob(job)}
+                    >
                       <td>
-                        <button type="button" className="job-link" onClick={() => onOpenJob(job)}>{job.id}</button>
+                        <button
+                          type="button" className="job-link"
+                          onClick={(event) => { event.stopPropagation(); onOpenJob(job); }}
+                        >
+                          {job.id}
+                        </button>
                         {job.container ? <small style={{ display: "block" }}>{job.container}</small> : null}
                       </td>
                       <td>{job.customer || "Customer TBA"}</td>
