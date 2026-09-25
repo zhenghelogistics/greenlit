@@ -111,23 +111,27 @@ export default function ZhtDashboard({ jobs, today, onOpenJob, onNewJob, onShowA
     <div className="zht">
       <div className="content">
         <section className="view active">
+          {/* One heading.
+              
+              There were three stacked, and they all said the same thing:
+              "Control Tower / Operational overview", then a capitalised
+              "DAILY OPERATIONS CONTROL TOWER / Daily operational view", then
+              "Focus: Job preparation → Missing information → Validation →
+              Controller handover".
+
+              None of that tells somebody opening this at seven in the morning
+              anything they do not know. The process line in particular is a
+              description of the app, read once and never again, taking the
+              room that should have been white.
+
+              What is left is what changes: which day it is, and the way in. */}
           <div className="dashboard-role-head clean-dashboard-head">
             <div>
               <h2 style={{ margin: 0 }}>Control Tower</h2>
-              <div className="muted">Operational overview</div>
+              <div className="muted">{formatDay(today)}</div>
             </div>
             <div className="dashboard-head-actions">
               <button type="button" className="btn primary" onClick={onNewJob}>+ New Job</button>
-            </div>
-          </div>
-
-          <div className="control-tower-summary">
-            <div>
-              <div className="control-tower-kicker">DAILY OPERATIONS CONTROL TOWER</div>
-              <div className="control-tower-date">{formatDay(today)} · Daily operational view</div>
-            </div>
-            <div className="control-tower-summary-note">
-              Focus: Job preparation → Missing information → Validation → Controller handover
             </div>
           </div>
 

@@ -231,3 +231,45 @@ test("a rule scoped to an id is scoped to an id something renders", async () => 
   assert.deepEqual(sizedByADeadId.sort(), [],
     "these ids set a font size and render for nobody, so the size never applies");
 });
+
+test("no two rules set the same property on the same selector", async () => {
+  // `.zht .content` set its padding twice, four thousand lines apart, and the
+  // later one won — so editing the first did nothing at all. Same shape as a
+  // rule scoped to a dead id: the declaration is valid, it parses, and it
+  // silently loses.
+  //
+  // Only the selectors that frame a screen are checked. A component that
+  // restates a border in a dark-mode block is doing that on purpose; a layout
+  // rule written twice is somebody not knowing the other one was there.
+  // Comments out, then every `@media` and `@container` block out with them.
+  // A rule restated inside one of those is a responsive override and is the
+  // point of having them; a rule restated beside itself is somebody not
+  // knowing the first one was there.
+  let css = (await readFile("app/zht.css", "utf8")).replace(/\/\*[\s\S]*?\*\//g, " ");
+  for (;;) {
+    const without = css.replace(/@(?:media|container|supports)[^{]*\{(?:[^{}]|\{[^{}]*\})*\}/g, " ");
+    if (without === css) break;
+    css = without;
+  }
+
+  const FRAMES = [".zht .content", ".zht .app", ".zht .main", ".zht .topbar"];
+  const clashes = [];
+
+  for (const selector of FRAMES) {
+    const bodies = [...css.matchAll(
+      new RegExp(`(^|[},])\\s*${selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{([^}]*)\\}`, "gm"),
+    )].map((m) => m[2]);
+    if (bodies.length < 2) continue;
+
+    const seen = new Map();
+    for (const body of bodies) {
+      for (const [, , property] of body.matchAll(/(^|;)\s*([a-z-]+)\s*:/g)) {
+        if (seen.has(property)) clashes.push(`${selector} sets ${property} more than once`);
+        else seen.set(property, true);
+      }
+    }
+  }
+
+  assert.deepEqual([...new Set(clashes)], [],
+    "a layout property set twice on one selector means one of them does nothing");
+});

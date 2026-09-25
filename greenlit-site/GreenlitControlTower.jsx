@@ -4944,7 +4944,7 @@ export default function GreenlitControlTower() {
     : allSections;
 
   return (
-    <div className="min-h-screen bg-[color:var(--gl-bg)] font-sans text-[17px] leading-normal text-slate-900 lg:flex lg:items-start">
+    <div className="min-h-screen bg-[color:var(--gl-bg)] font-sans text-[17px] leading-normal text-slate-900">
       <style>{`
         @font-face {
           font-family: "Greenlit Hyperlegible";
@@ -5006,7 +5006,7 @@ export default function GreenlitControlTower() {
           screen on a phone. Below 900px `.sidebar` becomes a bottom bar — the
           same eight destinations, in the same order, where a thumb reaches.
           That is in zht.css beside his own rules, not layered over them. */}
-      <div className="zht"><div className="app">
+      <div className="zht w-full"><div className="app">
       <aside className="sidebar">
         {/* The reverse mark from the brand deck, which the guide permits on
             navy and nowhere else. Its navy field was baked into the PNG and is

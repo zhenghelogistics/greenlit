@@ -60,6 +60,11 @@
 .zht * {box-sizing:border-box}
 .zht {margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
 .zht .app {
+  /* Fills the window. It used to be sized by its content, because the
+     wrapper around it was a flex container and this was a flex child with
+     no width — so a screen with a narrow table rendered narrow and only
+     the dashboard, whose metrics grid is wide, filled the page. */
+  width: 100%;
   /* A grid rather than a fixed column beside a calc'd one. His pair --
      `.sidebar` at 230px and `.main` at calc(100% - 230px) -- holds only while
      both numbers agree, and they stop agreeing the moment anything wants a
@@ -103,7 +108,6 @@
 }
 .zht .topbar {height:66px;background:var(--card);border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:10}
 .zht .search {width:380px;border:1px solid var(--line);border-radius: var(--r-md);padding:10px 12px}
-.zht .content {padding:24px}
 .zht .view {display:none}
 .zht .view.active {display:block}
 .zht .header-row {display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
@@ -1424,12 +1428,12 @@
 .zht .extract-table {min-width:650px}
 }
 .zht /* v12.6 dashboard cleanup */
-.clean-dashboard-head {margin-bottom:18px}
+.zht .clean-dashboard-head {margin-bottom:32px}
 /* The dashboard's own type rules lived under `#dashboard`, which his demo
    rendered and this app does not, so none of them applied. Their values are
    on the classes below, where they take effect. */
-.zht .clean-metrics {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
-.zht .clean-metric {appearance:none;border:1px solid #e4e9ed;background:#fff;border-radius: var(--r-lg);padding:14px 15px;text-align:left;min-height:92px;box-shadow:0 2px 8px rgba(27,45,58,.035);color:inherit}
+.zht .clean-metrics {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:0}
+.zht .clean-metric {appearance:none;border:1px solid #e4e9ed;background:#fff;border-radius: var(--r-lg);padding:20px;text-align:left;min-height:118px;box-shadow:0 2px 8px rgba(27,45,58,.035);color:inherit}
 .zht button.clean-metric {cursor:pointer}
 .zht button.clean-metric:hover {border-color:#c8d6df;transform:translateY(-1px)}
 .zht .clean-metric span {display:block;font-size:15px;font-weight:750;color:#71808b;text-transform:uppercase;letter-spacing:.045em}
@@ -2385,7 +2389,12 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   text-align:left;
   cursor:pointer;
 }
-.zht .control-tower-main {margin-top:14px}
+/* Room. Operations said this screen felt like things put on a page for
+   the sake of putting them, and part of that was three blocks stacked 14px
+   apart — at that spacing nothing looks deliberate, it looks like a list.
+   The people reading it are tired by the afternoon; space is what lets the
+   eye find the one thing it came for. */
+.zht .control-tower-main {margin-top:32px}
 .zht .control-tower-grid {
   display:grid;
   grid-template-columns:minmax(0,1.35fr) minmax(310px,.65fr);
@@ -3452,7 +3461,11 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
    columns wants every pixel; it is prose and form fields that become unusable
    when they run past about ninety characters. */
 .zht .content {
-  padding: clamp(16px, 2vw, 32px);
+  /* Grows with the window, and never below 24px: on the screen operations
+     actually use this was 16px, which puts a table against the edge of the
+     page. The bottom is larger so the last row is not the last pixel. */
+  padding: clamp(24px, 2vw, 40px);
+  padding-bottom: 56px;
 }
 .zht .content > .card > .muted,
 .zht .content > .card > .section-title + .muted,
