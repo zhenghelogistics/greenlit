@@ -5167,12 +5167,16 @@ export default function GreenlitControlTower() {
             background: "rgba(12,30,50,.42)", overflow: "auto", padding: "24px 12px",
           }}
         >
+          {/* `overflow: hidden` is what actually rounds this. The radius was
+              already here and did nothing visible, because ZhtNewJob's own
+              `.zht` wrapper paints a background of its own with square corners
+              straight over the top of it.
+
+              Wider than it was, and a size container: the document pane beside
+              the form is laid out against *this* width, not the window's. */}
           <div
             role="dialog" aria-modal="true" aria-label="Create a job"
-            style={{
-              width: "min(980px, 96vw)", margin: "0 auto",
-              background: "var(--card)", borderRadius: 14,
-            }}
+            className="creation-dialog"
           >
             <ZhtNewJob
               customers={customers}

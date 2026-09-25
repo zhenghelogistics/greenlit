@@ -3965,9 +3965,15 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 .zht .creation-split { display: block; }
 .zht .creation-panels { min-width: 0; }
 
-/* Two columns only when there is a document and it is showing. The form keeps
-   its full width the rest of the time, which is most of the time. */
-@media (min-width: 1100px) {
+/* Two columns only when there is a document and it is showing, and measured
+   against the dialog rather than the window.
+   
+   This was `@media (min-width: 1100px)`, which asks how wide the *screen* is.
+   The dialog is a fixed width in the middle of it, so on a wide monitor the
+   query matched, the split engaged inside a 980px box, and the form and the
+   document each got about half of that. A container query asks the only
+   question that matters here: is there room in this box. */
+@container (min-width: 1000px) {
   .zht .creation-split.with-source {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(320px, 42%);
@@ -4027,7 +4033,7 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 /* Below the split, the document goes under the form rather than beside it,
    and shorter — a phone has no room for two things at once, and the fields
    are what somebody came here to fill in. */
-@media (max-width: 1099px) {
+@container (max-width: 999px) {
   .zht .creation-source { margin-top: 16px; position: static; }
   .zht .creation-source-page { height: 60vh; min-height: 320px; }
 }
@@ -4036,3 +4042,18 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
    Orange because it is outstanding work rather than an error: most trips look
    like this for a while, and red would make the board shout all morning. */
 .zht .trip-gaps { color: var(--orange); font-weight: 600; }
+
+/* ---- the job wizard's own frame ----------------------------------------- */
+
+.zht .creation-dialog {
+  width: min(1280px, 96vw);
+  margin: 0 auto;
+  background: var(--card);
+  border-radius: var(--r-xl);
+  /* The radius was set inline and drew nothing: ZhtNewJob's `.zht` wrapper
+     paints its own background with square corners over the top. Clipping is
+     what makes a rounded container actually round. */
+  overflow: hidden;
+  /* Lets the layout inside ask how wide *this* is. */
+  container-type: inline-size;
+}
