@@ -5,7 +5,8 @@ import {
 } from '../src/locations.ts';
 
 const site = (o: Partial<Parameters<typeof doubleMountingProblem>[0] & object> = {}) => ({
-  locationId: 'l1', customerCode: 'ABC', label: 'Tuas warehouse',
+  locationId: 'l1', customerCode: 'ABC', company: 'Acme Pte Ltd',
+  operationalInstructions: null, label: 'Tuas warehouse',
   address: '12 Tuas Ave 10', isDefault: false,
   doubleMountingPermitted: true, standbyUsual: false, active: true,
   ...o,

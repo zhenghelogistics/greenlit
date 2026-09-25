@@ -142,7 +142,8 @@ const RULES: Rule[] = [
       // double mount could be planned into a site that cannot receive one —
       // discovered by a driver, at the gate, with two containers on.
       const site = (o = {}) => ({
-        locationId: 'l', customerCode: 'ABC', label: 'Jurong', address: '1 Jurong',
+        locationId: 'l', customerCode: 'ABC', company: 'Acme Pte Ltd',
+        operationalInstructions: null, label: 'Jurong', address: '1 Jurong',
         isDefault: false, doubleMountingPermitted: true, standbyUsual: false, active: true, ...o,
       });
       assert.equal(doubleMountingProblem(site(), site()), null);
@@ -280,7 +281,8 @@ const RULES: Rule[] = [
       // §9.3. The master exists and carries the two facts that decide how a
       // job is planned, which free text never could.
       const site = (o = {}) => ({
-        locationId: 'l', customerCode: 'ABC', label: 'Tuas', address: '12 Tuas Ave 10',
+        locationId: 'l', customerCode: 'ABC', company: 'Acme Pte Ltd',
+        operationalInstructions: null, label: 'Tuas', address: '12 Tuas Ave 10',
         isDefault: false, doubleMountingPermitted: true, standbyUsual: false, active: true, ...o,
       });
       assert.equal(selectableLocations([site(), site({ active: false })]).length, 1,

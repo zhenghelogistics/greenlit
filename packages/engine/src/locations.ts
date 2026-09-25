@@ -11,9 +11,30 @@
 export interface CustomerLocation {
   locationId: string;
   customerCode: string;
+  /**
+   * The company at this address.
+   *
+   * Usually one of the customer's own customers: the customer holds the
+   * retainer and is invoiced, this company receives the container. Operations
+   * put it plainly — Chong Cheong is the customer, Company A and Company B are
+   * its customers, and each has its own addresses.
+   *
+   * A flat list of addresses under a customer could not express that, and the
+   * new-job form had been written against a Delivery company picker for a
+   * field that did not exist yet.
+   */
+  company: string;
   /** What the customer calls it. The address is what the driver needs. */
   label: string;
   address: string;
+  /**
+   * What is always true about delivering here.
+   *
+   * The gate to use, who to call, that the forklift is only there before noon.
+   * It belongs to the place and not to the trip, which is why a job may still
+   * override it for one delivery without changing the site.
+   */
+  operationalInstructions: string | null;
   isDefault: boolean;
   /** §19.1. Some sites cannot receive a double-mounted chassis. */
   doubleMountingPermitted: boolean;

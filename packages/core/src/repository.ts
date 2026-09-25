@@ -532,7 +532,10 @@ export interface DocumentDraft {
  * lives in one place rather than in every caller.
  */
 export interface CustomerLocationDraft {
+  /** The company at this address. Defaults to the customer's own name. */
+  company?: string;
   label?: string;
+  operationalInstructions?: string | null;
   address?: string;
   isDefault?: boolean;
   doubleMountingPermitted?: boolean;

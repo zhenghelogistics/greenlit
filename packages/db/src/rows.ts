@@ -275,8 +275,10 @@ export const holdingFrom = (
 export const toCustomerLocation = (r: Record<string, unknown>): CustomerLocation => ({
   locationId: r.location_id as string,
   customerCode: r.customer_code as string,
+  company: r.company as string,
   label: r.label as string,
   address: r.address as string,
+  operationalInstructions: nn(r.operational_instructions as string),
   isDefault: Boolean(r.is_default),
   doubleMountingPermitted: Boolean(r.double_mounting_permitted),
   standbyUsual: Boolean(r.standby_usual),

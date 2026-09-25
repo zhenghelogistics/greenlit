@@ -233,6 +233,10 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
     vesselName: "", voyageNumber: "", etaDate: "", etaTime: "",
     carrier: "", blNumber: "", houseBlNumber: "",
     permitRequired: false, remarks: "",
+    // What the site always needs, and what this one delivery needs instead.
+    // Kept apart so an override is visibly an override rather than an edit to
+    // the customer master made by accident from a job form.
+    deliveryInstructions: "",
     permitNumber: "", permitExpiryDate: "", permitVesselVoyage: "",
     // export only
     bookingReference: "", exportClearanceReference: "", shipper: "",
@@ -287,10 +291,50 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
   };
 
   const customer = customers.find((c) => c.code === job.customerCode);
-  const locations = (customer?.locations ?? []).filter((l) => l.active !== false);
-  const companies = [...new Set(locations.map((l) => l.company).filter(Boolean))];
+
+  /**
+   * The chosen customer's saved locations, fetched when they are chosen.
+   *
+   * This read `customer.locations`, and nothing has ever put a `locations`
+   * array on a customer — `/api/customers` returns the customer record and the
+   * addresses live in their own table behind `/api/customers/:code/locations`.
+   * So the list was always empty, the Delivery company picker had nothing in
+   * it, no address could be chosen, and no import job could be created at all.
+   *
+   * Fetched per customer rather than all of them up front: the master holds
+   * every address of every customer, and a form needs one customer's.
+   */
+  //
+  // Held with the customer it was fetched for, rather than as a bare list that
+  // is cleared on the way out. Two reasons, and the second is the real one:
+  // clearing it is a setState during render, which cascades; and a bare list
+  // shows the previous customer's addresses for as long as the next fetch
+  // takes, which is exactly long enough for somebody to pick one.
+  const [loaded, setLoaded] = useState({ code: "", locations: [] });
+  const fresh = loaded.code === job.customerCode;
+
+  useEffect(() => {
+    if (!job.customerCode) return undefined;
+    let cancelled = false;
+    fetch(`/api/customers/${encodeURIComponent(job.customerCode)}/locations`)
+      .then((r) => (r.ok ? r.json() : { locations: [] }))
+      .then((d) => {
+        if (!cancelled) setLoaded({ code: job.customerCode, locations: d.locations ?? [] });
+      })
+      .catch(() => {
+        if (!cancelled) setLoaded({ code: job.customerCode, locations: [] });
+      });
+    return () => { cancelled = true; };
+  }, [job.customerCode]);
+
+  const loadingLocations = Boolean(job.customerCode) && !fresh;
+  const usable = (fresh ? loaded.locations : []).filter((l) => l.active !== false);
+  const companies = [...new Set(usable.map((l) => l.company).filter(Boolean))];
   const addressesFor = (company) =>
-    locations.filter((l) => l.company === company).map((l) => l.address).filter(Boolean);
+    usable.filter((l) => l.company === company).map((l) => l.address).filter(Boolean);
+  /** The site behind a chosen address, for its standing instructions. */
+  const siteAt = (company, address) =>
+    usable.find((l) => l.company === company && l.address === address) ?? null;
 
   const setRow = (i, patch) =>
     setRows((was) => was.map((r, n) => (n === i ? { ...r, ...patch } : r)));
@@ -628,7 +672,12 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                       onChange={(e) => set({ deliveryCompany: e.target.value, deliveryAddress: "" })}
                       disabled={!customer}
                     >
-                      <option value="">{customer ? "Choose a company" : "Choose a customer first"}</option>
+                      <option value="">
+                        {!customer ? "Choose a customer first"
+                          : loadingLocations ? "Loading saved addresses…"
+                            : companies.length ? "Choose a company"
+                              : "This customer has no saved addresses"}
+                      </option>
                       {companies.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </Field>
@@ -642,6 +691,35 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                       {addressesFor(job.deliveryCompany).map((a) => <option key={a} value={a}>{a}</option>)}
                     </select>
                   </Field>
+
+                  {/* The site's standing instructions, shown as soon as the
+                      address is chosen, because they decide whether this job
+                      is workable at all — a site that only receives before
+                      noon changes the delivery date, not the driver's morning.
+
+                      Shown rather than copied. They belong to the place and
+                      change there; a job that carried its own copy would still
+                      be showing last year's gate number. The override below is
+                      the exception, and is deliberately a separate field so it
+                      reads as one. */}
+                  {siteAt(job.deliveryCompany, job.deliveryAddress)?.operationalInstructions ? (
+                    <div className="nc-job-address-preview full">
+                      <b>Always at this address</b>
+                      {siteAt(job.deliveryCompany, job.deliveryAddress).operationalInstructions}
+                    </div>
+                  ) : null}
+
+                  {job.deliveryAddress ? (
+                    <Field
+                      label="Just for this job"
+                      hint="Anything true of this delivery only. The site's own instructions above are unchanged."
+                    >
+                      <textarea
+                        rows={2} value={job.deliveryInstructions}
+                        onChange={(e) => set({ deliveryInstructions: e.target.value })}
+                      />
+                    </Field>
+                  ) : null}
                 </>
               ) : null}
 
@@ -649,6 +727,16 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                   Matching "12 Jurong Port Rd" to a saved "12 Jurong Port Road"
                   is a judgement with a delivery on the end of it, so a person
                   makes it. Shown until they have chosen. */}
+              {customer && !loadingLocations && companies.length === 0 ? (
+                <div className="callout" role="status">
+                  <b>{customer.companyName ?? customer.code} has no saved delivery addresses.</b>
+                  <span>
+                    {" "}Add them in Customer Master, then come back. Addresses are kept
+                    there so the same place is the same place on every job.
+                  </span>
+                </div>
+              ) : null}
+
               {readAddress && job.addressMode === "job" && !job.deliveryAddress ? (
                 <div className="nc-job-address-preview">
                   <b>The document says:</b> {readAddress}
@@ -838,7 +926,11 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                           onChange={(e) => setRow(i, { deliveryCompany: e.target.value, deliveryAddress: "" })}
                           disabled={!customer}
                         >
-                          <option value="">Choose a company</option>
+                          <option value="">
+                            {loadingLocations ? "Loading saved addresses…"
+                              : companies.length ? "Choose a company"
+                                : "This customer has no saved addresses"}
+                          </option>
                           {companies.map((c) => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </Field>

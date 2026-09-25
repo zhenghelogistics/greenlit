@@ -719,8 +719,14 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       const row = unwrap(await db.from('customer_locations').insert({
         location_id: `loc-${crypto.randomUUID()}`,
         customer_code: customerCode,
+        // A customer with one company should not have to type its own name
+        // again, so an unnamed company is the customer's own.
+        company: draft.company?.trim()
+          || (await this.getCustomerByCode(customerCode))?.companyName
+          || customerCode,
         label: draft.label!.trim(),
         address: draft.address!.trim(),
+        operational_instructions: draft.operationalInstructions?.trim() || null,
         is_default: draft.isDefault ?? false,
         double_mounting_permitted: draft.doubleMountingPermitted ?? true,
         standby_usual: draft.standbyUsual ?? false,

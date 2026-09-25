@@ -997,8 +997,14 @@ export function createMemoryRepository(): Repository {
       const location: CustomerLocation = {
         locationId: `loc-${customerCode}-${customerLocations.length + 1}`,
         customerCode,
+        // A customer with one company is the ordinary case and should not have
+        // to type its own name again, so an unnamed company is the customer's.
+        company: (draft.company?.trim()
+          || customers.find((c) => c.code === customerCode)?.companyName
+          || customerCode),
         label: draft.label!.trim(),
         address: draft.address!.trim(),
+        operationalInstructions: draft.operationalInstructions?.trim() || null,
         isDefault: draft.isDefault ?? false,
         doubleMountingPermitted: draft.doubleMountingPermitted ?? true,
         standbyUsual: draft.standbyUsual ?? false,
