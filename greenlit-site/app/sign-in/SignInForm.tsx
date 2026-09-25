@@ -200,17 +200,17 @@ export default function SignInForm() {
           }}
         />
 
-        <div className="relative flex h-full flex-col justify-end p-14">
+        <div className="relative flex h-full flex-col justify-end pb-14">
           {/* The mark was here and was navy artwork inverted to white, so its
               anti-aliased edges came back as semi-transparent white and it read
               as a smear at any size. It is already on the other half of this
               page, in its own colours, at a size that suits it — so this half
               gets a ship instead. */}
-          <PixelBarge className="mb-8 w-full max-w-[520px]" />
-          <p className="mt-0 max-w-[22ch] text-[26px] font-semibold leading-[1.25] tracking-[-0.015em] text-white">
+          <PixelBarge className="mb-10 w-full" />
+          <p className="mt-0 max-w-[22ch] px-14 text-[30px] font-semibold leading-[1.25] tracking-[-0.015em] text-white">
             Every container, and what it is waiting for.
           </p>
-          <p className="mt-3 max-w-[38ch] text-[16px] leading-relaxed text-[color:var(--zhl-on-navy-muted)]">
+          <p className="mt-3 max-w-[38ch] px-14 text-[16px] leading-relaxed text-[color:var(--zhl-on-navy-muted)]">
             Import and export, from the arrival notice to the empty going back.
           </p>
         </div>

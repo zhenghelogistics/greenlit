@@ -53,3 +53,46 @@ test('a migration only alters a table the schema actually has', () => {
   assert.deepEqual(problems, [],
     `migrations reference tables the schema never creates. Known tables: ${[...tables].sort().join(', ')}`);
 });
+
+test('no script deletes from a table the schema protects', () => {
+  // A testing script tried to clear the audit trail and the database refused:
+  //
+  //   ERROR: audit_events is append-only (PRD §13): DELETE is not permitted
+  //
+  // The trigger is right and the script was wrong, and the only reason anybody
+  // found out is that somebody ran it against a real database and read the
+  // error. A script that argues with the schema should fail here instead.
+  const schema = sql.map((f) => readFileSync(join(DIR, f), 'utf8')).join('\n');
+
+  const guarded = new Set<string>();
+  for (const match of schema.matchAll(
+    /create trigger\s+\w+\s+before[^;]*?delete[^;]*?on\s+(\w+)/gis,
+  )) {
+    // A capture group that matched always has a value; TypeScript cannot know
+    // that, and an empty name would be harmless here anyway.
+    if (match[1]) guarded.add(match[1]);
+  }
+  assert.ok(guarded.has('audit_events'), 'sanity: the append-only guard was found');
+
+  const scriptsDir = join(DIR, '..', '..', '..', 'scripts');
+  const scripts = readdirSync(scriptsDir).filter((f) => f.endsWith('.sql'));
+  assert.ok(scripts.length > 0, 'sanity: there are scripts to check');
+
+  const offences: string[] = [];
+  for (const file of scripts) {
+    // Statements only: the comment explaining why this is refused names the
+    // table, and a comment is not a delete.
+    const statements = readFileSync(join(scriptsDir, file), 'utf8')
+      .split('\n')
+      .filter((line) => !line.trimStart().startsWith('--'))
+      .join('\n');
+    for (const match of statements.matchAll(/delete\s+from\s+(\w+)/gi)) {
+      const table = match[1];
+      if (table && guarded.has(table)) offences.push(`${file}: delete from ${table}`);
+    }
+  }
+
+  assert.deepEqual(offences, [],
+    'these scripts delete from a table whose trigger refuses deletes, so they '
+    + 'abort the whole transaction when run');
+});

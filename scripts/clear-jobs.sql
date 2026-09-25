@@ -59,21 +59,27 @@ delete from export_containers;
 delete from import_jobs;
 delete from export_jobs;
 
--- ---- the history of all of the above ------------------------------------
--- §13's audit is keyed by entity rather than by a foreign key, so it has to
--- be cleared by what it refers to rather than by a join.
+-- ---- the history is kept, and cannot be otherwise ------------------------
 --
--- Deleting by `entity_type` would be wrong, and quietly. The adapter's audit
--- helper defaults its entity type to 'job', so a customer's own events —
--- customer.created, customer.amended, location.added — are stored as 'job'
--- with the customer's *code* as the entity. Clearing entity_type = 'job'
--- would take the customer history with it, which is the one thing this file
--- promises to keep.
+-- This file used to clear the audit trail too, and the database refused:
 --
--- So: everything whose entity is not a customer. A customer that still exists
--- should still be able to say who created it and when.
-delete from audit_events
- where entity_id not in (select code from customers);
+--   ERROR: audit_events is append-only (PRD §13): DELETE is not permitted
+--
+-- That is a trigger on the table, added in 0001, and it is right. §13 says
+-- critical audit events cannot be deleted or edited by standard users, and a
+-- comment is not enforcement — so it is enforced at the table, including for
+-- the service role this application connects as. A script cannot talk its way
+-- past it, which is the point.
+--
+-- It is also the correct outcome here. The audit is a record of what
+-- happened, and what happened is that these jobs existed and were cleared.
+-- Rows pointing at jobs that no longer exist are not orphans in an audit
+-- trail; they are the history of those jobs. A clean board and an intact
+-- history are not in conflict.
+--
+-- If the noise genuinely matters later, the answer is a retention policy
+-- decided by operations and applied by a migration — not a delete in a
+-- testing script.
 
 -- ---- job numbering -------------------------------------------------------
 -- Back to 1, so the first job created after this is ABC-001 rather than
