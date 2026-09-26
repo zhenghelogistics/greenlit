@@ -42,3 +42,4 @@ export * from './occupancy.ts';
 export * from './routing.ts';
 export * from './journey.ts';
 export * from './yard-rates.ts';
+export * from './reporting.ts';

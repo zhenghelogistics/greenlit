@@ -1541,3 +1541,186 @@ export function ZhtYardRates() {
     </Shell>
   );
 }
+
+/**
+ * The month, the quarter or the year, for the meeting it gets presented in.
+ *
+ * ## Two sections and no more
+ *
+ * How much went through, and what is still sitting there. A management meeting
+ * asks those two things of an operation and everything else is a follow-up to
+ * one of them. A third panel would be read by nobody and would make the first
+ * two harder to find.
+ *
+ * ## Built to be projected
+ *
+ * Figures are large because this goes on a wall in a room where nobody is
+ * sitting close to it. The print stylesheet drops the navigation and puts each
+ * section on its own page, so Save as PDF produces a handout rather than a
+ * screenshot of an app.
+ */
+export function ZhtReports() {
+  const today = new Date().toISOString().slice(0, 10);
+  const [kind, setKind] = useState("MONTH");
+  const [on, setOn] = useState(today);
+  const [report, setReport] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/reports?period=${kind}&on=${encodeURIComponent(on)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((payload) => { if (live) { setReport(payload); setLoading(false); } })
+      .catch(() => { if (live) { setReport(null); setLoading(false); } });
+    return () => { live = false; };
+  }, [kind, on]);
+
+  const change = (now, was) => {
+    if (was === 0) return now === 0 ? "—" : "new";
+    const pct = Math.round(((now - was) / was) * 100);
+    return `${pct > 0 ? "+" : ""}${pct}%`;
+  };
+
+  const PERIODS = [["MONTH", "Month"], ["QUARTER", "Quarter"], ["YEAR", "Year"]];
+  const WORDS = {
+    US: "Waiting on us",
+    CUSTOMER: "Waiting on the customer",
+    CARRIER: "Waiting on the carrier",
+    NOBODY: "Not waiting on anyone",
+  };
+
+  const v = report?.volume;
+  const p = report?.previousVolume;
+
+  return (
+    <Shell title="Reports"
+      action={
+        <button className="btn secondary no-print" type="button" onClick={() => window.print()}>
+          Print / Save PDF
+        </button>
+      }>
+      <div className="zht report-sheet">
+        <section className="creation-section no-print">
+          <div className="creation-section-head">
+            <div>
+              <div className="section-title">Which period</div>
+              <div className="muted">Pick any day inside it. The rest is worked out.</div>
+            </div>
+          </div>
+          <div className="action-row" style={{ gap: 8, flexWrap: "wrap" }}>
+            {PERIODS.map(([id, label]) => (
+              <button key={id} type="button"
+                className={`btn ${kind === id ? "primary" : "ghost"}`}
+                onClick={() => { setLoading(true); setKind(id); }}>
+                {label}
+              </button>
+            ))}
+            <div className="field" style={{ maxWidth: 220, marginLeft: "auto" }}>
+              <label htmlFor="report-on">Any day inside it</label>
+              <input id="report-on" type="date" value={on}
+                onChange={(e) => { setLoading(true); setOn(e.target.value || today); }} />
+            </div>
+          </div>
+        </section>
+
+        {loading ? <Empty>Loading…</Empty> : !report ? (
+          <Empty>That report could not be loaded.</Empty>
+        ) : (
+          <>
+            <div className="report-title">
+              <h2>{report.period.label}</h2>
+              <div className="muted">
+                {report.period.from} to {report.period.to} · compared with {report.previous.label}
+              </div>
+            </div>
+
+            <section className="creation-section report-block">
+              <div className="section-title">What went through</div>
+              <div className="table-scroll">
+                <table className="clean-table">
+                  <thead>
+                    <tr>
+                      <th>&nbsp;</th>
+                      <th>{report.period.label}</th>
+                      <th>{report.previous.label}</th>
+                      <th>Change</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      ["Jobs opened", v.jobsOpened, p.jobsOpened],
+                      ["Jobs closed", v.jobsClosed, p.jobsClosed],
+                      ["Containers handled", v.containers, p.containers],
+                      ["Import jobs", v.imports, p.imports],
+                      ["Export jobs", v.exports, p.exports],
+                    ].map(([label, now, was]) => (
+                      <tr key={label}>
+                        <td>{label}</td>
+                        <td className="report-figure">{now}</td>
+                        <td className="muted">{was}</td>
+                        <td>{change(now, was)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {v.byCustomer.length ? (
+                <>
+                  <div className="section-title" style={{ marginTop: 18 }}>By customer</div>
+                  <div className="table-scroll">
+                    <table className="clean-table">
+                      <thead>
+                        <tr><th>Customer</th><th>Jobs</th><th>Containers</th></tr>
+                      </thead>
+                      <tbody>
+                        {v.byCustomer.map((row) => (
+                          <tr key={row.customer}>
+                            <td>{row.customer}</td>
+                            <td className="report-figure">{row.jobs}</td>
+                            <td>{row.containers}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              ) : <Empty>No work opened in this period.</Empty>}
+            </section>
+
+            <section className="creation-section report-block">
+              <div className="creation-section-head">
+                <div>
+                  <div className="section-title">
+                    Still open at {report.stillOpen.on} · {report.stillOpen.total} jobs
+                  </div>
+                  <div className="muted">
+                    Grouped by who it is waiting on, because that is what decides
+                    whether the room can do anything about it.
+                  </div>
+                </div>
+              </div>
+
+              {report.stillOpen.total === 0 ? (
+                <Empty>Nothing was outstanding at the end of this period.</Empty>
+              ) : report.stillOpen.groups.map((group) => (
+                <div key={group.waitingOn} className="report-group">
+                  <div className="report-group-head">
+                    <b>{WORDS[group.waitingOn] ?? group.waitingOn}</b>
+                    <span className="report-figure">{group.jobs}</span>
+                  </div>
+                  {group.reasons.map((reason) => (
+                    <div key={reason.reason} className="alert">
+                      {reason.reason}
+                      <span className="report-figure"> {reason.jobs}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </section>
+          </>
+        )}
+      </div>
+    </Shell>
+  );
+}

@@ -4084,3 +4084,27 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
 .zht tr.row-opens { cursor: pointer; }
 .zht tr.row-opens:hover > td { background: var(--soft); }
 .zht tr.row-opens:focus-within > td { background: var(--soft); }
+
+/* ---- Reports ------------------------------------------------------------
+   Built to be projected and then printed. Figures are large because nobody in
+   a meeting room is sitting close to the wall, and the print rules below drop
+   the application around it so Save as PDF gives a handout rather than a
+   screenshot. Sizes stay on the scale in MASTER.md §2.1. */
+.zht .report-title {margin:18px 0 14px}
+.zht .report-title h2 {margin:0;font-size:34px;font-weight:600;color:var(--text)}
+.zht .report-block {margin-top:18px;page-break-inside:avoid}
+.zht .report-figure {font-size:24px;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+.zht .report-group {margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-md)}
+.zht .report-group-head {display:flex;align-items:baseline;justify-content:space-between;gap:14px;font-size:20px;margin-bottom:6px}
+
+@media print {
+  /* Everything that is the application rather than the report. Scoped under
+     .zht like every other rule here, so the class guard can see it. */
+  .zht .no-print {display:none}
+  .zht-sidebar, .zht-topbar, .sidebar, .topbar {display:none}
+  .zht .report-sheet {width:100%;max-width:none;padding:0}
+  .zht .report-block {break-inside:avoid;page-break-after:always;border:0;padding:0}
+  .zht .report-block:last-child {page-break-after:auto}
+  .zht .clean-table td, .zht .clean-table th {border-color:#999}
+  .zht .report-title h2 {font-size:28px}
+}
