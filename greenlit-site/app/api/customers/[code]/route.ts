@@ -67,3 +67,35 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ code: str
     return jsonError(error);
   }
 }
+
+/**
+ * Remove a customer from the master.
+ *
+ * For the customer who was entered twice, or entered and never traded with.
+ * The engine refuses once there are jobs, because every reference already
+ * issued is built from the code — see `canDeleteCustomer`, which also carries
+ * the sentence explaining what to do instead.
+ *
+ * 409 rather than 400: the request is well-formed and the answer is about the
+ * state of the customer, which is a thing that can change.
+ */
+export async function DELETE(_request: Request, ctx: { params: Promise<{ code: string }> }) {
+  try {
+    const { code } = await ctx.params;
+
+    const auth = await authorize("masterData.manage");
+    if (!auth.ok) return auth.response;
+
+    const customer = await getRepository().getCustomerByCode(code);
+    if (!customer) return Response.json({ error: `Unknown customer ${code}` }, { status: 404 });
+
+    await getRepository().deleteCustomer(code, auth.displayName);
+    return Response.json({ deleted: customer.code });
+  } catch (error) {
+    // The refusal is the engine's sentence, and it is written to be read by
+    // the person who pressed the button rather than decoded from a status.
+    const message = error instanceof Error ? error.message : String(error);
+    if (/has \d+ job/.test(message)) return Response.json({ error: message }, { status: 409 });
+    return jsonError(error);
+  }
+}

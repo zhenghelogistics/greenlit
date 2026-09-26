@@ -163,6 +163,19 @@ export interface Repository {
    * thing ADR-0007 most wants to avoid.
    */
   amendCustomer(code: string, changes: CustomerChanges, actor: string): Promise<Customer>;
+
+  /**
+   * Strike a customer off the master.
+   *
+   * Refused once the customer has jobs — every reference already issued is
+   * built from the code, so removing the company would leave those numbers
+   * pointing at nothing. `canDeleteCustomer` in the engine holds the rule and
+   * the sentence that says what to do instead.
+   *
+   * The customer's sites go with it. The audit trail does not: it records what
+   * happened, and what happened does not stop having happened.
+   */
+  deleteCustomer(code: string, actor: string): Promise<void>;
   /** Every job reference issued, for deriving the next one. */
   listJobReferences(): Promise<string[]>;
   /**

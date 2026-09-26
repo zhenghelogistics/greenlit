@@ -4,7 +4,7 @@ import { canSendContainerDetails, refuseEmptyCollection,
   type PermitRecord } from '@greenlit/engine';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
-  appendAmendment, nextJobReference, recordChassisChange, userEvent,
+  appendAmendment, canDeleteCustomer, nextJobReference, recordChassisChange, userEvent,
   validateContainerCount,
   validateCustomerDraft,
   type AuditEvent, type Chassis, type ChassisChange, type ChassisChangeRequest,
@@ -357,6 +357,38 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       for (const entry of changed) await record(key, 'customer.amended', actor, entry);
       return toCustomer(updated);
     },
+    async deleteCustomer(code, actor) {
+      const key = code.trim().toUpperCase();
+      const found = await db.from('customers').select('*').eq('code', key).maybeSingle();
+      if (found.error) throw new Error(`customer lookup: ${found.error.message}`);
+      if (!found.data) throw new Error(`Unknown customer ${key}`);
+      const before = found.data as Record<string, unknown>;
+      const customerId = before.customer_id as string;
+
+      // Both directions. A customer with one export job and no imports is
+      // still a customer whose numbers are in use.
+      const counts = await Promise.all((['import_jobs', 'export_jobs'] as const).map(
+        async (table) => {
+          const r = await db.from(table).select('customer_id', { count: 'exact', head: true })
+            .eq('customer_id', customerId);
+          if (r.error) throw new Error(`count ${table}: ${r.error.message}`);
+          return r.count ?? 0;
+        },
+      ));
+      const verdict = canDeleteCustomer(counts[0]! + counts[1]!);
+      if (!verdict.allowed) throw new Error(verdict.reason);
+
+      // Written before the row goes. audit_events is append-only and keeps it
+      // afterwards, which is the point: somebody will ask where they went.
+      await record(key, 'customer.deleted', actor, {
+        field: 'companyName', from: before.company_name, to: null,
+      });
+
+      // Sites go with the customer, by the cascade on 0009.
+      const gone = await db.from('customers').delete().eq('code', key);
+      if (gone.error) throw new Error(`delete customer: ${gone.error.message}`);
+    },
+
     async listJobReferences() { return issuedReferences(); },
     async nextReferenceFor(customerCode) {
       // Read-only: what the next number would be, without taking it. Creation

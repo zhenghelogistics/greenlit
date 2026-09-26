@@ -844,6 +844,15 @@ export function ZhtCustomerDetail({ code, onBack }) {
             onError={setError}
           />
         ) : null}
+        {tab === "profile" && c ? (
+          <RemoveCustomer
+            customer={c}
+            // Back to the list, where the customer is simply no longer there.
+            // onBack takes no argument: it is also the header's Back button.
+            onDeleted={() => onBack()}
+            onError={setError}
+          />
+        ) : null}
 
         {tab === "locations" ? (
           <CustomerLocations
@@ -989,6 +998,77 @@ function CustomerProfile({ customer, loading, onSaved, onError }) {
         </button>
       </div>
     </form>
+  );
+}
+
+/**
+ * Take a customer off the master.
+ *
+ * For the one entered twice, or entered and never traded with. The server
+ * refuses once there are jobs, because every job number already printed is
+ * built from the code, and it says so in a sentence rather than a status —
+ * which is what gets shown here.
+ *
+ * Two steps and no typing. The people using this read the screen all shift and
+ * are not helped by being asked to retype a code to prove they meant it; they
+ * are helped by being told plainly what is about to go and being able to stop.
+ * Nothing about it sits next to Save.
+ */
+function RemoveCustomer({ customer, onDeleted, onError }) {
+  const [asking, setAsking] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  async function remove() {
+    setRemoving(true);
+    onError("");
+    const response = await fetch(`/api/customers/${encodeURIComponent(customer.code)}`, {
+      method: "DELETE",
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    setRemoving(false);
+    if (!response?.ok) {
+      setAsking(false);
+      onError(payload?.error ?? "That customer was not removed.");
+      return;
+    }
+    onDeleted(customer);
+  }
+
+  return (
+    <section className="creation-section" style={{ marginTop: 18 }}>
+      <div className="creation-section-head">
+        <div>
+          <div className="section-title">Remove this customer</div>
+          <div className="muted">
+            Only possible while the customer has no jobs. Once it has, close the
+            account above instead — that takes it off the lists and keeps the
+            job numbers readable.
+          </div>
+        </div>
+      </div>
+
+      {asking ? (
+        <div className="callout" role="alert">
+          <div style={{ marginBottom: 10 }}>
+            Remove <b>{customer.companyName}</b> and its saved addresses? This cannot be undone.
+          </div>
+          <div className="action-row" style={{ gap: 8 }}>
+            <button className="btn danger" type="button" onClick={remove} disabled={removing}>
+              {removing ? "Removing…" : `Yes, remove ${customer.code}`}
+            </button>
+            <button className="btn ghost" type="button" onClick={() => setAsking(false)}>
+              Keep it
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="action-row">
+          <button className="btn danger" type="button" onClick={() => setAsking(true)}>
+            Remove customer
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 

@@ -84,6 +84,38 @@ export function canChangeCustomerCode(): { allowed: false; reason: string } {
   };
 }
 
+/**
+ * Whether a customer can be struck off the master outright.
+ *
+ * A customer with no jobs is a typo, a duplicate, or somebody who was entered
+ * and never traded with. Nothing refers to them, so removing them costs
+ * nothing and leaving them makes every picker longer.
+ *
+ * A customer with jobs is a different thing entirely. ADR-0007 builds every
+ * job reference out of the code — CC-001 means Chong Cheong and means nothing
+ * else — so deleting the customer turns every number already printed, invoiced
+ * and filed into a reference to a company that is not there. The history stops
+ * being readable, and it is the history that gets asked about months later.
+ *
+ * So the answer is no, with the thing to do instead. Closing the account takes
+ * them out of the pickers, which is what somebody usually wants when they say
+ * delete, and leaves CC-001 meaning what it meant.
+ */
+export function canDeleteCustomer(
+  jobCount: number,
+): { allowed: true } | { allowed: false; reason: string } {
+  if (jobCount > 0) {
+    return {
+      allowed: false,
+      reason: `This customer has ${jobCount} job${jobCount === 1 ? '' : 's'}. `
+        + 'Deleting it would leave those job numbers pointing at a company that is '
+        + 'no longer on the system. Set the account status to CLOSED instead: it '
+        + 'comes off the lists and the jobs stay readable.',
+    };
+  }
+  return { allowed: true };
+}
+
 export interface CustomerDraft {
   code: string;
   companyName: string;

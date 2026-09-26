@@ -4,7 +4,8 @@ import { refuseEmptyCollection,
   type CustomerLocation, type DocumentRecord,
   type PermitRecord } from '@greenlit/engine';
 import {
-  appendAmendment, applyChassisChange, canSendContainerDetails, nextJobReference, recordChassisChange,
+  appendAmendment, applyChassisChange, canDeleteCustomer, canSendContainerDetails,
+  nextJobReference, recordChassisChange,
   userEvent, validateContainerCount, validateCustomerDraft,
   type AuditEvent, type Chassis, type ChassisHolding, type Customer,
   type ChassisChange, type CustomerDraft, type DateAmendment, type Discrepancy,
@@ -508,6 +509,31 @@ export function createMemoryRepository(): Repository {
         record(found.code, 'customer.amended', actor, { field, from, to });
       }
       return clone(found);
+    },
+
+    async deleteCustomer(code, actor) {
+      const key = code.trim().toUpperCase();
+      const index = customers.findIndex((c) => c.code === key);
+      if (index < 0) throw new Error(`Unknown customer ${key}`);
+      const customer = customers[index]!;
+
+      const jobs = [...importJobs, ...exportJobs]
+        .filter((j) => j.customer === customer.companyName).length;
+      const verdict = canDeleteCustomer(jobs);
+      if (!verdict.allowed) throw new Error(verdict.reason);
+
+      // Recorded before the row goes, and left behind afterwards. Somebody
+      // will ask why a customer they remember is not on the list.
+      record(customer.code, 'customer.deleted', actor, {
+        field: 'companyName', from: customer.companyName, to: null,
+      });
+
+      customers.splice(index, 1);
+      // Sites belong to the customer and go with it, which is what the
+      // database does too (0009: on delete cascade).
+      for (let i = customerLocations.length - 1; i >= 0; i -= 1) {
+        if (customerLocations[i]!.customerCode === key) customerLocations.splice(i, 1);
+      }
     },
 
     /** Every reference issued, so ADR-0007's per-customer sequence can derive. */

@@ -1112,6 +1112,56 @@ export function runRepositoryContract(
       /Unknown container/);
   });
 
+  test(`[${name}] a customer nobody has traded with can be struck off`, async () => {
+    // The one that was entered twice, or entered and never used. Nothing
+    // refers to it, so keeping it only makes every picker longer.
+    const repo = await fresh();
+    await repo.createCustomer(
+      { code: 'ZZT', companyName: 'Entered By Mistake Pte Ltd' }, 'tester');
+    assert.ok(await repo.getCustomerByCode('ZZT'));
+
+    await repo.deleteCustomer('ZZT', 'tester');
+    assert.equal(await repo.getCustomerByCode('ZZT'), null);
+  });
+
+  test(`[${name}] a customer's sites go with it`, async () => {
+    const repo = await fresh();
+    await repo.createCustomer({ code: 'ZZS', companyName: 'Sites Go Too Pte Ltd' }, 'tester');
+    await repo.addCustomerLocation(
+      'ZZS', { label: 'Tuas shed', address: '1 Tuas Avenue 1' }, 'tester');
+    assert.equal((await repo.listCustomerLocations('ZZS')).length, 1);
+
+    await repo.deleteCustomer('ZZS', 'tester');
+    assert.equal((await repo.listCustomerLocations('ZZS')).length, 0);
+  });
+
+  test(`[${name}] a customer with jobs cannot be deleted`, async () => {
+    // ADR-0007 builds every reference out of the code, so deleting the company
+    // leaves every number already printed pointing at nothing.
+    const repo = await fresh();
+    const jobs = await repo.listImportJobs();
+    const traded = (await repo.listCustomers())
+      .find((c) => jobs.some((j) => j.customer === c.companyName));
+    assert.ok(traded, 'the fixture must have a customer with at least one job');
+
+    await assert.rejects(() => repo.deleteCustomer(traded!.code, 'tester'), /CLOSED/);
+    assert.ok(await repo.getCustomerByCode(traded!.code), 'the customer is still there');
+  });
+
+  test(`[${name}] a deletion is audited, and the audit outlives the customer`, async () => {
+    // Somebody will ask where a customer they remember went. The master says
+    // who we work for; the audit says what happened, and it still happened.
+    const repo = await fresh();
+    await repo.createCustomer({ code: 'ZZA', companyName: 'Audited Away Pte Ltd' }, 'tester');
+    await repo.deleteCustomer('ZZA', 'tester');
+
+    const events = await repo.listAuditEvents('ZZA');
+    const deletion = events.find((e) => e.event === 'customer.deleted');
+    assert.ok(deletion, 'the deletion is on the trail');
+    assert.equal(deletion!.actor, 'tester');
+    assert.equal(deletion!.previousValue, 'Audited Away Pte Ltd');
+  });
+
   test(`[${name}] writing a derived value is impossible by construction`, async () => {
     const repo = await fresh();
     for (const forbidden of ['setJobStatus', 'setNextAction', 'setLocation',

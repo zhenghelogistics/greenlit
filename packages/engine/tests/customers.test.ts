@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  canChangeCustomerCode, nextJobReference, normaliseCustomerCode,
+  canChangeCustomerCode, canDeleteCustomer, nextJobReference, normaliseCustomerCode,
   parseJobReference, sortCustomerJobs, validateCustomerCode, validateCustomerDraft,
   duplicateCustomerName, type Customer } from '../src/customers.ts';
 
@@ -105,4 +105,24 @@ test('a customer name already on file is named, with its code', () => {
     'case and spacing are not a different company');
   assert.equal(duplicateCustomerName('DKSH Singapore', on, 'DKSH'), null,
     'a record saving its own name unchanged is not a duplicate');
+});
+
+test('a customer nobody has traded with can be struck off', () => {
+  // A typo, a duplicate, or somebody entered and never used. Nothing refers to
+  // them, so keeping them only makes every picker longer.
+  assert.deepEqual(canDeleteCustomer(0), { allowed: true });
+});
+
+test('a customer with jobs cannot be deleted, and is told what to do instead', () => {
+  // ADR-0007 builds every reference out of the code, so CC-001 stops meaning
+  // anything the moment Chong Cheong is not on the system. The history is what
+  // gets asked about months later.
+  const one = canDeleteCustomer(1);
+  assert.equal(one.allowed, false);
+  assert.match(one.allowed === false ? one.reason : '', /1 job\b/);
+  assert.match(one.allowed === false ? one.reason : '', /CLOSED/);
+
+  // The sentence is read by whoever pressed the button, so it counts properly.
+  const many = canDeleteCustomer(14);
+  assert.match(many.allowed === false ? many.reason : '', /14 jobs\b/);
 });
