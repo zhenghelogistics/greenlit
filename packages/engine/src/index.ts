@@ -32,6 +32,7 @@ export { IMPORT_RULES, type ImportCtx } from './rules-import.ts';
 export { EXPORT_RULES, type ExportCtx } from './rules-export.ts';
 export * from './joining.ts';
 export * from './carriers.ts';
+export * from './yards.ts';
 export * from './permits.ts';
 export * from './closure.ts';
 export * from './locations.ts';
