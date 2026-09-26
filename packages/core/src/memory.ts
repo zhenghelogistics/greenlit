@@ -4,12 +4,13 @@ import { refuseEmptyCollection,
   type CustomerLocation, type DocumentRecord,
   type PermitRecord } from '@greenlit/engine';
 import {
+  YARDS, YARD_CHARGES, rateProblem,
   appendAmendment, applyChassisChange, canDeleteCustomer, canSendContainerDetails,
   nextJobReference, recordChassisChange,
   userEvent, validateContainerCount, validateCustomerDraft,
   type AuditEvent, type Chassis, type ChassisHolding, type Customer,
   type ChassisChange, type CustomerDraft, type DateAmendment, type Discrepancy,
-  type Principal,
+  type Principal, type YardRate,
 } from '@greenlit/engine';
 import type {
   ExceptionRecord, ExportContainer, ExportJob, ImportContainer, ImportJob,
@@ -355,6 +356,10 @@ export function createMemoryRepository(): Repository {
   // and a removal in one did not remove it from the other.
   const permits: StoredPermit[] = [];
   const customerLocations: CustomerLocation[] = [];
+  // Empty until somebody records one. The rate book is loaded into Supabase by
+  // scripts/seed-yard-rates.sql; this adapter is what runs with no credentials,
+  // and inventing prices here would put made-up money on a screen.
+  const yardRates: YardRate[] = [];
   const documents: DocumentRecord[] = [];
   /** The bytes, so a test can prove a file was kept and not merely recorded. */
   const documentBytes = new Map<string, Uint8Array>();
@@ -1081,6 +1086,43 @@ export function createMemoryRepository(): Repository {
         fields[field] = to;
         record(location.customerCode, 'location.amended', actor, { field, from, to });
       }
+    },
+
+    async listYardRates() {
+      return yardRates.map((r) => ({ ...r }));
+    },
+
+    async recordYardRate(draft, actor) {
+      const yardCode = String(draft.yardCode ?? '').trim().toUpperCase();
+      if (!YARDS.some((y) => y.code === yardCode)) throw new Error(`Unknown yard ${yardCode}`);
+      if (!YARD_CHARGES.includes(draft.charge)) throw new Error(`Unknown charge ${draft.charge}`);
+
+      const amount = Number(draft.amount);
+      const effectiveFrom = String(draft.effectiveFrom ?? '');
+      const problem = rateProblem({ amount, effectiveFrom });
+      if (problem) throw new Error(problem);
+
+      const rate = {
+        rateId: `${yardCode.toLowerCase()}-${draft.charge.toLowerCase()}-${effectiveFrom}`,
+        yardCode, charge: draft.charge, amount, effectiveFrom,
+        remarks: draft.remarks?.trim() || null,
+        recordedBy: actor, recordedAt: new Date().toISOString(),
+      };
+
+      // Same yard, same charge, same start date is a correction of that entry
+      // rather than a second one. A different date is a price change, and both
+      // rows stay: that is what makes April answerable in October.
+      const at = yardRates.findIndex(
+        (r) => r.yardCode === yardCode && r.charge === draft.charge
+          && r.effectiveFrom === effectiveFrom);
+      const previous = at >= 0 ? yardRates[at]!.amount : null;
+      if (at >= 0) yardRates[at] = rate; else yardRates.push(rate);
+
+      record(rate.rateId, 'yardRate.recorded', actor, {
+        field: `${yardCode} ${draft.charge} from ${effectiveFrom}`,
+        from: previous, to: amount,
+      });
+      return { ...rate };
     },
 
     async closeJob(jobId, actor) {

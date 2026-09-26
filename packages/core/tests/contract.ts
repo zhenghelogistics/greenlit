@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { rateOn } from '@greenlit/engine';
 import type { Repository } from '../src/repository.ts';
 
 /**
@@ -1160,6 +1161,56 @@ export function runRepositoryContract(
     assert.ok(deletion, 'the deletion is on the trail');
     assert.equal(deletion!.actor, 'tester');
     assert.equal(deletion!.previousValue, 'Audited Away Pte Ltd');
+  });
+
+  test(`[${name}] a rate change leaves the old rate answerable`, async () => {
+    // The whole reason rates are recorded rather than overwritten: an invoice
+    // raised in April was right in April, and October still has to explain it.
+    const repo = await fresh();
+    await repo.recordYardRate(
+      { yardCode: 'CWT', charge: 'DHC', amount: 80, effectiveFrom: '2026-01-01' }, 'tester');
+    await repo.recordYardRate(
+      { yardCode: 'CWT', charge: 'DHC', amount: 85, effectiveFrom: '2026-04-27' }, 'tester');
+
+    const rates = await repo.listYardRates();
+    assert.equal(rateOn(rates, 'CWT', 'DHC', '2026-03-01')?.amount, 80);
+    assert.equal(rateOn(rates, 'CWT', 'DHC', '2026-09-26')?.amount, 85);
+  });
+
+  test(`[${name}] the same start date corrects rather than duplicates`, async () => {
+    // A typo in a price is fixed, not layered on top of itself.
+    const repo = await fresh();
+    await repo.recordYardRate(
+      { yardCode: 'EK', charge: 'DHC', amount: 8, effectiveFrom: '2026-05-06' }, 'tester');
+    await repo.recordYardRate(
+      { yardCode: 'EK', charge: 'DHC', amount: 80, effectiveFrom: '2026-05-06' }, 'tester');
+
+    const forEk = (await repo.listYardRates())
+      .filter((r) => r.yardCode === 'EK' && r.charge === 'DHC');
+    assert.equal(forEk.length, 1);
+    assert.equal(forEk[0]!.amount, 80);
+  });
+
+  test(`[${name}] a rate for a yard nobody has heard of is refused`, async () => {
+    // The yard master is code, so there is no foreign key to catch this.
+    const repo = await fresh();
+    await assert.rejects(() => repo.recordYardRate(
+      { yardCode: 'NOPE', charge: 'DHC', amount: 80, effectiveFrom: '2026-05-06' }, 'tester'),
+      /Unknown yard/);
+    await assert.rejects(() => repo.recordYardRate(
+      { yardCode: 'CWT', charge: 'DHC', amount: -1, effectiveFrom: '2026-05-06' }, 'tester'),
+      /negative/);
+  });
+
+  test(`[${name}] recording a rate is audited`, async () => {
+    // A price change is exactly the kind of thing somebody asks about later.
+    const repo = await fresh();
+    const rate = await repo.recordYardRate(
+      { yardCode: 'PSA', charge: 'DEPOT_SURCHARGE', amount: 15, effectiveFrom: '2026-05-06' },
+      'tester');
+
+    const events = await repo.listAuditEvents(rate.rateId);
+    assert.ok(events.some((e) => e.event === 'yardRate.recorded'), 'the change is on the trail');
   });
 
   test(`[${name}] writing a derived value is impossible by construction`, async () => {

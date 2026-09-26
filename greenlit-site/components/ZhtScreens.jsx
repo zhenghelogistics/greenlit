@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { SectionNav } from "./ZhtNewJob.jsx";
 
 /**
@@ -1309,6 +1309,234 @@ export function ZhtSearchResults({ jobs, query, onOpenJob, onBack }) {
             </span>
           </div>
         )) : <Empty>{needle ? "Nothing matched." : "Type a job number, container or customer."}</Empty>}
+      </div>
+    </Shell>
+  );
+}
+
+/**
+ * What every yard charges, and what it used to charge.
+ *
+ * ## Why there is a date at the top
+ *
+ * A rate is not a number, it is a number with a date it started. The figure
+ * that applied in April is still the answer to a question about April, and the
+ * question asked in a billing meeting is usually about a month that has
+ * finished. So the screen asks "as at when" and every figure on it moves
+ * together.
+ *
+ * ## Why changing a rate is a form and not an edit
+ *
+ * Typing over the number would answer today and destroy every other answer.
+ * Recording one instead takes the new amount and the day it starts, and leaves
+ * the old figure where it was. Same day entered twice is a correction; a later
+ * day is an increase.
+ */
+export function ZhtYardRates() {
+  const today = new Date().toISOString().slice(0, 10);
+  const [on, setOn] = useState(today);
+  const [state, setState] = useState({ loading: true, yards: [] });
+  const [error, setError] = useState("");
+  const [note, setNote] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [expanded, setExpanded] = useState(null);
+
+  function load(asAt) {
+    return fetch(`/api/yard-rates?on=${encodeURIComponent(asAt)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((payload) => setState({ loading: false, yards: payload?.yards ?? [] }))
+      .catch(() => setState({ loading: false, yards: [] }));
+  }
+
+  // The loading flag is set where the load is asked for — initial state, and
+  // the date control below — rather than here. Setting it inside the effect
+  // renders twice for every change, which on a table this size is visible.
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/yard-rates?on=${encodeURIComponent(on)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((payload) => { if (live) setState({ loading: false, yards: payload?.yards ?? [] }); })
+      .catch(() => { if (live) setState({ loading: false, yards: [] }); });
+    return () => { live = false; };
+  }, [on]);
+
+  const CHARGES = [
+    ["DHC", "Depot handling"],
+    ["CDMS_ADMIN_FEE", "CDMS admin fee"],
+    ["DEPOT_SURCHARGE", "Depot surcharge"],
+  ];
+
+  const money = (rate) => (rate ? `$${Number(rate.amount).toFixed(2)}` : "—");
+
+  async function save(event) {
+    event.preventDefault();
+    setError("");
+    const response = await fetch("/api/yard-rates", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(editing),
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    if (!response?.ok) { setError(payload?.error ?? "That rate was not saved."); return; }
+    setEditing(null);
+    setNote(`Recorded from ${editing.effectiveFrom}.`);
+    load(on);
+  }
+
+  return (
+    <Shell title="Yard Rates">
+      <div className="zht">
+        {error ? <div className="callout" role="alert">{error}</div> : null}
+        {note ? <div className="noa-note" role="status">{note}</div> : null}
+
+        <section className="creation-section">
+          <div className="creation-section-head">
+            <div>
+              <div className="section-title">Charges as at a date</div>
+              <div className="muted">
+                Every figure below is what the yard charged on this day. Change the
+                date to see what applied then.
+              </div>
+            </div>
+            <div className="field" style={{ maxWidth: 220 }}>
+              <label htmlFor="rates-on">Show rates as at</label>
+              <input id="rates-on" type="date" value={on}
+                onChange={(event) => {
+                  setState((was) => ({ ...was, loading: true }));
+                  setOn(event.target.value || today);
+                }} />
+            </div>
+          </div>
+
+          {state.loading ? <Empty>Loading…</Empty> : (
+            <div className="table-scroll">
+            <table className="clean-table">
+              <thead>
+                <tr>
+                  <th>Yard</th>
+                  {CHARGES.map(([key, label]) => <th key={key}>{label}</th>)}
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {state.yards.map((yard) => (
+                  <Fragment key={yard.code}>
+                    <tr>
+                      <td>
+                        <b>{yard.name}</b>
+                        <div className="muted">
+                          {yard.code}{yard.gates > 1 ? ` · ${yard.gates} gates` : ""}
+                        </div>
+                      </td>
+                      {CHARGES.map(([key]) => {
+                        const rate = yard.charges?.[key];
+                        return (
+                          <td key={key}>
+                            {money(rate)}
+                            {rate ? (
+                              <div className="muted">from {rate.effectiveFrom}</div>
+                            ) : (
+                              <div className="muted">nothing recorded</div>
+                            )}
+                            {rate?.remarks ? (
+                              <div className="permit-alert">{rate.remarks}</div>
+                            ) : null}
+                          </td>
+                        );
+                      })}
+                      <td>
+                        <div className="action-row" style={{ gap: 6 }}>
+                          <button className="btn secondary" type="button"
+                            onClick={() => setEditing({
+                              yardCode: yard.code, charge: "DHC",
+                              amount: "", effectiveFrom: today, remarks: "",
+                            })}>
+                            Record a change
+                          </button>
+                          <button className="btn ghost" type="button"
+                            onClick={() => setExpanded(expanded === yard.code ? null : yard.code)}>
+                            {expanded === yard.code ? "Hide history" : "History"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {expanded === yard.code ? (
+                      <tr>
+                        <td colSpan={5}>
+                          {CHARGES.map(([key, label]) => {
+                            const past = yard.history?.[key] ?? [];
+                            if (!past.length) return null;
+                            return (
+                              <div key={key} style={{ marginBottom: 10 }}>
+                                <div className="section-title">{label}</div>
+                                {past.map((rate) => (
+                                  <div key={rate.rateId} className="alert">
+                                    ${Number(rate.amount).toFixed(2)} from {rate.effectiveFrom}
+                                    <span className="muted"> · entered by {rate.recordedBy}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })}
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+            </div>
+          )}
+        </section>
+
+        {editing ? (
+          <form className="creation-section" onSubmit={save} style={{ marginTop: 16 }}>
+            <div className="creation-section-head">
+              <div>
+                <div className="section-title">Record a change for {editing.yardCode}</div>
+                <div className="muted">
+                  The old figure stays where it is. Enter the day the new amount
+                  starts, even if that day has already passed.
+                </div>
+              </div>
+            </div>
+            <div className="job-create-grid formgrid">
+              <div className="field">
+                <label htmlFor="rate-charge">Charge</label>
+                <select id="rate-charge" value={editing.charge}
+                  onChange={(e) => setEditing({ ...editing, charge: e.target.value })}>
+                  {CHARGES.map(([key, label]) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="rate-amount">Amount<span className="req"> *</span></label>
+                <input id="rate-amount" type="number" step="0.01" min="0" required
+                  value={editing.amount}
+                  onChange={(e) => setEditing({ ...editing, amount: e.target.value })} />
+              </div>
+              <div className="field">
+                <label htmlFor="rate-from">Starts on<span className="req"> *</span></label>
+                <input id="rate-from" type="date" required value={editing.effectiveFrom}
+                  onChange={(e) => setEditing({ ...editing, effectiveFrom: e.target.value })} />
+                <span className="field-helper">The first day this amount applies.</span>
+              </div>
+              <div className="field full">
+                <label htmlFor="rate-remarks">Remarks</label>
+                <input id="rate-remarks" value={editing.remarks}
+                  onChange={(e) => setEditing({ ...editing, remarks: e.target.value })} />
+                <span className="field-helper">Anything the figure alone cannot say.</span>
+              </div>
+            </div>
+            <div className="action-row" style={{ marginTop: 10, gap: 8, justifyContent: "flex-end" }}>
+              <button className="btn ghost" type="button" onClick={() => setEditing(null)}>
+                Cancel
+              </button>
+              <button className="btn primary" type="submit">Record this rate</button>
+            </div>
+          </form>
+        ) : null}
       </div>
     </Shell>
   );

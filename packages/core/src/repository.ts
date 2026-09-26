@@ -1,4 +1,5 @@
-import type { CustomerLocation, DocumentRecord, PermitRecord } from '@greenlit/engine';
+import type { CustomerLocation, DocumentRecord, PermitRecord,
+  YardCharge, YardRate } from '@greenlit/engine';
 import type {
   AuditEvent, Chassis, ChassisChange, ChassisChangeRequest, ChassisHolding,
   Customer, CustomerDraft, DateAmendment, Discrepancy, ExceptionRecord, Principal,
@@ -387,6 +388,18 @@ export interface Repository {
     locationId: string, changes: CustomerLocationDraft, actor: string,
   ): Promise<void>;
 
+  // ---- What a yard charges --------------------------------------------------
+  //
+  // Rates are recorded, never overwritten: a rate is a series of amounts each
+  // with the date it took effect, so the figure that applied in April is still
+  // the answer to a question about April. `@greenlit/engine`'s `rateOn` picks
+  // which one applies, and there is no setter for "the current rate" because
+  // there is no such stored thing.
+
+  listYardRates(): Promise<YardRate[]>;
+  /** Record an amount from a date. A later date is an increase; the same date corrects it. */
+  recordYardRate(draft: YardRateDraft, actor: string): Promise<YardRate>;
+
   closeJob(jobId: string, actor: string): Promise<void>;
   /** §33.2. Open a billed job again, saying why. */
   reopenJob(jobId: string, reason: string, actor: string): Promise<void>;
@@ -573,6 +586,16 @@ export interface CustomerChanges {
   emailDomains?: string[];
   accountStatus?: Customer['accountStatus'];
   notes?: string | null;
+}
+
+export interface YardRateDraft {
+  /** A code from the engine's yard master. */
+  yardCode: string;
+  charge: YardCharge;
+  amount: number;
+  /** yyyy-mm-dd. In the past is legitimate: yards raise prices and tell nobody. */
+  effectiveFrom: string;
+  remarks?: string | null;
 }
 
 export interface CustomerLocationDraft {

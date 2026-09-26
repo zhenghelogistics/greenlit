@@ -4,6 +4,7 @@ import { canSendContainerDetails, refuseEmptyCollection,
   type PermitRecord } from '@greenlit/engine';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
+  YARDS, YARD_CHARGES, rateProblem,
   appendAmendment, canDeleteCustomer, nextJobReference, recordChassisChange, userEvent,
   validateContainerCount,
   validateCustomerDraft,
@@ -11,7 +12,7 @@ import {
   type ChassisHolding, type Customer, type CustomerDraft, type DateAmendment,
   type Discrepancy, type ExceptionRecord, type ExportContainer, type ExportJob,
   type ImportContainer, type ImportJob, type Movement, type Principal,
-  type Thresholds,
+  type Thresholds, type YardCharge,
 } from '@greenlit/engine';
 import {
   DEFAULT_THRESHOLDS,
@@ -842,6 +843,65 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       for (const c of changed) {
         await record(before.customer_code as string, 'location.amended', actor, c);
       }
+    },
+
+    async listYardRates() {
+      const r = await db.from('yard_rates').select('*')
+        .order('yard_code').order('charge').order('effective_from');
+      if (r.error) throw new Error(`yard rates: ${r.error.message}`);
+      return (r.data ?? []).map((row: Record<string, unknown>) => ({
+        rateId: row.rate_id as string,
+        yardCode: row.yard_code as string,
+        charge: row.charge as YardCharge,
+        amount: Number(row.amount),
+        effectiveFrom: String(row.effective_from),
+        remarks: (row.remarks as string | null) ?? null,
+        recordedBy: row.recorded_by as string,
+        recordedAt: String(row.recorded_at),
+      }));
+    },
+
+    async recordYardRate(draft, actor) {
+      const yardCode = String(draft.yardCode ?? '').trim().toUpperCase();
+      // The yard master is code, not a table, so there is no foreign key to
+      // lean on — see 0022. Checked here instead, on the way in.
+      if (!YARDS.some((y) => y.code === yardCode)) throw new Error(`Unknown yard ${yardCode}`);
+      if (!YARD_CHARGES.includes(draft.charge)) throw new Error(`Unknown charge ${draft.charge}`);
+
+      const amount = Number(draft.amount);
+      const effectiveFrom = String(draft.effectiveFrom ?? '');
+      const problem = rateProblem({ amount, effectiveFrom });
+      if (problem) throw new Error(problem);
+
+      const existing = await db.from('yard_rates').select('amount')
+        .eq('yard_code', yardCode).eq('charge', draft.charge)
+        .eq('effective_from', effectiveFrom).maybeSingle();
+      if (existing.error) throw new Error(`yard rate lookup: ${existing.error.message}`);
+
+      // Same yard, same charge, same start date corrects that entry. A
+      // different date is a price change and leaves the old row alone, which
+      // is what makes April answerable in October.
+      const rateId = `${yardCode.toLowerCase()}-${draft.charge.toLowerCase()}-${effectiveFrom}`;
+      const saved = unwrap(
+        await db.from('yard_rates').upsert({
+          rate_id: rateId, yard_code: yardCode, charge: draft.charge,
+          amount, effective_from: effectiveFrom,
+          remarks: draft.remarks?.trim() || null, recorded_by: actor,
+        }, { onConflict: 'yard_code,charge,effective_from' }).select().single(),
+        'record yard rate',
+      ) as Record<string, unknown>;
+
+      await record(rateId, 'yardRate.recorded', actor, {
+        field: `${yardCode} ${draft.charge} from ${effectiveFrom}`,
+        from: existing.data ? Number(existing.data.amount) : null, to: amount,
+      });
+
+      return {
+        rateId: saved.rate_id as string, yardCode, charge: draft.charge,
+        amount: Number(saved.amount), effectiveFrom: String(saved.effective_from),
+        remarks: (saved.remarks as string | null) ?? null,
+        recordedBy: saved.recorded_by as string, recordedAt: String(saved.recorded_at),
+      };
     },
 
     async closeJob(jobId, actor) {

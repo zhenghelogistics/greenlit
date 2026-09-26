@@ -164,32 +164,17 @@ export const YARD_SITES: readonly { yard: Yard; site: YardSite }[] =
 const flatten = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
 /**
- * Which yard and gate a document is naming.
- *
- * Matched on every name a gate goes by — its code, the codes it is also
- * written as, the yard's own code and name, and the address.
- *
- * Two directions, because documents get it wrong in two directions. A notice
- * writes more than the name ("EMPTY RETURN: CWT TUAS YARD"), so the name has
- * to be findable inside the text. And a notice writes less than the name
- * ("22 Pioneer Sector 2" against a master address that carries the postcode),
- * so the text has to be findable at the start of the name. Only at the start:
- * "Tuas" appears in the middle of half this list and matches nothing useful.
- *
- * The longest match wins, so "CWT" does not answer a document that said
- * "CWT1" and send a driver to the wrong end of the island.
- *
- * Returns null rather than a guess, and that includes a match that lands on
- * more than one gate: "Eng Kong" names four depots and answering with any one
- * of them is a coin flip with a container on it. Operations correct this field
- * by hand, so an empty one costs a moment and a wrong one costs a trip.
+ * The names a document might be using for a gate, ranked by how good the
+ * evidence is. Shared by the two questions below, which differ only in how
+ * much agreement they demand of the answer.
  */
-export function matchYard(printed: string | null | undefined):
-  { yard: Yard; site: YardSite } | null {
+function rank(printed: string | null | undefined): {
+  candidates: { name: string; needle: string; yard: Yard; site: YardSite }[];
+} {
   const text = flatten(String(printed ?? ''));
-  if (!text) return null;
+  if (!text) return { candidates: [] };
 
-  const candidates = YARD_SITES.flatMap(({ yard, site }) => [
+  const all = YARD_SITES.flatMap(({ yard, site }) => [
     ...(site.alsoKnownAs ?? []).map((name) => ({ name, yard, site })),
     { name: site.code, yard, site },
     { name: site.address ?? '', yard, site },
@@ -201,15 +186,13 @@ export function matchYard(printed: string | null | undefined):
     // A name inside the text, or the text at the head of a name. Both floors
     // exist to stop a fragment deciding: "CC" is two letters and appears in
     // plenty of prose, and a four-letter opening like "TUAS" opens several of
-    // these addresses.
-    // An exact name is always evidence, however short: "CC" is Container
-    // Connection's whole code. The floors below only govern partial matches.
+    // these addresses. An exact name is always evidence, however short.
     const hit = needle === text
       || (needle.length >= 3 && text.includes(needle))
       || (text.length >= 5 && needle.startsWith(text));
     return hit ? [{ ...c, needle }] : [];
   });
-  if (!candidates.length) return null;
+  if (!all.length) return { candidates: [] };
 
   // Three kinds of evidence, strongest first, because more text matched is not
   // the same as better matched.
@@ -226,28 +209,61 @@ export function matchYard(printed: string | null | undefined):
   // the text is better evidence than a whole name that explains a seventh of
   // it. Within `inside`, the longest name wins, so "CWT" cannot answer a
   // document that said "CWT1".
-  const exact = candidates.filter((c) => c.needle === text);
-  const prefix = candidates.filter((c) => c.needle !== text && c.needle.startsWith(text));
-  const inside = candidates.filter((c) => c.needle !== text && text.includes(c.needle));
+  const exact = all.filter((c) => c.needle === text);
+  const prefix = all.filter((c) => c.needle !== text && c.needle.startsWith(text));
+  const inside = all.filter((c) => c.needle !== text && text.includes(c.needle));
 
-  const longest = (group: typeof candidates) => {
-    const most = Math.max(...group.map((c) => c.needle.length));
-    return group.filter((c) => c.needle.length === most);
-  };
+  if (exact.length) return { candidates: exact };
+  // Every prefix hit explains exactly as much of the text as every other, so
+  // they are weighed together rather than by name length: the longest name is
+  // the one with the most left unmatched, not the best fit.
+  if (prefix.length) return { candidates: prefix };
+  if (!inside.length) return { candidates: [] };
+  const most = Math.max(...inside.map((c) => c.needle.length));
+  return { candidates: inside.filter((c) => c.needle.length === most) };
+}
 
-  const best = exact.length ? exact
-    // Every prefix hit explains exactly as much of the text as every other, so
-    // they are weighed together rather than by name length: the longest name
-    // is the one with the most left unmatched, not the best fit.
-    : prefix.length ? prefix
-    : inside.length ? longest(inside)
-    : [];
-  if (!best.length) return null;
-
-  const first = best[0]!;
-  return best.every((c) => c.site === first.site)
+/**
+ * Which yard and gate a document is naming.
+ *
+ * Matched on every name a gate goes by — its code, the codes it is also
+ * written as, the yard's own code and name, and the address — in both
+ * directions, because documents get it wrong in both. A notice writes more
+ * than the name ("EMPTY RETURN TO CWT TUAS") and it writes less ("22 Pioneer
+ * Sector 2" against a master address carrying the postcode).
+ *
+ * Returns null rather than a guess, and that includes a match that lands on
+ * more than one gate: "Eng Kong" names four depots and answering with any one
+ * of them is a coin flip with a container on it. Operations correct this field
+ * by hand, so an empty one costs a moment and a wrong one costs a trip.
+ */
+export function matchYard(printed: string | null | undefined):
+  { yard: Yard; site: YardSite } | null {
+  const { candidates } = rank(printed);
+  const first = candidates[0];
+  if (!first) return null;
+  return candidates.every((c) => c.site === first.site)
     ? { yard: first.yard, site: first.site }
     : null;
+}
+
+/**
+ * Which yard a document is naming, when the gate does not matter.
+ *
+ * "ENG KONG YARD (EK)" is refused by `matchYard` and rightly so — it does not
+ * say which of four gates, and a driver needs one. But it says perfectly
+ * clearly which yard, and some things are true of the yard rather than of the
+ * gate: the depot handling charge is one figure for Eng Kong, not four.
+ *
+ * So this asks the easier question and answers it where `matchYard` correctly
+ * refuses the harder one. Still null when the name lands on two different
+ * yards, which is a real ambiguity rather than a level-of-detail one.
+ */
+export function matchYardOnly(printed: string | null | undefined): Yard | null {
+  const { candidates } = rank(printed);
+  const first = candidates[0];
+  if (!first) return null;
+  return candidates.every((c) => c.yard === first.yard) ? first.yard : null;
 }
 
 /** How a gate is written on screen: the yard, then which of its gates. */

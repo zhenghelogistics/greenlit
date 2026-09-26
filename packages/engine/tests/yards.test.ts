@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { YARDS, YARD_SITES, matchYard, yardLabel } from '../src/yards.ts';
+import { YARDS, YARD_SITES, matchYard, matchYardOnly, yardLabel } from '../src/yards.ts';
 
 test('every yard operations listed is here', () => {
   assert.equal(YARDS.length, 15);
@@ -109,4 +109,19 @@ test('no rates are modelled', () => {
   // maintains, read by nothing, wrong by the time it mattered.
   const asText = JSON.stringify(YARDS);
   assert.doesNotMatch(asText, /rate|price|charge|\$/i);
+});
+
+test('a yard can be named without naming a gate', () => {
+  // The rate book charges one depot handling fee for Eng Kong, not four, so
+  // "ENG KONG YARD (EK)" is a complete answer to the question it is asking.
+  // matchYard still refuses it, because a driver needs the gate.
+  assert.equal(matchYardOnly('ENG KONG YARD (EK)')?.code, 'EK');
+  assert.equal(matchYard('ENG KONG YARD (EK)'), null);
+
+  assert.equal(matchYardOnly('ALLIED YARD (A), (TBL)')?.code, 'A');
+  assert.equal(matchYardOnly('CWT YARD')?.code, 'CWT');
+
+  // A gate still names its yard, and a yard nobody knows is still nobody's.
+  assert.equal(matchYardOnly('CWT1')?.code, 'CWT');
+  assert.equal(matchYardOnly('SOME DEPOT NOBODY USES'), null);
 });

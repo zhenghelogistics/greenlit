@@ -46,7 +46,7 @@ import ZhtNewJob from "./components/ZhtNewJob.jsx";
 import ZhtController from "./components/ZhtController.jsx";
 import {
   ZhtJobs, ZhtPlanning, ZhtDrivers, ZhtChassis, ZhtBilling,
-  ZhtEmptyReturns, ZhtSearchResults, ZhtCustomers, ZhtCustomerDetail,
+  ZhtEmptyReturns, ZhtSearchResults, ZhtCustomers, ZhtCustomerDetail, ZhtYardRates,
 } from "./components/ZhtScreens.jsx";
 import { lastFreeDayFromEta, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
 import { validateContainerCount } from "@greenlit/engine";
@@ -4930,6 +4930,7 @@ export default function GreenlitControlTower() {
     { id: "fleet", label: "Chassis Master", count: fleet.loaded ? fleet.available.length : null, icon: Container },
     { id: "emptyReturns", label: "Empty Returns", count: null, icon: Undo2 },
     { id: "companies", label: "Customer Master", count: null, icon: Building2 },
+    { id: "yardRates", label: "Yard Rates", count: null, icon: Receipt },
     { id: "billing", label: "Billing Ready", count: null, icon: Receipt },
     { id: "people", label: "People", count: null, icon: UserRound },
   ];
@@ -5088,6 +5089,7 @@ export default function GreenlitControlTower() {
       {current === "actions" && source === "engine" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}
       {current === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onApplyBatch={applyDocumentFor} onOpenJob={(job) => openJob(job.id)} /> : null}
       {current === "people" ? <People /> : null}
+      {current === "yardRates" ? <ZhtYardRates /> : null}
       {current === "companies" ? (
         <ZhtCustomers onOpenCustomer={(code) => { setSelectedCompany(code); setScreen("company"); }} />
       ) : null}
