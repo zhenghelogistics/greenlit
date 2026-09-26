@@ -41,3 +41,9 @@ next-env.d.ts
 # Screens bundled for the render tests. Rebuilt by tests/build-screens.mjs on
 # every run, so it is always derived and never a source of truth.
 greenlit-site/.test-build/
+
+# Operations workbooks. Rate cards and customer pricing: read to build the
+# masters, never committed. The facts taken out of them live in the engine
+# and in scripts/, which is reviewable; the prices are not ours to publish.
+*.xlsx
+*.xls
