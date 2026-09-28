@@ -44,6 +44,7 @@ import ZhtDashboard from "./components/ZhtDashboard.jsx";
 import ZhtJobDetail from "./components/ZhtJobDetail.jsx";
 import ZhtNewJob from "./components/ZhtNewJob.jsx";
 import ZhtController from "./components/ZhtController.jsx";
+import ZhtReportProblem from "./components/ZhtReportProblem.jsx";
 import {
   ZhtJobs, ZhtPlanning, ZhtDrivers, ZhtChassis, ZhtBilling,
   ZhtEmptyReturns, ZhtSearchResults, ZhtCustomers, ZhtCustomerDetail, ZhtYardRates, ZhtReports,
@@ -5194,6 +5195,10 @@ export default function GreenlitControlTower() {
           </form>
 
           <div className="topbar-actions">
+            {/* On every screen, because a fault is found by whoever happens to
+                be looking at it, and a form somewhere else is one nobody walks
+                to. It carries the screen and the job with it. */}
+            <ZhtReportProblem screen={current} job={selectedJob ?? null} />
             <LastUpdated at={lastLoaded} stale={source === "offline"} />
             <ThemeToggle />
             <ActingUser />
