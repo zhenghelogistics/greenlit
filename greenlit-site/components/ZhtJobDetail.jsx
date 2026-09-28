@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { SectionNav } from "./ZhtNewJob.jsx";
 import { IMPORT_CONTAINER_STATUS, EXPORT_JOB_STATUS, DATE_AMENDMENT_REASON } from "@greenlit/engine";
 
 /**
@@ -567,6 +568,8 @@ export default function ZhtJobDetail({
 }) {
   /** Opened by the journey's closing step, and by hand otherwise. */
   const [showClosing, setShowClosing] = useState(false);
+  /** Which of the creation form's sections is open. Same ids, same order. */
+  const [tab, setTab] = useState("sec-customer");
   /** §42. Brings the notification form into view from the journey's step. */
   const [showNotify, setShowNotify] = useState(false);
 
@@ -593,16 +596,43 @@ export default function ZhtJobDetail({
   const flow = flowFor(job.type);
   const stepIndex = Math.max(0, flow.indexOf(container.status ?? container.state));
 
-  const shipment = [
+  // Split exactly as the creation form splits it, and named as it names them.
+  // Operations filled in Customer & delivery, Shipment, Containers and Permit,
+  // then opened the saved job and found Document readiness, Controller
+  // handover and Where this job is — the same job under a different mental
+  // model, with nothing in the place they put it.
+  // The creation form's sections, named and ordered as it names and orders
+  // them, and counted the same way: import has four, export has three because
+  // export creation has three. The outstanding flag is what the form uses to
+  // mark a section as still needing something.
+  const sections = [
+    { id: "sec-customer", label: "Customer & delivery", outstanding: !job.deliveryAddress },
+    {
+      id: "sec-shipment", label: "Shipment",
+      outstanding: (job.missingInformation ?? []).length > 0,
+    },
+    {
+      id: "sec-containers", label: "Containers",
+      outstanding: containers.some((c) => (c.handoverGaps ?? []).length > 0),
+    },
+    ...(job.permitRequired
+      ? [{ id: "sec-permit", label: "Permit", outstanding: !job.permitReceived }]
+      : []),
+  ];
+
+  const customerAndDelivery = [
     ["Customer", job.customer],
+    ["Delivery Address", job.deliveryAddress],
+    ["Terminal", job.terminal],
+  ];
+
+  const shipment = [
     ["Type", job.type],
     ["Master B/L", job.billOfLading],
     ["House B/L", job.houseBillOfLading],
     ["Booking", job.booking],
     ["Vessel / Voyage", job.vessel],
     ["ETA", formatDay(job.eta)],
-    ["Terminal", job.terminal],
-    ["Delivery Address", job.deliveryAddress],
     ["Empty Yard", job.emptyYard],
     // Export only. Import has no CMS — operations were explicit that it should
     // not appear there at all, and a field showing "Pending" forever is one
@@ -784,6 +814,54 @@ export default function ZhtJobDetail({
             )}
           </div>
 
+          {/* The same four tabs, in the same order, under the same names as the
+              form that made this job. Operations filled in Customer & Delivery,
+              Shipment Details, Container Details and Permit, opened the saved
+              job, and found a different set of panels with nothing in the place
+              they had just put it. Export has three, because export creation
+              has three.
+
+              The panels above this stay where they are: readiness, handover and
+              the journey are the job's state, not the information somebody
+              typed, and they are what a controller opens the screen to read. */}
+          <SectionNav sections={sections} current={tab} onJump={setTab} />
+
+          {tab === "sec-customer" ? (
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div className="section-title">Customer &amp; delivery</div>
+            <div className="fieldgrid">
+              {customerAndDelivery.map(([label, value]) =>
+                <Field key={label} label={label} value={value} />)}
+            </div>
+            {job.deliveryAddress ? (
+              <div className="stop" style={{ marginTop: 10 }}>
+                <b>Stop 1</b><br />{job.deliveryAddress}
+                <br /><span className="muted">{job.terminal || ""}</span>
+              </div>
+            ) : <span className="muted">No delivery address recorded.</span>}
+            <button className="btn secondary" type="button" style={{ marginTop: 10 }}
+              onClick={() => onManage("job")}>Edit customer &amp; delivery</button>
+          </div>
+          ) : null}
+
+          {tab === "sec-shipment" ? (
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div className="section-title">Shipment details</div>
+            <div className="fieldgrid">
+              {shipment.map(([label, value]) => <Field key={label} label={label} value={value} />)}
+            </div>
+            {job.missingInformation?.length ? (
+              <div className="muted" style={{ marginTop: 10 }}>
+                Still required: {job.missingInformation.join(", ")}
+              </div>
+            ) : null}
+            <button className="btn secondary" type="button" style={{ marginTop: 10 }}
+              onClick={() => onManage("job")}>Edit shipment details</button>
+          </div>
+          ) : null}
+
+          {tab === "sec-containers" ? (
+            <>
           {/* Open, because which container you are looking at changes every
               panel under it. The tabs are the second question a controller
               asks after "what do I do next". */}
@@ -794,7 +872,7 @@ export default function ZhtJobDetail({
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <button className="btn secondary" type="button" onClick={() => onManage("container")}>
-                  Edit Container
+                  Edit container details
                 </button>
                 <button className="btn ghost" type="button"
                   onClick={() => onManage("container", { mode: "new" })}>
@@ -863,22 +941,12 @@ export default function ZhtJobDetail({
               ))}
             </div>
           </div>
+            </>
+          ) : null}
 
-          <Drawer title="Shipment" count={job.missingInformation?.length ?? 0}>
-            <div className="fieldgrid">
-              {shipment.map(([label, value]) => <Field key={label} label={label} value={value} />)}
-            </div>
-            {job.missingInformation?.length ? (
-              <div className="muted" style={{ marginTop: 10 }}>
-                Still required: {job.missingInformation.join(", ")}
-              </div>
-            ) : null}
-            <button className="btn secondary" type="button" style={{ marginTop: 10 }}
-              onClick={() => onManage("job")}>Edit Shipment</button>
-          </Drawer>
-
-          {job.permitRequired ? (
-            <Drawer title="Shipment Permits" count={job.permitReceived ? 0 : 1}>
+          {tab === "sec-permit" && job.permitRequired ? (
+            <div className="card" style={{ marginBottom: 12 }}>
+              <div className="section-title">Permit</div>
               <div className="muted" style={{ marginBottom: 8 }}>
                 {job.permitReceived
                   ? "Permit recorded for this shipment."
@@ -889,19 +957,12 @@ export default function ZhtJobDetail({
                   that does not exist — which opened empty and could only be
                   cancelled. */}
               {permitPanel}
-            </Drawer>
+              <button className="btn secondary" type="button" style={{ marginTop: 10 }}
+                onClick={() => onManage("job")}>Edit permit</button>
+            </div>
           ) : null}
 
           <DateAmendments jobId={job.apiId} eta={job.eta} />
-
-          <Drawer title="Delivery Stops" count={job.deliveryAddress ? 1 : 0}>
-            {job.deliveryAddress ? (
-              <div className="stop">
-                <b>Stop 1</b><br />{job.deliveryAddress}
-                <br /><span className="muted">{job.terminal || ""}</span>
-              </div>
-            ) : <span className="muted">No delivery address recorded.</span>}
-          </Drawer>
 
           <Drawer title="Job Activity Log" count={(job.activity ?? []).length}>
             {(job.activity ?? []).length ? job.activity.map((item) => (
@@ -933,7 +994,7 @@ export default function ZhtJobDetail({
               onClick={() => onManage("source")}>Open source document</button>
           </Drawer>
 
-          <Drawer title="Permits, documents, free time and closure" open={showClosing}>
+          <Drawer title="Documents, trips and closure" open={showClosing}>
             {extras}
           </Drawer>
         </section>

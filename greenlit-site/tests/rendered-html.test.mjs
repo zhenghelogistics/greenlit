@@ -78,7 +78,7 @@ test("ships the document-intake contract", async () => {
   // pinning is that the screen still reaches each capability, so each one is
   // asserted where it now lives and in his wording.
   assert.match(jobDetail, /Add Container/);
-  assert.match(jobDetail, /Edit Container/);
+  assert.match(jobDetail, /Edit container details/);
   assert.match(jobDetail, /Movements/);
   assert.match(jobDetail, /Job Activity Log/);
   assert.match(jobDetail, /nextAction/,

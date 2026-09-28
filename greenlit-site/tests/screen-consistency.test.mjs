@@ -111,6 +111,25 @@ function branches(condition) {
   return out;
 }
 
+test("a saved job is organised the way the form that made it was", () => {
+  // Operations filled in Customer & delivery, Shipment, Containers and Permit,
+  // opened the saved job, and found a different set of panels with nothing in
+  // the place they had just put it — and so nothing they could find to correct.
+  //
+  // Both screens now build their tab bar from a list of the same shape, so the
+  // check is that the two lists agree: same ids, same labels, same order.
+  const sectionsIn = (source) =>
+    [...source.matchAll(/id: "(sec-[a-z]+)", label: "([^"]+)"/g)]
+      .map((m) => `${m[1]}: ${m[2]}`);
+
+  const creation = sectionsIn(sources.get("components/ZhtNewJob.jsx"));
+  const detail = sectionsIn(sources.get("components/ZhtJobDetail.jsx"));
+
+  assert.ok(creation.length >= 4, "expected the creation form's sections to be found");
+  assert.deepEqual(detail, creation,
+    "the saved job shows different sections from the form that made it");
+});
+
 test("an action only one domain has is only offered to that domain", () => {
   // "Record CMS completed" was gated on `!job.cmsCompleted` alone, which is
   // true of every import forever, while the two branches beside it checked the

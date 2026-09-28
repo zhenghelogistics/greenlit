@@ -5145,7 +5145,12 @@ export default function GreenlitControlTower() {
                   were being handed a whole `job` and an `onManage` they do not
                   accept, so TripTable read `trips.length` off undefined and
                   took the screen down with it. */}
-              <FreeTimePanel container={(selectedJob.containers ?? [])[containerIndex] ?? (selectedJob.containers ?? [])[0]} />
+              {/* Demurrage and detention are the import clock. Operations
+                  found "Confirm free time and rate" offered on an export
+                  container, where there is no free time to confirm. */}
+              {selectedJob.type === "Import" ? (
+                <FreeTimePanel container={(selectedJob.containers ?? [])[containerIndex] ?? (selectedJob.containers ?? [])[0]} />
+              ) : null}
               <DocumentsPanel jobId={selectedJob.apiId} />
               <TripTable
                 trips={selectedJob.trips ?? []}
