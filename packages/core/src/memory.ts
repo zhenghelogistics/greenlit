@@ -159,6 +159,7 @@ const mv = (o: Partial<Movement> & Pick<Movement, 'movementId' | 'movementRef' |
 const IMPORT_JOBS: ImportJob[] = [
   {
     jobId: 'ij1', jobNumber: 'JOB-260818-001',
+    deliveryInstructions: null,
     carrier: null, customer: 'ABC Company',
     blNumber: 'ABC123456', houseBlNumber: null, vesselName: 'Vessel XYZ', voyageNumber: '123E',
     eta: '2026-08-20', jobType: 'standard', deliveryAddress: '12 Tuas Ave 8',
@@ -171,6 +172,7 @@ const IMPORT_JOBS: ImportJob[] = [
   },
   {
     jobId: 'ij2', jobNumber: 'JOB-260816-004',
+    deliveryInstructions: null,
     carrier: null, customer: 'Lion City Traders',
     blNumber: 'BL778812', houseBlNumber: 'HBL-99120', vesselName: 'Kota Ratu', voyageNumber: '044W',
     eta: '2026-08-16', jobType: 'standard', deliveryAddress: '3 Pioneer Sector 2',
@@ -224,6 +226,7 @@ const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
 const EXPORT_JOBS: ExportJob[] = [
   {
     exportJobId: 'ej1', jobNumber: 'EXP-260818-002',
+    deliveryInstructions: null,
     handedOverAt: null, handedOverBy: null, customer: 'ABC Pte Ltd',
     shipper: 'XYZ Manufacturing', bookingReference: 'SGSIN12345',
     exportClearanceReference: 'OP-260818-77', carrier: 'ONE',
@@ -241,6 +244,7 @@ const EXPORT_JOBS: ExportJob[] = [
   /** §58.3 — the exception path: empty delivered, identity never captured. */
   {
     exportJobId: 'ej2', jobNumber: 'EXP-260819-002',
+    deliveryInstructions: null,
     handedOverAt: null, handedOverBy: null, customer: 'Meridian Freight',
     shipper: 'Meridian Freight', bookingReference: 'SGSIN99120',
     exportClearanceReference: 'OP-260819-12', carrier: 'PIL',
@@ -258,6 +262,7 @@ const EXPORT_JOBS: ExportJob[] = [
   /** Awaiting CMS: the gate §41 exists to enforce. */
   {
     exportJobId: 'ej3', jobNumber: 'EXP-260819-001',
+    deliveryInstructions: null,
     handedOverAt: null, handedOverBy: null, customer: 'Straits Cargo',
     shipper: 'Straits Cargo', bookingReference: 'SGSIN44021',
     exportClearanceReference: 'OP-260819-03', carrier: 'ONE',
@@ -578,6 +583,7 @@ export function createMemoryRepository(): Repository {
       const jobId = jobNumber.toLowerCase();
 
       const job: ImportJob = {
+        deliveryInstructions: draft.deliveryInstructions ?? null,
         // §34. Which line, so the engine can say where the last free day and
         // the return yard are looked up for it.
         carrier: draft.carrier ?? null,
@@ -669,6 +675,7 @@ export function createMemoryRepository(): Repository {
       const quantity = Math.max(1, draft.containerQuantity ?? 1);
 
       const job: ExportJob = {
+        deliveryInstructions: draft.deliveryInstructions ?? null,
         handedOverAt: null, handedOverBy: null,
         closedAt: null, closedBy: null,
         exportJobId: jobId, jobNumber, customer: customer.companyName,

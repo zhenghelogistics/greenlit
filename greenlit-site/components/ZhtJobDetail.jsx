@@ -637,6 +637,11 @@ export default function ZhtJobDetail({
     ["Customer", job.customer],
     ["Delivery Address", job.deliveryAddress],
     ["Terminal", job.terminal],
+    // §9.3. For this job only. The site's own standing instructions live on
+    // the customer's address and are not shown here as if they were this
+    // job's, because a controller acting on the wrong one goes to the wrong
+    // gate at the right address.
+    ["Just for this job", job.deliveryInstructions || "None"],
   ];
 
   const shipment = [

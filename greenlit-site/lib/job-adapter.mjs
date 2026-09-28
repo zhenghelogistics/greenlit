@@ -44,6 +44,9 @@ export function jobFromApi(view) {
     // The detail screen renders these directly. They were never produced here,
     // so "Bill of lading" read "Not recorded" on every job that had one.
     carrier: r.carrier ?? "",
+    // §9.3. For this job only. The site's standing instructions are separate
+    // and live on the customer's address.
+    deliveryInstructions: r.deliveryInstructions ?? "",
     billOfLading: r.blNumber ?? "",
     houseBillOfLading: r.houseBlNumber ?? "",
     vessel: [r.vesselName, r.voyageNumber].filter(Boolean).join(" / "),

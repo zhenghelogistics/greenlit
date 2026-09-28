@@ -512,6 +512,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
       ? {
           customerCode: job.customerCode,
           carrier: job.carrier || null,
+          deliveryInstructions: job.deliveryInstructions || null,
           blNumber: shout(job.blNumber) || null,
           houseBlNumber: shout(job.houseBlNumber) || null,
           vesselName: shout(job.vesselName) || null,
@@ -548,6 +549,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
           voyageNumber: shout(job.voyageNumber) || null,
           etaSingapore: when(job.emptyCollectionDate, job.emptyCollectionTime),
           emptyCollectionYard: shout(job.emptyCollectionYard) || null,
+          deliveryInstructions: job.deliveryInstructions || null,
           containerQuantity: slots.reduce((n, s) => n + Number(s.quantity || 0), 0),
           // The lines themselves, so a mixed booking keeps its sizes. Only the
           // total and the first size were sent, and every container was made

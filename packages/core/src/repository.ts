@@ -716,6 +716,7 @@ export interface JobAmendment {
    * other so the reason it was turned off is answerable later.
    */
   permitRequired?: boolean;
+  deliveryInstructions?: string | null;
   blNumber?: string | null;
   houseBlNumber?: string | null;
   vesselName?: string | null;
@@ -799,6 +800,9 @@ export interface ImportContainerDraft {
 }
 
 export interface ImportJobDraft {
+  /** §9.3. Instructions for this job's delivery only, never written back. */
+  deliveryInstructions?: string | null;
+
   /** §34. The shipping line, as a code from the carrier master. */
   carrier?: string | null;
   customerCode: string;
@@ -835,6 +839,9 @@ export interface ExportSlot {
 }
 
 export interface ExportJobDraft {
+  /** §9.3. Instructions for this job's delivery only, never written back. */
+  deliveryInstructions?: string | null;
+
   /**
    * The booking's size lines, each with its own quantity.
    *

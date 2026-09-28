@@ -2752,6 +2752,7 @@ function initialDrawerDraft(panel, job) {
     voyage: job.voyageNumber || "",
     deliveryAddress: job.deliveryAddress || "",
     operatingLocation: job.type === "Import" ? job.terminal || "" : job.emptyYard || "",
+    deliveryInstructions: job.deliveryInstructions || "",
   };
   if (panel.type === "checkpoint" && job) return {
     value: panel.key === "transhipment" ? job.transhipment || "pending" : panel.key === "deliveryPath" ? (job.carparkRequested ? "carpark" : "other") : Boolean(job[panel.key]),
@@ -2924,6 +2925,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                     reason recorded against it, which the date-changes panel on
                     the job screen asks for. */}
                 <DrawerField label={job.type === "Import" ? "Discharging terminal" : "Empty collection yard"}><input required value={draft.operatingLocation || ""} onChange={(event) => update("operatingLocation", event.target.value)} className={drawerInputClass} /></DrawerField>
+                <DrawerField label="Just for this job" hint="Only this delivery. The site's standing instructions are on the customer master and are not changed here."><textarea rows={2} value={draft.deliveryInstructions || ""} onChange={(event) => update("deliveryInstructions", event.target.value)} className={drawerInputClass} /></DrawerField>
                 <DrawerField label="Customer delivery address"><textarea required rows={3} value={draft.deliveryAddress || ""} onChange={(event) => update("deliveryAddress", event.target.value)} className={drawerInputClass} /></DrawerField>
                   </>
                 ) : null}
@@ -4492,6 +4494,7 @@ export default function GreenlitControlTower() {
               ? { blNumber: draft.booking ?? null, houseBlNumber: draft.houseBillOfLading ?? null }
               : { bookingReference: draft.booking ?? null }),
             deliveryAddress: draft.deliveryAddress ?? null,
+            deliveryInstructions: draft.deliveryInstructions ?? null,
             // The same drawer field means the terminal on an import and the
             // collection yard on an export, because operationally it is the
             // same question: where does this container sit.

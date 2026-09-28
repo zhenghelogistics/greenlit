@@ -50,6 +50,7 @@ const mv = (o: Partial<Movement> = {}): Movement => ({
 });
 
 const importJob = (o: Partial<ImportJob> = {}): ImportJob => ({
+  deliveryInstructions: null,
   carrier: null,
   closedAt: null, closedBy: null,
   documentsCompletedAt: null, documentsCompletedBy: null,
@@ -79,6 +80,7 @@ const importContainer = (o: Partial<ImportContainer> = {}): ImportContainer => (
 });
 
 const exportJob = (o: Partial<ExportJob> = {}): ExportJob => ({
+  deliveryInstructions: null,
   handedOverAt: null, handedOverBy: null,
   closedAt: null, closedBy: null,
   emptyCollectionDate: null, emptyCollectionTime: null,

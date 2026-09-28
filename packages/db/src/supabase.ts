@@ -1306,6 +1306,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         house_bl_number: draft.houseBlNumber ?? null,
         // §34. Decides where the last free day and the return yard are found.
         carrier: draft.carrier ?? null,
+        delivery_instructions: draft.deliveryInstructions ?? null,
         vessel_name: draft.vesselName ?? null,
         voyage_number: draft.voyageNumber ?? null,
         eta: draft.eta ?? null,
@@ -1392,6 +1393,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         vessel_closing_at: draft.vesselClosingAt ?? null,
         empty_collection_yard: draft.emptyCollectionYard ?? null,
         cms_required: draft.cmsRequired ?? true,
+        delivery_instructions: draft.deliveryInstructions ?? null,
         container_quantity: quantity,
         container_size_type: draft.containerSizeType ?? null,
         truck_in_date: draft.truckInDate ?? null,

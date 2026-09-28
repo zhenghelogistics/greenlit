@@ -186,6 +186,16 @@ export interface ImportContainer {
 /** §28 */
 export interface ImportJob {
   /**
+   * Delivery instructions for this job only.
+   *
+   * The site's own standing instructions live on the customer's address and
+   * are true of the place. This is the one true of this trip — "closed
+   * Thursday this week", "ask for Ravi" — and is deliberately never written
+   * back, because a note meant for one delivery must not quietly become
+   * permanent.
+   */
+  deliveryInstructions: string | null;
+  /**
    * The shipping line, as a code from the carrier master.
    *
    * Asked for at creation on both directions and stored on exports only until
@@ -291,6 +301,16 @@ export interface ExportContainer {
 
 /** §38.1. The commercial header. Container detail lives on ExportContainer. */
 export interface ExportJob {
+  /**
+   * Delivery instructions for this job only.
+   *
+   * The site's own standing instructions live on the customer's address and
+   * are true of the place. This is the one true of this trip — "closed
+   * Thursday this week", "ask for Ravi" — and is deliberately never written
+   * back, because a note meant for one delivery must not quietly become
+   * permanent.
+   */
+  deliveryInstructions: string | null;
   /**
    * When operations passed this job to the controller, and who.
    *

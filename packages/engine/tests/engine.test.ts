@@ -19,6 +19,7 @@ const movement = (over: Partial<Movement>): Movement => ({
 });
 
 const importJob = (over: Partial<ImportJob> = {}): ImportJob => ({
+  deliveryInstructions: null,
   carrier: null,
   closedAt: null, closedBy: null,
   documentsCompletedAt: null, documentsCompletedBy: null,
@@ -31,6 +32,7 @@ const importJob = (over: Partial<ImportJob> = {}): ImportJob => ({
 });
 
 const exportJob = (over: Partial<ExportJob> = {}): ExportJob => ({
+  deliveryInstructions: null,
   handedOverAt: null, handedOverBy: null,
   closedAt: null, closedBy: null,
   emptyCollectionDate: null, emptyCollectionTime: null,

@@ -102,6 +102,7 @@ test('§20: truck and driver are required only to reach ASSIGNED', () => {
 // ---- §22 automatic creation ----
 
 const importJob: ImportJob = {
+  deliveryInstructions: null,
   carrier: null,
   closedAt: null, closedBy: null,
   documentsCompletedAt: null, documentsCompletedBy: null,
@@ -161,6 +162,7 @@ test('§22: three movement types are never auto-created', () => {
 });
 
 const exportJob: ExportJob = {
+  deliveryInstructions: null,
   handedOverAt: null, handedOverBy: null,
   closedAt: null, closedBy: null,
   emptyCollectionDate: null, emptyCollectionTime: null,
