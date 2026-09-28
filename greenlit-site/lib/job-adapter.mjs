@@ -173,6 +173,8 @@ export function jobFromApi(view) {
       // §54. The gate itself, decided by the engine. The screen used to work
       // it out from the two lists above, and read "handed over" as a truthy
       // timestamp — which a blank string satisfies.
+      // §54. Whether the box is the controller's yet. The board shows only
+      // handed-over imports, so an absent value must read as not handed over.
       handedOver: view.containers?.[i]?.handedOver ?? false,
       readyForHandover: view.containers?.[i]?.readyForHandover ?? false,
       // The controller's four piles, and the two facts behind them.

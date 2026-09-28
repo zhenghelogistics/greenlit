@@ -31,8 +31,22 @@ const day = (v) => {
  */
 export function controllerQueues(jobs) {
   const containersOf = (job) => (job.containers ?? []).map((c) => ({ job, c }));
-  const all = jobs.flatMap(containersOf);
   const iso = today();
+
+  // An import container reaches this board when it has been handed over, and
+  // not before. Handover is the moment operations say the paperwork is done
+  // and the box becomes the controller's problem; until then it is on the
+  // operations screens and showing it here is showing work to somebody who
+  // cannot yet act on it.
+  //
+  // It was not filtered at all. A job at 0/2 handed over put both its boxes on
+  // this board, one of them offering Plan and Delivered while its permit was
+  // still missing. Operations found it on 28 September 2026.
+  //
+  // Exports are not handed over — there is no import paperwork to finish — so
+  // the filter applies to imports only.
+  const all = jobs.flatMap(containersOf)
+    .filter(({ job, c }) => job.type !== "Import" || c.handedOver);
 
   return {
     // The four import piles, read off the stage the engine derived rather than

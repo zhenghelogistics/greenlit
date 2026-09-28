@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   defaultLocation, doubleMountingProblem, selectableLocations,
   freeTimeCountdown,
-  appearsOnSchedule, canCollect, canCollectEmpty, canComplete, canCreateMovement,
+  appearsOnSchedule, canCollect, canHandOver, canCollectEmpty, canComplete, canCreateMovement,
   canEnterStandby, canSendContainerDetails, canStartLaden, canTransition, exportContainerStatus,
   importJobStatus, isVgmPlausible, nextMovementRef, planExportMovements,
   planImportMovements, detectImportExceptions, MOVEMENT_TYPE, USER_SETTABLE_STATUS,
@@ -467,11 +467,16 @@ const RULES: Rule[] = [
     } },
 
   // ---------- Import ----------
-  { id: 'I-21', text: 'No collection until mandatory information, permit and Portnet are all satisfied',
+  { id: 'I-21', text: 'No collection until mandatory information, Portnet release and discharge are all satisfied; '
+      + 'the permit blocks handover instead (departure from §57 I-21, settled 28 September 2026)',
     verify: () => {
-      assert.equal(canCollect(importJob({ permitReceived: false }), importContainer(), NO_FIELDS).passed, false);
-      assert.equal(canCollect(importJob({ portnetReleased: false }), importContainer(), NO_FIELDS).passed, false);
-      assert.equal(canCollect(importJob(), importContainer(), NO_FIELDS).passed, true);
+      const discharged = { ...importContainer(), dischargedAt: '2026-08-18T08:00:00Z' };
+      assert.equal(canCollect(importJob({ portnetReleased: false }), discharged, NO_FIELDS).passed, false);
+      assert.equal(canCollect(importJob(), importContainer(), NO_FIELDS).passed, false, 'not discharged');
+      assert.equal(canCollect(importJob(), discharged, NO_FIELDS).passed, true);
+      // What I-21 protects against is still impossible: the controller never
+      // receives a box whose required permit is missing.
+      assert.equal(canHandOver(importJob({ permitRequired: true }), importContainer(), []).passed, false);
     } },
   { id: 'I-22', text: 'A container number is unique across open jobs; reuse on a closed job is legitimate',
     verify: () => {

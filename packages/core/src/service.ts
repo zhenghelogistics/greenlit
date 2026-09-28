@@ -20,7 +20,16 @@ export const EXPORT_MANDATORY: MandatoryFieldSet = {
   fields: [
     'customer', 'shipper', 'bookingReference', 'exportClearanceReference',
     'vesselName', 'voyageNumber', 'etaSingapore', 'emptyCollectionYard',
-    'containerQuantity', 'containerSizeType', 'truckInDate', 'truckOutDate',
+    'containerQuantity', 'containerSizeType',
+    // truckInDate and truckOutDate were here and no screen has ever collected
+    // them — not the export creation form, not the edit drawer, nowhere. So
+    // every export job was permanently short of mandatory information and
+    // nothing a user could do would satisfy it. A gate no input can pass is
+    // not a gate, it is a wall.
+    //
+    // They remain on the record and are still amendable as dates; they are
+    // simply not a condition of the job being complete. If they should be,
+    // they need a field somebody can type into first.
   ],
 };
 

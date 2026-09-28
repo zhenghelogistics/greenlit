@@ -1,3 +1,4 @@
+import { canPlanCollection } from './controller-board.ts';
 import { fieldWords } from './field-words.ts';
 import type {
   ExportContainer, ExportJob, ImportContainer, ImportJob, MandatoryFieldSet,
@@ -49,18 +50,51 @@ export function mandatoryFieldsComplete(
  */
 export function canCollect(
   job: ImportJob,
-  _container: ImportContainer,
+  container: ImportContainer,
   mandatory: MandatoryFieldSet,
 ): GateResult {
   const missing = missingMandatoryFields(job as unknown as Record<string, unknown>, mandatory);
   const failures: string[] = [];
 
   if (missing.length > 0) failures.push(...missing.map((f) => `Missing: ${fieldWords(f)}`));
-  if (job.permitRequired && !job.permitReceived) failures.push('Permit has not been received');
-  if (job.portnetRequired && !job.portnetReleased) failures.push('Portnet release not confirmed');
+
+  // The same two conditions the controller board uses, asked through the same
+  // function, so the two cannot drift apart again.
+  //
+  // They had. This gate required a permit and ignored discharge; the board
+  // required discharge and ignored the permit. A job released and discharged
+  // with its permit outstanding was therefore told, on one screen, that
+  // collection was blocked, and offered a Plan button on the next. Operations
+  // found it on 28 September 2026 and ranked it P1, which is right: two
+  // answers about whether to send a truck is worse than either answer.
+  if (!canPlanCollection({
+    portnetReleased: !job.portnetRequired || job.portnetReleased,
+    dischargedAt: container.dischargedAt,
+    deliveredAt: null,
+    emptyReadyAt: null,
+  })) {
+    if (job.portnetRequired && !job.portnetReleased) {
+      failures.push('Portnet release not confirmed');
+    }
+    if (!container.dischargedAt) failures.push('Container has not been discharged');
+  }
 
   return failures.length === 0 ? pass : { passed: false, failures };
 }
+
+/**
+ * Why the permit is not here.
+ *
+ * A required permit blocks the *handover* — `canHandOver` refuses a container
+ * whose permit reference is missing, so the controller never receives the box
+ * in the first place. It is not a second collection condition, and making it
+ * one produced the contradiction above: the permit was checked twice on one
+ * path and never on the other.
+ *
+ * Operations were explicit on 28 September 2026: a permit may remain
+ * outstanding while collection is eligible, because release and discharge are
+ * what decide whether a truck can physically take the box.
+ */
 
 /**
  * §41. Export empty collection gate. Mandatory fields plus CMS.

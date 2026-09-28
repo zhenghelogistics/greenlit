@@ -57,15 +57,24 @@ test('CMS Not Required no longer satisfies the gate, end to end', async () => {
   assert.notEqual((await service.getJob('ej3'))?.jobStatus, 'Awaiting CMS');
 });
 
-test('§31: recording permit and Portnet moves an import job to Ready', async () => {
+test('§31: Portnet release and discharge move an import job to Ready', async () => {
+  // Changed on 28 September 2026 with the collection gate. The permit is no
+  // longer one of the two conditions — it blocks the handover instead — and
+  // discharge, which was never checked here at all, now is. A box still on the
+  // vessel cannot be collected whatever the paperwork says.
   const repo = createMemoryRepository();
   const service = new JobService(repo, at('2026-08-19T00:00:00Z'));
 
   const before = await service.getJob('ij1');
   assert.ok(['Awaiting Permit', 'Awaiting Portnet'].includes(String(before?.jobStatus)));
 
-  await repo.recordPermitReceived('ij1', 'PRM-1', 'sarah');
   await repo.recordPortnetReleased('ij1', 'sarah');
+  const released = await service.getJob('ij1');
+  assert.notEqual(released?.jobStatus, 'Ready for Collection', 'still on the vessel');
+
+  const containerId = released?.containers[0]?.containerId;
+  assert.ok(containerId);
+  await repo.recordDischarged(containerId!, 'sarah');
 
   const after = await service.getJob('ij1');
   assert.equal(after?.jobStatus, 'Ready for Collection');

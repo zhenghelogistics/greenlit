@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { canPlanCollection } from '../src/controller-board.ts';
 import assert from 'node:assert/strict';
 import { canCollect, canCollectEmpty, refuseEmptyCollection, canStartLaden, isVgmPlausible, missingMandatoryFields } from '../src/gates.ts';
 import { currentLocation, isLocationUnknown } from '../src/location.ts';
@@ -72,21 +73,72 @@ const importContainer = (): ImportContainer => ({
 
 const NO_FIELDS = { fields: [] as const };
 
-test('§31: collection blocked until permit and Portnet both satisfied', () => {
-  assert.equal(canCollect(importJob(), importContainer(), NO_FIELDS).passed, true);
+test('§31: collection blocked until Portnet release and discharge', () => {
+  // DEPARTURE FROM §31 and §57 I-21, settled by operations on 28 September 2026.
+  //
+  // Both specify the permit as a collection gate. Operations' review found
+  // that this produced two different answers about whether to send a truck:
+  // this gate checked the permit and ignored discharge, while the controller
+  // board checked discharge and ignored the permit, so a released and
+  // discharged job with an outstanding permit was told collection was blocked
+  // on one screen and offered a Plan button on the next.
+  //
+  // The permit is now a handover gate — `canHandOver` refuses a container
+  // whose permit reference is missing, so the controller never receives the
+  // box at all. What §31 protects against is therefore still impossible; it is
+  // prevented one step earlier and in one place.
+  //
+  // Discharge was never in this gate and is now, which is the other half of
+  // the correction: a box still on the vessel cannot be collected whatever the
+  // paperwork says.
+  const discharged = () => ({ ...importContainer(), dischargedAt: '2026-08-18T08:00:00Z' });
 
-  const noPermit = canCollect(importJob({ permitReceived: false }), importContainer(), NO_FIELDS);
-  assert.equal(noPermit.passed, false);
-  assert.deepEqual(noPermit.failures, ['Permit has not been received']);
+  assert.equal(canCollect(importJob(), discharged(), NO_FIELDS).passed, true);
 
-  const noPortnet = canCollect(importJob({ portnetReleased: false }), importContainer(), NO_FIELDS);
+  const notDischarged = canCollect(importJob(), importContainer(), NO_FIELDS);
+  assert.equal(notDischarged.passed, false);
+  assert.deepEqual(notDischarged.failures, ['Container has not been discharged']);
+
+  const noPortnet = canCollect(importJob({ portnetReleased: false }), discharged(), NO_FIELDS);
   assert.equal(noPortnet.passed, false);
   assert.deepEqual(noPortnet.failures, ['Portnet release not confirmed']);
+
+  // The permit no longer appears here at all.
+  const noPermit = canCollect(importJob({ permitReceived: false }), discharged(), NO_FIELDS);
+  assert.equal(noPermit.passed, true, 'a permit blocks handover, not collection');
+});
+
+test('§31: the collection gate and the board cannot disagree', () => {
+  // The regression this closes, and the reason canCollect asks the board's own
+  // function rather than repeating its two conditions. Every combination must
+  // give the same answer through both doors, because both doors are shown to
+  // the same person and one of them ends with a truck being sent.
+  for (const portnetReleased of [true, false]) {
+    for (const dischargedAt of ['2026-08-18T08:00:00Z', null]) {
+      const viaGate = canCollect(
+        importJob({ portnetReleased }), { ...importContainer(), dischargedAt }, NO_FIELDS);
+      const viaBoard = canPlanCollection({
+        portnetReleased, dischargedAt, deliveredAt: null, emptyReadyAt: null });
+      assert.equal(viaGate.passed, viaBoard,
+        `released=${portnetReleased} discharged=${dischargedAt} disagreed`);
+    }
+  }
+});
+
+test('a missing field is named in words, not as a property', () => {
+  // Operations were shown "truckInDate, truckOutDate" on a blocked export.
+  const gate = canCollect(
+    importJob({ deliveryAddress: null }),
+    { ...importContainer(), dischargedAt: '2026-08-18T08:00:00Z' },
+    { fields: ['deliveryAddress'] });
+  assert.match(gate.failures.join(' '), /delivery address/);
+  assert.doesNotMatch(gate.failures.join(' '), /deliveryAddress/);
 });
 
 test('§31: a not-required gate does not block', () => {
-  const job = importJob({ permitRequired: false, permitReceived: false });
-  assert.equal(canCollect(job, importContainer(), NO_FIELDS).passed, true);
+  const job = importJob({ permitRequired: false, permitReceived: false, portnetRequired: false });
+  const discharged = { ...importContainer(), dischargedAt: '2026-08-18T08:00:00Z' };
+  assert.equal(canCollect(job, discharged, NO_FIELDS).passed, true);
 });
 
 test('§41: CMS pending blocks empty collection, and names itself', () => {

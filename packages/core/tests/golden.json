@@ -16,8 +16,8 @@
         "location": "Terminal / Port of discharge",
         "gatePassed": false,
         "gateFailures": [
-          "Permit has not been received",
-          "Portnet release not confirmed"
+          "Portnet release not confirmed",
+          "Container has not been discharged"
         ]
       }
     ]
@@ -37,8 +37,10 @@
         "reference": "CSNU7213366",
         "status": "Empty Return Pending",
         "location": "Customer / Shipper",
-        "gatePassed": true,
-        "gateFailures": []
+        "gatePassed": false,
+        "gateFailures": [
+          "Container has not been discharged"
+        ]
       }
     ]
   },
