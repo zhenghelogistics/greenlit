@@ -741,6 +741,8 @@ export interface ImportContainerDraft {
 }
 
 export interface ImportJobDraft {
+  /** §34. The shipping line, as a code from the carrier master. */
+  carrier?: string | null;
   customerCode: string;
   /**
    * The containers the arrival notice named.

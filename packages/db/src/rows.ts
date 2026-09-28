@@ -40,6 +40,7 @@ export const toPrincipal = (r: Record<string, unknown>): Principal => ({
 });
 
 export const toImportJob = (r: Record<string, unknown>): ImportJob => ({
+  carrier: nn(r.carrier as string),
   // §33. Closure is a stored fact, so it comes back with the row.
   closedAt: nn(r.closed_at as string),
   closedBy: nn(r.closed_by as string),

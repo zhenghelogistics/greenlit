@@ -1224,6 +1224,8 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         customer_id: customer.customerId, customer: customer.companyName,
         bl_number: draft.blNumber ?? null,
         house_bl_number: draft.houseBlNumber ?? null,
+        // §34. Decides where the last free day and the return yard are found.
+        carrier: draft.carrier ?? null,
         vessel_name: draft.vesselName ?? null,
         voyage_number: draft.voyageNumber ?? null,
         eta: draft.eta ?? null,

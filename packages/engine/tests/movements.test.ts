@@ -102,6 +102,7 @@ test('§20: truck and driver are required only to reach ASSIGNED', () => {
 // ---- §22 automatic creation ----
 
 const importJob: ImportJob = {
+  carrier: null,
   closedAt: null, closedBy: null,
   documentsCompletedAt: null, documentsCompletedBy: null,
   jobId: 'j', jobNumber: 'JOB-1', customer: 'ABC', blNumber: 'BL', houseBlNumber: null, vesselName: 'V',

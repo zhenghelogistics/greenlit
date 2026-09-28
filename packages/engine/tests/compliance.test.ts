@@ -50,6 +50,7 @@ const mv = (o: Partial<Movement> = {}): Movement => ({
 });
 
 const importJob = (o: Partial<ImportJob> = {}): ImportJob => ({
+  carrier: null,
   closedAt: null, closedBy: null,
   documentsCompletedAt: null, documentsCompletedBy: null,
   jobId: 'j', jobNumber: 'JOB-260901-001', customer: 'ABC', blNumber: 'BL', houseBlNumber: null,

@@ -43,9 +43,14 @@ export function jobFromApi(view) {
     booking: r.bookingReference ?? r.blNumber ?? "",
     // The detail screen renders these directly. They were never produced here,
     // so "Bill of lading" read "Not recorded" on every job that had one.
+    carrier: r.carrier ?? "",
     billOfLading: r.blNumber ?? "",
     houseBillOfLading: r.houseBlNumber ?? "",
     vessel: [r.vesselName, r.voyageNumber].filter(Boolean).join(" / "),
+    // Separately as well, because the joined form is for reading and the edit
+    // drawer has to put them back into two fields.
+    vesselName: r.vesselName ?? "",
+    voyageNumber: r.voyageNumber ?? "",
     // §34.1 and the dashboard's arrival timeline both count from this, and it
     // is the one date a controller sorts the morning by. Import calls it `eta`
     // and export `etaSingapore`; the screen wants one field.

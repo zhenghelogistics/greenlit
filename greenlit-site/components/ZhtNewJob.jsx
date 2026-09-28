@@ -511,6 +511,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
     const draft = type === "IMPORT"
       ? {
           customerCode: job.customerCode,
+          carrier: job.carrier || null,
           blNumber: shout(job.blNumber) || null,
           houseBlNumber: shout(job.houseBlNumber) || null,
           vesselName: shout(job.vesselName) || null,

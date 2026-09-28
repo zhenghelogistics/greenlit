@@ -68,7 +68,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
  * ETA, and that has its own path.
  */
 const AMENDABLE = [
-  "blNumber", "houseBlNumber", "vesselName", "voyageNumber",
+  "carrier", "blNumber", "houseBlNumber", "vesselName", "voyageNumber",
   "deliveryAddress", "terminal", "emptyReturnYard",
   "shipper", "bookingReference", "exportClearanceReference",
   "emptyCollectionYard", "vesselClosingAt",

@@ -157,7 +157,8 @@ const mv = (o: Partial<Movement> & Pick<Movement, 'movementId' | 'movementRef' |
 /** §58.1 — import job awaiting its permit. */
 const IMPORT_JOBS: ImportJob[] = [
   {
-    jobId: 'ij1', jobNumber: 'JOB-260818-001', customer: 'ABC Company',
+    jobId: 'ij1', jobNumber: 'JOB-260818-001',
+    carrier: null, customer: 'ABC Company',
     blNumber: 'ABC123456', houseBlNumber: null, vesselName: 'Vessel XYZ', voyageNumber: '123E',
     eta: '2026-08-20', jobType: 'standard', deliveryAddress: '12 Tuas Ave 8',
     documentsCompletedAt: null, documentsCompletedBy: null, permitRequired: true, permitReceived: false, permitRejected: false,
@@ -168,7 +169,8 @@ const IMPORT_JOBS: ImportJob[] = [
     closedBy: null,
   },
   {
-    jobId: 'ij2', jobNumber: 'JOB-260816-004', customer: 'Lion City Traders',
+    jobId: 'ij2', jobNumber: 'JOB-260816-004',
+    carrier: null, customer: 'Lion City Traders',
     blNumber: 'BL778812', houseBlNumber: 'HBL-99120', vesselName: 'Kota Ratu', voyageNumber: '044W',
     eta: '2026-08-16', jobType: 'standard', deliveryAddress: '3 Pioneer Sector 2',
     documentsCompletedAt: null, documentsCompletedBy: null, permitRequired: false, permitReceived: true, permitRejected: false,
@@ -569,6 +571,9 @@ export function createMemoryRepository(): Repository {
       const jobId = jobNumber.toLowerCase();
 
       const job: ImportJob = {
+        // §34. Which line, so the engine can say where the last free day and
+        // the return yard are looked up for it.
+        carrier: draft.carrier ?? null,
         // A new job is open. Stated rather than left to be inferred, because
         // §33 makes closure a stored fact and an absent one would read as
         // closed to Boolean().

@@ -176,6 +176,15 @@ export interface ImportContainer {
 /** §28 */
 export interface ImportJob {
   /**
+   * The shipping line, as a code from the carrier master.
+   *
+   * Asked for at creation on both directions and stored on exports only until
+   * 0026, so an import's answer was discarded. It decides where the last free
+   * day and the empty return yard are found — see `carriers.ts` — which is the
+   * knowledge that otherwise lives in one person's head.
+   */
+  carrier: string | null;
+  /**
    * §33. When someone closed this job, and who.
    *
    * A stored fact, not a derivation: the engine can see every container is

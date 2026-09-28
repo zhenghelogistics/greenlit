@@ -2745,8 +2745,11 @@ function initialDrawerDraft(panel, job) {
   if (!panel) return {};
   if (panel.type === "job" && job) return {
     customer: job.customer || "",
-    booking: job.booking || "",
-    vessel: job.vessel || "",
+    carrier: job.carrier || "",
+    booking: job.type === "Import" ? (job.billOfLading || "") : (job.booking || ""),
+    houseBillOfLading: job.houseBillOfLading || "",
+    vessel: job.vesselName || "",
+    voyage: job.voyageNumber || "",
     deliveryAddress: job.deliveryAddress || "",
     operatingLocation: job.type === "Import" ? job.terminal || "" : job.emptyYard || "",
   };
@@ -2881,10 +2884,25 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
             {panel.type === "job" && job ? (
               <div className="grid gap-5">
                 <DrawerField label="Customer"><input required value={draft.customer || ""} onChange={(event) => update("customer", event.target.value)} className={drawerInputClass} /></DrawerField>
+                {/* Creation asks for the carrier, both bills and the voyage
+                    separately, and this drawer offered one "Booking /
+                    reference" box that silently meant the master bill on an
+                    import, and nothing for the house bill or the carrier. So
+                    half of what was typed at intake could not be corrected. */}
                 <div className="grid gap-5 sm:grid-cols-2">
-                  <DrawerField label="Booking / reference"><input value={draft.booking || ""} onChange={(event) => update("booking", event.target.value)} className={drawerInputClass} /></DrawerField>
-                  <DrawerField label="Vessel / voyage"><input value={draft.vessel || ""} onChange={(event) => update("vessel", event.target.value)} className={drawerInputClass} /></DrawerField>
+                  <DrawerField label="Carrier" hint="Decides where the last free day and return yard are looked up."><input value={draft.carrier || ""} onChange={(event) => update("carrier", event.target.value.toUpperCase())} className={drawerInputClass} /></DrawerField>
+                  <DrawerField label={job.type === "Import" ? "Master B/L" : "Booking reference"}><input value={draft.booking || ""} onChange={(event) => update("booking", event.target.value)} className={drawerInputClass} /></DrawerField>
                 </div>
+                {job.type === "Import" ? (
+                  <DrawerField label="House B/L"><input value={draft.houseBillOfLading || ""} onChange={(event) => update("houseBillOfLading", event.target.value)} className={drawerInputClass} /></DrawerField>
+                ) : null}
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <DrawerField label="Vessel"><input value={draft.vessel || ""} onChange={(event) => update("vessel", event.target.value)} className={drawerInputClass} /></DrawerField>
+                  <DrawerField label="Voyage"><input value={draft.voyage || ""} onChange={(event) => update("voyage", event.target.value)} className={drawerInputClass} /></DrawerField>
+                </div>
+                {/* §30. The ETA is deliberately not here. Moving it needs a
+                    reason recorded against it, which the date-changes panel on
+                    the job screen asks for. */}
                 <DrawerField label={job.type === "Import" ? "Discharging terminal" : "Empty collection yard"}><input required value={draft.operatingLocation || ""} onChange={(event) => update("operatingLocation", event.target.value)} className={drawerInputClass} /></DrawerField>
                 <DrawerField label="Customer delivery address"><textarea required rows={3} value={draft.deliveryAddress || ""} onChange={(event) => update("deliveryAddress", event.target.value)} className={drawerInputClass} /></DrawerField>
               </div>
@@ -4440,8 +4458,15 @@ export default function GreenlitControlTower() {
           method: "PATCH",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
+            carrier: draft.carrier ?? null,
             vesselName: draft.vessel ?? null,
-            blNumber: draft.booking ?? null,
+            voyageNumber: draft.voyage ?? null,
+            // The same box is the master bill on an import and the booking
+            // reference on an export, because that is the number the job is
+            // known by in each direction.
+            ...(edited?.type === "Import"
+              ? { blNumber: draft.booking ?? null, houseBlNumber: draft.houseBillOfLading ?? null }
+              : { bookingReference: draft.booking ?? null }),
             deliveryAddress: draft.deliveryAddress ?? null,
             // The same drawer field means the terminal on an import and the
             // collection yard on an export, because operationally it is the
