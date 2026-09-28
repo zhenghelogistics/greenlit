@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { rateOn } from '@greenlit/engine';
+import { JobService } from '../src/service.ts';
 import type { Repository } from '../src/repository.ts';
 
 /**
@@ -1211,6 +1212,28 @@ export function runRepositoryContract(
 
     const events = await repo.listAuditEvents(rate.rateId);
     assert.ok(events.some((e) => e.event === 'yardRate.recorded'), 'the change is on the trail');
+  });
+
+  test(`[${name}] nothing a screen shows is a property name`, async () => {
+    // Operations saw "exportClearanceReference, etaSingapore" on a blocked
+    // export job, on the screen whose whole job is to say what to do next.
+    // The gates work on property names because that is what a record has; the
+    // lists that reach a screen must not.
+    //
+    // Checked against every job the implementation holds rather than one, so a
+    // field that is only ever missing on an export is still covered.
+    const identifier = /^[a-z]+[A-Z]/;
+    const offenders = [];
+    const repo = await fresh();
+    for (const job of await new JobService(repo).listJobs()) {
+      for (const shown of job.missingInformation ?? []) {
+        if (identifier.test(shown)) offenders.push(`${job.jobNumber}: ${shown}`);
+      }
+      for (const gap of job.documentGaps ?? []) {
+        if (identifier.test(gap.field)) offenders.push(`${job.jobNumber}: ${gap.field}`);
+      }
+    }
+    assert.deepEqual(offenders, [], 'these reach a controller as raw property names');
   });
 
   test(`[${name}] writing a derived value is impossible by construction`, async () => {

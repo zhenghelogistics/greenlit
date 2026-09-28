@@ -1,4 +1,5 @@
 import {
+  fieldWords,
   canCollect, canCollectEmpty, canStartLaden, currentLocation, evaluate,
   exportContainerStatus, exportJobStatus, importContainerStatus, importJobStatus,
   isVgmPlausible, missingMandatoryFields, EXPORT_RULES, IMPORT_RULES,
@@ -437,7 +438,11 @@ export function deriveImportJob(
     blockingReason: action.blockingReason,
     waitingOn: action.waitingOn,
     mandatoryComplete: missing.length === 0,
-    missingInformation: missing,
+    // In words, not property names. `missing` stays raw above, because
+    // `mandatoryComplete` counts it and the gates match on it; this is the
+    // copy that reaches a screen, and operations were shown
+    // "exportClearanceReference, etaSingapore" on a blocked export job.
+    missingInformation: missing.map(fieldWords),
     handoverShipmentGaps: shipmentGaps,
     documentsCompletedAt: job.documentsCompletedAt,
     documentsCompletedBy: job.documentsCompletedBy,
@@ -550,7 +555,11 @@ export function deriveExportJob(
     blockingReason: action.blockingReason,
     waitingOn: action.waitingOn,
     mandatoryComplete: missing.length === 0,
-    missingInformation: missing,
+    // In words, not property names. `missing` stays raw above, because
+    // `mandatoryComplete` counts it and the gates match on it; this is the
+    // copy that reaches a screen, and operations were shown
+    // "exportClearanceReference, etaSingapore" on a blocked export job.
+    missingInformation: missing.map(fieldWords),
     handoverShipmentGaps: exportHandoverShipmentGaps(job),
     // Export readiness is a different list and is not modelled yet.
     documentsCompletedAt: null,
