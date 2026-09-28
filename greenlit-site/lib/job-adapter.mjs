@@ -149,6 +149,9 @@ export function jobFromApi(view) {
       emptyReturnYard: c.emptyReturnYard ?? null,
       // §29. Which chassis this box needs. Asked at creation, stored from 0024.
       triAxle: c.triAxle === true,
+      // §9.3. Null here means the box uses the job's own address.
+      containerDeliveryCompany: c.deliveryCompany ?? null,
+      containerDeliveryAddress: c.deliveryAddress ?? null,
       packageCount: c.packageCount ?? null,
       packageType: c.packageType ?? "",
       // §34. Which clocks this container actually has is the model's to say.

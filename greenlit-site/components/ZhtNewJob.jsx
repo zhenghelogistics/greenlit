@@ -520,6 +520,13 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
             containerNumber: shout(r.containerNumber) || null,
             sizeType: r.sizeType || null,
             grossWeight: r.grossWeight === "" ? null : Number(r.grossWeight),
+            // Collected on this form since the start and posted by none of it:
+            // the yard, the chassis and the per-container address were typed,
+            // validated, and then dropped at submit.
+            emptyReturnYard: shout(r.emptyReturnYard) || null,
+            triAxle: r.triAxle === true,
+            deliveryCompany: job.addressMode === "container" ? (r.deliveryCompany || null) : null,
+            deliveryAddress: job.addressMode === "container" ? (r.deliveryAddress || null) : null,
             freeTimeModel: r.freeTimeModel,
             combinedFreeDays: r.combinedFreeDays === "" ? null : Number(r.combinedFreeDays),
             demurrageFreeDays: r.demurrageFreeDays === "" ? null : Number(r.demurrageFreeDays),

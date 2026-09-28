@@ -64,6 +64,15 @@ export interface ImportContainer {
    */
   triAxle: boolean;
   /**
+   * Where this container goes, when the job delivers to more than one place.
+   *
+   * Null means it uses the job's address. The creation form has offered a
+   * per-container address from the start and had nowhere to put it, so a job
+   * with three boxes going to three sites saved three boxes going nowhere.
+   */
+  deliveryCompany: string | null;
+  deliveryAddress: string | null;
+  /**
    * When operations handed this container to the controller, if they have.
    *
    * An instant rather than a flag, because the question asked afterwards is

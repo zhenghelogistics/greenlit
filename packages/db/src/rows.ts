@@ -68,6 +68,8 @@ export const toImportJob = (r: Record<string, unknown>): ImportJob => ({
 
 export const toImportContainer = (r: Record<string, unknown>): ImportContainer => ({
   triAxle: r.tri_axle === true,
+  deliveryCompany: (r.delivery_company as string | null) ?? null,
+  deliveryAddress: (r.delivery_address as string | null) ?? null,
   containerId: r.container_id as string,
   handedOverAt: nn(r.handed_over_at as string),
   handedOverBy: nn(r.handed_over_by as string),

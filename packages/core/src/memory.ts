@@ -183,7 +183,7 @@ const IMPORT_JOBS: ImportJob[] = [
 const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
   ij1: [{
     containerId: 'ic1', containerNumber: 'OOLU8841250', jobId: 'ij1',
-    triAxle: false,
+    triAxle: false, deliveryCompany: null, deliveryAddress: null,
     handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
     plannedDeliveryDate: null, plannedDeliveryTime: null,
     containerSize: '40', containerType: 'HQ', sealNumber: null, grossWeight: 21400,
@@ -199,7 +199,7 @@ const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
   }],
   ij2: [{
     containerId: 'ic2', containerNumber: 'CSNU7213366', jobId: 'ij2',
-    triAxle: false,
+    triAxle: false, deliveryCompany: null, deliveryAddress: null,
     handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
     plannedDeliveryDate: null, plannedDeliveryTime: null,
     containerSize: '20', containerType: 'GP', sealNumber: 'SG88213', grossWeight: 14800,
@@ -606,6 +606,8 @@ export function createMemoryRepository(): Repository {
           jobId,
           // §29. Asked for on the form; stored from 0024 onward.
           triAxle: c.triAxle === true,
+          deliveryCompany: c.deliveryCompany ?? null,
+          deliveryAddress: c.deliveryAddress ?? null,
           // Not handed over: a container that has just been read off a
           // document has not been looked at by anybody yet.
           handedOverAt: null,

@@ -61,7 +61,7 @@ const importJob = (o: Partial<ImportJob> = {}): ImportJob => ({
 });
 
 const importContainer = (o: Partial<ImportContainer> = {}): ImportContainer => ({
-  triAxle: false,
+  triAxle: false, deliveryCompany: null, deliveryAddress: null,
   handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
   plannedDeliveryDate: null, plannedDeliveryTime: null,
   containerId: 'c', containerNumber: 'ABCU1234567', jobId: 'j', containerSize: '40',

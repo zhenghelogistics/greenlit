@@ -715,6 +715,9 @@ export interface FreeTimeTerms {
 export interface ImportContainerDraft {
   /** §29. Needs a tri-axle chassis. Asked for at creation since the start. */
   triAxle?: boolean;
+  /** §9.3. Where this box goes, when the job delivers to more than one place. */
+  deliveryCompany?: string | null;
+  deliveryAddress?: string | null;
   containerNumber?: string | null;
   sizeType?: string | null;
   sealNumber?: string | null;
