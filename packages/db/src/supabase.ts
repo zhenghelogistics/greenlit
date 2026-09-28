@@ -4,7 +4,7 @@ import { canSendContainerDetails, refuseEmptyCollection,
   type PermitRecord } from '@greenlit/engine';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
-  YARDS, YARD_CHARGES, rateProblem, canHandOverExport,
+  YARDS, YARD_CHARGES, rateProblem, canHandOverExport, lfdOverrideProblem, lastFreeDayFrom,
   appendAmendment, canDeleteCustomer, nextJobReference, recordChassisChange, userEvent,
   validateContainerCount,
   validateCustomerDraft,
@@ -1496,6 +1496,22 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       if (existing.error) throw new Error(`container lookup: ${existing.error.message}`);
       if (!existing.data) throw new Error(`Unknown container ${containerId}`);
 
+      // §34.1. A date entered by hand outranks the arithmetic, so it has to
+      // carry the reason it does. The counted date needs none.
+      const overridden = terms.demurrageLfd ?? terms.detentionLfd ?? terms.combinedLfd ?? null;
+      const owner = await db.from('import_jobs').select('eta')
+        .eq('job_id', existing.data.job_id as string).maybeSingle();
+      const etaFor = (owner.data?.eta as string | null) ?? null;
+      const allowance = terms.freeTimeModel === 'COMBINED'
+        ? terms.combinedFreeDays ?? null
+        : terms.demurrageFreeDays ?? terms.detentionFreeDays ?? null;
+      const problem = lfdOverrideProblem({
+        lastFreeDay: overridden,
+        countedLastFreeDay: lastFreeDayFrom(etaFor, allowance),
+        reason: terms.lfdOverrideReason ?? null,
+      });
+      if (problem) throw new Error(problem);
+
       // Only the chosen model's fields are kept; the others are cleared. §34.3
       // forbids showing two countdowns for one allowance, and the surest way
       // to honour that is not to store the figures that would produce them.
@@ -1515,6 +1531,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         combined_free_days: combined ? terms.combinedFreeDays ?? null : null,
         combined_lfd: combined ? terms.combinedLfd ?? null : null,
         free_time_remarks: terms.freeTimeRemarks ?? null,
+        lfd_override_reason: overridden ? terms.lfdOverrideReason?.trim() ?? null : null,
         // §34.2. The database carries the same both-or-neither check; this
         // says so in a sentence instead of a constraint violation.
         daily_rate: rate,
@@ -1526,6 +1543,15 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         from: existing.data.free_time_model as string,
         to: terms.freeTimeModel,
       });
+
+      // §13. The value, the reason, the actor and the time, which is what
+      // somebody needs six weeks later when the demurrage invoice is queried.
+      if (overridden) {
+        await record(containerId, 'freetime.overridden', actor, {
+          field: `last free day (${terms.lfdOverrideReason?.trim()})`,
+          from: null, to: overridden,
+        }, 'container');
+      }
     },
 
     async captureContainerIdentity(containerId, details, actor) {

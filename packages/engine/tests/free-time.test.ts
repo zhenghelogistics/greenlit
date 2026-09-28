@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { freeTimeClocks, carrierLastFreeDay, contradictoryFreeTime, freeTimeCountdown, mostUrgentClock, chargeEstimate, lastFreeDayFrom, freeTimeTerm } from '../src/free-time.ts';
+import { freeTimeClocks, carrierLastFreeDay, contradictoryFreeTime, freeTimeCountdown, lfdOverrideProblem, mostUrgentClock, chargeEstimate, lastFreeDayFrom, freeTimeTerm } from '../src/free-time.ts';
 
 const base = {
   demurrageFreeDays: 5, demurrageLfd: '2026-09-14',
@@ -356,4 +356,43 @@ test('§34: the date is beside the count, in the words operations write it', () 
   const [demurrage] = freeTimeCountdown(split(), '2026-09-10', 3);
   assert.match(String(demurrage?.summary), /\d{2}\/\d{2}\/\d{4}/);
   assert.doesNotMatch(String(demurrage?.summary), /\d{4}-\d{2}-\d{2}/, 'never the stored form');
+});
+
+// ---- §34.1 overrides, 28 September 2026 ----------------------------------
+
+test('§34.1: recording what the carrier published needs no explanation', () => {
+  // The carrier's date is the fact. Asking a controller to justify it would be
+  // asking them to explain the terms they were given.
+  assert.equal(lfdOverrideProblem({
+    lastFreeDay: '2026-10-13', countedLastFreeDay: '2026-10-13', reason: null }), null);
+});
+
+test('§34.1: a date that contradicts the count has to say why', () => {
+  // Carriers grant extensions, and when one is agreed the agreement is the
+  // deadline — but the agreement lives in somebody's inbox, and six weeks
+  // later when the demurrage is queried this is the only trace of it.
+  const problem = lfdOverrideProblem({
+    lastFreeDay: '2026-10-20', countedLastFreeDay: '2026-10-13', reason: null });
+  assert.match(String(problem), /not the counted last free day/);
+  assert.match(String(problem), /2026-10-13/, 'says what it should have been');
+
+  assert.equal(lfdOverrideProblem({
+    lastFreeDay: '2026-10-20', countedLastFreeDay: '2026-10-13',
+    reason: 'Carrier agreed an extension' }), null);
+});
+
+test('§34.1: nothing to contradict means nothing to explain', () => {
+  // No allowance recorded, or no ETA, so there is no counted date to differ
+  // from. Demanding a reason there would block recording the only date anybody
+  // has.
+  assert.equal(lfdOverrideProblem({
+    lastFreeDay: '2026-10-20', countedLastFreeDay: null, reason: null }), null);
+  assert.equal(lfdOverrideProblem({
+    lastFreeDay: null, countedLastFreeDay: '2026-10-13', reason: null }), null);
+});
+
+test('§34.1: a blank reason is not a reason', () => {
+  assert.match(String(lfdOverrideProblem({
+    lastFreeDay: '2026-10-20', countedLastFreeDay: '2026-10-13', reason: '   ' })),
+    /Say why/);
 });

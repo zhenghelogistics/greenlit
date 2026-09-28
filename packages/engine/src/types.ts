@@ -73,6 +73,8 @@ export interface ImportContainer {
    */
   portnetReleasedAt: string | null;
   portnetReleasedBy: string | null;
+  /** §34.1. Why the last free day was set by hand rather than counted. */
+  lfdOverrideReason: string | null;
   /**
    * Where this container goes, when the job delivers to more than one place.
    *

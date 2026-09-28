@@ -103,19 +103,32 @@ export interface FreeTimeSource {
 /**
  * Why an overridden last free day cannot be saved, or null.
  *
- * A date entered by hand outranks the arithmetic, so it has to carry the
- * reason it does. The counted date needs no explanation: it is the ETA plus
- * the allowance and anybody can check it. An override is a decision, and a
- * decision with no stated reason is one nobody can defend when the invoice
- * arrives.
+ * Only a date that contradicts the count is an override. Recording what the
+ * carrier published is not: the carrier's date is the fact, and asking a
+ * controller to explain it would be asking them to justify the terms they
+ * were given.
+ *
+ * What does need explaining is a date that is neither the count nor what the
+ * carrier said. Carriers grant extensions and make exceptions, and when one
+ * has been agreed the agreement is the deadline — but the agreement lives in
+ * somebody's inbox, and six weeks later, when the demurrage invoice is
+ * queried, the reason recorded here is the only trace of it.
  */
-export function lfdOverrideProblem(
-  override: { lastFreeDay: string | null; reason: string | null },
-): string | null {
+export function lfdOverrideProblem(override: {
+  lastFreeDay: string | null;
+  /** ETA plus the allowance. Null when either is unknown. */
+  countedLastFreeDay: string | null;
+  reason: string | null;
+}): string | null {
   if (!override.lastFreeDay) return null;
+  // Nothing to contradict, so nothing to explain.
+  if (!override.countedLastFreeDay) return null;
+  if (override.lastFreeDay === override.countedLastFreeDay) return null;
+
   if (!override.reason?.trim()) {
-    return 'Say why this last free day was set by hand. The counted date needs '
-      + 'no reason; a date that overrides it does.';
+    return `${override.lastFreeDay} is not the counted last free day `
+      + `(${override.countedLastFreeDay}). Say why, so the date can be `
+      + 'explained when the demurrage is queried.';
   }
   return null;
 }

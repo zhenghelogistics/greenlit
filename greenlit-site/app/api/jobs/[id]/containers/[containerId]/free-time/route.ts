@@ -20,6 +20,8 @@ export async function POST(request: Request, ctx: {
     detentionFreeDays?: number; detentionLfd?: string;
     combinedFreeDays?: number; combinedLfd?: string;
     freeTimeRemarks?: string;
+    /** §34.1. Required when a last free day is given by hand. */
+    lfdOverrideReason?: string;
     dailyRate?: number | null; currency?: string | null;
   }>(request);
   if (!body) return badRequest("A JSON body is required");
@@ -70,6 +72,7 @@ export async function POST(request: Request, ctx: {
       combinedFreeDays: body.combinedFreeDays ?? null,
       combinedLfd: body.combinedLfd ?? null,
       freeTimeRemarks: body.freeTimeRemarks ?? null,
+      lfdOverrideReason: body.lfdOverrideReason ?? null,
       dailyRate: rate,
       currency,
     }, auth.displayName));

@@ -1034,6 +1034,9 @@ export function runRepositoryContract(
       freeTimeModel: 'COMBINED', combinedFreeDays: 14, combinedLfd: '2026-09-28',
       demurrageFreeDays: 3, demurrageLfd: '2026-09-14',
       freeTimeRemarks: '14 combined calendar days from discharge',
+      // §34.1. These dates are not the counted ones, so they are overrides
+      // and carry the reason an override has to carry.
+      lfdOverrideReason: 'Carrier confirmed these dates by email',
     }, 'tester');
 
     const [after] = await repo.listContainersForImportJob(seeded.importJobId);
@@ -1055,6 +1058,7 @@ export function runRepositoryContract(
 
     await repo.recordFreeTime(container.containerId, {
       freeTimeModel: 'SPLIT', demurrageFreeDays: 5, demurrageLfd: '2026-09-14',
+      lfdOverrideReason: 'Carrier confirmed these dates by email',
       dailyRate: 85.5, currency: 'SGD',
     }, 'tester');
 
@@ -1085,7 +1089,8 @@ export function runRepositoryContract(
     if (!container) return;
 
     await repo.recordFreeTime(container.containerId,
-      { freeTimeModel: 'SPLIT', demurrageFreeDays: 5, demurrageLfd: '2026-09-14' }, 'tester');
+      { freeTimeModel: 'SPLIT', demurrageFreeDays: 5, demurrageLfd: '2026-09-14',
+        lfdOverrideReason: 'Carrier confirmed these dates by email' }, 'tester');
 
     const [after] = await repo.listContainersForImportJob(seeded.importJobId);
     assert.equal(after?.dailyRate, null);

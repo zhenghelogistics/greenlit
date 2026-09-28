@@ -70,6 +70,7 @@ export const toImportJob = (r: Record<string, unknown>): ImportJob => ({
 
 export const toImportContainer = (r: Record<string, unknown>): ImportContainer => ({
   triAxle: r.tri_axle === true,
+  lfdOverrideReason: nn(r.lfd_override_reason as string),
   portnetReleasedAt: nn(r.portnet_released_at as string),
   portnetReleasedBy: nn(r.portnet_released_by as string),
   deliveryCompany: (r.delivery_company as string | null) ?? null,

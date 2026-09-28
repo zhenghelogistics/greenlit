@@ -2807,6 +2807,7 @@ function initialDrawerDraft(panel, job) {
       detentionFreeDays: "", detentionLfd: "",
       combinedFreeDays: "", combinedLfd: "",
       freeTimeRemarks: c.freeTimeRemarks ?? "",
+      lfdOverrideReason: c.lfdOverrideReason ?? "",
       dailyRate: c.dailyRate ?? "",
       currency: c.currency || "SGD",
     };
@@ -3140,6 +3141,15 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                 ) : null}
 
                 <DrawerField label="Free-time remarks">
+                  {/* §34.1. Asked for whenever a date is typed, because the
+                      counted date is reproducible and an override is not.
+                      "The 14th" checks against the ETA and the allowance;
+                      "the 20th" is only explicable by whoever agreed it. */}
+                  <DrawerField label="Why this last free day was set by hand" hint="Only needed when you enter a date. Shown on the job log with your name and the time.">
+                    <input value={draft.lfdOverrideReason || ""}
+                      onChange={(event) => setDraft((d) => ({ ...d, lfdOverrideReason: event.target.value }))}
+                      placeholder="Carrier agreed an extension to the 20th" className={drawerInputClass} />
+                  </DrawerField>
                   <input value={draft.freeTimeRemarks || ""}
                     onChange={(event) => setDraft((d) => ({ ...d, freeTimeRemarks: event.target.value }))}
                     placeholder="e.g. 10 combined calendar days from discharge"
@@ -4244,6 +4254,7 @@ export default function GreenlitControlTower() {
               detentionFreeDays: split ? numberOrNull(draft.detentionFreeDays) : undefined,
               combinedFreeDays: combined ? numberOrNull(draft.combinedFreeDays) : undefined,
               freeTimeRemarks: draft.freeTimeRemarks || null,
+              lfdOverrideReason: draft.lfdOverrideReason || null,
             }),
           },
         ).catch(() => null) : await fetch(
@@ -4260,6 +4271,7 @@ export default function GreenlitControlTower() {
               combinedFreeDays: combined ? numberOrNull(draft.combinedFreeDays) : undefined,
               combinedLfd: combined ? draft.combinedLfd || null : undefined,
               freeTimeRemarks: draft.freeTimeRemarks || null,
+              lfdOverrideReason: draft.lfdOverrideReason || null,
               // §34.2. Both or neither, which is what the database checks too.
               // A blank rate clears the currency with it rather than leaving a
               // label on nothing.

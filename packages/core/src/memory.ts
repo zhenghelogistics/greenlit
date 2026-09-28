@@ -4,7 +4,7 @@ import { refuseEmptyCollection,
   type CustomerLocation, type DocumentRecord,
   type PermitRecord } from '@greenlit/engine';
 import {
-  YARDS, YARD_CHARGES, rateProblem, canHandOverExport,
+  YARDS, YARD_CHARGES, rateProblem, canHandOverExport, lfdOverrideProblem, lastFreeDayFrom,
   appendAmendment, applyChassisChange, canDeleteCustomer, canSendContainerDetails,
   nextJobReference, recordChassisChange,
   userEvent, validateContainerCount, validateCustomerDraft,
@@ -189,7 +189,7 @@ const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
   ij1: [{
     containerId: 'ic1', containerNumber: 'OOLU8841250', jobId: 'ij1',
     triAxle: false, deliveryCompany: null, deliveryAddress: null,
-  portnetReleasedAt: null, portnetReleasedBy: null,
+  portnetReleasedAt: null, portnetReleasedBy: null, lfdOverrideReason: null,
     handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
     plannedDeliveryDate: null, plannedDeliveryTime: null,
     containerSize: '40', containerType: 'HQ', sealNumber: null, grossWeight: 21400,
@@ -206,7 +206,7 @@ const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
   ij2: [{
     containerId: 'ic2', containerNumber: 'CSNU7213366', jobId: 'ij2',
     triAxle: false, deliveryCompany: null, deliveryAddress: null,
-  portnetReleasedAt: null, portnetReleasedBy: null,
+  portnetReleasedAt: null, portnetReleasedBy: null, lfdOverrideReason: null,
     handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
     plannedDeliveryDate: null, plannedDeliveryTime: null,
     containerSize: '20', containerType: 'GP', sealNumber: 'SG88213', grossWeight: 14800,
@@ -625,6 +625,7 @@ export function createMemoryRepository(): Repository {
           // §29. Asked for on the form; stored from 0024 onward.
           triAxle: c.triAxle === true,
           portnetReleasedAt: null, portnetReleasedBy: null,
+          lfdOverrideReason: null,
           deliveryCompany: c.deliveryCompany ?? null,
           deliveryAddress: c.deliveryAddress ?? null,
           // Not handed over: a container that has just been read off a
@@ -804,6 +805,7 @@ export function createMemoryRepository(): Repository {
       const container = Object.values(importContainers).flat()
         .find((c) => c.containerId === containerId);
       if (!container) throw new Error(`Unknown container ${containerId}`);
+      const job = importJobs.find((j) => j.jobId === container.jobId);
 
       const fields = container as unknown as Record<string, unknown>;
       for (const [field, to] of Object.entries(changes)) {
@@ -1476,6 +1478,27 @@ export function createMemoryRepository(): Repository {
       const container = Object.values(importContainers).flat()
         .find((c) => c.containerId === containerId);
       if (!container) throw new Error(`Unknown container ${containerId}`);
+      const job = importJobs.find((j) => j.jobId === container.jobId);
+
+      // §34.1. A date entered by hand outranks the arithmetic, so it has to
+      // carry the reason it does. The counted date needs none: it is the ETA
+      // plus the allowance and anybody can check it.
+      // The chosen model's own date and allowance. The other model's fields
+      // are cleared below and validating against them would refuse a date that
+      // is never stored.
+      const combinedModel = terms.freeTimeModel === 'COMBINED';
+      const overridden = combinedModel
+        ? terms.combinedLfd ?? null
+        : terms.demurrageLfd ?? terms.detentionLfd ?? null;
+      const allowance = combinedModel
+        ? terms.combinedFreeDays ?? null
+        : terms.demurrageLfd ? terms.demurrageFreeDays ?? null : terms.detentionFreeDays ?? null;
+      const problem = lfdOverrideProblem({
+        lastFreeDay: overridden,
+        countedLastFreeDay: lastFreeDayFrom(job?.eta ?? null, allowance),
+        reason: terms.lfdOverrideReason ?? null,
+      });
+      if (problem) throw new Error(problem);
 
       const from = container.freeTimeModel;
       container.freeTimeModel = terms.freeTimeModel as ImportContainer['freeTimeModel'];
@@ -1492,6 +1515,16 @@ export function createMemoryRepository(): Repository {
       container.combinedFreeDays = combined ? terms.combinedFreeDays ?? null : null;
       container.combinedLfd = combined ? terms.combinedLfd ?? null : null;
       container.freeTimeRemarks = terms.freeTimeRemarks ?? null;
+      container.lfdOverrideReason = overridden ? terms.lfdOverrideReason?.trim() ?? null : null;
+
+      // §13. The value, the reason, the actor and the time, which is what
+      // somebody needs six weeks later when the demurrage invoice is queried.
+      if (overridden) {
+        record(containerId, 'freetime.overridden', actor, {
+          field: `last free day (${terms.lfdOverrideReason?.trim()})`,
+          from: null, to: overridden,
+        });
+      }
 
       // §34.2. Both or neither: a rate with no currency is an amount nobody
       // can quote, and a currency with no rate is a label on nothing.

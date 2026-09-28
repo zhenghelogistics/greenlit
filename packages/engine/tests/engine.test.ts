@@ -62,7 +62,7 @@ const exportContainer = (over: Partial<ExportContainer> = {}): ExportContainer =
 
 const importContainer = (): ImportContainer => ({
   triAxle: false, deliveryCompany: null, deliveryAddress: null,
-  portnetReleasedAt: null, portnetReleasedBy: null,
+  portnetReleasedAt: null, portnetReleasedBy: null, lfdOverrideReason: null,
   handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
   plannedDeliveryDate: null, plannedDeliveryTime: null,
   containerId: 'c', containerNumber: 'ABCU1234567', jobId: 'j',
