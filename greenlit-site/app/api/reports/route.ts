@@ -1,53 +1,57 @@
-import { periodFor, previousPeriod, volumeIn, stillOpenAt,
-  type PeriodKind, type ReportableJob } from "@greenlit/engine";
-import { badRequest } from "../../../lib/command";
-import { getJobService, jsonError } from "../../../lib/greenlit";
+import { reportReadiness, type ReportContext } from "@greenlit/engine";
+import { authorize, badRequest, readJson } from "../../../lib/command";
+import { getRepository, jsonError } from "../../../lib/greenlit";
+import { writeUpReport } from "../../../lib/write-up-report";
+
+/** Everything reported, newest first. Triage reads this. */
+export async function GET() {
+  try {
+    const auth = await authorize("masterData.manage");
+    if (!auth.ok) return auth.response;
+    return Response.json({ reports: await getRepository().listProblemReports() });
+  } catch (error) {
+    return jsonError(error);
+  }
+}
 
 /**
- * The month, the quarter or the year, as a meeting needs it.
+ * Report something.
  *
- * `?period=MONTH|QUARTER|YEAR` and `?on=yyyy-mm-dd`, which is any day inside
- * the period wanted — nobody should be working out which quarter a date is in.
+ * Open to anyone signed in, deliberately. A fault is found by whoever is using
+ * the screen, and putting a permission in front of saying so is how it goes
+ * unreported.
  *
- * The comparison figures come back alongside, because a count means very
- * little on its own and every one of these slides gets asked "versus what".
+ * The write-up is attempted and not required. The words and the captured
+ * context are the evidence; the structured version is a reading of them and
+ * can be produced again later.
  */
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   try {
-    const params = new URL(request.url).searchParams;
-    const kind = (params.get("period") ?? "MONTH").toUpperCase() as PeriodKind;
-    if (!["MONTH", "QUARTER", "YEAR"].includes(kind)) {
-      return badRequest("A period must be MONTH, QUARTER or YEAR");
-    }
-    const on = params.get("on") ?? new Date().toISOString().slice(0, 10);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(on)) return badRequest("A date must be yyyy-mm-dd");
+    const body = await readJson<Record<string, unknown>>(request);
+    if (!body) return badRequest("A JSON body is required");
 
-    const period = periodFor(kind, on);
-    const before = previousPeriod(period);
+    const auth = await authorize("dashboard.view");
+    if (!auth.ok) return auth.response;
 
-    // Why a job is stuck is decided once, by the next-action rules, and read
-    // here rather than worked out again. Two answers to that question would
-    // disagree in front of the people least able to tell which was right.
-    const jobs: ReportableJob[] = (await getJobService().listJobs()).map((job) => ({
-      jobNumber: job.jobNumber,
-      domain: job.domain,
-      customer: job.customer,
-      openedOn: String(job.record.createdAt).slice(0, 10),
-      closedOn: job.record.closedAt ? String(job.record.closedAt).slice(0, 10) : null,
-      containerCount: job.containers.length,
-      waitingOn: job.waitingOn,
-      blockingReason: job.blockingReason,
-    }));
+    const brainDump = String(body.brainDump ?? "").trim();
+    if (!brainDump) return badRequest("Say what went wrong, in whatever words you have.");
 
-    return Response.json({
-      period,
-      previous: before,
-      volume: volumeIn(jobs, period),
-      previousVolume: volumeIn(jobs, before),
-      // As at the last day of the period, so running September's report in
-      // October gives September's answer both times.
-      stillOpen: stillOpenAt(jobs, period.to),
-    });
+    const context: ReportContext = {
+      ...(body.context as ReportContext ?? {}),
+      role: auth.principal?.role ?? null,
+      // Stamped here rather than taken from the browser: a report naming a
+      // release it was not running is worse than one naming none.
+      release: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local",
+    };
+
+    const structured = await writeUpReport(brainDump, context);
+    const report = await getRepository().recordProblemReport(
+      { brainDump, context, structured, screenshotPath: null }, auth.displayName);
+
+    // Said back, so somebody who reported from a screen we cannot reproduce
+    // knows to add the missing piece rather than assuming it was received.
+    const readiness = reportReadiness(brainDump, context);
+    return Response.json({ report, readiness }, { status: 201 });
   } catch (error) {
     return jsonError(error);
   }

@@ -4108,3 +4108,13 @@ select.app-time-input, .zht select.nc-time, .zht select.nested-time-from, .zht s
   .zht .clean-table td, .zht .clean-table th {border-color:#999}
   .zht .report-title h2 {font-size:28px}
 }
+
+/* ---- Report a problem ---------------------------------------------------
+   Reachable from every screen and never in the way. The people using this
+   read the screen all shift; a floating control that overlaps the work is one
+   they learn to ignore. */
+.zht .report-launch {margin-left:auto}
+.zht .report-sheet-wrap {position:fixed;inset:auto 16px 16px auto;z-index:50;max-width:min(560px,calc(100vw - 32px));max-height:80vh;overflow-y:auto;box-shadow:0 12px 40px rgba(17,32,58,.22);border-radius:var(--r-lg);background:var(--card)}
+.zht .report-form {margin:0}
+.zht .report-prompts {margin:10px 0 0;padding-left:20px;color:var(--muted);font-size:17px;line-height:1.6}
+.zht .report-prompts li {margin-bottom:4px}

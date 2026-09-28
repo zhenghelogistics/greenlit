@@ -904,6 +904,58 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       };
     },
 
+    async listProblemReports() {
+      const r = await db.from('problem_reports').select('*').order('reported_at', { ascending: false });
+      if (r.error) throw new Error(`problem reports: ${r.error.message}`);
+      return (r.data ?? []).map((row: Record<string, unknown>) => ({
+        reportId: row.report_id as string,
+        reportedBy: row.reported_by as string,
+        reportedAt: String(row.reported_at),
+        brainDump: row.brain_dump as string,
+        structured: (row.structured as never) ?? null,
+        context: (row.context as never) ?? {},
+        screenshotPath: (row.screenshot_path as string | null) ?? null,
+        status: row.status as never,
+        resolution: (row.resolution as string | null) ?? null,
+        resolvedAt: row.resolved_at ? String(row.resolved_at) : null,
+        resolvedBy: (row.resolved_by as string | null) ?? null,
+      }));
+    },
+
+    async recordProblemReport(draft, actor) {
+      const reportId = `rep-${Date.now().toString(36)}`;
+      const saved = unwrap(await db.from('problem_reports').insert({
+        report_id: reportId,
+        reported_by: actor,
+        brain_dump: draft.brainDump,
+        context: draft.context ?? {},
+        structured: draft.structured ?? null,
+        screenshot_path: draft.screenshotPath ?? null,
+      }).select().single(), 'record problem report') as Record<string, unknown>;
+
+      return {
+        reportId, reportedBy: actor, reportedAt: String(saved.reported_at),
+        brainDump: draft.brainDump, context: draft.context ?? {},
+        structured: draft.structured ?? null,
+        screenshotPath: draft.screenshotPath ?? null,
+        status: 'NEW' as const, resolution: null, resolvedAt: null, resolvedBy: null,
+      };
+    },
+
+    async resolveProblemReport(reportId, status, resolution, actor) {
+      // Closing without saying why is how the same thing is reported again in
+      // three months with nobody able to say what happened to the first.
+      if (status !== 'NEW' && !resolution.trim()) {
+        throw new Error('Say what happened to this report.');
+      }
+      const r = await db.from('problem_reports').update({
+        status, resolution: resolution.trim() || null,
+        resolved_at: new Date().toISOString(), resolved_by: actor,
+      }).eq('report_id', reportId).select().maybeSingle();
+      if (r.error) throw new Error(`resolve report: ${r.error.message}`);
+      if (!r.data) throw new Error(`Unknown report ${reportId}`);
+    },
+
     async closeJob(jobId, actor) {
       const { table, key, row } = await locateJob(jobId);
       if (row.closed_at) throw new Error('That job is already closed');

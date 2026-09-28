@@ -1,4 +1,5 @@
 import type { CustomerLocation, DocumentRecord, PermitRecord,
+  ReportContext, StructuredReport,
   YardCharge, YardRate } from '@greenlit/engine';
 import type {
   AuditEvent, Chassis, ChassisChange, ChassisChangeRequest, ChassisHolding,
@@ -400,6 +401,19 @@ export interface Repository {
   /** Record an amount from a date. A later date is an increase; the same date corrects it. */
   recordYardRate(draft: YardRateDraft, actor: string): Promise<YardRate>;
 
+  // ---- What people tell us is wrong ---------------------------------------
+  //
+  // Kept apart on purpose: `brainDump` is what they said and `structured` is a
+  // reading of it. The write-up can be produced again from the original; the
+  // original cannot be recovered from the write-up.
+
+  listProblemReports(): Promise<ProblemReport[]>;
+  recordProblemReport(draft: ProblemReportDraft, actor: string): Promise<ProblemReport>;
+  /** Triage: move it along and say why, which is the part asked about later. */
+  resolveProblemReport(
+    reportId: string, status: ProblemReportStatus, resolution: string, actor: string,
+  ): Promise<void>;
+
   closeJob(jobId: string, actor: string): Promise<void>;
   /** §33.2. Open a billed job again, saying why. */
   reopenJob(jobId: string, reason: string, actor: string): Promise<void>;
@@ -588,6 +602,27 @@ export interface CustomerChanges {
   emailDomains?: string[];
   accountStatus?: Customer['accountStatus'];
   notes?: string | null;
+}
+
+export type ProblemReportStatus = 'NEW' | 'TRIAGED' | 'FIXED' | 'DECLINED';
+
+export interface ProblemReportDraft {
+  /** Their words, unedited. */
+  brainDump: string;
+  context: ReportContext;
+  /** Produced from the two above, and kept beside them rather than replacing. */
+  structured?: StructuredReport | null;
+  screenshotPath?: string | null;
+}
+
+export interface ProblemReport extends ProblemReportDraft {
+  reportId: string;
+  reportedBy: string;
+  reportedAt: string;
+  status: ProblemReportStatus;
+  resolution: string | null;
+  resolvedAt: string | null;
+  resolvedBy: string | null;
 }
 
 export interface YardRateDraft {

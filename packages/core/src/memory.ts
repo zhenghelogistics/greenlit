@@ -17,7 +17,8 @@ import type {
   Movement, Thresholds,
 } from '@greenlit/engine';
 import type {
-  DateAmendmentInput, ExportJobDraft, ImportJobDraft, Repository, StoredDiscrepancy,
+  DateAmendmentInput, ExportJobDraft, ImportJobDraft, ProblemReport, Repository,
+  StoredDiscrepancy,
 } from './repository.ts';
 
 /**
@@ -365,6 +366,7 @@ export function createMemoryRepository(): Repository {
   // scripts/seed-yard-rates.sql; this adapter is what runs with no credentials,
   // and inventing prices here would put made-up money on a screen.
   const yardRates: YardRate[] = [];
+  const problemReports: ProblemReport[] = [];
   const documents: DocumentRecord[] = [];
   /** The bytes, so a test can prove a file was kept and not merely recorded. */
   const documentBytes = new Map<string, Uint8Array>();
@@ -1145,6 +1147,40 @@ export function createMemoryRepository(): Repository {
         from: previous, to: amount,
       });
       return { ...rate };
+    },
+
+    async listProblemReports() {
+      return problemReports.map((r) => ({ ...r }));
+    },
+
+    async recordProblemReport(draft, actor) {
+      const report = {
+        reportId: `rep-${problemReports.length + 1}`,
+        reportedBy: actor,
+        reportedAt: new Date().toISOString(),
+        brainDump: draft.brainDump,
+        context: draft.context ?? {},
+        structured: draft.structured ?? null,
+        screenshotPath: draft.screenshotPath ?? null,
+        status: 'NEW' as const,
+        resolution: null, resolvedAt: null, resolvedBy: null,
+      };
+      problemReports.unshift(report);
+      return { ...report };
+    },
+
+    async resolveProblemReport(reportId, status, resolution, actor) {
+      const report = problemReports.find((r) => r.reportId === reportId);
+      if (!report) throw new Error(`Unknown report ${reportId}`);
+      // Closing without saying why is how the same thing gets reported again
+      // in three months with nobody able to say what happened to the first.
+      if (status !== 'NEW' && !resolution.trim()) {
+        throw new Error('Say what happened to this report.');
+      }
+      report.status = status;
+      report.resolution = resolution.trim() || null;
+      report.resolvedAt = new Date().toISOString();
+      report.resolvedBy = actor;
     },
 
     async closeJob(jobId, actor) {

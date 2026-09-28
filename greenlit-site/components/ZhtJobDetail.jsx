@@ -866,7 +866,7 @@ export default function ZhtJobDetail({
               </div>
             ) : <span className="muted">No delivery address recorded.</span>}
             <button className="btn secondary" type="button" style={{ marginTop: 10 }}
-              onClick={() => onManage("job")}>Edit customer &amp; delivery</button>
+              onClick={() => onManage("job", { section: "customer" })}>Edit customer &amp; delivery</button>
           </div>
           ) : null}
 
@@ -882,7 +882,7 @@ export default function ZhtJobDetail({
               </div>
             ) : null}
             <button className="btn secondary" type="button" style={{ marginTop: 10 }}
-              onClick={() => onManage("job")}>Edit shipment details</button>
+              onClick={() => onManage("job", { section: "shipment" })}>Edit shipment details</button>
           </div>
           ) : null}
 
@@ -897,11 +897,9 @@ export default function ZhtJobDetail({
                 Container {containerIndex + 1} of {containers.length}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                {/* The container being looked at, not whichever is first. */}
-                <button className="btn secondary" type="button"
-                  onClick={() => onManage("container", { index: containerIndex })}>
-                  Edit container details
-                </button>
+                {/* Adding belongs with the container picker; editing belongs at
+                    the foot of the tab, where every other tab keeps it. They
+                    sat side by side and read as a pair of equals. */}
                 <button className="btn ghost" type="button"
                   onClick={() => onManage("container", { mode: "new" })}>
                   + Add Container
@@ -956,6 +954,14 @@ export default function ZhtJobDetail({
                 the container tab. They were at the foot of the screen under
                 "Documents, trips and closure", which is where nobody editing a
                 container would look for them. */}
+            <div className="action-row" style={{ marginTop: 10 }}>
+              {/* The container being looked at, not whichever is first. */}
+              <button className="btn secondary" type="button"
+                onClick={() => onManage("container", { index: containerIndex })}>
+                Edit container details
+              </button>
+            </div>
+
             {freeTimePanel}
 
             <Drawer title="All container detail" count={containerFields.length}>
@@ -1001,7 +1007,7 @@ export default function ZhtJobDetail({
                   cancelled. */}
               {job.permitRequired ? permitPanel : null}
               <button className="btn secondary" type="button" style={{ marginTop: 10 }}
-                onClick={() => onManage("job")}>Edit permit</button>
+                onClick={() => onManage("job", { section: "permit" })}>Edit permit</button>
             </div>
           ) : null}
 

@@ -2889,9 +2889,17 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
 
         <form onSubmit={(event) => { event.preventDefault(); if (isReadOnly) onClose(); else onCommit(panel, draft); }} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
+            {/* One drawer served every tab, so "Edit customer & delivery"
+                opened the vessel, the voyage and both bills — the shipment's
+                fields under the customer's heading. Each tab now says which
+                part it is editing and only that part is shown. */}
             {panel.type === "job" && job ? (
               <div className="grid gap-5">
-                <DrawerField label="Customer"><input required value={draft.customer || ""} onChange={(event) => update("customer", event.target.value)} className={drawerInputClass} /></DrawerField>
+                {panel.section !== "shipment" ? (
+                  <DrawerField label="Customer"><input required value={draft.customer || ""} onChange={(event) => update("customer", event.target.value)} className={drawerInputClass} /></DrawerField>
+                ) : null}
+                {panel.section !== "customer" ? (
+                  <>
                 {/* Creation asks for the carrier, both bills and the voyage
                     separately, and this drawer offered one "Booking /
                     reference" box that silently meant the master bill on an
@@ -2908,11 +2916,17 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                   <DrawerField label="Vessel"><input value={draft.vessel || ""} onChange={(event) => update("vessel", event.target.value)} className={drawerInputClass} /></DrawerField>
                   <DrawerField label="Voyage"><input value={draft.voyage || ""} onChange={(event) => update("voyage", event.target.value)} className={drawerInputClass} /></DrawerField>
                 </div>
+                  </>
+                ) : null}
+                {panel.section !== "shipment" ? (
+                  <>
                 {/* §30. The ETA is deliberately not here. Moving it needs a
                     reason recorded against it, which the date-changes panel on
                     the job screen asks for. */}
                 <DrawerField label={job.type === "Import" ? "Discharging terminal" : "Empty collection yard"}><input required value={draft.operatingLocation || ""} onChange={(event) => update("operatingLocation", event.target.value)} className={drawerInputClass} /></DrawerField>
                 <DrawerField label="Customer delivery address"><textarea required rows={3} value={draft.deliveryAddress || ""} onChange={(event) => update("deliveryAddress", event.target.value)} className={drawerInputClass} /></DrawerField>
+                  </>
+                ) : null}
               </div>
             ) : null}
 
