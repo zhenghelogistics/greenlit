@@ -34,12 +34,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     // A caller sending only unknown keys has misunderstood something, and
     // silently doing nothing would let them go on misunderstanding it.
-    const changes: Record<string, string | null> = {};
+    const changes: Record<string, string | boolean | null> = {};
     for (const field of AMENDABLE) {
       if (!(field in body)) continue;
       const value = body[field];
       changes[field] = value == null || value === "" ? null : String(value).trim();
     }
+    // §24. A boolean, so it cannot go through the trim above — "false" is a
+    // non-empty string and would turn the permit requirement on.
+    if ("permitRequired" in body) changes.permitRequired = body.permitRequired === true;
     if (Object.keys(changes).length === 0) {
       return badRequest(
         `Nothing amendable was sent. This accepts: ${AMENDABLE.join(", ")}. `

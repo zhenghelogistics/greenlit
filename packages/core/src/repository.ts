@@ -649,6 +649,15 @@ export interface MovementProgress {
  * it was not mentioned.
  */
 export interface JobAmendment {
+  /**
+   * §24. Whether this job needs a permit at all.
+   *
+   * Defaults from the customer — some, like Hock, never give us permits — and
+   * a controller can say otherwise for one job. Amendable because that only
+   * becomes clear after the job exists, and the change is audited like any
+   * other so the reason it was turned off is answerable later.
+   */
+  permitRequired?: boolean;
   blNumber?: string | null;
   houseBlNumber?: string | null;
   vesselName?: string | null;

@@ -536,6 +536,16 @@ function Handover({ job, onHandOver }) {
           );
         }
 
+        // §24. Said out loud, because a controller looking for the permit line
+        // and finding nothing cannot tell "not needed" from "not checked yet".
+        if (!job.permitRequired) {
+          return (
+            <div className="stop" key={c.id ?? i}>
+              <b>{label}</b> — ready. Permit not required.
+            </div>
+          );
+        }
+
         return (
           <div
             className="stop"
@@ -564,7 +574,7 @@ const Field = ({ label, value }) => (
 export default function ZhtJobDetail({
   job, containerIndex = 0, onSelectContainer, onBack, onManage,
   onRecordCms, onSendDetails, onSetTranshipment, onRecordDetails, onHandOver,
-  onDocumentsComplete, extras, permitPanel, freeTimePanel,
+  onDocumentsComplete, extras, permitPanel, freeTimePanel, onSetPermitRequired,
 }) {
   /** Opened by the journey's closing step, and by hand otherwise. */
   const [showClosing, setShowClosing] = useState(false);
@@ -615,8 +625,11 @@ export default function ZhtJobDetail({
       id: "sec-containers", label: "Containers",
       outstanding: containers.some((c) => (c.handoverGaps ?? []).length > 0),
     },
-    ...(job.permitRequired
-      ? [{ id: "sec-permit", label: "Permit", outstanding: !job.permitReceived }]
+    // Always present on an import, because "not required" is an answer a
+    // controller needs to see and be able to change, not a reason to hide the
+    // tab. Export creation has no permit step, so export keeps three.
+    ...(job.type === "Import"
+      ? [{ id: "sec-permit", label: "Permit", outstanding: job.permitRequired && !job.permitReceived }]
       : []),
   ];
 
@@ -952,19 +965,28 @@ export default function ZhtJobDetail({
             </>
           ) : null}
 
-          {tab === "sec-permit" && job.permitRequired ? (
+          {tab === "sec-permit" ? (
             <div className="card" style={{ marginBottom: 12 }}>
               <div className="section-title">Permit</div>
               <div className="muted" style={{ marginBottom: 8 }}>
-                {job.permitReceived
-                  ? "Permit recorded for this shipment."
-                  : "Permit Required is selected but no permit is recorded."}
+                {/* §24. Some customers never give us permits — Hock is the
+                    example operations gave — so their jobs say so plainly
+                    rather than reading as a gap somebody has to chase. */}
+                {!job.permitRequired
+                  ? "Not required for this job. Handover proceeds without one."
+                  : job.permitReceived
+                    ? "Permit recorded for this shipment."
+                    : "Permit Required is selected but no permit is recorded."}
               </div>
+              <button className="btn ghost" type="button" style={{ marginBottom: 10 }}
+                onClick={() => onSetPermitRequired(!job.permitRequired)}>
+                {job.permitRequired ? "Mark permit not required" : "Mark permit required"}
+              </button>
               {/* The panel that actually adds and allocates permits, rather
                   than a "Manage Permits" button pointing at a drawer panel
                   that does not exist — which opened empty and could only be
                   cancelled. */}
-              {permitPanel}
+              {job.permitRequired ? permitPanel : null}
               <button className="btn secondary" type="button" style={{ marginTop: 10 }}
                 onClick={() => onManage("job")}>Edit permit</button>
             </div>

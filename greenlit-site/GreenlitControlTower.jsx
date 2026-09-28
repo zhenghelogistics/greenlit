@@ -5163,6 +5163,21 @@ export default function GreenlitControlTower() {
           /* §34. Demurrage and detention are the import clock and belong to
              the container, so this goes on the container tab rather than the
              foot of the screen. Exports have no free time to confirm. */
+          /* §24. Audited like any other amendment, so a permit turned off for
+             one job can be explained months later. */
+          onSetPermitRequired={async (required) => {
+            const response = await fetch(`/api/jobs/${encodeURIComponent(selectedJob.apiId)}`, {
+              method: "PATCH",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ permitRequired: required }),
+            }).catch(() => null);
+            if (!response?.ok) {
+              const payload = await response?.json().catch(() => ({}));
+              showToast(payload?.error ?? "Could not change the permit requirement.");
+              return;
+            }
+            loadJobs();
+          }}
           freeTimePanel={selectedJob.type === "Import" ? (
             <FreeTimePanel container={(selectedJob.containers ?? [])[containerIndex] ?? (selectedJob.containers ?? [])[0]} />
           ) : null}
