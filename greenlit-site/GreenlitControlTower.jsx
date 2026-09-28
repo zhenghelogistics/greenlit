@@ -2851,7 +2851,13 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
   const isReadOnly = ["activity", "source"].includes(panel.type);
   const containerRecords = job ? jobContainers(job) : [];
   const draftContainerNumber = String(draft.number || "").toUpperCase().replace(/\s+/g, "");
-  const duplicateContainerNumber = panel.type === "container" && draftContainerNumber && containerRecords.some((container, index) => index !== panel.index && String(container.number || "").toUpperCase().replace(/\s+/g, "") === draftContainerNumber);
+  // `panel.index || 0` everywhere else, and bare `panel.index` here. Opened
+  // without an index — which the job screen's edit button did — the draft
+  // loaded container 0 while this compared against every index except
+  // `undefined`, so container 0 was checked against itself and the drawer
+  // refused to save a container for clashing with itself.
+  const editingIndex = panel.index || 0;
+  const duplicateContainerNumber = panel.type === "container" && draftContainerNumber && containerRecords.some((container, index) => index !== editingIndex && String(container.number || "").toUpperCase().replace(/\s+/g, "") === draftContainerNumber);
   const selectedContainer = panel.type === "container" && panel.mode !== "new" ? containerRecords[panel.index || 0] : null;
   const selectedContainerHasMovement = selectedContainer ? (job?.trips || []).some((trip) => trip.status !== "Cancelled" && ((trip.containerRef && trip.containerRef === selectedContainer.ref) || (trip.containerNumber && trip.containerNumber === selectedContainer.number) || (!trip.containerRef && !trip.containerNumber && containerRecords.length === 1))) : false;
   const canRemoveContainer = panel.type === "container" && panel.mode !== "new" && containerRecords.length > 1 && !selectedContainerHasMovement;

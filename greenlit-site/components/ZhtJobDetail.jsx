@@ -871,7 +871,9 @@ export default function ZhtJobDetail({
                 Container {containerIndex + 1} of {containers.length}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button className="btn secondary" type="button" onClick={() => onManage("container")}>
+                {/* The container being looked at, not whichever is first. */}
+                <button className="btn secondary" type="button"
+                  onClick={() => onManage("container", { index: containerIndex })}>
                   Edit container details
                 </button>
                 <button className="btn ghost" type="button"
