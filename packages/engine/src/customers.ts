@@ -38,7 +38,20 @@ export interface Customer {
   createdAt: string;
 }
 
-export const CUSTOMER_CODE_PATTERN = /^[A-Z]{2,6}$/;
+/**
+ * Two to ten letters, no digits.
+ *
+ * Six until operations brought three customers whose names do not fit one:
+ * Kianlip, Sealand and DKSH's healthcare warehouse, which they wanted written
+ * out rather than abbreviated into something nobody says aloud. Widening the
+ * rule was the cheaper mistake — a code is immutable once issued, so an
+ * abbreviation regretted later cannot be taken back, while the extra four
+ * characters cost a slightly wider column.
+ *
+ * Still letters only. A digit in a code makes a job number ambiguous to read
+ * at a glance, which is the one thing the number has to be.
+ */
+export const CUSTOMER_CODE_PATTERN = /^[A-Z]{2,10}$/;
 
 /**
  * Trim and uppercase only. Deliberately does NOT strip invalid characters:
@@ -67,7 +80,7 @@ export function validateCustomerCode(
   const code = normaliseCustomerCode(raw);
   if (!code) return { valid: false, code, reason: 'A customer code is required' };
   if (!CUSTOMER_CODE_PATTERN.test(code)) {
-    return { valid: false, code, reason: 'A customer code is two to six letters, A–Z' };
+    return { valid: false, code, reason: 'A customer code is two to ten letters, A–Z' };
   }
   const clash = existing.find((c) => c.code === code);
   if (clash) {
@@ -151,7 +164,7 @@ export function validateCustomerDraft(
   return { valid: reasons.length === 0, reasons };
 }
 
-export const JOB_REFERENCE_PATTERN = /^([A-Z]{2,6})-(\d{3,})$/;
+export const JOB_REFERENCE_PATTERN = /^([A-Z]{2,10})-(\d{3,})$/;
 
 export interface ParsedJobReference {
   customerCode: string;

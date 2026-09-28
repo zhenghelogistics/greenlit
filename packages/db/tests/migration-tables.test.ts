@@ -103,13 +103,13 @@ test('every code in the customer seed is one the database will accept', () => {
   // moment somebody pastes it into a live database, which is the worst moment
   // to find out — half the list is in and the transaction has rolled back.
   //
-  // The rule is the table's own: two to six letters, no digits, unique.
+  // The rule is the table's own: two to ten letters, no digits, unique.
   const seed = readFileSync(join(DIR, '..', '..', '..', 'scripts', 'seed-customers.sql'), 'utf8');
   const rows = [...seed.matchAll(/\('([^']*)',\s*'([^']*)',/g)];
   assert.ok(rows.length > 20, `expected the customer list, found ${rows.length}`);
 
   const codes = rows.map((r) => r[2]!);
-  const invalid = codes.filter((c) => !/^[A-Z]{2,6}$/.test(c));
+  const invalid = codes.filter((c) => !/^[A-Z]{2,10}$/.test(c));
   assert.deepEqual(invalid, [], 'these codes fail the check the customers table enforces');
 
   const seen = new Set<string>();

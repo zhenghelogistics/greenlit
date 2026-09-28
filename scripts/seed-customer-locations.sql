@@ -25,6 +25,13 @@
 -- should assume. A default guessed wrong pre-fills the wrong delivery on every
 -- booking, and it is quieter than a blank field, so it is worse.
 --
+-- ## The three that were waiting on a customer
+--
+-- MHM RSG, Kianlip and Sealand International have addresses in the rate book
+-- and were not on the customer masterlist. Operations confirmed on 28
+-- September 2026 that they are customers, so their addresses are included
+-- here. Their codes are why migration 0023 widened the limit to ten letters.
+--
 -- ## Safe to run twice, and safe to run early
 --
 -- Rows are keyed on customer and address, so a second run changes nothing. The
@@ -67,7 +74,20 @@ select v.location_id, v.customer_code, v.label, v.address,
     ('loc-jas-09', 'JAS', 'Bulim Ave', 'Bulim Ave', null),  -- JAS
     ('loc-jas-10', 'JAS', '2 SERANGOON NTH AVE 5 #07-01', '2 SERANGOON NTH AVE 5 #07-01', null),  -- JAS
     ('loc-jas-11', 'JAS', '28 KRANJI Loop #03-07', '28 KRANJI Loop #03-07', null),  -- JAS
+    ('loc-mhm-01', 'MHM', '156 GUL CIRCLE', '156 GUL CIRCLE', null),  -- MHM RSG
+    ('loc-mhm-02', 'MHM', 'BULIM AVE', 'BULIM AVE', null),  -- MHM RSG
+    ('loc-mhm-03', 'MHM', '1 TUASY BAY WALK', '1 TUASY BAY WALK', null),  -- MHM RSG
+    ('loc-mhm-04', 'MHM', '21 LOK YANG WAY', '21 LOK YANG WAY', null),  -- MHM RSG
+    ('loc-mhm-05', 'MHM', '21 Senoko Way', '21 Senoko Way', null),  -- MHM RSG
+    ('loc-mhm-06', 'MHM', '2 KRANJI CRESCENT', '2 KRANJI CRESCENT', null),  -- MHM RSG
+    ('loc-kianlip-01', 'KIANLIP', '9 TUAS SOUTH AVE 10 #01-03', '9 TUAS SOUTH AVE 10 #01-03', null),  -- KIANLIP
+    ('loc-kianlip-02', 'KIANLIP', '61C TUAS BAY DRIVE', '61C TUAS BAY DRIVE', null),  -- KIANLIP
+    ('loc-kianlip-03', 'KIANLIP', '38 Bendemeer Road', '38 Bendemeer Road', null),  -- KIANLIP
+    ('loc-kianlip-04', 'KIANLIP', '71 JALAN LEKAR', '71 JALAN LEKAR', null),  -- KIANLIP
     ('loc-trans-01', 'TRANS', 'No. 3 Chin Be Crescent', 'No. 3 Chin Be Crescent', null),  -- TRANSWAYS INT
+    ('loc-sealand-01', 'SEALAND', '101B PIONEER ROAD', '101B PIONEER ROAD', null),  -- Sealand International
+    ('loc-sealand-02', 'SEALAND', '76 PIONEER RD', '76 PIONEER RD', null),  -- Sealand International
+    ('loc-sealand-03', 'SEALAND', '10 Ubi Crescent #02-47', '10 Ubi Crescent #02-47', null),  -- Sealand International
     ('loc-oocll-01', 'OOCLL', '31 TUAS AVE 2', '31 TUAS AVE 2', null),  -- OOCL
     ('loc-oocll-02', 'OOCLL', '121 GENTING LANE', '121 GENTING LANE', null),  -- OOCL
     ('loc-oocll-03', 'OOCLL', '10 TAMPINES INDUSTRIAL AVE 5', '10 TAMPINES INDUSTRIAL AVE 5', null),  -- OOCL

@@ -4930,7 +4930,11 @@ export default function GreenlitControlTower() {
     { id: "fleet", label: "Chassis Master", count: fleet.loaded ? fleet.available.length : null, icon: Container },
     { id: "emptyReturns", label: "Empty Returns", count: null, icon: Undo2 },
     { id: "companies", label: "Customer Master", count: null, icon: Building2 },
-    { id: "yardRates", label: "Yard Rates", count: null, icon: Receipt },
+    // Yard rates are billing, and this application does not do billing yet.
+    // Operations were explicit twice that it is not to be in the workflow, so
+    // the screen is off the navigation rather than deleted: the table, the
+    // seeded amounts and ZhtYardRates all stand, and this line brings it back.
+    // { id: "yardRates", label: "Yard Rates", count: null, icon: Receipt },
     { id: "reports", label: "Reports", count: null, icon: CalendarRange },
     { id: "billing", label: "Billing Ready", count: null, icon: Receipt },
     { id: "people", label: "People", count: null, icon: UserRound },

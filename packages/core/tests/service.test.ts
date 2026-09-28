@@ -223,7 +223,7 @@ test('ADR-0007: the customer master is seeded and readable', async () => {
   const repo = createMemoryRepository();
   const customers = await repo.listCustomers();
   assert.ok(customers.length >= 4);
-  assert.ok(customers.every((c) => /^[A-Z]{2,6}$/.test(c.code)));
+  assert.ok(customers.every((c) => /^[A-Z]{2,10}$/.test(c.code)));
   assert.equal((await repo.getCustomerByCode('abc'))?.companyName, 'ABC Company',
     'lookup is case-insensitive on the code');
 });

@@ -10,7 +10,9 @@
 -- So the codes below are a **proposal**. Change any of them in this file
 -- before running it; changing them afterwards is not a small job.
 --
--- The rule the database enforces: two to six letters, A–Z, no digits, unique.
+-- The rule the database enforces: two to ten letters, A–Z, no digits, unique.
+-- Widened from six by migration 0023 — run that first, or five of the rows
+-- below are rejected.
 --
 -- ## The four DKSH entities
 --
@@ -49,20 +51,25 @@ values
   ('cts',    'CTS',    'CHIA TECK SOON PTE LTD',                  'Chia Teck Soon',   'ACTIVE'),
   -- Already in use: the screens show CC-001 against this customer.
   ('cc',     'CC',     'CHONG CHEONG FOUNDRY WORKS PTE LTD',      'Chong Cheong',     'ACTIVE'),
-  ('dkshm',  'DKSHM',  'DKSH MARKETING SERVICES PTE LTD',         'DKSH Marketing',   'ACTIVE'),
-  ('dkshc',  'DKSHC',  'DKSH SINGAPORE PTE LTD - CONSUMER',       'DKSH Consumer',    'ACTIVE'),
-  ('dkshh',  'DKSHH',  'DKSH SINGAPORE PTE LTD - HEALTHCARE',     'DKSH Healthcare',  'ACTIVE'),
-  ('dkshs',  'DKSHS',  'DKSH SOUTH EAST ASIA PTE LTD',            'DKSH SEA',         'ACTIVE'),
+  -- Already in use: jobs numbered DKSH-... belong to the consumer warehouse.
+  ('dksh',   'DKSH',   'DKSH SINGAPORE PTE LTD - CONSUMER',       'DKSH Consumer',    'ACTIVE'),
+  ('health', 'HEALTHCARE', 'DKSH SINGAPORE PTE LTD - HEALTHCARE', 'DKSH Healthcare',  'ACTIVE'),
   ('driven', 'DRIVEN', 'DRIVEN ASIA-PACIFIC PTE LTD',             'Driven',           'ACTIVE'),
   ('fair',   'FAIR',   'FAIRTECK HOLDING PTE LTD',                'Fairteck',         'ACTIVE'),
   ('fga',    'FGA',    'FIRST GRADE AGENCY PTE LTD',              'First Grade',      'ACTIVE'),
   ('hock',   'HOCK',   'HOCK TPTN & CTNR WAREHOUSING PTE LTD',    'Hock',             'ACTIVE'),
   ('isl',    'ISL',    'ISLAND LINE PTE LTD',                     'Island Line',      'ACTIVE'),
   ('jas',    'JAS',    'JAS FORWARDING (SINGAPORE) PTE LTD',      'JAS',              'ACTIVE'),
+  -- Three that the rate book carries and the masterlist did not, confirmed as
+  -- customers by operations on 28 September 2026. Their codes are why the
+  -- limit is ten letters rather than six.
+  ('kianlip','KIANLIP','KIANLIP',                                 'Kianlip',          'ACTIVE'),
+  ('mhm',    'MHM',    'MHM RSG',                                 'MHM RSG',          'ACTIVE'),
   ('nissin', 'NISSIN', 'NISSIN TRANSPORT (S) PTE LTD',            'Nissin',           'ACTIVE'),
   ('nutri',  'NUTRI',  'NUTRI RAINBOW PTE LTD',                   'Nutri Rainbow',    'ACTIVE'),
   ('oocll',  'OOCLL',  'OOCL LOGISTICS (SINGAPORE) PTE LIMITED',  'OOCL Logistics',   'ACTIVE'),
   ('scj',    'SCJ',    'SC JOHNSON & SON PTE LTD',                'SC Johnson',       'ACTIVE'),
+  ('sealand','SEALAND','SEALAND INTERNATIONAL',                   'Sealand',          'ACTIVE'),
   ('tashi',  'TASHI',  'TASHI INTERNATIONAL PTE LTD',             'Tashi',            'ACTIVE'),
   ('trans',  'TRANS',  'TRANSWAYS INTERNATIONAL (S) PTE LTD',     'Transways',        'ACTIVE'),
   ('zhl',    'ZHL',    'ZHENGHE LOGISTICS PTE LTD',               'Zheng He',         'ACTIVE')

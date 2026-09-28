@@ -13,12 +13,28 @@ const customer = (code: string, companyName: string): Customer => ({
 });
 const existing = [customer('ABC', 'ABC Company'), customer('LCT', 'Lion City Traders')];
 
-test('a customer code is two to six letters, uppercased', () => {
+test('a customer code is two to ten letters, uppercased', () => {
   assert.equal(normaliseCustomerCode(' abc '), 'ABC');
   assert.equal(validateCustomerCode('abc', []).code, 'ABC');
   assert.equal(validateCustomerCode('A', []).valid, false, 'too short');
-  assert.equal(validateCustomerCode('ABCDEFG', []).valid, false, 'too long');
+  assert.equal(validateCustomerCode('ABCDEFGHIJK', []).valid, false, 'too long');
   assert.equal(validateCustomerCode('AB1', []).valid, false, 'letters only');
+
+  // The three that made the limit ten. Operations wanted them written out
+  // rather than abbreviated into codes nobody says aloud, and a code cannot be
+  // changed once a job number uses it.
+  assert.equal(validateCustomerCode('HEALTHCARE', []).valid, true);
+  assert.equal(validateCustomerCode('KIANLIP', []).valid, true);
+  assert.equal(validateCustomerCode('SEALAND', []).valid, true);
+});
+
+test('a job reference built from a long code still parses', () => {
+  // ADR-0007 reads the customer back out of the number. A code the parser
+  // cannot see would orphan every reference issued for that customer.
+  assert.deepEqual(parseJobReference('HEALTHCARE-001'),
+    { customerCode: 'HEALTHCARE', sequence: 1 });
+  assert.deepEqual(parseJobReference('KIANLIP-014'),
+    { customerCode: 'KIANLIP', sequence: 14 });
 });
 
 test('a code already in use names who holds it', () => {

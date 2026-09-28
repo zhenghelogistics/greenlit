@@ -49,7 +49,7 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error";
     // Validation failures from the engine are the caller's problem, not ours.
-    if (/required|already|two to six|valid email/.test(message)) {
+    if (/required|already|two to ten|valid email/.test(message)) {
       return Response.json({ error: message }, { status: 400 });
     }
     return jsonError(error);
