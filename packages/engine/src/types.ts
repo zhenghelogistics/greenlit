@@ -56,6 +56,14 @@ export interface Movement {
 export interface ImportContainer {
   containerId: string;
   /**
+   * Needs a tri-axle chassis.
+   *
+   * Asked for at creation and stored nowhere until 0024, so a controller
+   * ticked it and it was gone. It decides which unit goes out: the wrong one
+   * is a truck that cannot take the box and a second trip to arrange.
+   */
+  triAxle: boolean;
+  /**
    * When operations handed this container to the controller, if they have.
    *
    * An instant rather than a flag, because the question asked afterwards is
@@ -210,6 +218,10 @@ export interface ImportJob {
 /** §38.2. Created when the job is created, identified later. */
 export interface ExportContainer {
   exportContainerId: string;
+  /** Needs a heavy-duty chassis. See `ImportContainer.triAxle` for why. */
+  heavyDuty: boolean;
+  /** Rated to 32.5 tonnes. */
+  rated32_5: boolean;
   exportJobId: string;
   /** `C1`, `C2`, scoped to the job. Used before identity is captured. */
   containerRef: string;

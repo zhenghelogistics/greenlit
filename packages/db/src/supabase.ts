@@ -1253,6 +1253,8 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
           gross_weight: c.grossWeight ?? null,
           package_count: c.packageCount ?? null,
           package_type: c.packageType?.trim() || null,
+          // §29. Asked for on the form since the start and stored from 0024.
+          tri_axle: c.triAxle === true,
           // §34. Nothing is asserted about the carrier's allowance until
           // someone has read it: absent is not the same as split.
           free_time_model: c.freeTimeModel ?? 'NOT_CONFIRMED',

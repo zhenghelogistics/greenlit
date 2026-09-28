@@ -20,7 +20,7 @@ export async function PATCH(request: Request, ctx: {
 
   const AMENDABLE = [
     "containerNumber", "containerSize", "sealNumber",
-    "grossWeight", "packageCount", "packageType", "emptyReturnYard",
+    "grossWeight", "packageCount", "packageType", "emptyReturnYard", "triAxle",
   ] as const;
 
   const changes: Record<string, unknown> = {};

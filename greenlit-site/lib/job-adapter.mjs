@@ -147,6 +147,8 @@ export function jobFromApi(view) {
       // yards. Needed on screen so the edit drawer opens with what is recorded
       // rather than blank, which would read as "none" and wipe it on save.
       emptyReturnYard: c.emptyReturnYard ?? null,
+      // §29. Which chassis this box needs. Asked at creation, stored from 0024.
+      triAxle: c.triAxle === true,
       packageCount: c.packageCount ?? null,
       packageType: c.packageType ?? "",
       // §34. Which clocks this container actually has is the model's to say.

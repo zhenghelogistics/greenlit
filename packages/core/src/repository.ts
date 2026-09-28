@@ -524,6 +524,8 @@ export interface DateAmendmentInput {
  */
 /** §46. A slot on an export booking, before it is a container. */
 export interface ExportContainerDraft {
+  heavyDuty?: boolean;
+  rated32_5?: boolean;
   sizeType: string;
   stuffingLocation?: string | null;
   isReefer?: boolean;
@@ -711,6 +713,8 @@ export interface FreeTimeTerms {
 }
 
 export interface ImportContainerDraft {
+  /** §29. Needs a tri-axle chassis. Asked for at creation since the start. */
+  triAxle?: boolean;
   containerNumber?: string | null;
   sizeType?: string | null;
   sealNumber?: string | null;

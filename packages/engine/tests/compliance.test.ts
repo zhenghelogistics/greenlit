@@ -61,6 +61,7 @@ const importJob = (o: Partial<ImportJob> = {}): ImportJob => ({
 });
 
 const importContainer = (o: Partial<ImportContainer> = {}): ImportContainer => ({
+  triAxle: false,
   handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
   plannedDeliveryDate: null, plannedDeliveryTime: null,
   containerId: 'c', containerNumber: 'ABCU1234567', jobId: 'j', containerSize: '40',
@@ -91,6 +92,7 @@ const exportJob = (o: Partial<ExportJob> = {}): ExportJob => ({
 });
 
 const exportContainer = (o: Partial<ExportContainer> = {}): ExportContainer => ({
+  heavyDuty: false, rated32_5: false,
   exportContainerId: 'xc', exportJobId: 'e', containerRef: 'C1',
   containerNumber: 'ABCU1', sealNumber: '1', tareWeightKg: 3850, sizeType: '40 HQ',
   isReefer: false, temperatureMode: null, temperatureSetpointC: null,

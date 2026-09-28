@@ -2768,12 +2768,12 @@ function initialDrawerDraft(panel, job) {
     };
   }
   if (panel.type === "container" && job?.type === "Import") {
-    if (panel.mode === "new") return { number: "", type: "", seal: "", grossWeight: "", emptyReturnYard: "", state: job.permitReceived ? "Ready" : "Awaiting permit", lastFreeDay: job.demurrageLastFreeDay || "" };
+    if (panel.mode === "new") return { number: "", type: "", seal: "", grossWeight: "", emptyReturnYard: "", triAxle: false, state: job.permitReceived ? "Ready" : "Awaiting permit", lastFreeDay: job.demurrageLastFreeDay || "" };
     const container = job.containers[panel.index || 0];
     // Weight and yard are seeded like everything else here. A field that saves
     // but opens blank is worse than one that is missing: it reads as "nothing
     // recorded" and the first save wipes what was there.
-    return { number: container.number, type: container.type || "", seal: container.seal || "", grossWeight: container.grossWeight ?? "", emptyReturnYard: container.emptyReturnYard || "", state: container.state, lastFreeDay: container.lastFreeDay || job.demurrageLastFreeDay || "" };
+    return { number: container.number, type: container.type || "", seal: container.seal || "", grossWeight: container.grossWeight ?? "", emptyReturnYard: container.emptyReturnYard || "", triAxle: container.triAxle === true, state: container.state, lastFreeDay: container.lastFreeDay || job.demurrageLastFreeDay || "" };
   }
   if (panel.type === "trip" && job) {
     const trip = job.trips.find((item) => item.id === panel.tripId);
@@ -2940,6 +2940,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                   <DrawerField label="Weight (kg)" hint="Gross weight, as operations record it after Portnet."><input min="1" type="number" inputMode="numeric" value={draft.grossWeight ?? ""} onChange={(event) => update("grossWeight", event.target.value)} className={drawerInputClass} /></DrawerField>
                   <DrawerField label="Empty return yard" hint="Where this box goes back. Per container, not per job."><input value={draft.emptyReturnYard || ""} onChange={(event) => update("emptyReturnYard", event.target.value)} className={drawerInputClass} /></DrawerField>
                 </div>
+                <ChoiceGroup label="Tri-axle chassis" value={Boolean(draft.triAxle)} onChange={(value) => update("triAxle", value)} options={[{ value: true, label: "Needed", note: "Only a tri-axle unit may be assigned." }, { value: false, label: "Not needed", note: "Any suitable unit." }]} />
                 <DrawerField label="Container last free day"><input required type="date" value={draft.lastFreeDay || ""} onChange={(event) => update("lastFreeDay", event.target.value)} className={drawerInputClass} /></DrawerField>
                 <div className="rounded-md border border-sky-200 bg-sky-50 p-4 text-[17px] font-medium text-sky-900">Marking a container collected or delivered also updates its linked delivery trip. Delivering every container creates the empty-return trip automatically.</div>
                 {duplicateContainerNumber ? <div role="alert" className="callout">{draftContainerNumber} is already on this job. Every container number must be unique.</div> : null}
@@ -4256,6 +4257,7 @@ export default function GreenlitControlTower() {
                 sealNumber: draft.seal || null,
                 grossWeight: numberOrNull(draft.grossWeight),
                 emptyReturnYard: draft.emptyReturnYard || null,
+                triAxle: draft.triAxle === true,
                 packageCount: numberOrNull(draft.packageCount),
                 packageType: draft.packageType || null,
               } };

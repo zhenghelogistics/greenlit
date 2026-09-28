@@ -45,6 +45,7 @@ const exportJob = (over: Partial<ExportJob> = {}): ExportJob => ({
 });
 
 const exportContainer = (over: Partial<ExportContainer> = {}): ExportContainer => ({
+  heavyDuty: false, rated32_5: false,
   exportContainerId: 'c', exportJobId: 'e', containerRef: 'C1',
   containerNumber: 'ABCU1234567', sealNumber: '123456', tareWeightKg: 3850,
   sizeType: '40 HQ', isReefer: false, temperatureMode: null, temperatureSetpointC: null,
@@ -56,6 +57,7 @@ const exportContainer = (over: Partial<ExportContainer> = {}): ExportContainer =
 });
 
 const importContainer = (): ImportContainer => ({
+  triAxle: false,
   handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
   plannedDeliveryDate: null, plannedDeliveryTime: null,
   containerId: 'c', containerNumber: 'ABCU1234567', jobId: 'j',

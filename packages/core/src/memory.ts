@@ -183,6 +183,7 @@ const IMPORT_JOBS: ImportJob[] = [
 const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
   ij1: [{
     containerId: 'ic1', containerNumber: 'OOLU8841250', jobId: 'ij1',
+    triAxle: false,
     handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
     plannedDeliveryDate: null, plannedDeliveryTime: null,
     containerSize: '40', containerType: 'HQ', sealNumber: null, grossWeight: 21400,
@@ -198,6 +199,7 @@ const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
   }],
   ij2: [{
     containerId: 'ic2', containerNumber: 'CSNU7213366', jobId: 'ij2',
+    triAxle: false,
     handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
     plannedDeliveryDate: null, plannedDeliveryTime: null,
     containerSize: '20', containerType: 'GP', sealNumber: 'SG88213', grossWeight: 14800,
@@ -266,6 +268,7 @@ const EXPORT_JOBS: ExportJob[] = [
 
 const ec = (o: Partial<ExportContainer> & Pick<ExportContainer, 'exportContainerId' | 'exportJobId' | 'containerRef' | 'sizeType'>): ExportContainer => ({
   containerNumber: null, sealNumber: null, tareWeightKg: null,
+  heavyDuty: false, rated32_5: false,
   isReefer: false, temperatureMode: null, temperatureSetpointC: null,
   stuffingLocation: 'Customer site A', containerDetailsSent: false,
   containerDetailsSentAt: null, containerDetailsSentTo: null,
@@ -601,6 +604,8 @@ export function createMemoryRepository(): Repository {
         return {
           containerId: `${jobId}-c${index + 1}`,
           jobId,
+          // §29. Asked for on the form; stored from 0024 onward.
+          triAxle: c.triAxle === true,
           // Not handed over: a container that has just been read off a
           // document has not been looked at by anybody yet.
           handedOverAt: null,
