@@ -4177,7 +4177,7 @@ export default function GreenlitControlTower() {
 
       void (async () => {
         const response = everyContainer ? await fetch(
-          `/api/jobs/${encodeURIComponent(panel.jobId)}/free-time-many`,
+          `/api/jobs/${encodeURIComponent(panel.apiJobId)}/free-time-many`,
           {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -4191,7 +4191,7 @@ export default function GreenlitControlTower() {
             }),
           },
         ).catch(() => null) : await fetch(
-          `/api/jobs/${encodeURIComponent(panel.jobId)}/containers/${encodeURIComponent(draft.containerId)}/free-time`,
+          `/api/jobs/${encodeURIComponent(panel.apiJobId)}/containers/${encodeURIComponent(draft.containerId)}/free-time`,
           {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -4229,11 +4229,16 @@ export default function GreenlitControlTower() {
 
     const targetJobId = panel.type === "chassis" && panel.condition === "available" ? draft.jobId : panel.jobId;
     if (!targetJobId) return;
+    // The record id, for the routes. targetJobId stays the job number, which
+    // is what the local lookups below match on.
+    const apiJobId = panel.type === "chassis" && panel.condition === "available"
+      ? (jobs.find((j) => j.id === draft.jobId)?.apiId ?? draft.jobId)
+      : panel.apiJobId;
     if (panel.type === "container") {
       // §29. This did all three of add, amend and remove in React state and
       // wrote nothing down — and containers carry the free-time clocks, so
       // what vanished on reload was the deadline.
-      const base = `/api/jobs/${encodeURIComponent(targetJobId)}/containers`;
+      const base = `/api/jobs/${encodeURIComponent(apiJobId)}/containers`;
       const openJobRecord = jobs.find((j) => j.id === targetJobId) ?? {};
       const existing = jobContainers(openJobRecord)[panel.index || 0];
 
@@ -4319,7 +4324,7 @@ export default function GreenlitControlTower() {
       // §18. This rewrote the job in React state, which meant planning a trip
       // was entirely fictional: the engine has rules about movements being
       // overdue and there was nothing that could create one.
-      const base = `/api/jobs/${encodeURIComponent(targetJobId)}/movements`;
+      const base = `/api/jobs/${encodeURIComponent(apiJobId)}/movements`;
 
       void (async () => {
         const request = draft.status === "Cancelled" && panel.tripId
@@ -4391,7 +4396,7 @@ export default function GreenlitControlTower() {
 
       void (async () => {
         const response = await fetch(
-          `/api/jobs/${encodeURIComponent(targetJobId)}/${route}`,
+          `/api/jobs/${encodeURIComponent(apiJobId)}/${route}`,
           {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -4431,7 +4436,7 @@ export default function GreenlitControlTower() {
       const edited = jobs.find((candidate) => candidate.id === targetJobId);
 
       void (async () => {
-        const response = await fetch(`/api/jobs/${encodeURIComponent(targetJobId)}`, {
+        const response = await fetch(`/api/jobs/${encodeURIComponent(apiJobId)}`, {
           method: "PATCH",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
