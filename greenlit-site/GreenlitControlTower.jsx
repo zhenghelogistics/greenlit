@@ -5154,6 +5154,12 @@ export default function GreenlitControlTower() {
             />
           )}
           onManage={(type, details) => manageJob(selectedJob.id, type, details)}
+          /* §34. Demurrage and detention are the import clock and belong to
+             the container, so this goes on the container tab rather than the
+             foot of the screen. Exports have no free time to confirm. */
+          freeTimePanel={selectedJob.type === "Import" ? (
+            <FreeTimePanel container={(selectedJob.containers ?? [])[containerIndex] ?? (selectedJob.containers ?? [])[0]} />
+          ) : null}
           /* The panels that carry capability his demo has no card for —
              permits, documents, free time and the charge estimate, closure,
              and §12 discrepancies. Passed in rather than rebuilt so nothing
@@ -5166,12 +5172,6 @@ export default function GreenlitControlTower() {
                   were being handed a whole `job` and an `onManage` they do not
                   accept, so TripTable read `trips.length` off undefined and
                   took the screen down with it. */}
-              {/* Demurrage and detention are the import clock. Operations
-                  found "Confirm free time and rate" offered on an export
-                  container, where there is no free time to confirm. */}
-              {selectedJob.type === "Import" ? (
-                <FreeTimePanel container={(selectedJob.containers ?? [])[containerIndex] ?? (selectedJob.containers ?? [])[0]} />
-              ) : null}
               <DocumentsPanel jobId={selectedJob.apiId} />
               <TripTable
                 trips={selectedJob.trips ?? []}

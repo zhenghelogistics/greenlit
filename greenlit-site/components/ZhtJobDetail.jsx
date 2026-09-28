@@ -564,7 +564,7 @@ const Field = ({ label, value }) => (
 export default function ZhtJobDetail({
   job, containerIndex = 0, onSelectContainer, onBack, onManage,
   onRecordCms, onSendDetails, onSetTranshipment, onRecordDetails, onHandOver,
-  onDocumentsComplete, extras, permitPanel,
+  onDocumentsComplete, extras, permitPanel, freeTimePanel,
 }) {
   /** Opened by the journey's closing step, and by hand otherwise. */
   const [showClosing, setShowClosing] = useState(false);
@@ -925,6 +925,12 @@ export default function ZhtJobDetail({
                 ) : null}
               </div>
             ) : null}
+
+            {/* §34. The free-time terms belong to the container, so they sit on
+                the container tab. They were at the foot of the screen under
+                "Documents, trips and closure", which is where nobody editing a
+                container would look for them. */}
+            {freeTimePanel}
 
             <Drawer title="All container detail" count={containerFields.length}>
               <div className="fieldgrid">
