@@ -630,7 +630,7 @@ export default function ZhtJobDetail({
   job, containerIndex = 0, onSelectContainer, onBack, onManage,
   onRecordCms, onSendDetails, onSetTranshipment, onRecordDetails, onHandOver,
   onDocumentsComplete, extras, permitPanel, freeTimePanel, onSetPermitRequired,
-  onHandOverExport,
+  onHandOverExport, onReleaseContainer, onDischargeContainer,
 }) {
   /** Opened by the journey's closing step, and by hand otherwise. */
   const [showClosing, setShowClosing] = useState(false);
@@ -714,11 +714,20 @@ export default function ZhtJobDetail({
     ...(job.type === "Export" ? [["CMS", job.cmsCompleted ? "Completed" : "Pending"]] : []),
   ];
 
+  // "Not recorded" rather than blank, for the things that may legitimately
+  // arrive after handover. A blank cell reads as a fault somebody should chase
+  // and these are not: operations were explicit that a missing weight, yard or
+  // chassis answer is outstanding work, not a hold on the job.
+  const notRecorded = (value) =>
+    value === null || value === undefined || value === "" ? "Not recorded" : value;
+
   const containerFields = [
     ["Container", container.number],
     ["Seal", container.seal],
     ["Size / Type", container.sizeType],
-    ["Weight (KGS)", container.grossWeight],
+    ["Weight (KGS)", notRecorded(container.grossWeight)],
+    ["Tri-axle", container.triAxle ? "Needed" : notRecorded(null)],
+    ["Empty return yard", notRecorded(container.emptyReturnYard)],
     ["Packages", container.packageCount],
     ["Tare (KGS)", container.tare],
     ["Status", container.status ?? container.state],
@@ -1021,6 +1030,42 @@ export default function ZhtJobDetail({
                 the container tab. They were at the foot of the screen under
                 "Documents, trips and closure", which is where nobody editing a
                 container would look for them. */}
+            {/* §31. Both actions belong to operations as much as to the
+                controller — operations usually receive the release email —
+                and both are per container, because a release names particular
+                boxes and a box is discharged on its own. They were reachable
+                only from the controller's board and from a journey step that
+                released the whole job. */}
+            {job.type === "Import" ? (
+              <div className="card" style={{ marginBottom: 12 }}>
+                <div className="section-title">Terminal</div>
+                <div className="fieldgrid">
+                  <Field label="Portnet release"
+                    value={container.portnetReleasedAt
+                      ? `Released ${formatDay(container.portnetReleasedAt)}`
+                      : "Not released"} />
+                  <Field label="Discharge"
+                    value={container.dischargedAt
+                      ? `Discharged ${formatDay(container.dischargedAt)}`
+                      : "Not discharged"} />
+                </div>
+                <div className="action-row" style={{ marginTop: 10, gap: 8 }}>
+                  {!container.portnetReleasedAt ? (
+                    <button className="btn secondary" type="button"
+                      onClick={() => onReleaseContainer(container)}>
+                      Portnet released this container
+                    </button>
+                  ) : null}
+                  {container.portnetReleasedAt && !container.dischargedAt ? (
+                    <button className="btn secondary" type="button"
+                      onClick={() => onDischargeContainer(container)}>
+                      Record discharge
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
             <div className="action-row" style={{ marginTop: 10 }}>
               {/* The container being looked at, not whichever is first. */}
               <button className="btn secondary" type="button"

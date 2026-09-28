@@ -518,7 +518,12 @@ function PermitPanel({ jobId, containers, onChanged }) {
       action={!adding ? (
         <button type="button" onClick={() => setAdding(true)}
           className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--gl-accent)] underline underline-offset-4 focus-visible:outline focus-visible:outline-4 focus-visible:outline-sky-600">
-          <FileSearch className="h-5 w-5" aria-hidden="true" />Add a permit
+          {/* "another" once there is one, because a job commonly carries
+              several — one container can need three sets — and a button that
+              says "Add a permit" beside an existing permit reads as the way to
+              replace it. */}
+          <FileSearch className="h-5 w-5" aria-hidden="true" />
+          {state.permits.length ? "Add another permit" : "Add a permit"}
         </button>
       ) : null}
     >
@@ -5268,6 +5273,10 @@ export default function GreenlitControlTower() {
           /* §34. Demurrage and detention are the import clock and belong to
              the container, so this goes on the container tab rather than the
              foot of the screen. Exports have no free time to confirm. */
+          /* §31. Operations receive the release email as often as the
+             controller does, and it names particular boxes. */
+          onReleaseContainer={(container) => releasePortnet(selectedJob, [container.id])}
+          onDischargeContainer={(container) => dischargeMany(selectedJob, [container.id])}
           onHandOverExport={async () => {
             const response = await fetch(
               `/api/jobs/${encodeURIComponent(selectedJob.apiId)}/handover`,
