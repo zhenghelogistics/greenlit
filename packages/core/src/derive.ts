@@ -105,6 +105,8 @@ export interface DerivedContainerView {
   pendingReasons: string[];
   dischargedAt: string | null;
   deliveredAt: string | null;
+  /** §31. When Portnet released this box. Per container. */
+  portnetReleasedAt: string | null;
   /** Whether a truck can be sent: released and discharged, both. */
   canPlanCollection: boolean;
   /**
@@ -360,7 +362,10 @@ export function deriveImportJob(
     // Portnet is granted against the bill of lading, so it lives on the job;
     // discharge happens to one box at a time. The board needs both together.
     const boardFacts = {
-      portnetReleased: job.portnetReleased,
+      // This box's own release, falling back to the job flag for anything
+      // recorded before release was per container. A box still waiting on
+      // Portnet must not read as ready because a sibling was released.
+      portnetReleased: c.portnetReleasedAt !== null || job.portnetReleased,
       dischargedAt: c.dischargedAt,
       deliveredAt: c.deliveredAt,
       emptyReadyAt: c.emptyReadyConfirmedAt,
@@ -400,6 +405,7 @@ export function deriveImportJob(
       pendingReasons: pendingReasons(boardFacts),
       dischargedAt: c.dischargedAt,
       deliveredAt: c.deliveredAt,
+      portnetReleasedAt: c.portnetReleasedAt ?? null,
       canPlanCollection: canPlanCollection(boardFacts),
       warnings: [deliveryDateWarning(job.eta, c.plannedDeliveryDate)].filter(Boolean) as Warning[],
       charge: chargeEstimate(clocks, { dailyRate: c.dailyRate, currency: c.currency }),
@@ -520,6 +526,8 @@ export function deriveExportJob(
       controllerStage: 'PENDING' as ControllerStage,
       pendingReasons: [],
       dischargedAt: null,
+      // Exports have no Portnet release: the box is collected empty from a yard.
+      portnetReleasedAt: null,
       deliveredAt: null,
       canPlanCollection: false,
       warnings: [],

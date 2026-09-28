@@ -4715,8 +4715,14 @@ export default function GreenlitControlTower() {
   }
 
   /** §31. The shipment is cleared to leave the terminal. */
-  async function releasePortnet(job) {
-    await runJobCommand(job, "/portnet", {}, "Portnet release recorded.");
+  async function releasePortnet(job, containerIds = []) {
+    // Nothing chosen means the release covered the job, which is the ordinary
+    // case and what this always did. Naming boxes releases only those.
+    await runJobCommand(job, "/portnet",
+      containerIds.length ? { containerIds } : {},
+      containerIds.length
+        ? `Portnet release recorded for ${containerIds.length} container${containerIds.length === 1 ? "" : "s"}.`
+        : "Portnet release recorded.");
   }
 
   /** The container reached the customer. */

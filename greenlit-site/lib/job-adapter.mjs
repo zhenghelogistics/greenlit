@@ -160,6 +160,8 @@ export function jobFromApi(view) {
       emptyReturnYard: c.emptyReturnYard ?? null,
       // §29. Which chassis this box needs. Asked at creation, stored from 0024.
       triAxle: c.triAxle === true,
+      // §31. Per container: a release email often names some and not others.
+      portnetReleasedAt: c.portnetReleasedAt ?? null,
       // §9.3. Null here means the box uses the job's own address.
       containerDeliveryCompany: c.deliveryCompany ?? null,
       containerDeliveryAddress: c.deliveryAddress ?? null,

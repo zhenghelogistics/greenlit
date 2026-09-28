@@ -177,6 +177,11 @@ function PendingByJob({ rows, onOpenJob, onDischargeMany, onPortnet }) {
         const job = group[0].job;
         const undischarged = group.filter(({ c }) => !c.dischargedAt);
         const chosen = undischarged.filter(({ c }) => picked.has(c.id)).map(({ c }) => c.id);
+        // A release email names particular boxes far more often than a whole
+        // job. Released is per container now, and the picker that already
+        // exists for discharge answers the same question.
+        const unreleased = group.filter(({ c }) => !c.portnetReleasedAt);
+        const pickedForRelease = unreleased.filter(({ c }) => picked.has(c.id)).map(({ c }) => c.id);
 
         return (
           <section className="card" key={job.id} style={{ marginBottom: 14 }}>
@@ -188,9 +193,19 @@ function PendingByJob({ rows, onOpenJob, onDischargeMany, onPortnet }) {
                 <div className="muted">{job.customer || "Customer TBA"} · ETA {day(job.eta)}</div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {!job.portnetReleased ? (
-                  <button className="btn secondary" type="button" onClick={() => onPortnet(job)}>
-                    Portnet released
+                {unreleased.length > 0 ? (
+                  <button className="btn secondary" type="button"
+                    onClick={() => {
+                      // Nothing ticked means the email covered the job, which
+                      // is the ordinary case and what this always did.
+                      onPortnet(job, pickedForRelease);
+                      setPicked(new Set());
+                    }}>
+                    {pickedForRelease.length
+                      ? `Portnet released — ${pickedForRelease.length} selected`
+                      : unreleased.length < group.length
+                        ? `Portnet released — remaining ${unreleased.length}`
+                        : "Portnet released"}
                   </button>
                 ) : null}
                 {undischarged.length > 0 ? (
