@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { closureBlockers, reopenReasonProblem } from '../src/closure.ts';
+import { closureBlockers, exportClosureBlockers, reopenReasonProblem } from '../src/closure.ts';
 
 const container = (containerId: string) => ({ containerId }) as never;
 const movement = (containerId: string, movementType: string, movementStatus: string) =>
@@ -76,4 +76,56 @@ test('§33.2: reopening needs a reason worth reading', () => {
   assert.match(reopenReasonProblem('fix') ?? '', /Say what changed/);
   assert.match(reopenReasonProblem('Correction') ?? '', /Say what changed/);
   assert.equal(reopenReasonProblem('Detention was billed at 4 days, carrier says 6'), null);
+});
+
+// ---- exports finish at the port ------------------------------------------
+//
+// Operations, 28 September 2026: "an export job is not complete until the last
+// stop is port". Before this the derivation passed a hardcoded false, so no
+// export container reached Completed by any route and every export job stayed
+// open forever.
+
+const exportBox = (id: string) => ({ exportContainerId: id } as never);
+const trip = (containerId: string, movementType: string, movementStatus = 'COMPLETED') =>
+  ({ containerId, movementType, movementStatus } as never);
+
+test('§33: an export closes when the box is at the port, by either road', () => {
+  // Direct when the customer could load it and the port would take it.
+  assert.deepEqual(
+    exportClosureBlockers([exportBox('c1')], [trip('c1', 'DIRECT_LADEN_TO_PORT')], 0), []);
+
+  // Via our own parking lot when the customer's place was full and it could
+  // not go straight in. A planning decision, not a different kind of job.
+  assert.deepEqual(
+    exportClosureBlockers([exportBox('c1')], [
+      trip('c1', 'ONE_WAY_LOADED'), trip('c1', 'CARPARK_TO_PORT'),
+    ], 0), []);
+});
+
+test('§33: a box sitting in our parking lot has not finished', () => {
+  // The case most worth getting right: it looks finished from the yard, the
+  // truck came back, and the container has not reached the port.
+  const blockers = exportClosureBlockers(
+    [exportBox('c1')], [trip('c1', 'ONE_WAY_LOADED')], 0);
+  assert.match(blockers.join(' '), /reached the port/);
+});
+
+test('§33: an export with no containers has not finished either', () => {
+  assert.match(exportClosureBlockers([], [], 0).join(' '), /nothing to have finished/);
+});
+
+test('§33: a part-finished export says how many are left', () => {
+  const blockers = exportClosureBlockers(
+    [exportBox('c1'), exportBox('c2'), exportBox('c3')],
+    [trip('c1', 'DIRECT_LADEN_TO_PORT')], 0);
+  assert.match(blockers.join(' '), /2 of 3/);
+});
+
+test('§33: a running trip or an open exception still blocks', () => {
+  assert.match(exportClosureBlockers([exportBox('c1')], [
+    trip('c1', 'DIRECT_LADEN_TO_PORT'), trip('c1', 'CARPARK_TO_PORT', 'SCHEDULED'),
+  ], 0).join(' '), /still running/);
+
+  assert.match(exportClosureBlockers(
+    [exportBox('c1')], [trip('c1', 'DIRECT_LADEN_TO_PORT')], 2).join(' '), /2 open exceptions/);
 });

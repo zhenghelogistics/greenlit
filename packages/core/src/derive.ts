@@ -10,6 +10,7 @@ import {
   freeTimeCountdown,
   carrierLastFreeDay,
   canHandOver,
+  exportClosureBlockers,
   containerHandoverGaps,
   isHandedOver,
   freeTimeTerm,
@@ -481,7 +482,11 @@ export function deriveExportJob(
       reference: c.containerRef,
       containerNumber: c.containerNumber,
       status: exportContainerStatus(job, c, movements, exceptions,
-        emptyGate.passed, laden.passed, missing.length === 0, false),
+        emptyGate.passed, laden.passed, missing.length === 0,
+        // Was hardcoded false, so no export container could reach Completed by
+        // any route and every export job stayed open forever. An export
+        // finishes when the box is at the port, by either road.
+        exportClosureBlockers([c], own, 0).length === 0),
       location: currentLocation(own, 'EXPORT'),
       gatePassed: laden.passed,
       gateFailures: laden.failures,

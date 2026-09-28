@@ -10,7 +10,7 @@
  * it, and there is an audit row naming them. `jobStatus` stays derived, and
  * reads Completed because the stored fact is true, not instead of it.
  */
-import type { ImportContainer, Movement } from './types.ts';
+import type { ExportContainer, ImportContainer, Movement } from './types.ts';
 
 /**
  * What is still outstanding, in the words a controller would use.
@@ -47,6 +47,71 @@ export function closureBlockers(
     blockers.push(notReturned.length === containers.length
       ? `No container has been returned empty yet.`
       : `${notReturned.length} of ${containers.length} containers are not back yet.`);
+  }
+
+  const unfinished = movements.filter(
+    (m) => m.movementStatus !== 'COMPLETED' && m.movementStatus !== 'CANCELLED',
+  );
+  if (unfinished.length > 0) {
+    blockers.push(`${unfinished.length} ${unfinished.length === 1 ? 'trip is' : 'trips are'} still running.`);
+  }
+
+  if (openExceptions > 0) {
+    blockers.push(`${openExceptions} open ${openExceptions === 1 ? 'exception' : 'exceptions'} to resolve.`);
+  }
+
+  return blockers;
+}
+
+/**
+ * What is still outstanding on an export, in the words a controller would use.
+ *
+ * ## An export finishes at the port
+ *
+ * Operations put it plainly on 28 September 2026: an export job is not
+ * complete until the last stop is port. Everything before that is the box
+ * getting there, whichever way it went.
+ *
+ * There are two ways it gets there and both count. A container goes direct
+ * when the customer can load it and the port will take it. When the customer's
+ * place is full and the box cannot go straight in, the controller trucks it
+ * out to our own parking lot instead and it goes to port afterwards. That
+ * detour is a planning decision rather than a different kind of job, so
+ * `CARPARK_TO_PORT` closes a job exactly as `DIRECT_LADEN_TO_PORT` does.
+ *
+ * What does not close a job is the one-way loaded trip on its own. A box
+ * sitting in our parking lot has moved and has not arrived, and that is the
+ * case most worth getting right: it is the one that looks finished from the
+ * yard and is not.
+ *
+ * ## Why this existed as `false`
+ *
+ * It did not exist. The derivation passed a hardcoded `false` for export
+ * closure, so no export container could reach Completed by any route, and
+ * every export job stayed open forever.
+ */
+export function exportClosureBlockers(
+  containers: readonly ExportContainer[],
+  movements: readonly Movement[],
+  openExceptions: number,
+): readonly string[] {
+  const blockers: string[] = [];
+
+  if (containers.length === 0) {
+    blockers.push('The job has no containers, so there is nothing to have finished.');
+  }
+
+  const AT_PORT = ['DIRECT_LADEN_TO_PORT', 'CARPARK_TO_PORT'];
+  const delivered = new Set(
+    movements
+      .filter((m) => AT_PORT.includes(m.movementType) && m.movementStatus === 'COMPLETED')
+      .map((m) => m.containerId),
+  );
+  const notAtPort = containers.filter((c) => !delivered.has(c.exportContainerId));
+  if (notAtPort.length > 0) {
+    blockers.push(notAtPort.length === containers.length
+      ? 'No container has reached the port yet.'
+      : `${notAtPort.length} of ${containers.length} containers have not reached the port.`);
   }
 
   const unfinished = movements.filter(
