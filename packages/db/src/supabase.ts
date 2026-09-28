@@ -1449,13 +1449,44 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         { field: 'permitReceived', from: before.permitReceived, to: true });
       await record(jobId, 'permit.received', actor, { field: 'permitNumber', to: permitNumber });
     },
-    async recordPortnetReleased(jobId, actor) {
+    async recordPortnetReleased(jobId, actor, containerIds) {
       const before = await this.getImportJob(jobId);
       if (!before) throw new Error(`Unknown import job ${jobId}`);
-      unwrap(await db.from('import_jobs').update({ portnet_released: true })
-        .eq('job_id', jobId).select().single(), 'record Portnet');
-      await record(jobId, 'portnet.released', actor,
-        { field: 'portnetReleased', from: before.portnetReleased, to: true });
+
+      const all = await db.from('containers').select('container_id,portnet_released_at')
+        .eq('job_id', jobId);
+      if (all.error) throw new Error(`containers: ${all.error.message}`);
+      const boxes = (all.data ?? []) as { container_id: string; portnet_released_at: string | null }[];
+
+      const covered = containerIds?.length
+        ? boxes.filter((c) => containerIds.includes(c.container_id))
+        : boxes;
+      if (containerIds?.length && covered.length !== containerIds.length) {
+        throw new Error('That release names a container that is not on this job.');
+      }
+
+      const at = new Date().toISOString();
+      const fresh = covered.filter((c) => !c.portnet_released_at);
+      if (fresh.length) {
+        const written = await db.from('containers')
+          .update({ portnet_released_at: at, portnet_released_by: actor })
+          .in('container_id', fresh.map((c) => c.container_id));
+        if (written.error) throw new Error(`record Portnet: ${written.error.message}`);
+        for (const box of fresh) {
+          await record(box.container_id, 'portnet.released', actor,
+            { field: 'portnetReleasedAt', from: null, to: at }, 'container');
+        }
+      }
+
+      // The job flag means every box, and is set only when every box is.
+      const everyBox = boxes.length > 0
+        && boxes.every((c) => c.portnet_released_at || fresh.some((f) => f.container_id === c.container_id));
+      if (everyBox && !before.portnetReleased) {
+        unwrap(await db.from('import_jobs').update({ portnet_released: true })
+          .eq('job_id', jobId).select().single(), 'record Portnet');
+        await record(jobId, 'portnet.released', actor,
+          { field: 'portnetReleased', from: false, to: true });
+      }
     },
     async recordFreeTime(containerId, terms, actor) {
       const existing = await db.from('containers').select('job_id,free_time_model')

@@ -113,6 +113,7 @@ const importJob: ImportJob = {
 };
 const importContainer: ImportContainer = {
   triAxle: false, deliveryCompany: null, deliveryAddress: null,
+  portnetReleasedAt: null, portnetReleasedBy: null,
   handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
   plannedDeliveryDate: null, plannedDeliveryTime: null,
   containerId: 'c', containerNumber: 'ABCU1234567', jobId: 'j', containerSize: '40',

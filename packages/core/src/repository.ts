@@ -427,7 +427,20 @@ export interface Repository {
    */
   recordCms(jobId: string, status: 'COMPLETED' | 'NOT_REQUIRED', actor: string, reason?: string): Promise<void>;
   recordPermitReceived(jobId: string, permitNumber: string, actor: string): Promise<void>;
-  recordPortnetReleased(jobId: string, actor: string): Promise<void>;
+  /**
+   * §31. Record a Portnet release.
+   *
+   * `containerIds` names the boxes the release covers. Omitted means all of
+   * them, which is the ordinary case and what the job-level flag always meant.
+   *
+   * A release email frequently names some boxes and not others, and recording
+   * that as a whole-job release tells a controller a container can be
+   * collected when Portnet has not released it — the trip is then refused at
+   * the terminal with the driver already there.
+   */
+  recordPortnetReleased(
+    jobId: string, actor: string, containerIds?: readonly string[],
+  ): Promise<void>;
   captureContainerIdentity(
     containerId: string,
     details: { containerNumber: string; sealNumber: string; tareWeightKg: number },

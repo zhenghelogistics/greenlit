@@ -67,14 +67,20 @@ export function canCollect(
   // collection was blocked, and offered a Plan button on the next. Operations
   // found it on 28 September 2026 and ranked it P1, which is right: two
   // answers about whether to send a truck is worse than either answer.
+  // This box's own release, falling back to the job's flag for anything
+  // recorded before release was per container. A release email names
+  // particular boxes far more often than it names a whole job, and treating
+  // one as the other sends a driver to a terminal that will refuse him.
+  const released = container.portnetReleasedAt !== null || job.portnetReleased;
+
   if (!canPlanCollection({
-    portnetReleased: !job.portnetRequired || job.portnetReleased,
+    portnetReleased: !job.portnetRequired || released,
     dischargedAt: container.dischargedAt,
     deliveredAt: null,
     emptyReadyAt: null,
   })) {
-    if (job.portnetRequired && !job.portnetReleased) {
-      failures.push('Portnet release not confirmed');
+    if (job.portnetRequired && !released) {
+      failures.push('Portnet has not released this container');
     }
     if (!container.dischargedAt) failures.push('Container has not been discharged');
   }

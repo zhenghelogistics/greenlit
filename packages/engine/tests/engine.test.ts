@@ -60,6 +60,7 @@ const exportContainer = (over: Partial<ExportContainer> = {}): ExportContainer =
 
 const importContainer = (): ImportContainer => ({
   triAxle: false, deliveryCompany: null, deliveryAddress: null,
+  portnetReleasedAt: null, portnetReleasedBy: null,
   handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
   plannedDeliveryDate: null, plannedDeliveryTime: null,
   containerId: 'c', containerNumber: 'ABCU1234567', jobId: 'j',
@@ -105,7 +106,7 @@ test('§31: collection blocked until Portnet release and discharge', () => {
 
   const noPortnet = canCollect(importJob({ portnetReleased: false }), discharged(), NO_FIELDS);
   assert.equal(noPortnet.passed, false);
-  assert.deepEqual(noPortnet.failures, ['Portnet release not confirmed']);
+  assert.deepEqual(noPortnet.failures, ['Portnet has not released this container']);
 
   // The permit no longer appears here at all.
   const noPermit = canCollect(importJob({ permitReceived: false }), discharged(), NO_FIELDS);
@@ -304,4 +305,29 @@ test('an empty collection cannot be planned before the CMS is done', () => {
   // pretending an ImportJob has a cmsStatus to read.
   assert.equal(refuseEmptyCollection(null, 'EMPTY_RETURN'), null);
   assert.equal(refuseEmptyCollection(null, 'EMPTY_COLLECTION'), null);
+});
+
+test('§31: a release naming one box does not release the others', () => {
+  // The whole reason release moved to the container. A release email names
+  // particular boxes far more often than it names a job, and treating one as
+  // the other sends a driver to a terminal that will refuse him.
+  const job = importJob({ portnetReleased: false });
+  const discharged = { dischargedAt: '2026-08-18T08:00:00Z' };
+
+  const releasedBox = canCollect(job,
+    { ...importContainer(), ...discharged, portnetReleasedAt: '2026-08-18T09:00:00Z' },
+    NO_FIELDS);
+  assert.equal(releasedBox.passed, true);
+
+  const waitingBox = canCollect(job, { ...importContainer(), ...discharged }, NO_FIELDS);
+  assert.equal(waitingBox.passed, false);
+  assert.match(waitingBox.failures.join(' '), /has not released this container/);
+});
+
+test('§31: a job released before releases were per container still counts', () => {
+  // Everything recorded under the old flag meant every box, because there was
+  // no way to say anything else. Backfilled in 0029 and read here too.
+  const job = importJob({ portnetReleased: true });
+  const box = { ...importContainer(), dischargedAt: '2026-08-18T08:00:00Z' };
+  assert.equal(canCollect(job, box, NO_FIELDS).passed, true);
 });

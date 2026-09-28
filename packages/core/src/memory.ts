@@ -187,6 +187,7 @@ const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
   ij1: [{
     containerId: 'ic1', containerNumber: 'OOLU8841250', jobId: 'ij1',
     triAxle: false, deliveryCompany: null, deliveryAddress: null,
+  portnetReleasedAt: null, portnetReleasedBy: null,
     handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
     plannedDeliveryDate: null, plannedDeliveryTime: null,
     containerSize: '40', containerType: 'HQ', sealNumber: null, grossWeight: 21400,
@@ -203,6 +204,7 @@ const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
   ij2: [{
     containerId: 'ic2', containerNumber: 'CSNU7213366', jobId: 'ij2',
     triAxle: false, deliveryCompany: null, deliveryAddress: null,
+  portnetReleasedAt: null, portnetReleasedBy: null,
     handedOverAt: null, handedOverBy: null, dischargedAt: null, deliveredAt: null,
     plannedDeliveryDate: null, plannedDeliveryTime: null,
     containerSize: '20', containerType: 'GP', sealNumber: 'SG88213', grossWeight: 14800,
@@ -616,6 +618,7 @@ export function createMemoryRepository(): Repository {
           jobId,
           // §29. Asked for on the form; stored from 0024 onward.
           triAxle: c.triAxle === true,
+          portnetReleasedAt: null, portnetReleasedBy: null,
           deliveryCompany: c.deliveryCompany ?? null,
           deliveryAddress: c.deliveryAddress ?? null,
           // Not handed over: a container that has just been read off a
@@ -1427,12 +1430,34 @@ export function createMemoryRepository(): Repository {
       record(jobId, 'permit.received', actor, { field: 'permitReceived', from, to: true });
       record(jobId, 'permit.received', actor, { field: 'permitNumber', to: permitNumber });
     },
-    async recordPortnetReleased(jobId, actor) {
+    async recordPortnetReleased(jobId, actor, containerIds) {
       const job = importJobs.find((j) => j.jobId === jobId);
       if (!job) throw new Error(`Unknown import job ${jobId}`);
-      const from = job.portnetReleased;
-      job.portnetReleased = true;
-      record(jobId, 'portnet.released', actor, { field: 'portnetReleased', from, to: true });
+
+      const boxes = importContainers[jobId] ?? [];
+      const covered = containerIds?.length
+        ? boxes.filter((c) => containerIds.includes(c.containerId))
+        : boxes;
+      if (containerIds?.length && covered.length !== containerIds.length) {
+        throw new Error('That release names a container that is not on this job.');
+      }
+
+      const at = new Date().toISOString();
+      for (const box of covered) {
+        if (box.portnetReleasedAt) continue;
+        box.portnetReleasedAt = at;
+        box.portnetReleasedBy = actor;
+        record(box.containerId, 'portnet.released', actor,
+          { field: 'portnetReleasedAt', from: null, to: at });
+      }
+
+      // The job flag means every box, and is set only when every box is.
+      const all = boxes.length > 0 && boxes.every((c) => c.portnetReleasedAt);
+      if (all && !job.portnetReleased) {
+        job.portnetReleased = true;
+        record(jobId, 'portnet.released', actor,
+          { field: 'portnetReleased', from: false, to: true });
+      }
     },
     // Why an export-container command found nothing. Container ready, VGM and
     // identity capture record that a shipper has stuffed and weighed a box —

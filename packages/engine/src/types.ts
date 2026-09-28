@@ -64,6 +64,16 @@ export interface ImportContainer {
    */
   triAxle: boolean;
   /**
+   * When Portnet released this container, and who recorded it.
+   *
+   * Per container because a release email frequently names some boxes and not
+   * others. It was one flag on the job, which told a controller the whole job
+   * could be collected the moment any of it was — and the trip is refused at
+   * the terminal with the driver already there.
+   */
+  portnetReleasedAt: string | null;
+  portnetReleasedBy: string | null;
+  /**
    * Where this container goes, when the job delivers to more than one place.
    *
    * Null means it uses the job's address. The creation form has offered a

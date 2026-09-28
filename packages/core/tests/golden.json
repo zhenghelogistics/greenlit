@@ -16,7 +16,7 @@
         "location": "Terminal / Port of discharge",
         "gatePassed": false,
         "gateFailures": [
-          "Portnet release not confirmed",
+          "Portnet has not released this container",
           "Container has not been discharged"
         ]
       }
