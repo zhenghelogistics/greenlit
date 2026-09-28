@@ -69,7 +69,7 @@ test('§34.4: days remaining is counted from the container’s own last free day
   const [demurrage, detention] = freeTimeCountdown(split(), '2026-09-10', 3);
   assert.equal(demurrage?.daysRemaining, 4);
   assert.equal(detention?.daysRemaining, 11);
-  assert.equal(demurrage?.summary, '4 days left');
+  assert.equal(demurrage?.summary, '4 days left, until 14/09/2026');
 });
 
 test('the last free day itself is not yet overdue', () => {
@@ -78,7 +78,7 @@ test('the last free day itself is not yet overdue', () => {
   assert.equal(demurrage?.daysRemaining, 0);
   assert.equal(demurrage?.standing, 'LAST_DAY');
   assert.equal(demurrage?.chargeableDays, 0, 'nothing is chargeable on the last free day');
-  assert.equal(demurrage?.summary, 'Last free day is today');
+  assert.equal(demurrage?.summary, 'Last free day is today, 14/09/2026');
 });
 
 test('past the last free day, charges are counted', () => {
@@ -171,7 +171,7 @@ test('a container still out counts to today as before', () => {
   // the window is inclusive, which is the point of having one.
   const [, detention] = freeTimeCountdown(split(), '2026-09-18', 3, null);
   assert.equal(detention?.standing, 'DUE_SOON');
-  assert.equal(detention?.summary, '3 days left');
+  assert.equal(detention?.summary, '3 days left, until 21/09/2026');
 
   const [, comfortable] = freeTimeCountdown(split(), '2026-09-10', 3, null);
   assert.equal(comfortable?.standing, 'OK');
@@ -347,4 +347,13 @@ test('§34.1: a display date counts the same as a stored one', () => {
   assert.equal(lastFreeDayFrom('09/10/2026', 1), '2026-10-09');
   assert.equal(lastFreeDayFrom('2026-09-23T08:00:00Z', 7), '2026-09-29', 'a timestamp counts by its day');
   assert.equal(lastFreeDayFrom('23/9/2026', 7), null, 'a half-written date is still refused');
+});
+
+test('§34: the date is beside the count, in the words operations write it', () => {
+  // Operations asked for this on 28 September 2026. "3 days left" is a number
+  // somebody has to turn into a date before they can plan against it, and they
+  // do that by counting on their fingers from a day they have to remember.
+  const [demurrage] = freeTimeCountdown(split(), '2026-09-10', 3);
+  assert.match(String(demurrage?.summary), /\d{2}\/\d{2}\/\d{4}/);
+  assert.doesNotMatch(String(demurrage?.summary), /\d{4}-\d{2}-\d{2}/, 'never the stored form');
 });

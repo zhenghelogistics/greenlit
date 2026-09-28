@@ -193,6 +193,18 @@ export interface FreeTimeCountdown extends FreeTimeClock {
   summary: string;
 }
 
+/**
+ * The date as operations write it: DD/MM/YYYY.
+ *
+ * Put beside every count, because "3 days left" is a number somebody has to
+ * turn into a date before they can plan against it, and they do that by
+ * counting on their fingers from a day they have to remember.
+ */
+const asDate = (iso: string): string => {
+  const [y, m, d] = iso.slice(0, 10).split('-');
+  return `${d}/${m}/${y}`;
+};
+
 const dayDifference = (from: string, to: string): number =>
   Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 
@@ -261,10 +273,12 @@ export function freeTimeCountdown(
           : daysRemaining <= criticalDays ? 'DUE_SOON'
             : 'OK';
 
+    const on = asDate(clock.lastFreeDay);
     const summary =
-      standing === 'OVERDUE' ? `${overdueBy} day${overdueBy === 1 ? '' : 's'} over — charges running`
-        : standing === 'LAST_DAY' ? 'Last free day is today'
-          : `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left`;
+      standing === 'OVERDUE'
+        ? `${overdueBy} day${overdueBy === 1 ? '' : 's'} over — charges running since ${on}`
+        : standing === 'LAST_DAY' ? `Last free day is today, ${on}`
+          : `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left, until ${on}`;
 
     return { ...clock, daysRemaining, standing, chargeableDays: overdueBy, summary };
   });
