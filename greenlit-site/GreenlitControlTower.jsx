@@ -2945,16 +2945,13 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
               </div>
             ) : null}
 
-            {/* §24. A permit is a number on a piece of paper, so recording
-                one means typing it. The other checkpoints are facts that
-                either happened or did not. */}
-            {panel.type === "checkpoint" && panel.key === "permitReceived" ? (
-              <DrawerField label="Permit number" hint="IG or ME, e.g. IG6I728642H.">
-                <input required value={draft.permitNumber || ""}
-                  onChange={(event) => update("permitNumber", event.target.value.toUpperCase())}
-                  placeholder="IG6I728642H" className={drawerInputClass} />
-              </DrawerField>
-            ) : panel.type === "checkpoint" ? (
+            {/* Checkpoints are facts that either happened or did not.
+                The permit used to be here too, as a single number box that set
+                a job flag the handover gate does not read — so a permit
+                recorded through it left the container still reading as
+                missing one. Permits live on the permit tab, where one can
+                cover several boxes and one box can carry several. */}
+            {panel.type === "checkpoint" ? (
               panel.key === "transhipment" ? <ChoiceGroup label="Where the laden box goes" value={draft.value} onChange={(value) => update("value", value)} options={[{ value: "available", label: "Direct to port", note: "The box goes straight in." }, { value: "not_available", label: "One-way loaded to our yard", note: "The customer's place is full, so it waits in our parking lot and goes to port after." }, { value: "pending", label: "Not decided yet", note: "Leave the routing open." }]} />
                 : panel.key === "deliveryPath" ? <ChoiceGroup label="Agreed path" value={draft.value} onChange={(value) => update("value", value)} options={[{ value: "carpark", label: "Use company carpark", note: "Create the one-way loaded branch." }, { value: "other", label: "Another path needed", note: "Keep the job blocked for follow-up." }]} />
                   : <ChoiceGroup label="Checkpoint state" value={draft.value} onChange={(value) => update("value", value)} options={[{ value: true, label: "Complete / received", note: "Release this checkpoint." }, { value: false, label: "Outstanding", note: "Keep this checkpoint open." }]} />
@@ -4187,7 +4184,12 @@ export default function GreenlitControlTower() {
         details = { tripId: job.trips.find((trip) => trip.type === "Empty Collection")?.id };
       }
     }
-    setWorkPanel({ type, jobId, ...details });
+    // Both ids. `jobId` is the job number, which is what the screens hold and
+    // what every local lookup matches on; `apiJobId` is the record's own id,
+    // which is the only thing the routes resolve.
+    //
+    // Without it every save posted to /api/jobs/undefined and failed silently.
+    setWorkPanel({ type, jobId, apiJobId: job.apiId, ...details });
   }
 
 
@@ -5233,7 +5235,7 @@ export default function GreenlitControlTower() {
         <ZhtCustomerDetail code={selectedCompany}
           onBack={() => { setSelectedCompany(null); setScreen("companies"); }} />
       ) : null}
-      {current === "fleet" ? <ZhtChassis fleet={fleet} onOpenJob={(job) => openJob(job.id)} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
+      {current === "fleet" ? <ZhtChassis fleet={fleet} onOpenJob={(job) => openJob(job.id)} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, apiJobId: jobs.find((j) => j.id === item.jobId)?.apiId ?? null, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
       {current === "controller" ? <ZhtController jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)}
         onDischargeMany={dischargeMany} onPortnet={releasePortnet} onDeliver={markDelivered} /> : null}
       {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => setCreatingJob(true)} /> : null}

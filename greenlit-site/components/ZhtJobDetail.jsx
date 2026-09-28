@@ -759,7 +759,12 @@ export default function ZhtJobDetail({
             // drawer opened titled "Update checkpoint", could not tell what it
             // was saving, and Save did nothing at all.
             if (action === "portnet.confirm") return onManage("checkpoint", { key: "portnetReleased" });
-            if (action === "permit.confirm") return onManage("checkpoint", { key: "permitReceived" });
+            // §24. The permit tab, not a single box. A permit covers
+            // particular containers and a job may carry several — one box can
+            // need three sets. The single-entry drawer this used to open set a
+            // job flag that the handover gate does not read, so operations
+            // recorded a permit and were still told the box was missing one.
+            if (action === "permit.confirm") { setTab("sec-permit"); return; }
             if (action === "movement.create" || action === "movement.update") return onManage("trip");
             // §40.2, §39, §42, §43, §44.1. The export-only commands. Each is a
             // control that already exists on this screen; the journey is where

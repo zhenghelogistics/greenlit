@@ -239,6 +239,8 @@ export function buildImportCtx(
   job: ImportJob, container: ImportContainer, movements: readonly Movement[],
   exceptions: readonly ExceptionRecord[], mandatory: MandatoryFieldSet,
   thresholds: Thresholds, now: string,
+  /** §24. The job's permits, so "permit received" is read off them. */
+  permits: readonly PermitRecord[] = [],
 ): ImportCtx {
   const own = movements.filter((m) => m.containerId === container.containerId);
   const missing = missingMandatoryFields(job as unknown as Record<string, unknown>, mandatory);
@@ -250,7 +252,14 @@ export function buildImportCtx(
     mandatoryComplete: missing.length === 0,
     missingFields: missing,
     permitRequired: job.permitRequired,
-    permitReceived: job.permitReceived,
+    // §24. Derived from the permits themselves, not from a flag somebody sets
+    // beside them. Both existed: a job-level "permit received" box and the
+    // permit records that actually cover containers. Operations recorded a
+    // permit in the first, and the handover gate — which reads the second —
+    // went on saying the box was missing one. Two answers to "has this job got
+    // its permit", and the one being shown was not the one being enforced.
+    permitReceived: !job.permitRequired
+      || (permits.length > 0 && containerHandoverGaps(job, container, permits).length === 0),
     permitRejected: job.permitRejected,
     portnetRequired: job.portnetRequired,
     portnetReleased: job.portnetReleased,
@@ -414,7 +423,7 @@ export function deriveImportJob(
 
   const first = containers[0];
   const ctx = first
-    ? buildImportCtx(job, first, movements, exceptions, mandatory, thresholds, now)
+    ? buildImportCtx(job, first, movements, exceptions, mandatory, thresholds, now, permits)
     : null;
   const action = ctx ? evaluate(IMPORT_RULES, ctx)
     : { nextActionRequired: 'Complete job information', blockingReason: 'No containers on job', waitingOn: 'US' as WaitingOn };

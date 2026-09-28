@@ -408,3 +408,20 @@ test("every screen handed onOpenJob gives it an id, not a job", async () => {
     "these hand openJob a whole job rather than its id, so the detail screen "
     + "finds nothing and renders blank");
 });
+
+test("every panel the drawer saves carries the id its routes resolve", () => {
+  // Every save posted to /api/jobs/undefined and failed quietly, because the
+  // panel was opened with the job number and the routes resolve the record id.
+  // Claimed fixed once while the edit that fixed it had aborted, so this
+  // asserts it instead of me re-reading the file.
+  const opened = [...ui.matchAll(/setWorkPanel\(\{([^}]*)\}\)/g)].map((m) => m[1]);
+  assert.ok(opened.length > 0, "expected the drawer to be opened somewhere");
+
+  const usesApiId = /encodeURIComponent\((?:panel\.)?apiJobId\)/.test(ui);
+  if (!usesApiId) return;
+
+  const missing = opened.filter((args) =>
+    /jobId/.test(args) && !/apiJobId/.test(args));
+  assert.deepEqual(missing, [],
+    "these open the drawer without the record id, so its saves post to /api/jobs/undefined");
+});
