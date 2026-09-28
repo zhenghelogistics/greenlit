@@ -143,6 +143,10 @@ export function jobFromApi(view) {
       sizeType: [c.containerSize, c.containerType].filter(Boolean).join(" ")
         || c.sizeType || "",
       grossWeight: c.grossWeight ?? null,
+      // §34. Per container, not per job: boxes on one job go back to different
+      // yards. Needed on screen so the edit drawer opens with what is recorded
+      // rather than blank, which would read as "none" and wipe it on save.
+      emptyReturnYard: c.emptyReturnYard ?? null,
       packageCount: c.packageCount ?? null,
       packageType: c.packageType ?? "",
       // §34. Which clocks this container actually has is the model's to say.

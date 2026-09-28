@@ -32,6 +32,17 @@ because ADR-0006 keeps them as buildless TypeScript source.
   strip-only execution, so no build step — which is why they cannot use
   TypeScript parameter properties or enums.
 
+## Replies
+
+Short. Three or four lines. Answer first, stop.
+
+No headed sections, no tables, no bullet hierarchies in a status update.
+No restating what was just built. No "want me to do X next" unless there
+is a real fork. Caveats get one sentence, not a section.
+
+This applies to drafted messages too: they get forwarded to the PM on
+Teams, so no em dashes and no section symbols.
+
 ## Commits
 
 Attribute solely to the repository owner. Do not add `Co-Authored-By` trailers

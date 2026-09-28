@@ -2768,9 +2768,12 @@ function initialDrawerDraft(panel, job) {
     };
   }
   if (panel.type === "container" && job?.type === "Import") {
-    if (panel.mode === "new") return { number: "", type: "", seal: "", state: job.permitReceived ? "Ready" : "Awaiting permit", lastFreeDay: job.demurrageLastFreeDay || "" };
+    if (panel.mode === "new") return { number: "", type: "", seal: "", grossWeight: "", emptyReturnYard: "", state: job.permitReceived ? "Ready" : "Awaiting permit", lastFreeDay: job.demurrageLastFreeDay || "" };
     const container = job.containers[panel.index || 0];
-    return { number: container.number, type: container.type || "", seal: container.seal || "", state: container.state, lastFreeDay: container.lastFreeDay || job.demurrageLastFreeDay || "" };
+    // Weight and yard are seeded like everything else here. A field that saves
+    // but opens blank is worse than one that is missing: it reads as "nothing
+    // recorded" and the first save wipes what was there.
+    return { number: container.number, type: container.type || "", seal: container.seal || "", grossWeight: container.grossWeight ?? "", emptyReturnYard: container.emptyReturnYard || "", state: container.state, lastFreeDay: container.lastFreeDay || job.demurrageLastFreeDay || "" };
   }
   if (panel.type === "trip" && job) {
     const trip = job.trips.find((item) => item.id === panel.tripId);
@@ -2928,6 +2931,15 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                   <DrawerField label="Seal number"><input value={draft.seal || ""} onChange={(event) => update("seal", event.target.value)} className={drawerInputClass} /></DrawerField>
                 </div>
                 <DrawerField label="Operational state"><select value={draft.state || ""} onChange={(event) => update("state", event.target.value)} className={drawerInputClass}>{["At terminal", "Awaiting permit", "Ready", "Collected", "Delivered"].map((state) => <option key={state}>{state}</option>)}</select></DrawerField>
+                {/* Typed at creation and, until now, correctable nowhere: the
+                    edit drawer offered container number, type, seal, state and
+                    last free day, and creation asks for weight and the empty
+                    return yard as well. A figure entered wrongly at intake
+                    stayed wrong. */}
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <DrawerField label="Weight (kg)" hint="Gross weight, as operations record it after Portnet."><input min="1" type="number" inputMode="numeric" value={draft.grossWeight ?? ""} onChange={(event) => update("grossWeight", event.target.value)} className={drawerInputClass} /></DrawerField>
+                  <DrawerField label="Empty return yard" hint="Where this box goes back. Per container, not per job."><input value={draft.emptyReturnYard || ""} onChange={(event) => update("emptyReturnYard", event.target.value)} className={drawerInputClass} /></DrawerField>
+                </div>
                 <DrawerField label="Container last free day"><input required type="date" value={draft.lastFreeDay || ""} onChange={(event) => update("lastFreeDay", event.target.value)} className={drawerInputClass} /></DrawerField>
                 <div className="rounded-md border border-sky-200 bg-sky-50 p-4 text-[17px] font-medium text-sky-900">Marking a container collected or delivered also updates its linked delivery trip. Delivering every container creates the empty-return trip automatically.</div>
                 {duplicateContainerNumber ? <div role="alert" className="callout">{draftContainerNumber} is already on this job. Every container number must be unique.</div> : null}
@@ -4243,6 +4255,7 @@ export default function GreenlitControlTower() {
                 containerSize: draft.sizeType || draft.type || null,
                 sealNumber: draft.seal || null,
                 grossWeight: numberOrNull(draft.grossWeight),
+                emptyReturnYard: draft.emptyReturnYard || null,
                 packageCount: numberOrNull(draft.packageCount),
                 packageType: draft.packageType || null,
               } };
