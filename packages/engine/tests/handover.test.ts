@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   importHandoverShipmentGaps, exportHandoverShipmentGaps, containerHandoverGaps,
-  canHandOver, isHandedOver, handoverSurvivesEdit, documentGaps, documentsComplete,
+  canHandOver, canHandOverExport, isHandedOver, handoverSurvivesEdit, documentGaps, documentsComplete,
 } from '../src/handover.ts';
 import type { ImportJob, ExportJob } from '../src/types.ts';
 import type { PermitRecord } from '../src/permits.ts';
@@ -165,4 +166,46 @@ test('confirming the documents is a different claim from the list being empty', 
   // The judgement is a stored instant, and nothing here sets it: a rule cannot
   // confirm on somebody's behalf.
   assert.equal(job.documentsCompletedAt ?? null, null);
+});
+
+// ---- exports, 28 September 2026 ------------------------------------------
+
+const exportBox = (over = {}) => ({
+  containerRef: 'C1', sizeType: '20GP', grossWeightKg: 18000, ...over,
+});
+
+test('an export hands over once the controller can plan it', () => {
+  const gate = canHandOverExport(
+    { customer: 'DKSH', deliveryAddress: '1 Tuas Ave 1' }, [exportBox()]);
+  assert.equal(gate.passed, true);
+});
+
+test('CMS does not hold an export back', () => {
+  // It often cannot be done until the day of collection. Blocking handover on
+  // it would keep the job off the board for exactly the period the controller
+  // needs to plan around it. It blocks the collection instead.
+  const source = readFileSync(new URL('../src/handover.ts', import.meta.url), 'utf8');
+  const fn = source.slice(source.indexOf('export function canHandOverExport'));
+  assert.doesNotMatch(fn.replace(/\/\*[\s\S]*?\*\//g, ''), /\bcms/i);
+});
+
+test('a box with no weight cannot be matched to a chassis, and says which box', () => {
+  // "2 containers are incomplete" sends somebody looking. "C2: weight" is a
+  // thing they can go and fix.
+  const gate = canHandOverExport({ customer: 'DKSH', deliveryAddress: '1 Tuas Ave 1' }, [
+    exportBox(), exportBox({ containerRef: 'C2', grossWeightKg: null }),
+  ]);
+  assert.equal(gate.passed, false);
+  assert.deepEqual(gate.failures, ['C2: weight']);
+});
+
+test('an export with no containers has nothing to hand over', () => {
+  const gate = canHandOverExport({ customer: 'DKSH', deliveryAddress: 'x' }, []);
+  assert.equal(gate.passed, false);
+  assert.match(gate.failures.join(' '), /At least one container/);
+});
+
+test('the customer and the address are named, not counted', () => {
+  const gate = canHandOverExport({ customer: null, deliveryAddress: null }, [exportBox()]);
+  assert.deepEqual(gate.failures, ['Customer', 'Delivery address']);
 });

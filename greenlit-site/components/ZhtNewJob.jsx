@@ -1138,8 +1138,8 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                       value={r.freeTimeModel}
                       onChange={(e) => setRow(i, { freeTimeModel: e.target.value })}
                     >
-                      <option value="COMBINED">One combined allowance</option>
-                      <option value="SPLIT">Separate demurrage and detention</option>
+                      <option value="COMBINED">Combined D+D</option>
+                      <option value="SPLIT">Separate demurrage and detention days</option>
                       <option value="NOT_CONFIRMED">Terms not read yet</option>
                     </select>
                   </Field>

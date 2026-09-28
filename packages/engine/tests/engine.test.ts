@@ -31,6 +31,7 @@ const importJob = (over: Partial<ImportJob> = {}): ImportJob => ({
 });
 
 const exportJob = (over: Partial<ExportJob> = {}): ExportJob => ({
+  handedOverAt: null, handedOverBy: null,
   closedAt: null, closedBy: null,
   emptyCollectionDate: null, emptyCollectionTime: null,
   exportJobId: 'e', jobNumber: 'EXP-1', customer: 'ABC', shipper: 'XYZ',

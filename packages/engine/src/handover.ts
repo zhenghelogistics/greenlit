@@ -217,3 +217,58 @@ export function documentsComplete(
 ): boolean {
   return documentGaps(job, containers, permits).length === 0;
 }
+
+
+/**
+ * Whether an export job can be passed to the controller, and what it lacks.
+ *
+ * ## What holds it back
+ *
+ * The core details a controller needs to plan the collection: who it is for,
+ * where it is going, and what equipment the boxes need. Operations named these
+ * on 28 September 2026 — customer, delivery address, size and weight per
+ * container, and whether heavy duty, tri-axle or 32.5 tonnes apply.
+ *
+ * The equipment answers count as given once the job exists, because they are
+ * booleans with a real default: "not needed" is an answer. Weight is not, and
+ * a box with no weight cannot be matched to a chassis.
+ *
+ * ## What deliberately does not
+ *
+ * CMS. It frequently cannot be completed until the day the empty is collected,
+ * and blocking handover on it would keep the job off the controller's board
+ * for exactly the period the controller needs to plan around it. It blocks the
+ * collection instead — `canCollectEmpty` — which is the thing it actually
+ * stops.
+ *
+ * ## Why this is job level
+ *
+ * An export has no per-box paperwork gate the way an import has permits, so
+ * what holds one container back holds the job back. Imports hand over box by
+ * box because a permit covers particular boxes and not others.
+ */
+export function canHandOverExport(
+  job: { customer: string | null; deliveryAddress?: string | null },
+  containers: readonly { containerRef: string; sizeType: string | null;
+    grossWeightKg?: number | null }[],
+): GateResult {
+  const failures: string[] = [];
+
+  if (missing(job.customer)) failures.push('Customer');
+  if (missing(job.deliveryAddress)) failures.push('Delivery address');
+
+  if (containers.length === 0) {
+    failures.push('At least one container');
+  }
+
+  for (const c of containers) {
+    // Named per box rather than counted: "2 containers are incomplete" sends
+    // somebody looking, and "C2 has no weight" is a thing they can go and fix.
+    if (missing(c.sizeType)) failures.push(`${c.containerRef}: size`);
+    if (c.grossWeightKg === null || c.grossWeightKg === undefined) {
+      failures.push(`${c.containerRef}: weight`);
+    }
+  }
+
+  return { passed: failures.length === 0, failures };
+}

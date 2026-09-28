@@ -282,6 +282,17 @@ export interface ExportContainer {
 /** §38.1. The commercial header. Container detail lives on ExportContainer. */
 export interface ExportJob {
   /**
+   * When operations passed this job to the controller, and who.
+   *
+   * Null until they do. Exports appeared on the controller's board from
+   * creation until 0028, whether or not anybody had finished with them.
+   *
+   * Job level, because an export has no per-box paperwork gate the way an
+   * import has permits: what holds one back holds all of it back.
+   */
+  handedOverAt: string | null;
+  handedOverBy: string | null;
+  /**
    * §33. When someone closed this job, and who.
    *
    * A stored fact, not a derivation: the engine can see every container is

@@ -458,6 +458,16 @@ export interface Repository {
    * controller's board mid-plan with no explanation; the gap is surfaced
    * instead, to the person best placed to chase it.
    */
+  /**
+   * §54. Pass an export to the controller.
+   *
+   * Job level, unlike the import above: an export has no per-box paperwork
+   * gate the way an import has permits, so what holds one container back
+   * holds the job back. Refused while a core detail is missing —
+   * `canHandOverExport` holds the list.
+   */
+  handExportToController(exportJobId: string, actor: string): Promise<void>;
+
   handContainerToController(containerId: string, actor: string): Promise<void>;
   /**
    * Record that a container came off the vessel.

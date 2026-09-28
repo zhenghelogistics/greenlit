@@ -78,6 +78,7 @@ const importContainer = (o: Partial<ImportContainer> = {}): ImportContainer => (
 });
 
 const exportJob = (o: Partial<ExportJob> = {}): ExportJob => ({
+  handedOverAt: null, handedOverBy: null,
   closedAt: null, closedBy: null,
   emptyCollectionDate: null, emptyCollectionTime: null,
   exportJobId: 'e', jobNumber: 'EXP-260901-001', customer: 'ABC', shipper: 'XYZ',

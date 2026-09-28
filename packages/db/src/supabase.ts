@@ -4,7 +4,7 @@ import { canSendContainerDetails, refuseEmptyCollection,
   type PermitRecord } from '@greenlit/engine';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
-  YARDS, YARD_CHARGES, rateProblem,
+  YARDS, YARD_CHARGES, rateProblem, canHandOverExport,
   appendAmendment, canDeleteCustomer, nextJobReference, recordChassisChange, userEvent,
   validateContainerCount,
   validateCustomerDraft,
@@ -902,6 +902,34 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         remarks: (saved.remarks as string | null) ?? null,
         recordedBy: saved.recorded_by as string, recordedAt: String(saved.recorded_at),
       };
+    },
+
+    async handExportToController(exportJobId, actor) {
+      const found = await db.from('export_jobs').select('*')
+        .eq('export_job_id', exportJobId).maybeSingle();
+      if (found.error) throw new Error(`export job: ${found.error.message}`);
+      if (!found.data) throw new Error(`Unknown export job ${exportJobId}`);
+      const job = toExportJob(found.data as Record<string, unknown>);
+
+      // Once, and not again: a second handover would move the timestamp and
+      // lose who actually passed it over.
+      if (job.handedOverAt) return;
+
+      const containers = await db.from('export_containers').select('*')
+        .eq('export_job_id', exportJobId);
+      if (containers.error) throw new Error(`export containers: ${containers.error.message}`);
+
+      const gate = canHandOverExport(job,
+        (containers.data ?? []).map((r: Record<string, unknown>) => toExportContainer(r)));
+      if (!gate.passed) throw new Error(`Not ready to hand over: ${gate.failures.join(', ')}`);
+
+      const at = new Date().toISOString();
+      const saved = await db.from('export_jobs')
+        .update({ handed_over_at: at, handed_over_by: actor })
+        .eq('export_job_id', exportJobId);
+      if (saved.error) throw new Error(`hand over export: ${saved.error.message}`);
+
+      await record(exportJobId, 'job.handedOver', actor, { field: 'handedOverBy', to: actor });
     },
 
     async listProblemReports() {

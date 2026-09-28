@@ -4,7 +4,7 @@ import { refuseEmptyCollection,
   type CustomerLocation, type DocumentRecord,
   type PermitRecord } from '@greenlit/engine';
 import {
-  YARDS, YARD_CHARGES, rateProblem,
+  YARDS, YARD_CHARGES, rateProblem, canHandOverExport,
   appendAmendment, applyChassisChange, canDeleteCustomer, canSendContainerDetails,
   nextJobReference, recordChassisChange,
   userEvent, validateContainerCount, validateCustomerDraft,
@@ -221,7 +221,8 @@ const IMPORT_CONTAINERS: Record<string, ImportContainer[]> = {
 /** §58.2 — export job parked at the carpark, transhipment unresolved. */
 const EXPORT_JOBS: ExportJob[] = [
   {
-    exportJobId: 'ej1', jobNumber: 'EXP-260818-002', customer: 'ABC Pte Ltd',
+    exportJobId: 'ej1', jobNumber: 'EXP-260818-002',
+    handedOverAt: null, handedOverBy: null, customer: 'ABC Pte Ltd',
     shipper: 'XYZ Manufacturing', bookingReference: 'SGSIN12345',
     exportClearanceReference: 'OP-260818-77', carrier: 'ONE',
     vesselName: 'ONE Splendour', voyageNumber: '114E', etaSingapore: '2026-09-03',
@@ -237,7 +238,8 @@ const EXPORT_JOBS: ExportJob[] = [
   },
   /** §58.3 — the exception path: empty delivered, identity never captured. */
   {
-    exportJobId: 'ej2', jobNumber: 'EXP-260819-002', customer: 'Meridian Freight',
+    exportJobId: 'ej2', jobNumber: 'EXP-260819-002',
+    handedOverAt: null, handedOverBy: null, customer: 'Meridian Freight',
     shipper: 'Meridian Freight', bookingReference: 'SGSIN99120',
     exportClearanceReference: 'OP-260819-12', carrier: 'PIL',
     vesselName: 'Kota Nabil', voyageNumber: '072E', etaSingapore: '2026-09-05',
@@ -253,7 +255,8 @@ const EXPORT_JOBS: ExportJob[] = [
   },
   /** Awaiting CMS: the gate §41 exists to enforce. */
   {
-    exportJobId: 'ej3', jobNumber: 'EXP-260819-001', customer: 'Straits Cargo',
+    exportJobId: 'ej3', jobNumber: 'EXP-260819-001',
+    handedOverAt: null, handedOverBy: null, customer: 'Straits Cargo',
     shipper: 'Straits Cargo', bookingReference: 'SGSIN44021',
     exportClearanceReference: 'OP-260819-03', carrier: 'ONE',
     vesselName: 'ONE Splendour', voyageNumber: '114E', etaSingapore: '2026-09-03',
@@ -663,6 +666,7 @@ export function createMemoryRepository(): Repository {
       const quantity = Math.max(1, draft.containerQuantity ?? 1);
 
       const job: ExportJob = {
+        handedOverAt: null, handedOverBy: null,
         closedAt: null, closedBy: null,
         exportJobId: jobId, jobNumber, customer: customer.companyName,
         shipper: draft.shipper ?? customer.companyName,
@@ -1147,6 +1151,21 @@ export function createMemoryRepository(): Repository {
         from: previous, to: amount,
       });
       return { ...rate };
+    },
+
+    async handExportToController(exportJobId, actor) {
+      const job = exportJobs.find((j) => j.exportJobId === exportJobId);
+      if (!job) throw new Error(`Unknown export job ${exportJobId}`);
+
+      const gate = canHandOverExport(job, exportContainers[exportJobId] ?? []);
+      if (!gate.passed) throw new Error(`Not ready to hand over: ${gate.failures.join(', ')}`);
+
+      // Once, and not again: a second handover would move the timestamp and
+      // lose who actually passed it over.
+      if (job.handedOverAt) return;
+      job.handedOverAt = new Date().toISOString();
+      job.handedOverBy = actor;
+      record(exportJobId, 'job.handedOver', actor, { field: 'handedOverBy', to: actor });
     },
 
     async listProblemReports() {

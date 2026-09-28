@@ -160,6 +160,7 @@ test('§22: three movement types are never auto-created', () => {
 });
 
 const exportJob: ExportJob = {
+  handedOverAt: null, handedOverBy: null,
   closedAt: null, closedBy: null,
   emptyCollectionDate: null, emptyCollectionTime: null,
   exportJobId: 'e', jobNumber: 'EXP-1', customer: 'ABC', shipper: 'XYZ',

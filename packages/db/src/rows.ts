@@ -116,6 +116,8 @@ export const toImportContainer = (r: Record<string, unknown>): ImportContainer =
 });
 
 export const toExportJob = (r: Record<string, unknown>): ExportJob => ({
+  handedOverAt: nn(r.handed_over_at as string),
+  handedOverBy: nn(r.handed_over_by as string),
   closedAt: nn(r.closed_at as string),
   closedBy: nn(r.closed_by as string),
   exportJobId: r.export_job_id as string,
