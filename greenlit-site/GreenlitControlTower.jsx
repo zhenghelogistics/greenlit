@@ -2490,6 +2490,11 @@ const FILTERS = [
   { id: "carrier", label: "Waiting on carrier" },
   { id: "import", label: "Import" },
   { id: "export", label: "Export" },
+  // §54. Operations keep a job after handing it over: the controller is
+  // working it while they are still chasing the yard, the weight and the free
+  // days. Those jobs left every queue they had, so the outstanding work was
+  // remembered rather than listed.
+  { id: "documents", label: "My documents outstanding" },
 ];
 
 function ActionRequired({ jobs, filter, setFilter, dashboardFilter, clearDashboardFilter, onOpen }) {
@@ -2504,6 +2509,12 @@ function ActionRequired({ jobs, filter, setFilter, dashboardFilter, clearDashboa
     if (filter === "carrier") return waitingOn(job) === "Carrier";
     if (filter === "import") return job.type === "Import";
     if (filter === "export") return job.type === "Export";
+    // Handed over and still owing operations something. Not "not handed over":
+    // before handover the whole job is theirs and every other filter shows it.
+    if (filter === "documents") {
+      return (job.containers ?? []).some((c) => c.handedOver)
+        && !job.documentsComplete;
+    }
     return true;
   });
 
@@ -5232,6 +5243,18 @@ export default function GreenlitControlTower() {
           /* §34. Demurrage and detention are the import clock and belong to
              the container, so this goes on the container tab rather than the
              foot of the screen. Exports have no free time to confirm. */
+          onHandOverExport={async () => {
+            const response = await fetch(
+              `/api/jobs/${encodeURIComponent(selectedJob.apiId)}/handover`,
+              { method: "POST" }).catch(() => null);
+            if (!response?.ok) {
+              const payload = await response?.json().catch(() => ({}));
+              showToast(payload?.error ?? "That job was not handed over.");
+              return;
+            }
+            await loadJobs();
+            showToast("Handed over to the controller.");
+          }}
           /* §24. Audited like any other amendment, so a permit turned off for
              one job can be explained months later. */
           onSetPermitRequired={async (required) => {

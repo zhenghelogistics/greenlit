@@ -371,6 +371,61 @@ function Warnings({ job }) {
 }
 
 /**
+ * Passing an export to the controller.
+ *
+ * The import equivalent is per container, because a permit covers particular
+ * boxes and not others. An export has no such gate, so this is one action for
+ * the job.
+ *
+ * CMS is deliberately absent from what holds it back. It frequently cannot be
+ * done until the day of collection, and keeping the job off the controller's
+ * board until then would hide it for exactly the period the controller needs
+ * to plan around it. It blocks the collection instead, and is shown there.
+ */
+function ExportHandover({ job, onHandOver }) {
+  const done = Boolean(job.handedOverAt);
+  const gaps = job.exportHandoverGaps ?? [];
+
+  return (
+    <div className="card" style={{
+      marginBottom: 18,
+      borderColor: done ? "var(--gl-state-ready)" : "var(--gl-state-warn)",
+    }}>
+      <div className="header-row" style={{ marginBottom: 10 }}>
+        <div>
+          <div className="section-title">Controller handover</div>
+          <div className="muted">
+            {done
+              ? `Handed over by ${job.handedOverBy} on ${formatDay(job.handedOverAt)}.`
+              : "What the controller needs before they can plan this collection."}
+          </div>
+        </div>
+        {!done && gaps.length === 0 ? (
+          <button className="btn success" type="button" onClick={onHandOver}>
+            Hand over to Controller
+          </button>
+        ) : null}
+      </div>
+
+      {!done && gaps.length > 0 ? (
+        <div className="stop">
+          {/* Named rather than counted: "2 containers are incomplete" sends
+              somebody looking, and "C2: weight" is a thing they can fix. */}
+          Still needed — {gaps.join(", ")}
+        </div>
+      ) : null}
+
+      {!done && !job.cmsCompleted ? (
+        <div className="permit-alert" style={{ marginTop: 8 }}>
+          CMS is still pending. That does not hold up handover; it stops the
+          empty collection being assigned to a driver.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * Document readiness.
  *
  * The other half of the pair, and the difference from the handover panel is
@@ -575,6 +630,7 @@ export default function ZhtJobDetail({
   job, containerIndex = 0, onSelectContainer, onBack, onManage,
   onRecordCms, onSendDetails, onSetTranshipment, onRecordDetails, onHandOver,
   onDocumentsComplete, extras, permitPanel, freeTimePanel, onSetPermitRequired,
+  onHandOverExport,
 }) {
   /** Opened by the journey's closing step, and by hand otherwise. */
   const [showClosing, setShowClosing] = useState(false);
@@ -687,6 +743,7 @@ export default function ZhtJobDetail({
           <Warnings job={job} />
           {job.type === "Import" ? <DocumentReadiness job={job} onComplete={onDocumentsComplete} /> : null}
           {job.type === "Import" ? <Handover job={job} onHandOver={onHandOver} /> : null}
+          {job.type === "Export" ? <ExportHandover job={job} onHandOver={onHandOverExport} /> : null}
 
           {/* §31, §32. The trip the box makes, and the only place on this
               screen that answers "where are we" and "what now". The lede and

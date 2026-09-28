@@ -10,6 +10,7 @@ import {
   freeTimeCountdown,
   carrierLastFreeDay,
   canHandOver,
+  canHandOverExport,
   exportClosureBlockers,
   containerHandoverGaps,
   isHandedOver,
@@ -157,6 +158,10 @@ export interface DerivedJobView {
    * ready to hand over, and usually is.
    */
   handoverShipmentGaps: string[];
+  /** §54. What an export still needs before the controller can plan it. */
+  exportHandoverGaps: string[];
+  handedOverAt: string | null;
+  handedOverBy: string | null;
   /**
    * What operations still have to gather before the job is document-ready.
    *
@@ -445,6 +450,9 @@ export function deriveImportJob(
     // "exportClearanceReference, etaSingapore" on a blocked export job.
     missingInformation: missing.map(fieldWords),
     handoverShipmentGaps: shipmentGaps,
+    exportHandoverGaps: [],
+    handedOverAt: null,
+    handedOverBy: null,
     documentsCompletedAt: job.documentsCompletedAt,
     documentsCompletedBy: job.documentsCompletedBy,
     documentGaps: documentGaps(job, containers, permits),
@@ -566,6 +574,10 @@ export function deriveExportJob(
     // "exportClearanceReference, etaSingapore" on a blocked export job.
     missingInformation: missing.map(fieldWords),
     handoverShipmentGaps: exportHandoverShipmentGaps(job),
+    // §54. What the controller still needs before they can plan this.
+    exportHandoverGaps: canHandOverExport(job, containers).failures,
+    handedOverAt: job.handedOverAt,
+    handedOverBy: job.handedOverBy,
     // Export readiness is a different list and is not modelled yet.
     documentsCompletedAt: null,
     documentsCompletedBy: null,

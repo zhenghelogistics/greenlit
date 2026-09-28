@@ -65,6 +65,10 @@ export function jobFromApi(view) {
     handoverShipmentGaps: view.handoverShipmentGaps ?? [],
     documentGaps: view.documentGaps ?? [],
     documentsComplete: Boolean(view.documentsComplete),
+    // §54. Exports hand over as a job, not box by box.
+    exportHandoverGaps: view.exportHandoverGaps ?? [],
+    handedOverAt: view.handedOverAt ?? null,
+    handedOverBy: view.handedOverBy ?? "",
     jobWarnings: view.jobWarnings ?? [],
     documentsCompletedAt: view.documentsCompletedAt ?? null,
     documentsCompletedBy: view.documentsCompletedBy ?? "",
