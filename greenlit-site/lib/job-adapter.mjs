@@ -122,7 +122,6 @@ export function jobFromApi(view) {
       actor: e.actor,
     })),
     // Present only for jobs created through document intake.
-    sourceDocument: null,
     // §27.1 exceptions are records; none are surfaced through the API yet.
     exception: null,
     // §12 conflicts awaiting a decision, from the server. They are records,

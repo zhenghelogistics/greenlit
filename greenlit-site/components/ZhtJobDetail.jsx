@@ -1014,16 +1014,6 @@ export default function ZhtJobDetail({
               onClick={() => onManage("activity")}>Open full activity</button>
           </Drawer>
 
-          <Drawer title="Source document" count={job.sourceDocument ? 1 : 0}>
-            <div className="muted">
-              {job.sourceDocument
-                ? "The document this job was read from."
-                : "No source document recorded for this job."}
-            </div>
-            <button className="btn ghost" type="button" style={{ marginTop: 8 }}
-              onClick={() => onManage("source")}>Open source document</button>
-          </Drawer>
-
           <Drawer title="Documents, trips and closure" open={showClosing}>
             {extras}
           </Drawer>

@@ -383,12 +383,17 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
    * because these leak for the life of the document otherwise.
    */
   const [sourceUrl, setSourceUrl] = useState("");
+  /** The document itself, attached to the job once it exists. */
+  const [sourceFile, setSourceFile] = useState(null);
   const [sourceName, setSourceName] = useState("");
   const [showSource, setShowSource] = useState(true);
 
   useEffect(() => () => { if (sourceUrl) URL.revokeObjectURL(sourceUrl); }, [sourceUrl]);
 
   const keepSource = (file) => {
+    // Kept as the File, not only as a preview URL: it is attached to the job
+    // once the job exists, so the notice it was read from stays with it.
+    setSourceFile(file ?? null);
     setSourceUrl((previous) => {
       if (previous) URL.revokeObjectURL(previous);
       return file ? URL.createObjectURL(file) : "";
@@ -547,7 +552,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
         };
 
     try {
-      await onCreate(type, draft, { stayHere: again });
+      await onCreate(type, draft, { stayHere: again, sourceFile });
       if (again) {
         set({
           vesselName: "", voyageNumber: "", blNumber: "", houseBlNumber: "",

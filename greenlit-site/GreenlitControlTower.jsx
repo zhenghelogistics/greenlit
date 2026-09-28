@@ -2798,7 +2798,7 @@ function initialDrawerDraft(panel, job) {
   return {};
 }
 
-function panelHeading(panel, job) {
+function panelHeading(panel) {
   const checkpointNames = {
     permitReceived: "Update permit",
     portnetReleased: "Update Portnet release",
@@ -2815,14 +2815,13 @@ function panelHeading(panel, job) {
   if (panel.type === "chassis") return { title: `Chassis ${panel.unit}`, note: panel.condition === "available" ? "Assign this available unit to active work." : panel.condition === "maintenance" ? "Return this unit to the available fleet after inspection." : "Release this unit when the job no longer needs it." };
   if (panel.type === "freeTime") return { title: "Confirm free-time dates", note: "Confirmed dates replace provisional document-based estimates." };
   if (panel.type === "activity") return { title: "Job activity", note: "Every simulated operational change appears here." };
-  if (panel.type === "source") return { title: "Extracted document facts", note: `${job?.sourceDocument?.fileName || "Arrival notice"} · processed on this device.` };
   return { title: "Manage work", note: "" };
 }
 
 function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
   const job = jobs.find((item) => item.id === panel?.jobId);
   const [draft, setDraft] = useState(() => initialDrawerDraft(panel, job));
-  const heading = panel ? panelHeading(panel, job) : { title: "", note: "" };
+  const heading = panel ? panelHeading(panel) : { title: "", note: "" };
 
   // The drawer's draft is reset when it is pointed at a different panel. The
   // rule flags setState in an effect generically; here the effect is the
@@ -2851,7 +2850,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
   if (!panel) return null;
   const update = (key, value) => setDraft((current) => ({ ...current, [key]: value }));
   const activeJobs = jobs.filter((item) => jobStatus(item) !== "Completed");
-  const isReadOnly = ["activity", "source"].includes(panel.type);
+  const isReadOnly = ["activity"].includes(panel.type);
   const containerRecords = job ? jobContainers(job) : [];
   const draftContainerNumber = String(draft.number || "").toUpperCase().replace(/\s+/g, "");
   // `panel.index || 0` everywhere else, and bare `panel.index` here. Opened
@@ -3124,11 +3123,6 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
               </div>
             ) : null}
 
-            {panel.type === "source" ? (
-              <div className="grid gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-2">
-                {Object.entries(job?.sourceDocument?.values || { "Document type": job?.sourceDocument?.documentType, Carrier: job?.sourceDocument?.carrier, "Issue date": job?.sourceDocument?.issueDate, "Bill of lading": job?.billOfLading, "Vessel / voyage": [job?.vessel, job?.voyage].filter(Boolean).join(" / ") }).filter(([, value]) => value).map(([key, value]) => <div key={key} className="min-w-0 bg-white p-4"><div className="text-[17px] font-semibold capitalize text-slate-600">{String(key).replace(/([A-Z])/g, " $1")}</div><div className="mt-2 break-words text-[17px] font-semibold text-slate-950">{String(value)}</div></div>)}
-              </div>
-            ) : null}
           </div>
 
           <div className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -4584,7 +4578,7 @@ export default function GreenlitControlTower() {
    * one: a customer rings, the booking is agreed, and the notice follows two
    * days later.
    */
-  async function createJob(type, draft, { stayHere = false } = {}) {
+  async function createJob(type, draft, { stayHere = false, sourceFile = null } = {}) {
     const response = await fetch("/api/jobs", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -4598,6 +4592,24 @@ export default function GreenlitControlTower() {
     if (!response.ok) throw new Error(body?.error || "The job could not be created.");
 
     const created = body?.job?.jobNumber;
+
+    // The document the job was read from, kept with the job. It was uploaded
+    // to /api/extract, read, and then dropped: the saved job said "no source
+    // document" even though one had been used to fill in half of it, so
+    // nothing could be checked against what the notice actually said.
+    const newId = body?.job?.jobId ?? body?.job?.exportJobId;
+    if (sourceFile && newId) {
+      const form = new FormData();
+      form.append("file", sourceFile);
+      form.append("source", "JOB_CREATION");
+      const stored = await fetch(`/api/jobs/${encodeURIComponent(newId)}/documents`, {
+        method: "POST", body: form,
+      }).catch(() => null);
+      // The job exists either way, so a failed attachment is said and not
+      // thrown: losing the job over its paperwork would be the worse trade.
+      if (!stored?.ok) showToast("The job was created, but its document was not attached.");
+    }
+
     showToast(`${created ?? "The job"} created.`);
     await loadJobs();
     // Creating several in a run: stay on the form rather than walking back to
