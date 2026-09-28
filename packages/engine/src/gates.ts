@@ -1,3 +1,4 @@
+import { fieldWords } from './field-words.ts';
 import type {
   ExportContainer, ExportJob, ImportContainer, ImportJob, MandatoryFieldSet,
 } from './types.ts';
@@ -54,7 +55,7 @@ export function canCollect(
   const missing = missingMandatoryFields(job as unknown as Record<string, unknown>, mandatory);
   const failures: string[] = [];
 
-  if (missing.length > 0) failures.push(...missing.map((f) => `Missing: ${f}`));
+  if (missing.length > 0) failures.push(...missing.map((f) => `Missing: ${fieldWords(f)}`));
   if (job.permitRequired && !job.permitReceived) failures.push('Permit has not been received');
   if (job.portnetRequired && !job.portnetReleased) failures.push('Portnet release not confirmed');
 
@@ -74,7 +75,7 @@ export function canCollectEmpty(
   const missing = missingMandatoryFields(job as unknown as Record<string, unknown>, mandatory);
   const failures: string[] = [];
 
-  if (missing.length > 0) failures.push(...missing.map((f) => `Missing: ${f}`));
+  if (missing.length > 0) failures.push(...missing.map((f) => `Missing: ${fieldWords(f)}`));
   // SPEC CONFLICT, settled by operations on 24 September 2026.
   //
   // §41 and §40.2 disagreed and this was built toward §40.2 — NOT_REQUIRED

@@ -667,16 +667,22 @@ export default function ZhtJobDetail({
             return onManage("job");
           }} />
 
-          {/* The commands the import journey has no step for. CMS and
+          {/* The commands the export journey has no step for. CMS and
               transhipment are job-level facts, and §42's notification belongs
               to the container rather than to the trip. Shown only when the
-              thing they record has genuinely not been done. */}
-          {(!job.cmsCompleted
+              thing they record has genuinely not been done.
+
+              Every one of these is export-only. CMS is the empty-collection
+              step and an import has no empty to collect, so the button was
+              offering a controller an action that means nothing on the job in
+              front of them — it was gated on `!job.cmsCompleted` alone, which
+              is true of every import forever. */}
+          {((job.type === "Export" && !job.cmsCompleted)
             || (job.type === "Export" && !container.number)
             || (job.type === "Export" && job.transhipment === "PENDING")) ? (
             <div className="card" style={{ marginBottom: 12 }}>
               <div className="action-row" style={{ gap: 8, flexWrap: "wrap" }}>
-                {!job.cmsCompleted ? (
+                {job.type === "Export" && !job.cmsCompleted ? (
                   <button className="btn success" type="button" onClick={onRecordCms}>
                     Record CMS completed
                   </button>
