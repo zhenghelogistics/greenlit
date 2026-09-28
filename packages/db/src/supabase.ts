@@ -1371,6 +1371,21 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         throw new Error(`create import containers: ${inserted.error.message}`);
       }
 
+      // §24. Permits already in hand. Each covers every container on the job
+      // unless it names them: a permit arriving with the notice is normally
+      // the whole shipment's, and correcting that is what the permit panel is
+      // for. Collected on the form and stored nowhere until now, so a permit
+      // read off a document vanished the moment the job was saved.
+      for (const permit of draft.permits ?? []) {
+        if (!permit.permitNumber?.trim()) continue;
+        await this.recordPermit(jobId, {
+          ...permit,
+          containerIds: permit.containerIds?.length
+            ? permit.containerIds
+            : drafts.map((_, index) => `${jobId}-c${index + 1}`),
+        }, actor);
+      }
+
       await record(jobId, 'job.created', actor, { field: 'jobNumber', to: jobNumber });
       return toImportJob(created);
     },

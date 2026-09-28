@@ -662,6 +662,18 @@ export function createMemoryRepository(): Repository {
         } as ImportContainer;
       });
       movements[jobId] = [];
+      // §24. Permits already in hand, each covering every container unless it
+      // names them. Collected on the form and stored nowhere until now.
+      for (const permit of draft.permits ?? []) {
+        if (!permit.permitNumber?.trim()) continue;
+        await this.recordPermit(jobId, {
+          ...permit,
+          containerIds: permit.containerIds?.length
+            ? permit.containerIds
+            : (importContainers[jobId] ?? []).map((c) => c.containerId),
+        }, actor);
+      }
+
       record(jobId, 'job.created', actor, { field: 'jobNumber', to: jobNumber });
       return clone(job);
     },

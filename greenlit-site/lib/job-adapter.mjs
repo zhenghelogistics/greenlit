@@ -199,6 +199,8 @@ export function jobFromApi(view) {
       // §54. Whether the box is the controller's yet. The board shows only
       // handed-over imports, so an absent value must read as not handed over.
       handedOver: view.containers?.[i]?.handedOver ?? false,
+      // §24. Which permits cover this box, read from the container's own side.
+      permitNumbers: view.containers?.[i]?.permitNumbers ?? [],
       readyForHandover: view.containers?.[i]?.readyForHandover ?? false,
       // The controller's four piles, and the two facts behind them.
       controllerStage: view.containers?.[i]?.controllerStage ?? "PENDING",

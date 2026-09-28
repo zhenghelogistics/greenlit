@@ -89,6 +89,8 @@ export interface DerivedContainerView {
    * repeating on every container.
    */
   handoverGaps: string[];
+  /** §24. The permits covering this container, by number. */
+  permitNumbers: string[];
   /** §54. Whether this container is already the controller's. */
   handedOver: boolean;
   /** §54. Whether it could be handed over now — the gate, not the gaps. */
@@ -403,6 +405,12 @@ export function deriveImportJob(
       handedOverAt: c.handedOverAt,
       handedOverBy: c.handedOverBy,
       handoverGaps: containerHandoverGaps(job, c, permits),
+      // §24. Which permits cover this box, so the container can be read from
+      // its own side. The permit panel says which containers a permit covers;
+      // nothing said which permit covers a container.
+      permitNumbers: permits
+        .filter((p) => p.linkedContainerIds.includes(c.containerId) && p.permitNumber)
+        .map((p) => p.permitNumber as string),
       // §54. Both of these were worked out on the screen instead: "handed
       // over" as a truthiness check on the timestamp, and "ready" as the
       // shipment's gaps and the container's both being empty. Neither is the
@@ -537,6 +545,8 @@ export function deriveExportJob(
       dischargedAt: null,
       // Exports have no Portnet release: the box is collected empty from a yard.
       portnetReleasedAt: null,
+      // Nor permits: those are an import declaration.
+      permitNumbers: [],
       deliveredAt: null,
       canPlanCollection: false,
       warnings: [],

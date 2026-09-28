@@ -341,6 +341,10 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
     // the customer master made by accident from a job form.
     deliveryInstructions: "",
     permitNumber: "", permitExpiryDate: "", permitVesselVoyage: "",
+    // §24. Permits two onwards. The first stays above because that is the one
+    // the reader fills in from the document; a job commonly carries several,
+    // and one container can need three sets.
+    extraPermits: [],
     // export only
     bookingReference: "", exportClearanceReference: "", shipper: "",
     emptyCollectionYard: "", cmsStatus: "PENDING",
@@ -523,6 +527,19 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
           permitNumber: shout(job.permitNumber) || null,
           permitExpiryDate: job.permitExpiryDate || null,
           permitVesselVoyage: shout(job.permitVesselVoyage) || null,
+          // §24. Every permit in hand, stored as records rather than as three
+          // fields on the job. They were collected here and written nowhere,
+          // so a permit read off a document vanished the moment it was saved.
+          permits: [
+            { permitNumber: shout(job.permitNumber) || null,
+              expiryDate: job.permitExpiryDate || null,
+              permitVesselVoyage: shout(job.permitVesselVoyage) || null },
+            ...(job.extraPermits ?? []).map((p) => ({
+              permitNumber: shout(p.permitNumber) || null,
+              expiryDate: p.expiryDate || null,
+              permitVesselVoyage: shout(p.permitVesselVoyage) || null,
+            })),
+          ].filter((p) => p.permitNumber),
           containers: rows.map((r) => ({
             containerNumber: shout(r.containerNumber) || null,
             sizeType: r.sizeType || null,
@@ -1353,6 +1370,37 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                     <span>Number, expiry and vessel all agree with this shipment.</span>
                   </div>
                 )}
+                {/* Two onwards. Each covers every container on the job unless
+                    it is narrowed afterwards on the permit tab, because a
+                    permit arriving with the notice is normally the whole
+                    shipment's. */}
+                {(job.extraPermits ?? []).map((extra, index) => (
+                  <div className="job-create-grid" key={index}>
+                    <Field label={`Permit ${index + 2} number`}>
+                      <input className="app-input" value={extra.permitNumber}
+                        onChange={(e) => set({ extraPermits: job.extraPermits.map((p, i) =>
+                          i === index ? { ...p, permitNumber: shout(e.target.value) } : p) })} />
+                    </Field>
+                    <Field label="Expires">
+                      <input className="app-date-input" type="date" value={extra.expiryDate}
+                        onChange={(e) => set({ extraPermits: job.extraPermits.map((p, i) =>
+                          i === index ? { ...p, expiryDate: e.target.value } : p) })} />
+                    </Field>
+                    <Field label="Declared against">
+                      <input className="app-input" value={extra.permitVesselVoyage}
+                        onChange={(e) => set({ extraPermits: job.extraPermits.map((p, i) =>
+                          i === index ? { ...p, permitVesselVoyage: shout(e.target.value) } : p) })} />
+                    </Field>
+                  </div>
+                ))}
+
+                <div className="action-row" style={{ marginTop: 10 }}>
+                  <button className="btn ghost" type="button"
+                    onClick={() => set({ extraPermits: [...(job.extraPermits ?? []),
+                      { permitNumber: "", expiryDate: "", permitVesselVoyage: "" }] })}>
+                    Add another permit
+                  </button>
+                </div>
               </>
             ) : null}
           </section>

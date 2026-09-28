@@ -810,6 +810,17 @@ export interface ImportContainerDraft {
 }
 
 export interface ImportJobDraft {
+  /**
+   * §24. Permits already in hand when the job is created.
+   *
+   * A list, because a job commonly carries several — one container can need
+   * three sets — and because the number was previously collected on the form
+   * and stored nowhere, so a permit read off a document vanished on save.
+   *
+   * Each covers every container on the job unless the containers are named.
+   * Correcting that mapping afterwards is what the permit panel is for.
+   */
+  permits?: readonly PermitDraft[];
   /** §9.3. Instructions for this job's delivery only, never written back. */
   deliveryInstructions?: string | null;
 

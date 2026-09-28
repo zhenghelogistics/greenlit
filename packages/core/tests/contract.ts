@@ -1266,6 +1266,33 @@ export function runRepositoryContract(
     assert.equal(heavy[0]!.sizeType, '40HQ');
   });
 
+  test(`[${name}] permits given at creation are stored as permits`, async () => {
+    // They were collected on the form and written nowhere, so a permit read
+    // off a document vanished the moment the job was saved — and the job then
+    // said the container was missing one.
+    const repo = await fresh();
+    const job = await repo.createImportJob({
+      customerCode: 'ABC',
+      containers: [{ containerNumber: 'OOLU1234567', sizeType: '20 GP' }],
+      permits: [
+        { permitNumber: 'IG6I356324B', expiryDate: '2026-12-01' },
+        { permitNumber: 'IG6I370558Y', expiryDate: '2026-12-02' },
+      ],
+    } as never, 'tester');
+
+    const permits = await repo.listPermitsForJob(job.jobId);
+    assert.deepEqual(permits.map((p) => p.permitNumber).sort(),
+      ['IG6I356324B', 'IG6I370558Y']);
+
+    // Each covers the job's containers, because a permit arriving with the
+    // notice is normally the whole shipment's.
+    const containers = await repo.listContainersForImportJob(job.jobId);
+    for (const permit of permits) {
+      assert.deepEqual([...permit.linkedContainerIds],
+        containers.map((c) => c.containerId));
+    }
+  });
+
   test(`[${name}] writing a derived value is impossible by construction`, async () => {
     const repo = await fresh();
     for (const forbidden of ['setJobStatus', 'setNextAction', 'setLocation',

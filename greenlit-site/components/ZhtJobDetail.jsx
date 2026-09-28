@@ -474,7 +474,7 @@ function DocumentReadiness({ job, onComplete }) {
           </span>
         ) : done ? (
           <button className="btn primary" type="button" onClick={() => onComplete?.()}>
-            Confirm documents complete
+            Mark operational documents ready
           </button>
         ) : (
           <span className="tag" style={{ whiteSpace: "nowrap" }}>
@@ -728,6 +728,12 @@ export default function ZhtJobDetail({
     ["Weight (KGS)", notRecorded(container.grossWeight)],
     ["Tri-axle", container.triAxle ? "Needed" : notRecorded(null)],
     ["Empty return yard", notRecorded(container.emptyReturnYard)],
+    // §24. From the container's side. The permit panel says which containers a
+    // permit covers; this says which permit covers the container, which is the
+    // question somebody looking at one box actually has.
+    ...(job.permitRequired
+      ? [["Permit", (container.permitNumbers ?? []).join(", ") || "Not recorded"]]
+      : []),
     ["Packages", container.packageCount],
     ["Tare (KGS)", container.tare],
     ["Status", container.status ?? container.state],
