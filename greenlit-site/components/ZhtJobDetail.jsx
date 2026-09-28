@@ -173,7 +173,7 @@ const DO_LABEL = {
   "container.notify": "Send to customer",
   "readiness.record": "Mark ready",
   "vgm.record": "Record VGM",
-  "transhipment.record": "Set transhipment",
+  "transhipment.record": "Choose where the laden box goes",
 };
 
 function Journey({ steps, onAct }) {
@@ -735,12 +735,25 @@ export default function ZhtJobDetail({
                     Record container, seal and tare
                   </button>
                 ) : null}
-                {job.type === "Export" && job.transhipment === "PENDING" ? (
+                {/* Where the laden box goes, which is the controller's call
+                    and not an availability somebody else reports.
+
+                    Operations did not recognise "transhipment" as a word they
+                    use. What it decides is real: the box goes straight to the
+                    port, or — when the customer's place is full and it cannot
+                    go in yet — it is trucked out to our own parking lot and
+                    goes on to the port afterwards. Either way the job is not
+                    finished until it reaches the port.
+
+                    Only asked once the customer says the box is ready, because
+                    before that there is nothing to route and it read as a step
+                    on every export from the moment it was created. */}
+                {job.type === "Export" && job.customerReady && job.transhipment === "PENDING" ? (
                   <>
                     <button className="btn primary" type="button"
-                      onClick={() => onSetTranshipment("available")}>Transhipment available</button>
+                      onClick={() => onSetTranshipment("available")}>Send direct to port</button>
                     <button className="btn secondary" type="button"
-                      onClick={() => onSetTranshipment("not_available")}>Not available</button>
+                      onClick={() => onSetTranshipment("not_available")}>One-way loaded to our yard</button>
                   </>
                 ) : null}
               </div>

@@ -2918,7 +2918,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                   placeholder="IG6I728642H" className={drawerInputClass} />
               </DrawerField>
             ) : panel.type === "checkpoint" ? (
-              panel.key === "transhipment" ? <ChoiceGroup label="Carrier response" value={draft.value} onChange={(value) => update("value", value)} options={[{ value: "available", label: "Available", note: "Plan a direct or final port trip." }, { value: "not_available", label: "Not available", note: "Choose another laden delivery path." }, { value: "pending", label: "Still pending", note: "Keep the job waiting on the carrier." }]} />
+              panel.key === "transhipment" ? <ChoiceGroup label="Where the laden box goes" value={draft.value} onChange={(value) => update("value", value)} options={[{ value: "available", label: "Direct to port", note: "The box goes straight in." }, { value: "not_available", label: "One-way loaded to our yard", note: "The customer's place is full, so it waits in our parking lot and goes to port after." }, { value: "pending", label: "Not decided yet", note: "Leave the routing open." }]} />
                 : panel.key === "deliveryPath" ? <ChoiceGroup label="Agreed path" value={draft.value} onChange={(value) => update("value", value)} options={[{ value: "carpark", label: "Use company carpark", note: "Create the one-way loaded branch." }, { value: "other", label: "Another path needed", note: "Keep the job blocked for follow-up." }]} />
                   : <ChoiceGroup label="Checkpoint state" value={draft.value} onChange={(value) => update("value", value)} options={[{ value: true, label: "Complete / received", note: "Release this checkpoint." }, { value: false, label: "Outstanding", note: "Keep this checkpoint open." }]} />
             ) : null}
@@ -4748,8 +4748,8 @@ export default function GreenlitControlTower() {
     const status = answer === "available" ? "AVAILABLE" : "NOT_AVAILABLE";
     await runJobCommand(selectedJob, "/transhipment", { status },
       status === "AVAILABLE"
-        ? "Transhipment available. The laden movement to port can be arranged."
-        : "Transhipment unavailable. Check whether the customer wants the carpark.");
+        ? "Going direct to port. The laden movement can be arranged."
+        : "One-way loaded to our yard. It goes on to the port from there.");
   }
 
 
