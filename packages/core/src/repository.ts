@@ -766,7 +766,29 @@ export interface ImportJobDraft {
   assignedController?: string | null;
 }
 
+/** One line of a booking: how many of this size, and what they need. */
+export interface ExportSlot {
+  quantity: number;
+  sizeType: string;
+  heavyDuty?: boolean;
+  rated32_5?: boolean;
+  reeferMode?: string | null;
+  reeferTemperature?: string | null;
+}
+
 export interface ExportJobDraft {
+  /**
+   * The booking's size lines, each with its own quantity.
+   *
+   * A booking is commonly mixed — two 20GP and one 40HQ — and every container
+   * was being created with `containerSizeType`, a single value taken from the
+   * first line. Three boxes were made and all three were the first size, so
+   * the rest of the booking was lost at creation.
+   *
+   * `containerQuantity` and `containerSizeType` remain on the job as the
+   * summary they always were.
+   */
+  slots?: readonly ExportSlot[];
   customerCode: string;
   shipper?: string | null;
   bookingReference?: string | null;

@@ -690,9 +690,19 @@ export function createMemoryRepository(): Repository {
       };
       exportJobs.push(job);
       // §38.2: container records are created with the job and identified later.
-      exportContainers[jobId] = Array.from({ length: quantity }, (_, i) =>
-        ec({ exportContainerId: `${jobId}-c${i + 1}`, exportJobId: jobId,
-          containerRef: `C${i + 1}`, sizeType: draft.containerSizeType ?? '' }));
+      // Each size line makes its own containers: a booking of two 20GP and
+      // one 40HQ is three boxes of two sizes, not three of the first size.
+      const lines = draft.slots?.length
+        ? draft.slots
+        : [{ quantity, sizeType: draft.containerSizeType ?? '' }];
+      exportContainers[jobId] = lines
+        .flatMap((slot) => Array.from(
+          { length: Math.max(1, Number(slot.quantity) || 1) }, () => slot))
+        .map((slot, i) => ec({
+          exportContainerId: `${jobId}-c${i + 1}`, exportJobId: jobId,
+          containerRef: `C${i + 1}`, sizeType: slot.sizeType ?? '',
+          heavyDuty: slot.heavyDuty === true, rated32_5: slot.rated32_5 === true,
+        }));
       movements[jobId] = [];
       record(jobId, 'job.created', actor, { field: 'jobNumber', to: jobNumber });
       return clone(job);

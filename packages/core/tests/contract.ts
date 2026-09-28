@@ -1236,6 +1236,31 @@ export function runRepositoryContract(
     assert.deepEqual(offenders, [], 'these reach a controller as raw property names');
   });
 
+  test(`[${name}] a mixed export booking keeps its sizes`, async () => {
+    // Two 20GP and one 40HQ. Every container used to be created with
+    // `containerSizeType`, a single value off the first line, so this made
+    // three 20GP and the 40HQ was lost at creation.
+    const repo = await fresh();
+    const job = await repo.createExportJob({
+      customerCode: 'ABC',
+      containerQuantity: 3,
+      containerSizeType: '20GP',
+      slots: [
+        { quantity: 2, sizeType: '20GP' },
+        { quantity: 1, sizeType: '40HQ', heavyDuty: true },
+      ],
+    } as never, 'tester');
+
+    const containers = await repo.listContainersForExportJob(job.exportJobId);
+    assert.equal(containers.length, 3);
+    assert.deepEqual(containers.map((c) => c.sizeType).sort(), ['20GP', '20GP', '40HQ']);
+
+    // And the equipment each line asked for travels with it.
+    const heavy = containers.filter((c) => c.heavyDuty);
+    assert.equal(heavy.length, 1);
+    assert.equal(heavy[0]!.sizeType, '40HQ');
+  });
+
   test(`[${name}] writing a derived value is impossible by construction`, async () => {
     const repo = await fresh();
     for (const forbidden of ['setJobStatus', 'setNextAction', 'setLocation',

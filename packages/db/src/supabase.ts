@@ -1320,12 +1320,22 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       }).select().single(), 'create export job') as Record<string, unknown>;
 
       // §38.2. Container records are created with the job, identified later.
-      const containers = Array.from({ length: quantity }, (_, i) => ({
-        export_container_id: `${jobId}-c${i + 1}`,
-        export_job_id: jobId,
-        container_ref: `C${i + 1}`,
-        size_type: draft.containerSizeType ?? '',
-      }));
+      // Each size line makes its own containers. Every box used to be given
+      // `containerSizeType`, which is one value off the first line, so a
+      // booking of two 20GP and one 40HQ created three 20GP.
+      const lines = draft.slots?.length
+        ? draft.slots
+        : [{ quantity, sizeType: draft.containerSizeType ?? '' }];
+      const containers = lines.flatMap((slot) =>
+        Array.from({ length: Math.max(1, Number(slot.quantity) || 1) }, () => slot))
+        .map((slot, i) => ({
+          export_container_id: `${jobId}-c${i + 1}`,
+          export_job_id: jobId,
+          container_ref: `C${i + 1}`,
+          size_type: slot.sizeType ?? '',
+          heavy_duty: slot.heavyDuty === true,
+          rated_32_5: slot.rated32_5 === true,
+        }));
       unwrap(await db.from('export_containers').insert(containers).select(), 'create containers');
 
       await record(jobId, 'job.created', actor, { field: 'jobNumber', to: jobNumber });

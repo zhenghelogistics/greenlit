@@ -549,6 +549,17 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
           etaSingapore: when(job.emptyCollectionDate, job.emptyCollectionTime),
           emptyCollectionYard: shout(job.emptyCollectionYard) || null,
           containerQuantity: slots.reduce((n, s) => n + Number(s.quantity || 0), 0),
+          // The lines themselves, so a mixed booking keeps its sizes. Only the
+          // total and the first size were sent, and every container was made
+          // at that first size.
+          slots: slots.map((s) => ({
+            quantity: Number(s.quantity || 1),
+            sizeType: s.sizeType || "",
+            heavyDuty: s.heavyDuty === true,
+            rated32_5: s.rated32_5 === true,
+            reeferMode: s.reeferMode || null,
+            reeferTemperature: s.reeferTemperature || null,
+          })),
           containerSizeType: slots[0]?.sizeType ?? null,
         };
 
