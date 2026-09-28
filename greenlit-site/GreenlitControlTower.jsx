@@ -49,7 +49,7 @@ import {
   ZhtEmptyReturns, ZhtSearchResults, ZhtCustomers, ZhtCustomerDetail, ZhtYardRates, ZhtReports,
 } from "./components/ZhtScreens.jsx";
 import { lastFreeDayFromEta, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
-import { validateContainerCount } from "@greenlit/engine";
+import { checkContainerNumber, validateContainerCount } from "@greenlit/engine";
 import { reconcileExtraction, toExtractedFields } from "@greenlit/engine";
 
 /**
@@ -2862,6 +2862,14 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
   // `undefined`, so container 0 was checked against itself and the drawer
   // refused to save a container for clashing with itself.
   const editingIndex = panel.index || 0;
+  // ISO 6346. A wrong number caught here is caught before a driver is sent;
+  // caught at the gate it is a wasted trip. Shown as a warning and not a
+  // refusal: older equipment and some shippers' own boxes genuinely carry
+  // numbers that do not check, and refusing them would make the only way to
+  // record the truth a wrong entry.
+  const containerNumberCheck = panel.type === "container" && draftContainerNumber
+    ? checkContainerNumber(draftContainerNumber)
+    : null;
   const duplicateContainerNumber = panel.type === "container" && draftContainerNumber && containerRecords.some((container, index) => index !== editingIndex && String(container.number || "").toUpperCase().replace(/\s+/g, "") === draftContainerNumber);
   const selectedContainer = panel.type === "container" && panel.mode !== "new" ? containerRecords[panel.index || 0] : null;
   const selectedContainerHasMovement = selectedContainer ? (job?.trips || []).some((trip) => trip.status !== "Cancelled" && ((trip.containerRef && trip.containerRef === selectedContainer.ref) || (trip.containerNumber && trip.containerNumber === selectedContainer.number) || (!trip.containerRef && !trip.containerNumber && containerRecords.length === 1))) : false;
@@ -2936,6 +2944,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                 <DrawerField label="Stuffing location" hint="Each container may use a different customer site."><textarea required rows={2} value={draft.stuffingLocation || ""} onChange={(event) => update("stuffingLocation", event.target.value)} className={drawerInputClass} /></DrawerField>
                 <ChoiceGroup label="Details sent to customer" value={Boolean(draft.detailsSent)} onChange={(value) => update("detailsSent", value)} options={[{ value: true, label: "Sent", note: "This container may proceed to stuffing." }, { value: false, label: "Not sent", note: "Keep this container waiting on us." }]} />
                 <ChoiceGroup label="Customer confirms container ready" value={Boolean(draft.customerReady)} onChange={(value) => update("customerReady", value)} options={[{ value: true, label: "Ready", note: "Validate VGM before laden movement." }, { value: false, label: "Not ready", note: "Keep this container waiting on the customer." }]} />
+                {containerNumberCheck?.checkDigitValid === false || containerNumberCheck?.wellFormed === false ? <div role="alert" className="callout">{containerNumberCheck.problem}</div> : null}
                 {duplicateContainerNumber ? <div role="alert" className="callout">{draftContainerNumber} is already on this job. Every container number must be unique.</div> : null}
               </div>
             ) : null}
@@ -2964,6 +2973,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                 <ChoiceGroup label="Tri-axle chassis" value={Boolean(draft.triAxle)} onChange={(value) => update("triAxle", value)} options={[{ value: true, label: "Needed", note: "Only a tri-axle unit may be assigned." }, { value: false, label: "Not needed", note: "Any suitable unit." }]} />
                 <DrawerField label="Container last free day"><input required type="date" value={draft.lastFreeDay || ""} onChange={(event) => update("lastFreeDay", event.target.value)} className={drawerInputClass} /></DrawerField>
                 <div className="rounded-md border border-sky-200 bg-sky-50 p-4 text-[17px] font-medium text-sky-900">Marking a container collected or delivered also updates its linked delivery trip. Delivering every container creates the empty-return trip automatically.</div>
+                {containerNumberCheck?.checkDigitValid === false || containerNumberCheck?.wellFormed === false ? <div role="alert" className="callout">{containerNumberCheck.problem}</div> : null}
                 {duplicateContainerNumber ? <div role="alert" className="callout">{draftContainerNumber} is already on this job. Every container number must be unique.</div> : null}
               </div>
             ) : null}
