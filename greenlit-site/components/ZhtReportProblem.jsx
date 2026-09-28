@@ -75,7 +75,9 @@ export default function ZhtReportProblem({ screen, job, container }) {
         ? `${window.innerWidth}x${window.innerHeight}` : null,
     };
 
-    const response = await fetch("/api/reports", {
+    const response = await // Deliberately not /api/reports: that is the month and quarter
+    // reporting the management screen reads.
+    fetch("/api/problem-reports", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ brainDump: words, context }),

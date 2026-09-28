@@ -100,6 +100,26 @@ export interface FreeTimeSource {
  * unconfirmed container yields none, because showing a countdown derived from
  * an unverified rule is worse than showing that it is unverified.
  */
+/**
+ * Why an overridden last free day cannot be saved, or null.
+ *
+ * A date entered by hand outranks the arithmetic, so it has to carry the
+ * reason it does. The counted date needs no explanation: it is the ETA plus
+ * the allowance and anybody can check it. An override is a decision, and a
+ * decision with no stated reason is one nobody can defend when the invoice
+ * arrives.
+ */
+export function lfdOverrideProblem(
+  override: { lastFreeDay: string | null; reason: string | null },
+): string | null {
+  if (!override.lastFreeDay) return null;
+  if (!override.reason?.trim()) {
+    return 'Say why this last free day was set by hand. The counted date needs '
+      + 'no reason; a date that overrides it does.';
+  }
+  return null;
+}
+
 export function freeTimeClocks(container: FreeTimeSource): FreeTimeClock[] {
   // §34.1. The date is counted, not typed. A stored date is read as the
   // controller's override, which is what a stored date has always meant:

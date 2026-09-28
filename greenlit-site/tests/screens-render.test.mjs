@@ -110,11 +110,17 @@ test("every screen survives a job with almost nothing on it", async () => {
     },
     ZhtNewJob: { customers: [], onCreate() {}, onCancel() {} },
     ZhtJobDetail: { job: bare, onBack() {}, onManage() {} },
+    // An export with nothing on it. Exports have their own handover panel and
+    // one tab fewer, and the sparse import above exercises neither.
+    ZhtJobDetailExport: {
+      job: { ...bare, id: "ZHT-26-000003-E", apiId: "job-3", type: "Export" },
+      onBack() {}, onManage() {},
+    },
   };
 
   for (const [name, props] of Object.entries(cases)) {
     try {
-      const Screen = (await load(name)).default;
+      const Screen = (await load(name.replace(/Export$/, ""))).default;
       if (Screen) html(React.createElement(Screen, props));
     } catch (error) {
       failures.push(`${name}: ${error.message}`);

@@ -768,6 +768,16 @@ export interface FreeTimeTerms {
   detentionLfd?: string | null;
   combinedFreeDays?: number | null;
   combinedLfd?: string | null;
+  /**
+   * §34.1. Why a last free day was set by hand rather than counted.
+   *
+   * Required when a date is given, because the counted date is reproducible
+   * and an override is not. "The 14th" can be checked against the ETA and the
+   * allowance; "the 20th" is only explicable by whoever agreed it with the
+   * carrier, and when the demurrage invoice is queried six weeks later that
+   * person is the only record of the conversation.
+   */
+  lfdOverrideReason?: string | null;
   /** The terms as the carrier worded them, where a number cannot carry them. */
   freeTimeRemarks?: string | null;
   /**
