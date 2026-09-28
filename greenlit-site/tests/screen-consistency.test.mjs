@@ -46,6 +46,7 @@ const all = [...sources.values()].join("\n");
  */
 const FILLED_BY = {
   customer: "job.customerCode",
+  carrier: "job.carrier",
   deliveryAddress: "job.deliveryAddress",
   blNumber: "job.blNumber",
   vesselName: "job.vesselName",

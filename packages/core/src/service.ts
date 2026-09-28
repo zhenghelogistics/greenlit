@@ -13,7 +13,15 @@ import { deriveExportJob, deriveImportJob, type AuditEventView, type DerivedJobV
  * settings table exists. Keys must match the stored field names.
  */
 export const IMPORT_MANDATORY: MandatoryFieldSet = {
-  fields: ['customer', 'blNumber', 'vesselName', 'voyageNumber', 'eta', 'deliveryAddress'],
+  // Operations, 28 September 2026: the carrier is required on an import too.
+  // It decides where the last free day and the empty return yard are looked
+  // up, so a job without one cannot be worked without somebody remembering.
+  //
+  // Vessel and voyage were already both here, which is right: a vessel with
+  // no voyage names a ship and not a sailing, and two sailings of the same
+  // ship are weeks apart.
+  fields: ['customer', 'carrier', 'blNumber', 'vesselName', 'voyageNumber',
+    'eta', 'deliveryAddress'],
 };
 
 export const EXPORT_MANDATORY: MandatoryFieldSet = {

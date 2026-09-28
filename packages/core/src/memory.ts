@@ -160,7 +160,7 @@ const IMPORT_JOBS: ImportJob[] = [
   {
     jobId: 'ij1', jobNumber: 'JOB-260818-001',
     deliveryInstructions: null,
-    carrier: null, customer: 'ABC Company',
+    carrier: 'OR', customer: 'ABC Company',
     blNumber: 'ABC123456', houseBlNumber: null, vesselName: 'Vessel XYZ', voyageNumber: '123E',
     eta: '2026-08-20', jobType: 'standard', deliveryAddress: '12 Tuas Ave 8',
     documentsCompletedAt: null, documentsCompletedBy: null, permitRequired: true, permitReceived: false, permitRejected: false,
@@ -173,7 +173,7 @@ const IMPORT_JOBS: ImportJob[] = [
   {
     jobId: 'ij2', jobNumber: 'JOB-260816-004',
     deliveryInstructions: null,
-    carrier: null, customer: 'Lion City Traders',
+    carrier: 'MD', customer: 'Lion City Traders',
     blNumber: 'BL778812', houseBlNumber: 'HBL-99120', vesselName: 'Kota Ratu', voyageNumber: '044W',
     eta: '2026-08-16', jobType: 'standard', deliveryAddress: '3 Pioneer Sector 2',
     documentsCompletedAt: null, documentsCompletedBy: null, permitRequired: false, permitReceived: true, permitRejected: false,
