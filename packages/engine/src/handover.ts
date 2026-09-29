@@ -250,12 +250,17 @@ export function documentsComplete(
 export function canHandOverExport(
   job: { customer: string | null; deliveryAddress?: string | null },
   containers: readonly { containerRef: string; sizeType: string | null;
-    grossWeightKg?: number | null }[],
+    grossWeightKg?: number | null; stuffingLocation?: string | null }[],
 ): GateResult {
   const failures: string[] = [];
 
   if (missing(job.customer)) failures.push('Customer');
-  if (missing(job.deliveryAddress)) failures.push('Delivery address');
+
+  // An export's address is where the box is stuffed, which is per container
+  // because a customer may stuff at more than one site. An export job carries
+  // no delivery address of its own — the first version of this gate checked
+  // for one and refused every export, because the field it read does not
+  // exist on that record.
 
   if (containers.length === 0) {
     failures.push('At least one container');
@@ -265,6 +270,7 @@ export function canHandOverExport(
     // Named per box rather than counted: "2 containers are incomplete" sends
     // somebody looking, and "C2 has no weight" is a thing they can go and fix.
     if (missing(c.sizeType)) failures.push(`${c.containerRef}: size`);
+    if (missing(c.stuffingLocation)) failures.push(`${c.containerRef}: stuffing address`);
     if (c.grossWeightKg === null || c.grossWeightKg === undefined) {
       failures.push(`${c.containerRef}: weight`);
     }

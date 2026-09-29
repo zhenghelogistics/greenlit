@@ -22,6 +22,8 @@ export async function PATCH(request: Request, ctx: {
     "containerNumber", "containerSize", "sealNumber",
     "grossWeight", "packageCount", "packageType", "emptyReturnYard", "triAxle",
     "deliveryCompany", "deliveryAddress",
+    // Export: the box's own weight and where it is stuffed.
+    "grossWeightKg", "stuffingLocation",
   ] as const;
 
   const changes: Record<string, unknown> = {};
@@ -44,6 +46,9 @@ export async function PATCH(request: Request, ctx: {
       await repo.amendExportContainer(containerId, {
         sizeType: changes.sizeType as string | undefined,
         stuffingLocation: changes.stuffingLocation as string | null | undefined,
+        // Handover is refused without it, and nothing could set it.
+        grossWeightKg: changes.grossWeightKg === undefined
+          ? undefined : Number(changes.grossWeightKg),
       }, auth.displayName);
       return;
     }

@@ -177,7 +177,7 @@ const exportJob: ExportJob = {
   assignedController: 'W', cancelled: false, onHold: false, createdAt: '2026-08-18T00:00:00Z',
 };
 const exportContainer: ExportContainer = {
-  heavyDuty: false, rated32_5: false,
+  heavyDuty: false, rated32_5: false, grossWeightKg: null,
   exportContainerId: 'xc', exportJobId: 'e', containerRef: 'C1',
   containerNumber: 'ABCU1', sealNumber: '1', tareWeightKg: 3850, sizeType: '40 HQ',
   isReefer: false, temperatureMode: null, temperatureSetpointC: null,

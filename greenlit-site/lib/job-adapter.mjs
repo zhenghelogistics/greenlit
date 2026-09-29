@@ -160,6 +160,9 @@ export function jobFromApi(view) {
       emptyReturnYard: c.emptyReturnYard ?? null,
       // §29. Which chassis this box needs. Asked at creation, stored from 0024.
       triAxle: c.triAxle === true,
+      // Export: gross weight once stuffed, and where it was stuffed.
+      grossWeightKg: c.grossWeightKg ?? null,
+      stuffingLocation: c.stuffingLocation ?? "",
       // §31. Per container: a release email often names some and not others.
       portnetReleasedAt: c.portnetReleasedAt ?? null,
       lfdOverrideReason: c.lfdOverrideReason ?? "",

@@ -131,6 +131,34 @@ test("a saved job is organised the way the form that made it was", () => {
     "the saved job shows different sections from the form that made it");
 });
 
+test("every field a handover gate demands has somewhere to enter it", async () => {
+  // The mandatory-field gate above only covers the two MANDATORY sets. The
+  // handover gates are a second place a field can be demanded, and the export
+  // one shipped requiring a gross weight that no screen and no route could
+  // supply — the same fault as truckInDate, inside the feature written to fix
+  // truckInDate.
+  const handover = await readFile("../packages/engine/src/handover.ts", "utf8");
+
+  // Every container property the export gate reads, however it tests it.
+  // Matching only `missing(c.x)` missed the weight, which is checked against
+  // null directly — so the first version of this passed while the field it was
+  // written for had no input at all.
+  const gate = handover.slice(handover.indexOf("export function canHandOverExport"));
+  const demanded = [...gate.matchAll(/\bc\.(\w+)/g)].map((m) => m[1])
+    .filter((f) => f !== "containerRef");
+  assert.ok(demanded.length >= 3, "expected the export gate to read several fields");
+
+  // A bound input, not a mention. The field appears in the save body and in
+  // the draft seeding whether or not anybody can type it, so matching those
+  // passes the test while the control is missing — which is what the first
+  // version of this check did.
+  const unreachable = [...new Set(demanded)].filter((field) =>
+    !new RegExp(`value=\\{\\s*draft\\.${field}\\b`).test(all));
+
+  assert.deepEqual(unreachable, [],
+    "these block a handover and no screen offers a way to fill them in");
+});
+
 test("an action only one domain has is only offered to that domain", () => {
   // "Record CMS completed" was gated on `!job.cmsCompleted` alone, which is
   // true of every import forever, while the two branches beside it checked the

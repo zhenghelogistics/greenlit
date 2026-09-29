@@ -262,6 +262,13 @@ export interface ExportContainer {
   heavyDuty: boolean;
   /** Rated to 32.5 tonnes. */
   rated32_5: boolean;
+  /**
+   * Gross weight once stuffed, which decides the chassis.
+   *
+   * Distinct from `tareWeightKg`, which is the empty box. Export handover is
+   * refused without this, and until 0032 there was nowhere to record it.
+   */
+  grossWeightKg: number | null;
   exportJobId: string;
   /** `C1`, `C2`, scoped to the job. Used before identity is captured. */
   containerRef: string;

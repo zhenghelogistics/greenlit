@@ -171,7 +171,8 @@ test('confirming the documents is a different claim from the list being empty', 
 // ---- exports, 28 September 2026 ------------------------------------------
 
 const exportBox = (over = {}) => ({
-  containerRef: 'C1', sizeType: '20GP', grossWeightKg: 18000, ...over,
+  containerRef: 'C1', sizeType: '20GP', grossWeightKg: 18000,
+  stuffingLocation: '1 Tuas Avenue 1', ...over,
 });
 
 test('an export hands over once the controller can plan it', () => {
@@ -200,12 +201,17 @@ test('a box with no weight cannot be matched to a chassis, and says which box', 
 });
 
 test('an export with no containers has nothing to hand over', () => {
-  const gate = canHandOverExport({ customer: 'DKSH', deliveryAddress: 'x' }, []);
+  const gate = canHandOverExport({ customer: 'DKSH' }, []);
   assert.equal(gate.passed, false);
   assert.match(gate.failures.join(' '), /At least one container/);
 });
 
-test('the customer and the address are named, not counted', () => {
-  const gate = canHandOverExport({ customer: null, deliveryAddress: null }, [exportBox()]);
-  assert.deepEqual(gate.failures, ['Customer', 'Delivery address']);
+test('the customer and the stuffing address are named, not counted', () => {
+  // An export's address is per container, because a customer may stuff at more
+  // than one site. The job itself has no delivery address — the first version
+  // of this gate read one and refused every export.
+  const gate = canHandOverExport({ customer: null }, [
+    exportBox({ stuffingLocation: null }),
+  ]);
+  assert.deepEqual(gate.failures, ['Customer', 'C1: stuffing address']);
 });

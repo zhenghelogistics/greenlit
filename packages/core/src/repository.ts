@@ -573,6 +573,8 @@ export interface ExportContainerDraft {
 /** §46. What may be corrected on an export container. */
 export interface ExportContainerAmendment {
   sizeType?: string;
+  /** §54. Gross weight once stuffed. A condition of handover. */
+  grossWeightKg?: number | null;
   stuffingLocation?: string | null;
   isReefer?: boolean;
   temperatureMode?: string | null;
@@ -588,6 +590,18 @@ export interface ContainerAmendment {
   packageCount?: number | null;
   packageType?: string | null;
   emptyReturnYard?: string | null;
+  /**
+   * §9.3. Where this box goes, when the job delivers to more than one place.
+   *
+   * The route has accepted these since per-container delivery was added and
+   * this type did not, so the write was refused by the port after the route
+   * had agreed to it — an address could be set at creation and never
+   * corrected.
+   */
+  deliveryCompany?: string | null;
+  deliveryAddress?: string | null;
+  /** §29. Whether this box needs a tri-axle chassis. */
+  triAxle?: boolean;
 }
 
 /** §10. A document as it arrives. */

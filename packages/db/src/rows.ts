@@ -159,6 +159,8 @@ export const toExportJob = (r: Record<string, unknown>): ExportJob => ({
 
 export const toExportContainer = (r: Record<string, unknown>): ExportContainer => ({
   heavyDuty: r.heavy_duty === true,
+  grossWeightKg: r.gross_weight_kg === null || r.gross_weight_kg === undefined
+    ? null : Number(r.gross_weight_kg),
   rated32_5: r.rated_32_5 === true,
   exportContainerId: r.export_container_id as string,
   exportJobId: r.export_job_id as string,

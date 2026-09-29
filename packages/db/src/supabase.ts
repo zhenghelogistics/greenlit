@@ -1312,7 +1312,10 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         eta: draft.eta ?? null,
         job_type: draft.jobType ?? 'standard',
         delivery_address: draft.deliveryAddress ?? customer.defaultDeliveryAddress,
-        permit_required: draft.permitRequired ?? true,
+        // §24. From the customer master. Hock never gives us a permit number
+        // and its jobs start Not required; everyone else starts Required. It
+        // defaulted to true for all of them regardless of the customer.
+        permit_required: draft.permitRequired ?? customer.requiresPermit ?? true,
         portnet_required: draft.portnetRequired ?? true,
         assigned_controller: draft.assignedController ?? null,
       }).select().single(), 'create import job') as Record<string, unknown>;

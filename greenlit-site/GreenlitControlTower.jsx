@@ -2775,12 +2775,13 @@ function initialDrawerDraft(panel, job) {
     value: panel.key === "transhipment" ? job.transhipment || "pending" : panel.key === "deliveryPath" ? (job.carparkRequested ? "carpark" : "other") : Boolean(job[panel.key]),
   };
   if (panel.type === "container" && job?.type === "Export") {
-    if (panel.mode === "new") return { number: "", seal: "", tareKg: "", vgmKg: "", sizeType: job.containerSizeType || "", stuffingLocation: job.deliveryAddress || "", detailsSent: false, customerReady: false };
+    if (panel.mode === "new") return { number: "", seal: "", tareKg: "", vgmKg: "", grossWeightKg: "", sizeType: job.containerSizeType || "", stuffingLocation: job.deliveryAddress || "", detailsSent: false, customerReady: false };
     const container = jobContainers(job)[panel.index || 0];
     return {
       number: container.number || "",
       seal: container.seal || "",
       tareKg: container.tareKg ?? "",
+      grossWeightKg: container.grossWeightKg ?? "",
       vgmKg: container.vgmKg ?? "",
       sizeType: container.sizeType || job.containerSizeType || "",
       stuffingLocation: container.stuffingLocation || job.deliveryAddress || "",
@@ -2970,6 +2971,10 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                   <DrawerField label="Size / type"><input required value={draft.sizeType || ""} onChange={(event) => update("sizeType", event.target.value)} className={drawerInputClass} placeholder="40 HQ" /></DrawerField>
                   <DrawerField label="Seal number"><input value={draft.seal || ""} onChange={(event) => update("seal", event.target.value)} className={drawerInputClass} /></DrawerField>
                   <DrawerField label="Tare weight (kg)"><input min="1" type="number" inputMode="numeric" value={draft.tareKg ?? ""} onChange={(event) => update("tareKg", event.target.value)} className={drawerInputClass} /></DrawerField>
+                  {/* §54. A condition of handing the job over, and there was
+                      nowhere to enter it: the gate shipped requiring a figure
+                      no screen could supply. */}
+                  <DrawerField label="Gross weight (kg)" hint="Once stuffed. Decides which chassis can take it."><input min="1" type="number" inputMode="numeric" value={draft.grossWeightKg ?? ""} onChange={(event) => update("grossWeightKg", event.target.value)} className={drawerInputClass} /></DrawerField>
                   <DrawerField label="VGM (kg)" hint="May remain blank until the customer provides it."><input min="1" type="number" inputMode="numeric" value={draft.vgmKg ?? ""} onChange={(event) => update("vgmKg", event.target.value)} className={drawerInputClass} /></DrawerField>
                 </div>
                 <DrawerField label="Stuffing location" hint="Each container may use a different customer site."><textarea required rows={2} value={draft.stuffingLocation || ""} onChange={(event) => update("stuffingLocation", event.target.value)} className={drawerInputClass} /></DrawerField>
@@ -4338,6 +4343,9 @@ export default function GreenlitControlTower() {
                 triAxle: draft.triAxle === true,
                 deliveryCompany: draft.containerDeliveryCompany || null,
                 deliveryAddress: draft.containerDeliveryAddress || null,
+                // Export only; the route ignores it on an import.
+                grossWeightKg: numberOrNull(draft.grossWeightKg),
+                stuffingLocation: draft.stuffingLocation || null,
                 packageCount: numberOrNull(draft.packageCount),
                 packageType: draft.packageType || null,
               } };

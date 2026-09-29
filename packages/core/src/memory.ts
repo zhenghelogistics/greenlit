@@ -281,7 +281,7 @@ const EXPORT_JOBS: ExportJob[] = [
 
 const ec = (o: Partial<ExportContainer> & Pick<ExportContainer, 'exportContainerId' | 'exportJobId' | 'containerRef' | 'sizeType'>): ExportContainer => ({
   containerNumber: null, sealNumber: null, tareWeightKg: null,
-  heavyDuty: false, rated32_5: false,
+  heavyDuty: false, rated32_5: false, grossWeightKg: null,
   isReefer: false, temperatureMode: null, temperatureSetpointC: null,
   stuffingLocation: 'Customer site A', containerDetailsSent: false,
   containerDetailsSentAt: null, containerDetailsSentTo: null,
@@ -602,7 +602,11 @@ export function createMemoryRepository(): Repository {
         jobType: draft.jobType ?? 'standard',
         // §9: the customer master supplies the default so it is not retyped.
         deliveryAddress: draft.deliveryAddress ?? customer.defaultDeliveryAddress,
-        permitRequired: draft.permitRequired ?? true,
+        // §24. From the customer master, which is what operations asked for:
+        // Hock never gives us a permit number and its jobs start Not required,
+        // everyone else starts Required. It was defaulting to true for all of
+        // them regardless of the customer.
+        permitRequired: draft.permitRequired ?? customer.requiresPermit ?? true,
         permitReceived: false, permitRejected: false,
         portnetRequired: draft.portnetRequired ?? true,
         portnetReleased: false,
@@ -731,6 +735,7 @@ export function createMemoryRepository(): Repository {
           exportContainerId: `${jobId}-c${i + 1}`, exportJobId: jobId,
           containerRef: `C${i + 1}`, sizeType: slot.sizeType ?? '',
           heavyDuty: slot.heavyDuty === true, rated32_5: slot.rated32_5 === true,
+          grossWeightKg: null,
         }));
       movements[jobId] = [];
       record(jobId, 'job.created', actor, { field: 'jobNumber', to: jobNumber });

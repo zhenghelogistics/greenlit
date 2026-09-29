@@ -97,7 +97,7 @@ const exportJob = (o: Partial<ExportJob> = {}): ExportJob => ({
 });
 
 const exportContainer = (o: Partial<ExportContainer> = {}): ExportContainer => ({
-  heavyDuty: false, rated32_5: false,
+  heavyDuty: false, rated32_5: false, grossWeightKg: null,
   exportContainerId: 'xc', exportJobId: 'e', containerRef: 'C1',
   containerNumber: 'ABCU1', sealNumber: '1', tareWeightKg: 3850, sizeType: '40 HQ',
   isReefer: false, temperatureMode: null, temperatureSetpointC: null,
