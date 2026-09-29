@@ -181,3 +181,47 @@ test('completing CMS for one collection never clears another', () => {
   assert.equal(cwt.passed, false, 'the unbooked one may not');
   assert.match(cwt.failures.join(' '), /CMS/);
 });
+
+test('handing over a second time does not move the timestamp', async () => {
+  // "The handover timestamp remains unchanged" while operations keep working
+  // on the job. A second handover would lose who actually passed it over.
+  const repo = createMemoryRepository();
+  const job = await repo.createExportJob({
+    customerCode: 'ABC', shipper: 'S', bookingReference: 'BK9',
+    exportClearanceReference: 'CLR9', vesselName: 'V', voyageNumber: '1',
+    etaSingapore: '2026-10-05', emptyCollectionYard: 'Allied 1',
+    containerQuantity: 1, containerSizeType: '20GP',
+  } as never, 'tester');
+
+  for (const c of await repo.listContainersForExportJob(job.exportJobId)) {
+    await repo.amendExportContainer(c.exportContainerId,
+      { grossWeightKg: 18000, stuffingLocation: '1 Tuas Avenue 1' }, 'tester');
+  }
+
+  await repo.handExportToController(job.exportJobId, 'first');
+  const first = (await repo.getExportJob(job.exportJobId))!.handedOverAt;
+
+  await repo.handExportToController(job.exportJobId, 'second');
+  const after = await repo.getExportJob(job.exportJobId);
+  assert.equal(after!.handedOverAt, first, 'the moment is unchanged');
+  assert.equal(after!.handedOverBy, 'first', 'and so is who did it');
+});
+
+test('marking documents ready does not touch handover or collection', async () => {
+  // "no collection or trip status changes merely from this action".
+  const repo = createMemoryRepository();
+  const job = await importJob(repo, { permitRequired: false });
+  const [box] = await repo.listContainersForImportJob(job.jobId);
+
+  await repo.handContainerToController(box!.containerId, 'tester');
+  const before = await new JobService(repo).getJob(job.jobId);
+
+  await repo.markDocumentsComplete(job.jobId, 'tester');
+  const after = await new JobService(repo).getJob(job.jobId);
+
+  const box1 = (v: typeof before) => v!.containers[0]!;
+  assert.equal(box1(after).handedOverAt, box1(before).handedOverAt, 'handover unmoved');
+  assert.equal(box1(after).controllerStage, box1(before).controllerStage, 'stage unmoved');
+  assert.equal(box1(after).canPlanCollection, box1(before).canPlanCollection,
+    'planning eligibility unmoved');
+});
