@@ -80,9 +80,18 @@ test('§24: a number of the wrong shape is flagged, never rejected', () => {
 
 test('§24: what is not yet known reads as review, not as failure', () => {
   const bare = checkPermit(
-    { ...PERMIT, permitNumber: null, expiryDate: null, permitVesselVoyage: null }, JOB);
+    { ...PERMIT, permitNumber: null, expiryDate: null, permitVesselVoyage: null, fileName: null }, JOB);
   assert.equal(bare.overall, 'REVIEW');
   assert.deepEqual(bare.issues, [], 'an unanswered question is not a complaint');
+});
+
+test('§24: an uploaded permit with no number yet needs attention', () => {
+  // It can be handed over on the upload; the number is still what is
+  // presented at the gate, so it is asked for rather than forgotten.
+  const uploaded = checkPermit(
+    { ...PERMIT, permitNumber: null, fileName: 'permit.pdf' }, JOB);
+  assert.equal(uploaded.numberFormat, 'ATTENTION');
+  assert.match(uploaded.issues.join(' '), /number has not been entered/);
 });
 
 test('§24: a job with no vessel yet cannot fail a permit', () => {

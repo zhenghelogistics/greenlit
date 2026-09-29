@@ -614,6 +614,9 @@ export function createMemoryRepository(): Repository {
 
       const job: ImportJob = {
         deliveryInstructions: draft.deliveryInstructions ?? null,
+        pointOfContact: draft.pointOfContact ?? null,
+        terminal: draft.terminal ?? null,
+        deliveryCompany: draft.deliveryCompany ?? null,
         // §34. Which line, so the engine can say where the last free day and
         // the return yard are looked up for it.
         carrier: draft.carrier ?? null,
@@ -723,6 +726,7 @@ export function createMemoryRepository(): Repository {
 
       const job: ExportJob = {
         deliveryInstructions: draft.deliveryInstructions ?? null,
+        pointOfContact: draft.pointOfContact ?? null,
         handedOverAt: null, handedOverBy: null,
         closedAt: null, closedBy: null,
         exportJobId: jobId, jobNumber, customer: customer.companyName,

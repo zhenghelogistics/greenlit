@@ -82,11 +82,16 @@ test('a permit counts only when it is allocated to THIS container', () => {
   assert.deepEqual(containerHandoverGaps(job, container, [permit()]), []);
 });
 
-test('a permit with no number is a permit nobody can present', () => {
+test('an uploaded permit mapped to the box is enough to hand over', () => {
+  // Operations, 29 September 2026: handover becomes available once the permit
+  // is uploaded. The number is asked for before documents are ready.
+  const job = importJob({ permitRequired: true });
   assert.deepEqual(
-    containerHandoverGaps(importJob({ permitRequired: true }), container, [permit({ permitNumber: null })]),
-    ['Permit'],
-    'an allocated record with no number is not a permit yet');
+    containerHandoverGaps(job, container, [permit({ permitNumber: null })]), [],
+    'uploaded and mapped, number still to be entered');
+  assert.deepEqual(
+    containerHandoverGaps(job, container, [permit({ permitNumber: null, fileName: null })]),
+    ['Permit'], 'a record with neither a file nor a number is not a permit yet');
 });
 
 test('the shipment’s gaps are read before the container’s', () => {

@@ -616,6 +616,11 @@ export interface ContainerAmendment {
   deliveryAddress?: string | null;
   /** §29. Whether this box needs a tri-axle chassis. */
   triAxle?: boolean;
+  /**
+   * The day this box is to be delivered, set by the controller for all of a
+   * job's boxes or the ones picked, so a staggered delivery keeps its dates.
+   */
+  plannedDeliveryDate?: string | null;
 }
 
 /** §10. A document as it arrives. */
@@ -851,6 +856,12 @@ export interface ImportJobDraft {
   permits?: readonly PermitDraft[];
   /** §9.3. Instructions for this job's delivery only, never written back. */
   deliveryInstructions?: string | null;
+  /** Who at the customer to call about this job. */
+  pointOfContact?: string | null;
+  /** The terminal the vessel discharges at, for the whole shipment. */
+  terminal?: string | null;
+  /** The company at the job's delivery address, from the saved locations. */
+  deliveryCompany?: string | null;
 
   /** §34. The shipping line, as a code from the carrier master. */
   carrier?: string | null;
@@ -890,6 +901,8 @@ export interface ExportSlot {
 export interface ExportJobDraft {
   /** §9.3. Instructions for this job's delivery only, never written back. */
   deliveryInstructions?: string | null;
+  /** Who at the customer to call about this job. */
+  pointOfContact?: string | null;
 
   /**
    * The booking's size lines, each with its own quantity.

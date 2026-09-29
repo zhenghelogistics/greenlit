@@ -74,6 +74,18 @@ export function exportHandoverShipmentGaps(job: ExportJob): string[] {
 }
 
 /**
+ * Whether a permit is on file: its document uploaded, or its number entered.
+ *
+ * Operations, 29 September 2026: handover becomes available once the permit
+ * is uploaded and mapped to the box. A number not read off it yet is flagged
+ * on the permit as needing attention and is asked for before the documents
+ * are ready — it does not hold the container off the controller's board.
+ */
+export function permitOnFile(permit: Pick<PermitRecord, 'permitNumber' | 'fileName'>): boolean {
+  return !missing(permit.permitNumber) || !missing(permit.fileName);
+}
+
+/**
  * What one container is missing, over and above its job.
  *
  * Where it is going, and the permit when the job says one is required. The
@@ -99,7 +111,7 @@ export function containerHandoverGaps(
   }
   if (job.permitRequired) {
     const covered = permits.some((permit) =>
-      !missing(permit.permitNumber) && permit.linkedContainerIds.includes(container.containerId));
+      permitOnFile(permit) && permit.linkedContainerIds.includes(container.containerId));
     if (!covered) gaps.push('Permit');
   }
   return gaps;
@@ -218,9 +230,14 @@ export function documentGaps(
     }
 
     if (job.permitRequired) {
-      const covered = permits.some((p) =>
-        !missing(p.permitNumber) && p.linkedContainerIds.includes(c.containerId));
-      if (!covered) gaps.push({ area: 'Permit', container: name, field: 'Permit' });
+      const mapped = permits.filter((p) => p.linkedContainerIds.includes(c.containerId));
+      if (!mapped.some(permitOnFile)) {
+        gaps.push({ area: 'Permit', container: name, field: 'Permit' });
+      } else if (!mapped.some((p) => !missing(p.permitNumber))) {
+        // Uploaded and mapped, so the box could be handed over; the number is
+        // still owed before operations have finished.
+        gaps.push({ area: 'Permit', container: name, field: 'Permit number' });
+      }
     }
   });
 

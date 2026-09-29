@@ -47,6 +47,7 @@ export function jobFromApi(view) {
     // §9.3. For this job only. The site's standing instructions are separate
     // and live on the customer's address.
     deliveryInstructions: r.deliveryInstructions ?? "",
+    pointOfContact: r.pointOfContact ?? "",
     billOfLading: r.blNumber ?? "",
     houseBillOfLading: r.houseBlNumber ?? "",
     vessel: [r.vesselName, r.voyageNumber].filter(Boolean).join(" / "),
@@ -77,7 +78,11 @@ export function jobFromApi(view) {
     cmsCompleted: r.cmsStatus === "COMPLETED" || r.cmsStatus === "NOT_REQUIRED",
     emptyYard: r.emptyCollectionYard ?? "",
     deliveryAddress: r.deliveryAddress ?? first.stuffingLocation ?? "",
-    terminal: first.portTerminal ?? "",
+    // The shipment's own, falling back to where it used to live: on each
+    // container, before 0035.
+    terminal: r.terminal ?? first.portTerminal ?? "",
+    // With the address, as chosen from the customer's saved locations.
+    deliveryCompany: r.deliveryCompany ?? "",
     containerQuantity: r.containerQuantity ?? stored.length,
     containerSizeType: r.containerSizeType ?? first.sizeType ?? "",
     container: view.containers?.[0]?.containerNumber ?? "",
@@ -100,7 +105,10 @@ export function jobFromApi(view) {
     // asked with only the second: a job that never needed one would read as
     // outstanding forever.
     permitRequired: Boolean(r.permitRequired),
-    permitReceived: Boolean(r.permitReceived),
+    // Read off the permits mapped to the containers, not the job's old flag,
+    // which recording a permit never set: a valid mapped permit read as
+    // missing on the permit tab, the dashboard and the jobs list.
+    permitReceived: view.permitCovered ?? Boolean(r.permitReceived),
     portnetReleased: Boolean(r.portnetReleased),
     // §34.1, §54. The job-level pair the operations screens read, taken from
     // the engine's clocks for the first container rather than from whichever

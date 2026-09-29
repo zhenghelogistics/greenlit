@@ -273,7 +273,7 @@ function PendingByJob({ rows, onOpenJob, onDischargeMany, onPortnet }) {
  * released and discharged. The server refuses the same thing in the same
  * words, so the button cannot be the only thing standing in the way.
  */
-function ContainerTable({ rows, onOpenJob, onDeliver, picked, onToggle }) {
+function ContainerTable({ rows, onOpenJob, onDeliver, picked, onToggle, selectAll = false }) {
   return (
     <table className="moves">
       <thead>
@@ -290,7 +290,7 @@ function ContainerTable({ rows, onOpenJob, onDeliver, picked, onToggle }) {
             <tr key={`${job.id}-${c.id ?? c.ref}`}>
               {onToggle ? (
                 <td>
-                  {done ? null : (
+                  {done && !selectAll ? null : (
                     <input
                       type="checkbox" checked={picked.has(c.id)}
                       onChange={() => onToggle(c.id)}
@@ -306,7 +306,10 @@ function ContainerTable({ rows, onOpenJob, onDeliver, picked, onToggle }) {
                 <span className="sub">{job.id}</span>
               </td>
               <td>{job.customer || "Customer TBA"}</td>
-              <td>{job.vessel || "—"}<span className="sub">{day(job.eta)}</span></td>
+              <td>
+                {job.vessel || "—"}<span className="sub">{day(job.eta)}</span>
+                {job.terminal ? <span className="sub">{job.terminal}</span> : null}
+              </td>
               <td>{c.containerDeliveryAddress || job.deliveryAddress || "Not recorded"}</td>
               <td>{c.portnetReleasedAt ? "Ready" : "Pending"}</td>
               <td>{c.dischargedAt ? "Ready" : "Pending"}</td>
@@ -336,6 +339,72 @@ function ContainerTable({ rows, onOpenJob, onDeliver, picked, onToggle }) {
         })}
       </tbody>
     </table>
+  );
+}
+
+/**
+ * Ready for collection, grouped by job, with the delivery date set in bulk.
+ *
+ * Operations, 29 September 2026: one date for every box on the job, or for
+ * the ones ticked, so a staggered delivery is two actions — five on the 15th,
+ * five on the 16th — rather than opening each container.
+ */
+function ReadyByJob({ rows, onOpenJob, onDeliver, onSetDeliveryDate }) {
+  const [picked, setPicked] = useState(() => new Set());
+  const [dates, setDates] = useState({});
+
+  if (!rows.length) return <div className="clean-empty">Nothing is released and discharged yet.</div>;
+
+  const byJob = new Map();
+  for (const row of rows) {
+    const list = byJob.get(row.job.id);
+    if (list) list.push(row); else byJob.set(row.job.id, [row]);
+  }
+  const toggle = (id) => setPicked((was) => {
+    const next = new Set(was);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+
+  return (
+    <>
+      {[...byJob.values()].map((group) => {
+        const job = group[0].job;
+        const chosen = group.filter(({ c }) => picked.has(c.id)).map(({ c }) => c.id);
+        const date = dates[job.id] ?? "";
+        const apply = (ids) => {
+          onSetDeliveryDate(job, ids, date);
+          setPicked((was) => new Set([...was].filter((id) => !ids.includes(id))));
+        };
+        return (
+          <section className="card" key={job.id} style={{ marginBottom: 14 }}>
+            <div className="clean-section-head">
+              <div>
+                <div className="section-title">
+                  {job.id} · {job.vessel || "Vessel TBA"} · {group.length} container{group.length === 1 ? "" : "s"}
+                </div>
+                <div className="muted">{job.customer || "Customer TBA"} · ETA {day(job.eta)}</div>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <label className="muted" htmlFor={`dd-${job.id}`}>Delivery date</label>
+                <input id={`dd-${job.id}`} type="date" className="app-date-input" value={date}
+                  onChange={(e) => setDates((was) => ({ ...was, [job.id]: e.target.value }))} />
+                <button className="btn secondary" type="button" disabled={!date || chosen.length === 0}
+                  onClick={() => apply(chosen)}>
+                  Set for {chosen.length || ""} selected
+                </button>
+                <button className="btn primary" type="button" disabled={!date}
+                  onClick={() => apply(group.map(({ c }) => c.id))}>
+                  Set for all {group.length}
+                </button>
+              </div>
+            </div>
+            <ContainerTable rows={group} onOpenJob={onOpenJob} onDeliver={onDeliver}
+              picked={picked} onToggle={toggle} selectAll />
+          </section>
+        );
+      })}
+    </>
   );
 }
 
@@ -381,7 +450,7 @@ function ExportTable({ rows, onOpenJob }) {
 }
 
 
-export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany, onPortnet, onDeliver }) {
+export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany, onPortnet, onDeliver, onSetDeliveryDate }) {
   const q = controllerQueues(jobs);
   const [tab, setTab] = useState("importPending");
   const [range, setRange] = useState("today");
@@ -522,6 +591,9 @@ export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany,
               </tbody>
             </table>
           ) : <div className="clean-empty">Nothing is planned for today yet.</div>
+        ) : tab === "importReady" ? (
+          <ReadyByJob rows={q.importReady} onOpenJob={onOpenJob} onDeliver={onDeliver}
+            onSetDeliveryDate={onSetDeliveryDate} />
         ) : tab === "exportReady" ? (
           <ExportTable rows={q.exportReady} onOpenJob={onOpenJob} />
         ) : q[tab].length ? (

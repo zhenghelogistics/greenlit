@@ -5,6 +5,7 @@ import {
   CARRIERS, LOOKUP_WORDS, carrierByCode, checkPermit, wouldOverwrite,
 } from "@greenlit/engine";
 import { jobFromDocument, EMPTY_ROW } from "../lib/new-job-from-document.mjs";
+import { useCustomerLocations } from "../lib/use-customer-locations.mjs";
 
 /**
  * Creating a job by hand.
@@ -333,9 +334,9 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
   const [job, setJob] = useState({
     customerCode: "", pic: "",
     addressMode: "job", deliveryCompany: "", deliveryAddress: "",
-    vesselName: "", voyageNumber: "", etaDate: "", etaTime: "",
+    vesselName: "", voyageNumber: "", etaDate: "", etaTime: "", terminal: "",
     carrier: "", blNumber: "", houseBlNumber: "",
-    permitRequired: false, remarks: "",
+    permitRequired: false,
     // What the site always needs, and what this one delivery needs instead.
     // Kept apart so an override is visibly an override rather than an edit to
     // the customer master made by accident from a job form.
@@ -408,48 +409,14 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
   const customer = customers.find((c) => c.code === job.customerCode);
 
   /**
-   * The chosen customer's saved locations, fetched when they are chosen.
-   *
-   * This read `customer.locations`, and nothing has ever put a `locations`
-   * array on a customer — `/api/customers` returns the customer record and the
-   * addresses live in their own table behind `/api/customers/:code/locations`.
-   * So the list was always empty, the Delivery company picker had nothing in
-   * it, no address could be chosen, and no import job could be created at all.
-   *
-   * Fetched per customer rather than all of them up front: the master holds
-   * every address of every customer, and a form needs one customer's.
+   * The chosen customer's saved locations. The addresses live behind
+   * `/api/customers/:code/locations`, not on the customer record; reading a
+   * `locations` array off the customer left the pickers empty and no import
+   * job could be created at all.
    */
-  //
-  // Held with the customer it was fetched for, rather than as a bare list that
-  // is cleared on the way out. Two reasons, and the second is the real one:
-  // clearing it is a setState during render, which cascades; and a bare list
-  // shows the previous customer's addresses for as long as the next fetch
-  // takes, which is exactly long enough for somebody to pick one.
-  const [loaded, setLoaded] = useState({ code: "", locations: [] });
-  const fresh = loaded.code === job.customerCode;
-
-  useEffect(() => {
-    if (!job.customerCode) return undefined;
-    let cancelled = false;
-    fetch(`/api/customers/${encodeURIComponent(job.customerCode)}/locations`)
-      .then((r) => (r.ok ? r.json() : { locations: [] }))
-      .then((d) => {
-        if (!cancelled) setLoaded({ code: job.customerCode, locations: d.locations ?? [] });
-      })
-      .catch(() => {
-        if (!cancelled) setLoaded({ code: job.customerCode, locations: [] });
-      });
-    return () => { cancelled = true; };
-  }, [job.customerCode]);
-
-  const loadingLocations = Boolean(job.customerCode) && !fresh;
-  const usable = (fresh ? loaded.locations : []).filter((l) => l.active !== false);
-  const companies = [...new Set(usable.map((l) => l.company).filter(Boolean))];
-  const addressesFor = (company) =>
-    usable.filter((l) => l.company === company).map((l) => l.address).filter(Boolean);
-  /** The site behind a chosen address, for its standing instructions. */
-  const siteAt = (company, address) =>
-    usable.find((l) => l.company === company && l.address === address) ?? null;
+  const {
+    loading: loadingLocations, companies, addressesFor, siteAt,
+  } = useCustomerLocations(job.customerCode);
 
   const setRow = (i, patch) =>
     setRows((was) => was.map((r, n) => (n === i ? { ...r, ...patch } : r)));
@@ -519,6 +486,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
     const draft = type === "IMPORT"
       ? {
           customerCode: job.customerCode,
+          pointOfContact: shout(job.pic) || null,
           carrier: job.carrier || null,
           deliveryInstructions: job.deliveryInstructions || null,
           blNumber: shout(job.blNumber) || null,
@@ -526,7 +494,11 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
           vesselName: shout(job.vesselName) || null,
           voyageNumber: shout(job.voyageNumber) || null,
           eta: when(job.etaDate, job.etaTime),
+          // The shipment's, beside the vessel and ETA: one sailing lands at
+          // one terminal.
+          terminal: shout(job.terminal) || null,
           deliveryAddress: job.addressMode === "job" ? job.deliveryAddress : null,
+          deliveryCompany: job.addressMode === "job" ? (job.deliveryCompany || null) : null,
           permitRequired: job.permitRequired,
           permitNumber: shout(job.permitNumber) || null,
           permitExpiryDate: job.permitExpiryDate || null,
@@ -566,6 +538,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
         }
       : {
           customerCode: job.customerCode,
+          pointOfContact: shout(job.pic) || null,
           shipper: shout(job.shipper) || null,
           bookingReference: shout(job.bookingReference) || null,
           exportClearanceReference: shout(job.exportClearanceReference) || null,
@@ -594,7 +567,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
       if (again) {
         set({
           vesselName: "", voyageNumber: "", blNumber: "", houseBlNumber: "",
-          bookingReference: "", exportClearanceReference: "", remarks: "",
+          bookingReference: "", exportClearanceReference: "",
         });
         setRows([{ ...EMPTY_ROW }]);
         setNoaNote("");
@@ -787,6 +760,9 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                       customerCode: e.target.value,
                       deliveryCompany: "", deliveryAddress: "",
                       permitRequired: Boolean(chosen?.requiresPermit),
+                      // The customer's usual contact, from the Customer Master,
+                      // so it is not typed again. Changeable for this job.
+                      pic: shout(chosen?.defaultContact ?? ""),
                     });
                     // The reference is the customer's next one, so it can only
                     // be previewed once there is a customer.
@@ -951,6 +927,10 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                     label="ETA Singapore" required date={job.etaDate} time={job.etaTime}
                     onDate={(v) => set({ etaDate: v })} onTime={(v) => set({ etaTime: v })}
                   />
+                  <Field label="Terminal">
+                    <input value={job.terminal} onChange={(e) => set({ terminal: shout(e.target.value) })}
+                      placeholder="PSA Pasir Panjang, Tuas…" />
+                  </Field>
                   {/* A notice issued by the carrier names itself; one issued
                       by a forwarder often does not, so this has to be
                       selectable rather than only read. The code is what
@@ -1034,11 +1014,9 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                 </>
               )}
 
-              <label className="field-wrap full">
-                <span className="field-label">Remarks<span className="optional-label"> Optional</span></span>
-                {/* Not shouted: a remark is a sentence somebody wrote to be read. */}
-                <textarea value={job.remarks} onChange={(e) => set({ remarks: e.target.value })} />
-              </label>
+              {/* Remarks was here, and nothing saved it. Delivery instructions
+                  come from the customer's saved address, and "Just for this
+                  job" holds anything true of this delivery only. */}
             </div>
         </section>
         ) : null}

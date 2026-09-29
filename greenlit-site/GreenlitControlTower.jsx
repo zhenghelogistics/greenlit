@@ -9,6 +9,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 import React, { useEffect, useRef, useState } from "react";
 import { jobFromApi } from "./lib/job-adapter.mjs";
+import { useCustomerLocations } from "./lib/use-customer-locations.mjs";
 import {
   AlertCircle,
   CheckCircle2,
@@ -2505,6 +2506,15 @@ const FILTERS = [
 
 function ActionRequired({ jobs, filter, setFilter, dashboardFilter, clearDashboardFilter, onOpen }) {
   const filtered = jobs.filter((job) => {
+    // Operations, 29 September 2026: once handed over, a job moves out of the
+    // operations queue into the controller's view. It stays searchable in Job
+    // Step, and stays under "My documents outstanding" until operations mark
+    // its documents ready. A job with some boxes still to hand over stays here.
+    const boxes = job.containers ?? [];
+    const handedOver = job.type === "Import"
+      ? boxes.length > 0 && boxes.every((c) => c.handedOver)
+      : Boolean(job.handedOverAt);
+    if (handedOver && filter !== "documents") return false;
     if (dashboardFilter === "active" && jobStatus(job) === "Completed") return false;
     if (dashboardFilter === "blocked" && readiness(job).ready) return false;
     if (dashboardFilter === "exceptions" && !job.exception?.open) return false;
@@ -2635,7 +2645,7 @@ function ChargeLine({ charge }) {
       </div>
       <div className="gl-caption text-right">
         {charge.amount === null
-          ? "No daily rate on file — add one to see the figure"
+          ? "No daily rate on file for this container"
           : <>
               {charge.chargeableDays} day{charge.chargeableDays === 1 ? "" : "s"} at {charge.currency} {charge.dailyRate.toFixed(2)}
               <div>Our estimate, not the carrier&rsquo;s invoice</div>
@@ -2770,6 +2780,8 @@ function initialDrawerDraft(panel, job) {
     vessel: job.vesselName || "",
     voyage: job.voyageNumber || "",
     deliveryAddress: job.deliveryAddress || "",
+    deliveryCompany: job.deliveryCompany || "",
+    pointOfContact: job.pointOfContact || "",
     operatingLocation: job.type === "Import" ? job.terminal || "" : job.emptyYard || "",
     deliveryInstructions: job.deliveryInstructions || "",
   };
@@ -2843,7 +2855,75 @@ function panelHeading(panel) {
   return { title: "Manage work", note: "" };
 }
 
-function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
+/**
+ * The saved job's customer and delivery, asked the way creation asks them.
+ *
+ * The customer is shown and not edited: it was a free text box whose value no
+ * save ever sent, so a change typed there was silently lost. The delivery is
+ * picked from the customer's saved locations, company then address, with the
+ * site's standing instructions shown and the one-off instructions beside them.
+ */
+function CustomerDeliveryFields({ job, draft, update, customers }) {
+  const code = customers.find((c) => c.companyName === job.customer || c.code === job.customer)?.code ?? "";
+  const { loading, companies, addressesFor, siteAt } = useCustomerLocations(code);
+  const perContainer = jobContainers(job).some((c) => c.containerDeliveryAddress);
+  // An address on file that is not one of the saved ones stays selectable,
+  // so opening the drawer never blanks what the job already says.
+  const addresses = addressesFor(draft.deliveryCompany);
+  const addressOptions = draft.deliveryAddress && !addresses.includes(draft.deliveryAddress)
+    ? [draft.deliveryAddress, ...addresses] : addresses;
+  const site = siteAt(draft.deliveryCompany, draft.deliveryAddress);
+
+  return (
+    <>
+      <DrawerField label="Customer" hint="Set when the job was created. The job number belongs to this customer.">
+        <div className={`${drawerInputClass} flex items-center`}>{job.customer || "Not recorded"}</div>
+      </DrawerField>
+      <DrawerField label="Point of contact">
+        <input value={draft.pointOfContact || ""} onChange={(event) => update("pointOfContact", event.target.value.toUpperCase())} className={drawerInputClass} />
+      </DrawerField>
+      {job.type === "Import" && perContainer ? (
+        <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-[17px] text-slate-700">
+          Each container has its own delivery address. Change it on the container.
+        </div>
+      ) : null}
+      {job.type === "Import" && !perContainer ? (
+        <div className="grid gap-5 sm:grid-cols-2">
+          <DrawerField label="Delivery company">
+            <select value={draft.deliveryCompany || ""} disabled={!code}
+              onChange={(event) => { update("deliveryCompany", event.target.value); update("deliveryAddress", ""); }}
+              className={drawerInputClass}>
+              <option value="">
+                {!code ? "Customer not in Customer Master" : loading ? "Loading saved addresses…"
+                  : companies.length ? "Choose a company" : "No saved addresses"}
+              </option>
+              {companies.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </DrawerField>
+          <DrawerField label="Delivery address">
+            <select value={draft.deliveryAddress || ""}
+              onChange={(event) => update("deliveryAddress", event.target.value)}
+              className={drawerInputClass}>
+              <option value="">Choose an address</option>
+              {addressOptions.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </DrawerField>
+        </div>
+      ) : null}
+      {site?.operationalInstructions ? (
+        <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-[17px] text-slate-700">
+          <b>Always at this address</b>
+          <div>{site.operationalInstructions}</div>
+        </div>
+      ) : null}
+      <DrawerField label="Just for this job" hint="Only this delivery. The site's standing instructions are on the customer master and are not changed here.">
+        <textarea rows={2} value={draft.deliveryInstructions || ""} onChange={(event) => update("deliveryInstructions", event.target.value)} className={drawerInputClass} />
+      </DrawerField>
+    </>
+  );
+}
+
+function OperationsDrawer({ panel, jobs, customers = [], onClose, onCommit }) {
   const job = jobs.find((item) => item.id === panel?.jobId);
   const [draft, setDraft] = useState(() => initialDrawerDraft(panel, job));
   const heading = panel ? panelHeading(panel) : { title: "", note: "" };
@@ -2918,7 +2998,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
             {panel.type === "job" && job ? (
               <div className="grid gap-5">
                 {panel.section !== "shipment" ? (
-                  <DrawerField label="Customer"><input required value={draft.customer || ""} onChange={(event) => update("customer", event.target.value)} className={drawerInputClass} /></DrawerField>
+                  <CustomerDeliveryFields job={job} draft={draft} update={update} customers={customers} />
                 ) : null}
                 {panel.section !== "customer" ? (
                   <>
@@ -2938,16 +3018,12 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                   <DrawerField label="Vessel"><input value={draft.vessel || ""} onChange={(event) => update("vessel", event.target.value)} className={drawerInputClass} /></DrawerField>
                   <DrawerField label="Voyage"><input value={draft.voyage || ""} onChange={(event) => update("voyage", event.target.value)} className={drawerInputClass} /></DrawerField>
                 </div>
-                  </>
-                ) : null}
-                {panel.section !== "shipment" ? (
-                  <>
-                {/* §30. The ETA is deliberately not here. Moving it needs a
+                {/* The shipment's, as creation asks it: the terminal beside the
+                    vessel on an import, the empty collection yard on an export.
+                    §30. The ETA is deliberately not here. Moving it needs a
                     reason recorded against it, which the date-changes panel on
                     the job screen asks for. */}
-                <DrawerField label={job.type === "Import" ? "Discharging terminal" : "Empty collection yard"}><input required value={draft.operatingLocation || ""} onChange={(event) => update("operatingLocation", event.target.value)} className={drawerInputClass} /></DrawerField>
-                <DrawerField label="Just for this job" hint="Only this delivery. The site's standing instructions are on the customer master and are not changed here."><textarea rows={2} value={draft.deliveryInstructions || ""} onChange={(event) => update("deliveryInstructions", event.target.value)} className={drawerInputClass} /></DrawerField>
-                <DrawerField label="Customer delivery address"><textarea required rows={3} value={draft.deliveryAddress || ""} onChange={(event) => update("deliveryAddress", event.target.value)} className={drawerInputClass} /></DrawerField>
+                <DrawerField label={job.type === "Import" ? "Terminal" : "Empty collection yard"}><input value={draft.operatingLocation || ""} onChange={(event) => update("operatingLocation", event.target.value.toUpperCase())} className={drawerInputClass} /></DrawerField>
                   </>
                 ) : null}
               </div>
@@ -3076,7 +3152,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                         className={drawerInputClass} />
                     </DrawerField>
                     <DrawerField
-                      label="Override the counted date"
+                      label="Confirmed last free day (overrides the estimate)"
                       hint="Only if the carrier agreed something different. Left blank, it is counted from the ETA."
                     >
                       <input type="date" value={draft.combinedLfd || ""}
@@ -3094,7 +3170,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                         className={drawerInputClass} />
                     </DrawerField>
                     <DrawerField
-                      label="Override the counted demurrage date"
+                      label="Confirmed demurrage last free day"
                       hint="Only if the carrier agreed something different. Left blank, it is counted from the ETA."
                     >
                       <input type="date" value={draft.demurrageLfd || ""}
@@ -3107,7 +3183,7 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                         className={drawerInputClass} />
                     </DrawerField>
                     <DrawerField
-                      label="Override the counted detention date"
+                      label="Confirmed detention last free day"
                       hint="Only if the carrier agreed something different. Left blank, it is counted from the ETA."
                     >
                       <input type="date" value={draft.detentionLfd || ""}
@@ -3165,30 +3241,10 @@ function OperationsDrawer({ panel, jobs, onClose, onCommit }) {
                     className={drawerInputClass} />
                 </DrawerField>
 
-                {/* §34.0. The rate turns days into money, and it is read off
-                    the same tariff page as the allowance above, so it is
-                    confirmed in the same breath. Both boxes or neither: a rate
-                    with no currency is an amount nobody can quote. */}
-                <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
-                  <DrawerField label="Daily rate after free time">
-                    <input type="number" min="0" step="0.01" inputMode="decimal"
-                      value={draft.dailyRate ?? ""}
-                      onChange={(event) => setDraft((d) => ({ ...d, dailyRate: event.target.value }))}
-                      placeholder="e.g. 85.00"
-                      className={drawerInputClass} />
-                  </DrawerField>
-                  <DrawerField label="Currency">
-                    <select value={draft.currency || "SGD"}
-                      onChange={(event) => setDraft((d) => ({ ...d, currency: event.target.value }))}
-                      className={drawerInputClass}>
-                      {["SGD", "USD", "EUR", "CNY", "MYR"].map((code) => <option key={code} value={code}>{code}</option>)}
-                    </select>
-                  </DrawerField>
-                </div>
-                <p className="gl-caption -mt-2">
-                  Leave the rate blank if the tariff is not to hand. The countdowns
-                  do not depend on it; only the estimated charge does.
-                </p>
+                {/* The daily rate was asked here. Operations, 29 September
+                    2026: rates come from the master pricing, not from the
+                    container, so the fields are gone. A rate already on file
+                    is sent back unchanged on save rather than erased. */}
               </div>
             ) : null}
 
@@ -4543,13 +4599,20 @@ export default function GreenlitControlTower() {
             ...(edited?.type === "Import"
               ? { blNumber: draft.booking ?? null, houseBlNumber: draft.houseBillOfLading ?? null }
               : { bookingReference: draft.booking ?? null }),
-            deliveryAddress: draft.deliveryAddress ?? null,
             deliveryInstructions: draft.deliveryInstructions ?? null,
-            // The same drawer field means the terminal on an import and the
-            // collection yard on an export, because operationally it is the
-            // same question: where does this container sit.
+            pointOfContact: draft.pointOfContact || null,
+            // An import's delivery is chosen from the customer's saved
+            // locations, company and address together, and only when the job
+            // has one address: per-container addresses are the container's.
+            // An export has no job address at all — each box is stuffed
+            // somewhere of its own — and sending one was refused by the store.
             ...(edited?.type === "Import"
-              ? { terminal: draft.operatingLocation ?? null }
+              ? {
+                  terminal: draft.operatingLocation || null,
+                  ...(jobContainers(edited).some((c) => c.containerDeliveryAddress)
+                    ? {}
+                    : { deliveryAddress: draft.deliveryAddress || null, deliveryCompany: draft.deliveryCompany || null }),
+                }
               : { emptyCollectionYard: draft.operatingLocation ?? null }),
           }),
         }).catch(() => null);
@@ -4781,6 +4844,13 @@ export default function GreenlitControlTower() {
       containerIds.length
         ? `Portnet release recorded for ${containerIds.length} container${containerIds.length === 1 ? "" : "s"}.`
         : "Portnet release recorded.");
+  }
+
+  /** The day these boxes are to be delivered, for all of a job's or the ones picked. */
+  async function setDeliveryDate(job, containerIds, plannedDeliveryDate) {
+    if (!containerIds?.length) { showToast("Choose the containers to date."); return; }
+    await runJobCommand(job, "/delivery-dates", { containerIds, plannedDeliveryDate },
+      `Delivery date set for ${containerIds.length} container${containerIds.length === 1 ? "" : "s"}.`);
   }
 
   /** The container reached the customer. */
@@ -5282,7 +5352,8 @@ export default function GreenlitControlTower() {
       ) : null}
       {current === "fleet" ? <ZhtChassis fleet={fleet} onOpenJob={(job) => openJob(job.id)} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, apiJobId: jobs.find((j) => j.id === item.jobId)?.apiId ?? null, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
       {current === "controller" ? <ZhtController jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)}
-        onDischargeMany={dischargeMany} onPortnet={releasePortnet} onDeliver={markDelivered} /> : null}
+        onDischargeMany={dischargeMany} onPortnet={releasePortnet} onDeliver={markDelivered}
+        onSetDeliveryDate={setDeliveryDate} /> : null}
       {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => setCreatingJob(true)} /> : null}
 
       {current === "planning" ? <ZhtPlanning jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)} /> : null}
@@ -5316,6 +5387,7 @@ export default function GreenlitControlTower() {
           /* §31. Operations receive the release email as often as the
              controller does, and it names particular boxes. */
           onReleaseContainer={(container) => releasePortnet(selectedJob, [container.id])}
+          onReleaseContainers={(ids) => releasePortnet(selectedJob, ids)}
           onDischargeContainer={(container) => dischargeMany(selectedJob, [container.id])}
           onHandOverExport={async () => {
             const response = await fetch(
@@ -5371,7 +5443,7 @@ export default function GreenlitControlTower() {
         />
       ) : null}
 
-      <OperationsDrawer panel={workPanel} jobs={jobs} onClose={() => setWorkPanel(null)} onCommit={commitOperationalPanel} />
+      <OperationsDrawer panel={workPanel} jobs={jobs} customers={customers} onClose={() => setWorkPanel(null)} onCommit={commitOperationalPanel} />
 
       {pendingCompany ? (
         <UnknownCompanyPrompt

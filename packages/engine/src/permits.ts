@@ -101,7 +101,12 @@ export function checkPermit(
 
   // ---- The number's shape -------------------------------------------------
   let numberFormat: PermitCheck = 'REVIEW';
-  if (permit.permitNumber) {
+  if (!permit.permitNumber && permit.fileName) {
+    // Uploaded, and nobody has entered the number off it yet. The box can
+    // still be handed over; the number is what gets presented at the gate.
+    numberFormat = 'ATTENTION';
+    issues.push('The permit is uploaded but its number has not been entered. Enter it from the permit.');
+  } else if (permit.permitNumber) {
     numberFormat = permitNumberLooksValid(permit.permitNumber) ? 'VALID' : 'ATTENTION';
     if (numberFormat === 'ATTENTION') {
       issues.push(

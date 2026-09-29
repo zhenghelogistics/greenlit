@@ -176,6 +176,17 @@ const DO_LABEL = {
   "transhipment.record": "Choose where the laden box goes",
 };
 
+/**
+ * Export actions, paused.
+ *
+ * Operations, 29 September 2026: the export screen offered too many actions
+ * for a workflow not yet walked through, so they are hidden until it is —
+ * CMS, container/seal/tare, where the laden box goes, send details, ready and
+ * VGM. The handover and the container edit stay. The code and the data stay
+ * too; turning this off brings every action back as it was.
+ */
+const EXPORT_ACTIONS_PAUSED = true;
+
 function Journey({ steps, onAct }) {
   if (!steps.length) return null;
   return (
@@ -501,6 +512,42 @@ function DocumentReadiness({ job, onComplete }) {
 }
 
 /**
+ * Portnet release for the whole job, on its main screen.
+ *
+ * Operations, 29 September 2026: the release email usually covers every box,
+ * so one click releases them all rather than opening each container. Pending
+ * until then, and it stays recorded. A release naming only some boxes is
+ * still recorded per container, on the container tab or the controller's
+ * board, and this says how many are released.
+ */
+function PortnetRelease({ job, onRelease }) {
+  const containers = job.containers ?? [];
+  if (containers.length === 0) return null;
+  const pending = containers.filter((c) => !c.portnetReleasedAt);
+  const state = pending.length === 0 ? "Ready"
+    : pending.length === containers.length ? "Pending"
+      : `Ready for ${containers.length - pending.length} of ${containers.length}`;
+  return (
+    <div className="card" style={{ marginBottom: 18 }}>
+      <div className="header-row" style={{ marginBottom: 0 }}>
+        <div>
+          <div className="section-title">Portnet release</div>
+          <div className="muted">{state}</div>
+        </div>
+        {pending.length > 0 ? (
+          <button className="btn secondary" type="button"
+            onClick={() => onRelease?.(pending.map((c) => c.id))}>
+            {pending.length === containers.length
+              ? "Portnet released: all"
+              : `Portnet released: remaining ${pending.length}`}
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
  * The handover from operations to the controller.
  *
  * His panel, and his four states per container, because the shape is right: a
@@ -637,7 +684,7 @@ export default function ZhtJobDetail({
   job, containerIndex = 0, onSelectContainer, onBack, onManage,
   onRecordCms, onSendDetails, onSetTranshipment, onRecordDetails, onHandOver,
   onDocumentsComplete, extras, permitPanel, freeTimePanel, onSetPermitRequired,
-  onHandOverExport, onReleaseContainer, onDischargeContainer,
+  onHandOverExport, onReleaseContainer, onReleaseContainers, onDischargeContainer,
 }) {
   /** Opened by the journey's closing step, and by hand otherwise. */
   const [showClosing, setShowClosing] = useState(false);
@@ -679,7 +726,14 @@ export default function ZhtJobDetail({
   // export creation has three. The outstanding flag is what the form uses to
   // mark a section as still needing something.
   const sections = [
-    { id: "sec-customer", label: "Customer & delivery", outstanding: !job.deliveryAddress },
+    // Per container when each box has its own address, so it is the engine's
+    // per-box gap that says whether an address is missing, not the job field.
+    {
+      id: "sec-customer", label: "Customer & delivery",
+      outstanding: job.type === "Import"
+        ? containers.some((c) => (c.handoverGaps ?? []).includes("Delivery address"))
+        : !job.deliveryAddress,
+    },
     {
       id: "sec-shipment", label: "Shipment",
       outstanding: (job.missingInformation ?? []).length > 0,
@@ -696,10 +750,19 @@ export default function ZhtJobDetail({
       : []),
   ];
 
+  // The same fields creation asks, in the same order: the customer, then the
+  // company and address chosen from its saved locations. Terminal is the
+  // shipment's and is shown with the vessel.
+  const perContainerAddress = job.type === "Import"
+    && containers.some((c) => c.containerDeliveryAddress);
   const customerAndDelivery = [
     ["Customer", job.customer],
-    ["Delivery Address", job.deliveryAddress],
-    ["Terminal", job.terminal],
+    ["Point of contact", job.pointOfContact || "Not recorded"],
+    ...(job.type === "Import"
+      ? perContainerAddress
+        ? [["Delivery", "Each container has its own address"]]
+        : [["Delivery company", job.deliveryCompany || "Not recorded"], ["Delivery address", job.deliveryAddress]]
+      : []),
     // §9.3. For this job only. The site's own standing instructions live on
     // the customer's address and are not shown here as if they were this
     // job's, because a controller acting on the wrong one goes to the wrong
@@ -712,9 +775,10 @@ export default function ZhtJobDetail({
     ["Master B/L", job.billOfLading],
     ["House B/L", job.houseBillOfLading],
     ["Booking", job.booking],
+    ...(job.type === "Import" ? [["Master carrier", job.carrier]] : []),
     ["Vessel / Voyage", job.vessel],
     ["ETA", formatDay(job.eta)],
-    ["Empty Yard", job.emptyYard],
+    ...(job.type === "Import" ? [["Terminal", job.terminal]] : [["Empty Yard", job.emptyYard]]),
     // Export only. Import has no CMS — operations were explicit that it should
     // not appear there at all, and a field showing "Pending" forever is one
     // somebody eventually tries to clear.
@@ -744,6 +808,7 @@ export default function ZhtJobDetail({
     ["Packages", container.packageCount],
     ["Tare (KGS)", container.tare],
     ["Status", container.status ?? container.state],
+    ["Delivery date", container.plannedDeliveryDate ? formatDay(container.plannedDeliveryDate) : "Not set"],
     ["Last Free Day", formatDay(container.lastFreeDay)],
   ];
 
@@ -767,6 +832,7 @@ export default function ZhtJobDetail({
 
           <Warnings job={job} />
           {job.type === "Import" ? <DocumentReadiness job={job} onComplete={onDocumentsComplete} /> : null}
+          {job.type === "Import" ? <PortnetRelease job={job} onRelease={onReleaseContainers} /> : null}
           {job.type === "Import" ? <Handover job={job} onHandOver={onHandOver} onHandOverJob={onHandOverExport} /> : null}
           {job.type === "Export" ? <ExportHandover job={job} onHandOver={onHandOverExport} /> : null}
 
@@ -777,7 +843,9 @@ export default function ZhtJobDetail({
           {/* `job.close` has no drawer panel of its own — closure is the
               ClosurePanel at the foot of this screen — so the step opens that
               section rather than naming a panel nothing renders. */}
-          <Journey steps={job.journey ?? []} onAct={(action) => {
+          <Journey steps={(job.journey ?? []).map((step) =>
+            (job.type === "Export" && EXPORT_ACTIONS_PAUSED ? { ...step, action: null } : step))}
+          onAct={(action) => {
             if (action === "job.close") { setShowClosing(true); return; }
             if (action === "job.edit") return onManage("job");
             // Which checkpoint, not just "a checkpoint". Without the key the
@@ -812,7 +880,7 @@ export default function ZhtJobDetail({
               offering a controller an action that means nothing on the job in
               front of them — it was gated on `!job.cmsCompleted` alone, which
               is true of every import forever. */}
-          {((job.type === "Export" && !job.cmsCompleted)
+          {!EXPORT_ACTIONS_PAUSED && ((job.type === "Export" && !job.cmsCompleted)
             || (job.type === "Export" && !container.number)
             || (job.type === "Export" && job.transhipment === "PENDING")) ? (
             <div className="card" style={{ marginBottom: 12 }}>
@@ -867,7 +935,7 @@ export default function ZhtJobDetail({
           ) : null}
 
           {/* §42. The step that lets stuffing start. */}
-          {job.type === "Export" && container.number && !job.detailsSent ? (
+          {!EXPORT_ACTIONS_PAUSED && job.type === "Export" && container.number && !job.detailsSent ? (
             <div ref={(el) => {
               if (showNotify && el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); setShowNotify(false); }
             }}>
@@ -1031,9 +1099,16 @@ export default function ZhtJobDetail({
                 this" and the rest are reference. */}
             <div className="idstrip">
               {[["Container", container.number], ["Seal", container.seal],
-                ["Size", container.sizeType], ["Status", container.status ?? container.state],
-                ["Last free day", formatDay(container.lastFreeDay)]].map(([k, v]) => (
-                  <div key={k}><span className="k">{k}</span><span className="v">{v || "—"}</span></div>
+                // The track, as one line under the size rather than a strip of
+                // its own: operations scan several boxes and the strip took a
+                // block of the screen to say one word.
+                ["Size", container.sizeType, flow[stepIndex] ? `Track: ${flow[stepIndex]}` : null],
+                ["Status", container.status ?? container.state],
+                ["Last free day", formatDay(container.lastFreeDay)]].map(([k, v, sub]) => (
+                  <div key={k}>
+                    <span className="k">{k}</span><span className="v">{v || "—"}</span>
+                    {sub ? <small className="muted" style={{ display: "block" }}>{sub}</small> : null}
+                  </div>
                 ))}
             </div>
 
@@ -1042,13 +1117,24 @@ export default function ZhtJobDetail({
                 the charge estimate can never have a rate to multiply. */}
             <button className="btn secondary" type="button" style={{ marginTop: 10 }}
               onClick={() => onManage("freeTime")}>
-              {clocks.length ? "Edit free time and rate" : "Confirm free time and rate"}
+              {clocks.length ? "Edit free time" : "Confirm free time"}
             </button>
 
             {clocks.length ? (
               <div className="fieldgrid" style={{ marginTop: 10 }}>
                 {clocks.map((clock) => (
                   <Field key={clock.label} label={clock.label} value={clock.summary} />
+                ))}
+                {/* Both dates, because carriers' rules differ and the count is
+                    only a starting point: the controller's confirmed date is
+                    the one the job runs on, and alerts will follow it. */}
+                {clocks.map((clock) => (
+                  <Field key={`${clock.label}-est`} label={`${clock.label}: system estimated`}
+                    value={clock.countedLastFreeDay ? formatDay(clock.countedLastFreeDay) : "Not counted yet"} />
+                ))}
+                {clocks.map((clock) => (
+                  <Field key={`${clock.label}-conf`} label={`${clock.label}: confirmed`}
+                    value={clock.overriddenLastFreeDay ? formatDay(clock.overriddenLastFreeDay) : "Not confirmed"} />
                 ))}
                 {container.charge?.chargeableDays > 0 ? (
                   <Field label="Estimated charge" value={container.charge.summary} />
@@ -1115,16 +1201,6 @@ export default function ZhtJobDetail({
               </div>
             </Drawer>
 
-            {/* §32.1. Where this container stands, as a strip rather than a
-                panel of its own — it is orientation, not work. */}
-            <div className="timeline" style={{ marginTop: 12 }}>
-              {flow.map((step, i) => (
-                <span key={step}
-                  className={`step ${i < stepIndex ? "done" : i === stepIndex ? "current" : ""}`}>
-                  {step}
-                </span>
-              ))}
-            </div>
           </div>
             </>
           ) : null}

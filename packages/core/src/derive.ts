@@ -167,6 +167,8 @@ export interface DerivedJobView {
   handoverShipmentGaps: string[];
   /** §54. What an export still needs before the controller can plan it. */
   exportHandoverGaps: string[];
+  /** §24. Every container needing a permit has a numbered one mapped to it. */
+  permitCovered?: boolean;
   handedOverAt: string | null;
   handedOverBy: string | null;
   /**
@@ -264,7 +266,7 @@ export function buildImportCtx(
     // went on saying the box was missing one. Two answers to "has this job got
     // its permit", and the one being shown was not the one being enforced.
     permitReceived: !job.permitRequired
-      || (permits.length > 0 && containerHandoverGaps(job, container, permits).length === 0),
+      || (permits.length > 0 && !containerHandoverGaps(job, container, permits).includes('Permit')),
     permitRejected: job.permitRejected,
     portnetRequired: job.portnetRequired,
     portnetReleased: job.portnetReleased,
@@ -479,6 +481,11 @@ export function deriveImportJob(
     // "exportClearanceReference, etaSingapore" on a blocked export job.
     missingInformation: missing.map(fieldWords),
     handoverShipmentGaps: shipmentGaps,
+    // §24. Whether every box that needs a permit has a numbered one mapped to
+    // it. The screens read the job's old "permit received" flag, which the
+    // permit records never set, so a valid mapped permit still read as missing.
+    permitCovered: !job.permitRequired || (containers.length > 0 && views.every(
+      (v) => !v.handoverGaps.includes('Permit'))),
     exportHandoverGaps: [],
     handedOverAt: null,
     handedOverBy: null,

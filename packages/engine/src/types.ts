@@ -198,6 +198,20 @@ export interface ImportContainer {
 
 /** §28 */
 export interface ImportJob {
+  /** Who at the customer to call about this job. Asked at creation. */
+  pointOfContact?: string | null;
+  /**
+   * The terminal the vessel discharges at. The shipment's, beside the vessel,
+   * voyage and ETA, because every box on one sailing lands at one terminal.
+   * Optional so records made before 0035 read as not recorded.
+   */
+  terminal?: string | null;
+  /**
+   * The company at the delivery address, as chosen from the customer's saved
+   * locations. Kept with the address so the saved job shows the same pair the
+   * creation form asked for.
+   */
+  deliveryCompany?: string | null;
   /**
    * Delivery instructions for this job only.
    *
@@ -321,6 +335,8 @@ export interface ExportContainer {
 
 /** §38.1. The commercial header. Container detail lives on ExportContainer. */
 export interface ExportJob {
+  /** Who at the customer to call about this job. Asked at creation. */
+  pointOfContact?: string | null;
   /**
    * Delivery instructions for this job only.
    *
