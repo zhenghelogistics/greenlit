@@ -335,6 +335,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
     customerCode: "", pic: "",
     addressMode: "job", deliveryCompany: "", deliveryAddress: "",
     vesselName: "", voyageNumber: "", etaDate: "", etaTime: "", terminal: "",
+    requestedDeliveryDate: "",
     carrier: "", blNumber: "", houseBlNumber: "",
     permitRequired: false,
     // What the site always needs, and what this one delivery needs instead.
@@ -528,6 +529,9 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
             // validated, and then dropped at submit.
             emptyReturnYard: shout(r.emptyReturnYard) || null,
             triAxle: r.triAxle === true,
+            // The customer's date: this box's own when it differs, the job's
+            // otherwise.
+            requestedDeliveryDate: r.requestedDeliveryDate || job.requestedDeliveryDate || null,
             deliveryCompany: job.addressMode === "container" ? (r.deliveryCompany || null) : null,
             deliveryAddress: job.addressMode === "container" ? (r.deliveryAddress || null) : null,
             freeTimeModel: r.freeTimeModel,
@@ -931,6 +935,12 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                     <input value={job.terminal} onChange={(e) => set({ terminal: shout(e.target.value) })}
                       placeholder="PSA Pasir Panjang, Tuas…" />
                   </Field>
+                  {/* The customer gives the delivery date. The controller may
+                      bring it forward once the box is released and discharged. */}
+                  <Field label="Requested delivery date" hint="As the customer asked. A container can have its own below.">
+                    <input type="date" className="app-date-input" value={job.requestedDeliveryDate}
+                      onChange={(e) => set({ requestedDeliveryDate: e.target.value })} />
+                  </Field>
                   {/* A notice issued by the carrier names itself; one issued
                       by a forwarder often does not, so this has to be
                       selectable rather than only read. The code is what
@@ -1077,6 +1087,11 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                       type="number" step="0.001" min="0" value={r.grossWeight}
                       onChange={(e) => setRow(i, { grossWeight: e.target.value })}
                     />
+                  </Field>
+
+                  <Field label="Requested delivery date" hint="Blank uses the job's date.">
+                    <input type="date" className="app-date-input" value={r.requestedDeliveryDate ?? ""}
+                      onChange={(e) => setRow(i, { requestedDeliveryDate: e.target.value })} />
                   </Field>
 
                   <div className="container-special-config">

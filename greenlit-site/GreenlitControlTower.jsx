@@ -2809,7 +2809,7 @@ function initialDrawerDraft(panel, job) {
     // Weight and yard are seeded like everything else here. A field that saves
     // but opens blank is worse than one that is missing: it reads as "nothing
     // recorded" and the first save wipes what was there.
-    return { number: container.number, type: container.type || "", seal: container.seal || "", grossWeight: container.grossWeight ?? "", emptyReturnYard: container.emptyReturnYard || "", triAxle: container.triAxle === true, containerDeliveryCompany: container.containerDeliveryCompany || "", containerDeliveryAddress: container.containerDeliveryAddress || "", state: container.state, lastFreeDay: container.lastFreeDay || job.demurrageLastFreeDay || "" };
+    return { number: container.number, type: container.type || "", seal: container.seal || "", grossWeight: container.grossWeight ?? "", emptyReturnYard: container.emptyReturnYard || "", triAxle: container.triAxle === true, containerDeliveryCompany: container.containerDeliveryCompany || "", containerDeliveryAddress: container.containerDeliveryAddress || "", requestedDeliveryDate: container.requestedDeliveryDate || "", state: container.state, lastFreeDay: container.lastFreeDay || job.demurrageLastFreeDay || "" };
   }
   if (panel.type === "trip" && job) {
     const trip = job.trips.find((item) => item.id === panel.tripId);
@@ -3077,6 +3077,7 @@ function OperationsDrawer({ panel, jobs, customers = [], onClose, onCommit }) {
                     return yard as well. A figure entered wrongly at intake
                     stayed wrong. */}
                 <div className="grid gap-5 sm:grid-cols-2">
+                  <DrawerField label="Requested delivery date" hint="As the customer asked. The controller's planned date is set on the board."><input type="date" value={draft.requestedDeliveryDate || ""} onChange={(event) => update("requestedDeliveryDate", event.target.value)} className={drawerInputClass} /></DrawerField>
                   <DrawerField label="Weight (kg)" hint="Gross weight, as operations record it after Portnet."><input min="1" type="number" inputMode="numeric" value={draft.grossWeight ?? ""} onChange={(event) => update("grossWeight", event.target.value)} className={drawerInputClass} /></DrawerField>
                   <DrawerField label="Empty return yard" hint="Where this box goes back. Per container, not per job."><input value={draft.emptyReturnYard || ""} onChange={(event) => update("emptyReturnYard", event.target.value)} className={drawerInputClass} /></DrawerField>
                 </div>
@@ -4401,6 +4402,7 @@ export default function GreenlitControlTower() {
                 triAxle: draft.triAxle === true,
                 deliveryCompany: draft.containerDeliveryCompany || null,
                 deliveryAddress: draft.containerDeliveryAddress || null,
+                requestedDeliveryDate: draft.requestedDeliveryDate || null,
                 // Export only; the route ignores it on an import.
                 grossWeightKg: numberOrNull(draft.grossWeightKg),
                 stuffingLocation: draft.stuffingLocation || null,

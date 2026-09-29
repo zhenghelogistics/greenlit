@@ -313,7 +313,16 @@ function ContainerTable({ rows, onOpenJob, onDeliver, picked, onToggle, selectAl
               <td>{c.containerDeliveryAddress || job.deliveryAddress || "Not recorded"}</td>
               <td>{c.portnetReleasedAt ? "Ready" : "Pending"}</td>
               <td>{c.dischargedAt ? "Ready" : "Pending"}</td>
-              <td>{day(c.plannedDeliveryDate)}</td>
+              {/* The customer's date, and the controller's when it has been
+                  brought forward. */}
+              <td>
+                {day(c.plannedDeliveryDate ?? c.requestedDeliveryDate)}
+                <span className="sub">
+                  {c.plannedDeliveryDate
+                    ? `Requested ${day(c.requestedDeliveryDate)}`
+                    : c.requestedDeliveryDate ? "As requested" : "Not given"}
+                </span>
+              </td>
               <td>{day(c.lastFreeDay)}</td>
               <td>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -343,11 +352,14 @@ function ContainerTable({ rows, onOpenJob, onDeliver, picked, onToggle, selectAl
 }
 
 /**
- * Ready for collection, grouped by job, with the delivery date set in bulk.
+ * Ready for collection, grouped by job, with the planned delivery date set in
+ * bulk.
  *
- * Operations, 29 September 2026: one date for every box on the job, or for
- * the ones ticked, so a staggered delivery is two actions — five on the 15th,
- * five on the 16th — rather than opening each container.
+ * Operations, 29 September 2026: the customer's requested date comes with the
+ * job. Once a box is released and discharged the controller may send it
+ * earlier, for every box on the job or the ones ticked, so a staggered
+ * delivery is two actions rather than opening each container. Only ready
+ * boxes are here, and the server refuses the rest in the same words.
  */
 function ReadyByJob({ rows, onOpenJob, onDeliver, onSetDeliveryDate }) {
   const [picked, setPicked] = useState(() => new Set());
@@ -386,7 +398,7 @@ function ReadyByJob({ rows, onOpenJob, onDeliver, onSetDeliveryDate }) {
                 <div className="muted">{job.customer || "Customer TBA"} · ETA {day(job.eta)}</div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                <label className="muted" htmlFor={`dd-${job.id}`}>Delivery date</label>
+                <label className="muted" htmlFor={`dd-${job.id}`}>Planned delivery date</label>
                 <input id={`dd-${job.id}`} type="date" className="app-date-input" value={date}
                   onChange={(e) => setDates((was) => ({ ...was, [job.id]: e.target.value }))} />
                 <button className="btn secondary" type="button" disabled={!date || chosen.length === 0}

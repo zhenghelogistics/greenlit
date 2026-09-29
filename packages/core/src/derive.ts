@@ -432,7 +432,8 @@ export function deriveImportJob(
       planBlockedReason: planBlockedReason({
         portnetReleased: boardFacts.portnetReleased, discharged: Boolean(c.dischargedAt),
       }),
-      warnings: [deliveryDateWarning(job.eta, c.plannedDeliveryDate)].filter(Boolean) as Warning[],
+      warnings: [deliveryDateWarning(job.eta, c.plannedDeliveryDate ?? c.requestedDeliveryDate ?? null)]
+        .filter(Boolean) as Warning[],
       charge: chargeEstimate(clocks, { dailyRate: c.dailyRate, currency: c.currency }),
     };
   });

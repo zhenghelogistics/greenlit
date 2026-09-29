@@ -84,6 +84,7 @@ export const toImportContainer = (r: Record<string, unknown>): ImportContainer =
   dischargedAt: nn(r.discharged_at as string),
   deliveredAt: nn(r.delivered_at as string),
   plannedDeliveryDate: nn(r.planned_delivery_date as string),
+  requestedDeliveryDate: nn(r.requested_delivery_date as string),
   plannedDeliveryTime: nn(r.planned_delivery_time as string),
   containerNumber: r.container_number as string,
   jobId: r.job_id as string,

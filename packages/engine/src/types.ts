@@ -122,6 +122,15 @@ export interface ImportContainer {
    * worth comparing.
    */
   plannedDeliveryDate: IsoDate | null;
+  /**
+   * The date the customer asked for, entered when the job is created.
+   *
+   * Operations, 29 September 2026: the customer gives the delivery date. Once
+   * Portnet release and discharge are done the controller may send the box
+   * earlier, and that is `plannedDeliveryDate`; this keeps what was asked.
+   * Optional so records made before 0037 read as not recorded.
+   */
+  requestedDeliveryDate?: IsoDate | null;
   /** A half-hour, or null when the day is agreed and the hour is not. */
   plannedDeliveryTime: string | null;
   /**

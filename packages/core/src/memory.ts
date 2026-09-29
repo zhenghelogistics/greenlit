@@ -673,6 +673,7 @@ export function createMemoryRepository(): Repository {
           deliveredAt: null,
           plannedDeliveryDate: null,
           plannedDeliveryTime: null,
+          requestedDeliveryDate: c.requestedDeliveryDate ?? null,
           containerNumber: c.containerNumber?.trim() || null,
           secondaryContainerId: null,
           containerSize: size || '',

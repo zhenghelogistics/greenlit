@@ -223,6 +223,7 @@ export function jobFromApi(view) {
       // the server's refusal say the same thing.
       planBlockedReason: view.containers?.[i]?.planBlockedReason ?? null,
       plannedDeliveryDate: c.plannedDeliveryDate ?? null,
+      requestedDeliveryDate: c.requestedDeliveryDate ?? null,
       plannedDeliveryTime: c.plannedDeliveryTime ?? "",
       warnings: view.containers?.[i]?.warnings ?? [],
     })),

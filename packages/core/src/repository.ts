@@ -616,6 +616,8 @@ export interface ContainerAmendment {
   deliveryAddress?: string | null;
   /** §29. Whether this box needs a tri-axle chassis. */
   triAxle?: boolean;
+  /** The delivery date the customer asked for, correctable after creation. */
+  requestedDeliveryDate?: string | null;
   /**
    * The day this box is to be delivered, set by the controller for all of a
    * job's boxes or the ones picked, so a staggered delivery keeps its dates.
@@ -826,6 +828,8 @@ export interface FreeTimeTerms {
 export interface ImportContainerDraft {
   /** §29. Needs a tri-axle chassis. Asked for at creation since the start. */
   triAxle?: boolean;
+  /** The delivery date the customer asked for. */
+  requestedDeliveryDate?: string | null;
   /** §9.3. Where this box goes, when the job delivers to more than one place. */
   deliveryCompany?: string | null;
   deliveryAddress?: string | null;

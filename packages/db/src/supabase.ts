@@ -1383,6 +1383,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
           package_type: c.packageType?.trim() || null,
           // §29. Asked for on the form since the start and stored from 0024.
           tri_axle: c.triAxle === true,
+          requested_delivery_date: c.requestedDeliveryDate ?? null,
           // §9.3. Null means this box uses the job's own address.
           delivery_company: c.deliveryCompany?.trim() || null,
           delivery_address: c.deliveryAddress?.trim() || null,

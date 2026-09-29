@@ -1,7 +1,14 @@
 import { authorize, badRequest, readJson, runCommand } from "../../../../../lib/command";
+import { getJobService } from "../../../../../lib/greenlit";
 
 /**
- * Set the delivery date on several containers of one job at once.
+ * Set the controller's planned delivery date on several containers at once.
+ *
+ * The customer's requested date is entered at creation. Operations,
+ * 29 September 2026: once Portnet release and discharge are done, the
+ * controller can arrange to send the box earlier than asked — so this is
+ * refused for a box that is not yet released and discharged, in the same
+ * words the Plan button uses.
  *
  * Operations, 29 September 2026: the same date for every box on the job, or
  * for the boxes picked, so a staggered delivery (five on the 15th, five on the
@@ -29,9 +36,16 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
 
   return runCommand(id, async (repo) => {
     // Only this job's boxes, whatever was sent.
-    const onJob = new Set((await repo.listContainersForImportJob(id)).map((c) => c.containerId));
+    const view = await getJobService().getJob(id);
+    const onJob = new Map((view?.containers ?? []).map((c) => [c.containerId, c]));
     const stray = ids.filter((c) => !onJob.has(c));
     if (stray.length) throw new Error(`Unknown container ${stray[0]} on this job`);
+    const waiting = ids.map((c) => onJob.get(c)!).filter((c) => !c.canPlanCollection);
+    if (waiting.length) {
+      throw new Error(`${waiting[0]!.containerNumber ?? "A container"}: `
+        + `${waiting[0]!.planBlockedReason ?? "not ready to plan"}. `
+        + "The delivery date can be brought forward once it is released and discharged.");
+    }
     for (const containerId of ids) {
       await repo.amendContainer(containerId, { plannedDeliveryDate: date }, auth.displayName);
     }
