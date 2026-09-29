@@ -11,6 +11,8 @@ import type { PermitRecord } from '../src/permits.ts';
 const importJob = (o: Partial<ImportJob> = {}): ImportJob => ({
   customer: 'DKSH Singapore',
   deliveryAddress: '12 Jurong Port Road',
+  vesselName: 'DALLAS EXPRESS',
+  voyageNumber: '632S',
   permitRequired: false,
   ...o,
 } as ImportJob);
@@ -27,10 +29,21 @@ const permit = (o: Partial<PermitRecord> = {}): PermitRecord => ({
   ...o,
 });
 
-test('a controller needs the customer and the address, and that is all', () => {
+test('a controller needs the customer, the sailing and where the box goes', () => {
+  // Operations, 29 September 2026: customer delivery details, vessel, voyage
+  // and the permit. The address is asked of the container, because a job may
+  // deliver each box somewhere different and then has none of its own.
   assert.deepEqual(importHandoverShipmentGaps(importJob()), []);
   assert.deepEqual(importHandoverShipmentGaps(importJob({ customer: '' })), ['Customer']);
-  assert.deepEqual(importHandoverShipmentGaps(importJob({ deliveryAddress: null })), ['Delivery address']);
+  assert.deepEqual(importHandoverShipmentGaps(importJob({ vesselName: null })), ['Vessel']);
+  assert.deepEqual(importHandoverShipmentGaps(importJob({ voyageNumber: '' })), ['Voyage'],
+    'a vessel without a voyage is incomplete');
+  assert.deepEqual(
+    containerHandoverGaps(importJob({ deliveryAddress: null }), container, []), ['Delivery address']);
+  assert.deepEqual(
+    containerHandoverGaps(importJob({ deliveryAddress: null }),
+      { ...container, deliveryAddress: '9 Gul Circle' }, []), [],
+    'a box with its own address needs no job address');
 });
 
 test('what the controller does NOT need before the job becomes theirs', () => {
@@ -39,11 +52,11 @@ test('what the controller does NOT need before the job becomes theirs', () => {
   // the handover for any of them means the controller cannot see next week
   // until operations have finished this week.
   const bare = importJob({
-    vesselName: null, eta: null, blNumber: null, carrier: null,
+    eta: null, blNumber: null, carrier: null,
     portnetReleased: false,
   } as Partial<ImportJob>);
   assert.deepEqual(importHandoverShipmentGaps(bare), [],
-    'no vessel, no ETA, no bill of lading, no Portnet — and still handed over');
+    'no ETA, no bill of lading, no Portnet — and still handed over');
 });
 
 test('Portnet is a gate on planning and no gate at all on handover', () => {
@@ -55,13 +68,13 @@ test('Portnet is a gate on planning and no gate at all on handover', () => {
 });
 
 test('a permit is required only when the job says one is', () => {
-  assert.deepEqual(containerHandoverGaps({ permitRequired: false }, container, []), []);
-  assert.deepEqual(containerHandoverGaps({ permitRequired: true }, container, []), ['Permit'],
+  assert.deepEqual(containerHandoverGaps(importJob(), container, []), []);
+  assert.deepEqual(containerHandoverGaps(importJob({ permitRequired: true }), container, []), ['Permit'],
     'required and none on file');
 });
 
 test('a permit counts only when it is allocated to THIS container', () => {
-  const job = { permitRequired: true };
+  const job = importJob({ permitRequired: true });
   assert.deepEqual(
     containerHandoverGaps(job, container, [permit({ linkedContainerIds: ['ic2'] })]),
     ['Permit'],
@@ -71,7 +84,7 @@ test('a permit counts only when it is allocated to THIS container', () => {
 
 test('a permit with no number is a permit nobody can present', () => {
   assert.deepEqual(
-    containerHandoverGaps({ permitRequired: true }, container, [permit({ permitNumber: null })]),
+    containerHandoverGaps(importJob({ permitRequired: true }), container, [permit({ permitNumber: null })]),
     ['Permit'],
     'an allocated record with no number is not a permit yet');
 });
@@ -129,8 +142,8 @@ test('document readiness is the longer list, and a different question', () => {
   assert.deepEqual(documentGaps(job, [container], []), [], 'nothing outstanding');
   assert.equal(documentsComplete(job, [container], []), true);
 
-  // Handover needs two fields; readiness needs all of them.
-  const bare = importJob();
+  // Handover needs a few fields; readiness needs all of them.
+  const bare = importJob({ eta: null, blNumber: null } as Partial<ImportJob>);
   assert.deepEqual(importHandoverShipmentGaps(bare), [], 'the controller could start');
   assert.ok(documentGaps(bare, [container], []).length > 0, 'operations have not finished');
 });

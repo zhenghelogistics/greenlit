@@ -251,12 +251,72 @@ export function isVgmPlausible(vgm: number, tareWeightKg: number): boolean {
  * Returns null when the trip may be planned.
  */
 export function refuseEmptyCollection(
-  job: { cmsRequired?: boolean; cmsStatus?: string } | null | undefined,
+  job: { cmsRequired?: boolean; cmsStatus?: string | null } | null | undefined,
   movementType: string,
+  /**
+   * §41. The status of this particular collection, when it has one. Null means
+   * it follows the job's, which is what a job with one collection has always
+   * meant. Completing one collection must never clear another's blocker.
+   */
+  collectionCmsStatus?: string | null,
 ): string | null {
   if (movementType !== 'EMPTY_COLLECTION') return null;
   if (!job || job.cmsRequired === false) return null;
-  if (job.cmsStatus === 'COMPLETED') return null;
-  return 'The CMS for this job is not done, so an empty collection cannot be planned yet. '
+  if ((collectionCmsStatus ?? job.cmsStatus) === 'COMPLETED') return null;
+  return 'CMS pending for this empty collection, so a driver cannot be assigned yet. '
     + 'Record the CMS, then assign a driver.';
+}
+
+/**
+ * Why an import container cannot be planned yet, in the words the Plan button
+ * shows. Null when it can.
+ *
+ * Operations, 29 September 2026: Plan is not available until Portnet release
+ * and discharge are both Ready, and the button says which one it is waiting
+ * for. The same sentence is used by the server when it refuses, so the screen
+ * and the refusal cannot disagree.
+ */
+export function planBlockedReason(facts: { portnetReleased: boolean; discharged: boolean }): string | null {
+  if (!facts.portnetReleased && !facts.discharged) return 'Waiting for Portnet Release and Discharge';
+  if (!facts.portnetReleased) return 'Waiting for Portnet Release';
+  if (!facts.discharged) return 'Waiting for Discharge';
+  return null;
+}
+
+/** The trips that take a laden import box out of the terminal. */
+const TERMINAL_COLLECTIONS: ReadonlySet<string> = new Set(['IMPORT_DELIVERY', 'IMPORT_TO_CARPARK']);
+
+/**
+ * Whether work on a trip may go ahead: planning it, assigning a driver or
+ * truck, or dispatching it.
+ *
+ * Held in the engine and called by both stores for every write to a movement,
+ * because a gate that only the screen applies is a button hidden, not a rule.
+ *
+ * - An import collection from the terminal needs its container released and
+ *   discharged, at every step, from planning onward.
+ * - An empty collection may be prepared while CMS is pending — the controller
+ *   plans around it — but not given a driver or dispatched until that
+ *   collection's CMS is done.
+ */
+export function refuseMovementWork(input: {
+  movementType: string;
+  /** Planning or dating a trip is `false`; a driver, truck or dispatch is `true`. */
+  assigning: boolean;
+  importJob?: { portnetRequired: boolean; portnetReleased: boolean } | null;
+  importContainer?: { portnetReleasedAt?: string | null; dischargedAt: string | null } | null;
+  exportJob?: { cmsRequired?: boolean; cmsStatus?: string | null } | null;
+  collectionCmsStatus?: string | null;
+}): string | null {
+  if (TERMINAL_COLLECTIONS.has(input.movementType) && input.importJob) {
+    const c = input.importContainer;
+    if (!c) return 'Choose the container this trip collects, so its release and discharge can be checked.';
+    const released = !input.importJob.portnetRequired
+      || Boolean(c.portnetReleasedAt) || input.importJob.portnetReleased;
+    return planBlockedReason({ portnetReleased: released, discharged: Boolean(c.dischargedAt) });
+  }
+  if (input.assigning) {
+    return refuseEmptyCollection(input.exportJob, input.movementType, input.collectionCmsStatus);
+  }
+  return null;
 }

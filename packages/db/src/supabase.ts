@@ -1,4 +1,4 @@
-import { canSendContainerDetails, refuseEmptyCollection,
+import { canSendContainerDetails, refuseMovementWork, canHandOver,
   suggestedUserId, suggestedDisplayName, normalisePermitNumber, locationProblem,
   documentProblem, storagePathFor, type DocumentRecord,
   type PermitRecord } from '@greenlit/engine';
@@ -129,6 +129,39 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
     unwrap(await db.from('movements').update(patch)
       .eq('movement_id', movementId).select().single(), 'update movement');
     for (const c of changed) await record(before.job_id as string, event, actor, c);
+  };
+
+  /**
+   * Why work on this trip may not go ahead yet, or null. The rule is the
+   * engine's; this only reads the records it needs.
+   */
+  const movementRefusal = async (
+    m: { jobId: string; movementType: string; containerId: string | null; cmsStatus?: string | null },
+    assigning: boolean,
+  ): Promise<string | null> => {
+    const [imp, exp, box] = await Promise.all([
+      db.from('import_jobs').select('*').eq('job_id', m.jobId).maybeSingle(),
+      db.from('export_jobs').select('*').eq('export_job_id', m.jobId).maybeSingle(),
+      m.containerId
+        ? db.from('containers').select('*').eq('container_id', m.containerId).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
+    for (const r of [imp, exp, box]) if (r.error) throw new Error(`movement check: ${r.error.message}`);
+    return refuseMovementWork({
+      movementType: m.movementType, assigning,
+      importJob: imp.data ? toImportJob(imp.data) : null,
+      importContainer: box.data && box.data.job_id === m.jobId ? toImportContainer(box.data) : null,
+      exportJob: exp.data ? toExportJob(exp.data) : null,
+      collectionCmsStatus: m.cmsStatus ?? null,
+    });
+  };
+
+  const refuseWorkOn = async (movementId: string, assigning: boolean): Promise<void> => {
+    const found = await db.from('movements').select('*').eq('movement_id', movementId).maybeSingle();
+    if (found.error) throw new Error(`movement lookup: ${found.error.message}`);
+    if (!found.data) throw new Error(`Unknown movement ${movementId}`);
+    const refusal = await movementRefusal(toMovement(found.data), assigning);
+    if (refusal) throw new Error(refusal);
   };
 
   const record = async (
@@ -626,11 +659,12 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         ?? await this.getExportJob(draft.jobId);
       if (!job) throw new Error(`Unknown job ${draft.jobId}`);
 
-      // Operations: the CMS authorises the collection, so the driver cannot be
-      // assigned before it is done. Enforced in the adapter rather than in the
-      // route so it holds for every caller and identically in both stores.
-      const refusal = refuseEmptyCollection(
-        'cmsStatus' in job ? job : null, draft.movementType);
+      // An import collection cannot be planned before release and discharge.
+      // An empty collection can be prepared with CMS pending; the driver is
+      // what waits for it. Enforced in the adapter rather than in the route so
+      // it holds for every caller and identically in both stores.
+      const refusal = await movementRefusal(
+        { ...draft, containerId: draft.containerId ?? null, cmsStatus: null }, false);
       if (refusal) throw new Error(refusal);
 
       // §18. MOV-NNN, unique within the job and never reused after a
@@ -671,10 +705,14 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
     },
 
     async scheduleMovement(movementId, plan, actor) {
+      await refuseWorkOn(movementId, plan.driver !== undefined || plan.truck !== undefined);
       await patchMovement(movementId, { ...plan }, 'movement.scheduled', actor);
     },
 
     async recordMovementProgress(movementId, progress, actor) {
+      // Dispatching is assigning: a trip cannot be under way before it could
+      // have been given a driver.
+      await refuseWorkOn(movementId, true);
       await patchMovement(movementId, { ...progress }, 'movement.progressed', actor);
     },
 
@@ -1458,7 +1496,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       // collecting from two yards has two bookings, and setting the job's
       // status would clear both.
       if (movementId) {
-        const trip = await db.from('movements').select('cms_status')
+        const trip = await db.from('movements').select('cms_status,movement_ref,origin')
           .eq('movement_id', movementId).maybeSingle();
         if (trip.error) throw new Error(`movement: ${trip.error.message}`);
         if (!trip.data) throw new Error(`Unknown movement ${movementId}`);
@@ -1470,10 +1508,14 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         }).eq('movement_id', movementId);
         if (written.error) throw new Error(`record CMS: ${written.error.message}`);
 
-        await record(movementId, 'cms.completed', actor,
-          { field: 'cmsStatus', from: trip.data.cms_status, to: status }, 'movement');
+        // On the job's log, naming the collection, so the consolidated history
+        // shows who completed which booking.
+        const which = `CMS for ${trip.data.movement_ref}`
+          + `${trip.data.origin ? ` (${trip.data.origin})` : ''}`;
+        await record(jobId, 'cms.completed', actor,
+          { field: which, from: trip.data.cms_status, to: status });
         if (reason) {
-          await record(movementId, 'cms.completed', actor, { field: 'reason', to: reason }, 'movement');
+          await record(jobId, 'cms.completed', actor, { field: `${which} reason`, to: reason });
         }
         return;
       }
@@ -1534,7 +1576,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       }
     },
     async recordFreeTime(containerId, terms, actor) {
-      const existing = await db.from('containers').select('job_id,free_time_model')
+      const existing = await db.from('containers').select('job_id,free_time_model,container_number')
         .eq('container_id', containerId).maybeSingle();
       if (existing.error) throw new Error(`container lookup: ${existing.error.message}`);
       if (!existing.data) throw new Error(`Unknown container ${containerId}`);
@@ -1590,10 +1632,11 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       // §13. The value, the reason, the actor and the time, which is what
       // somebody needs six weeks later when the demurrage invoice is queried.
       if (overridden) {
-        await record(containerId, 'freetime.overridden', actor, {
-          field: `last free day (${terms.lfdOverrideReason?.trim()})`,
+        await record(existing.data.job_id as string, 'freetime.overridden', actor, {
+          field: `last free day for ${existing.data.container_number ?? containerId} `
+            + `(${terms.lfdOverrideReason?.trim()})`,
           from: null, to: overridden,
-        }, 'container');
+        });
       }
     },
 
@@ -1660,6 +1703,17 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       if (!before.data) throw new Error(`Unknown import container ${containerId}`);
       // Already handed over: the first decision stands and is not re-stamped.
       if (before.data.handed_over_at) return;
+      const jobId = before.data.job_id as string;
+      const [job, boxes, permits] = await Promise.all([
+        this.getImportJob(jobId), this.listContainersForImportJob(jobId), this.listPermitsForJob(jobId),
+      ]);
+      const box = boxes.find((c) => c.containerId === containerId);
+      if (!job || !box) throw new Error(`Unknown import container ${containerId}`);
+      const gate = canHandOver(job, box, permits);
+      if (!gate.passed) {
+        throw new Error(`${box.containerNumber ?? 'This container'} is not ready to hand over: `
+          + `${gate.failures.join(', ')}`);
+      }
       const at = new Date().toISOString();
       unwrap(await db.from('containers').update({
         handed_over_at: at, handed_over_by: actor,

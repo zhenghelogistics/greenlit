@@ -512,7 +512,7 @@ function DocumentReadiness({ job, onComplete }) {
  * somebody else's job and the second is this container's — and a single
  * "incomplete" would collapse them into a line nobody can act on.
  */
-function Handover({ job, onHandOver }) {
+function Handover({ job, onHandOver, onHandOverJob }) {
   const containers = job.containers ?? [];
   const shipmentGaps = job.handoverShipmentGaps ?? [];
   const handed = containers.filter((c) => c.handedOver).length;
@@ -537,9 +537,19 @@ function Handover({ job, onHandOver }) {
             on their board.
           </div>
         </div>
-        <span className="tag" style={{ whiteSpace: "nowrap" }}>
-          {handed}/{total} handed over{ready ? ` · ${ready} ready` : ""}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span className="tag" style={{ whiteSpace: "nowrap" }}>
+            {handed}/{total} handed over{ready ? ` · ${ready} ready` : ""}
+          </span>
+          {/* One action for the job. It hands over every box that is ready
+              and leaves the rest, each with its reason below, rather than
+              silently taking a box whose permit is missing. */}
+          {ready > 0 ? (
+            <button className="btn success" type="button" onClick={() => onHandOverJob?.()}>
+              {ready === total - handed ? "Hand over to Controller" : `Hand over ${ready} ready to Controller`}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       {shipmentGaps.length > 0 ? (
@@ -591,29 +601,26 @@ function Handover({ job, onHandOver }) {
           );
         }
 
-        // §24. Said out loud, because a controller looking for the permit line
-        // and finding nothing cannot tell "not needed" from "not checked yet".
-        if (!job.permitRequired) {
-          return (
-            <div className="stop" key={c.id ?? i}>
-              <b>{label}</b> — ready. Permit not required.
-            </div>
-          );
-        }
-
         return (
           <div
             className="stop"
             key={c.id ?? i}
             style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}
           >
-            <div><b>{label}</b> — ready for handover</div>
+            {/* §24. Said out loud, because a controller looking for the permit
+                line and finding nothing cannot tell "not needed" from "not
+                checked yet". It used to be the whole row, and the row had no
+                button, so a job needing no permit could never be handed over. */}
+            <div>
+              <b>{label}</b> — ready for handover
+              {!job.permitRequired ? <span className="muted"> · Permit not required</span> : null}
+            </div>
             <button
               className="btn primary"
               type="button"
               onClick={() => onHandOver?.(c)}
             >
-              Hand to controller
+              Hand over
             </button>
           </div>
         );
@@ -760,7 +767,7 @@ export default function ZhtJobDetail({
 
           <Warnings job={job} />
           {job.type === "Import" ? <DocumentReadiness job={job} onComplete={onDocumentsComplete} /> : null}
-          {job.type === "Import" ? <Handover job={job} onHandOver={onHandOver} /> : null}
+          {job.type === "Import" ? <Handover job={job} onHandOver={onHandOver} onHandOverJob={onHandOverExport} /> : null}
           {job.type === "Export" ? <ExportHandover job={job} onHandOver={onHandOverExport} /> : null}
 
           {/* §31, §32. The trip the box makes, and the only place on this
@@ -1065,12 +1072,12 @@ export default function ZhtJobDetail({
                 <div className="fieldgrid">
                   <Field label="Portnet release"
                     value={container.portnetReleasedAt
-                      ? `Released ${formatDay(container.portnetReleasedAt)}`
-                      : "Not released"} />
+                      ? `Ready · ${formatDay(container.portnetReleasedAt)}`
+                      : "Pending"} />
                   <Field label="Discharge"
                     value={container.dischargedAt
-                      ? `Discharged ${formatDay(container.dischargedAt)}`
-                      : "Not discharged"} />
+                      ? `Ready · ${formatDay(container.dischargedAt)}`
+                      : "Pending"} />
                 </div>
                 <div className="action-row" style={{ marginTop: 10, gap: 8 }}>
                   {!container.portnetReleasedAt ? (
@@ -1079,7 +1086,10 @@ export default function ZhtJobDetail({
                       Portnet released this container
                     </button>
                   ) : null}
-                  {container.portnetReleasedAt && !container.dischargedAt ? (
+                  {/* Independent of the release: a box is often off the ship
+                      days before Portnet releases it, and the two are recorded
+                      from different evidence. */}
+                  {!container.dischargedAt ? (
                     <button className="btn secondary" type="button"
                       onClick={() => onDischargeContainer(container)}>
                       Record discharge

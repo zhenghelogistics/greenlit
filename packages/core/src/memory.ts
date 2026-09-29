@@ -1,4 +1,4 @@
-import { refuseEmptyCollection,
+import { refuseMovementWork, canHandOver,
   suggestedUserId, suggestedDisplayName, normalisePermitNumber, locationProblem,
   documentProblem, storagePathFor,
   type CustomerLocation, type DocumentRecord,
@@ -462,10 +462,37 @@ export function createMemoryRepository(): Repository {
     }, actor, new Date().toISOString()));
   };
 
-  /** Which job an export container belongs to, for audit attribution. */
+  /**
+   * Which job a container belongs to, for audit attribution. Both kinds: an
+   * import box's handover and discharge are the job's history too, and the
+   * job's log reads by the job's id.
+   */
   const jobOfContainer = (containerId: string) =>
     Object.entries(exportContainers)
-      .find(([, list]) => list.some((c) => c.exportContainerId === containerId))?.[0] ?? containerId;
+      .find(([, list]) => list.some((c) => c.exportContainerId === containerId))?.[0]
+    ?? Object.entries(importContainers)
+      .find(([, list]) => list.some((c) => c.containerId === containerId))?.[0]
+    ?? containerId;
+
+  /**
+   * Why work on this trip may not go ahead yet, or null. The rule is the
+   * engine's; this only finds the records it reads.
+   */
+  const movementRefusal = (
+    m: { jobId: string; movementType: string; containerId: string | null; cmsStatus?: string | null },
+    assigning: boolean,
+  ) => {
+    const importJob = importJobs.find((j) => j.jobId === m.jobId) ?? null;
+    const exportJob = exportJobs.find((j) => j.exportJobId === m.jobId) ?? null;
+    const importContainer = importJob && m.containerId
+      ? (importContainers[m.jobId] ?? []).find((c) => c.containerId === m.containerId) ?? null
+      : null;
+    return refuseMovementWork({
+      movementType: m.movementType, assigning,
+      importJob, importContainer, exportJob,
+      collectionCmsStatus: m.cmsStatus ?? null,
+    });
+  };
 
   return {
     async listImportJobs() { return clone(importJobs); },
@@ -508,7 +535,9 @@ export function createMemoryRepository(): Repository {
         shortName: draft.shortName ?? null,
         billingName: null, defaultConsignee: null, defaultDeliveryAddress: null,
         defaultContact: null, emailDomains: [...(draft.emailDomains ?? [])],
-        requiresPermit: false, accountStatus: 'ACTIVE', notes: null,
+        // Operations, 28 September 2026: jobs need a permit unless the
+        // customer is one that never gives us a number. 0034 in the database.
+        requiresPermit: true, accountStatus: 'ACTIVE', notes: null,
         createdAt: new Date().toISOString(),
       };
       customers.push(created);
@@ -959,11 +988,11 @@ export function createMemoryRepository(): Repository {
         ?? exportJobs.find((j) => j.exportJobId === draft.jobId);
       if (!job) throw new Error(`Unknown job ${draft.jobId}`);
 
-      // Operations: the CMS authorises the collection, so the driver cannot be
-      // assigned before it is done. Enforced here rather than in the route so
-      // it holds for every caller and for both stores.
-      const refusal = refuseEmptyCollection(
-        'cmsStatus' in job ? job : null, draft.movementType);
+      // An import collection cannot be planned before release and discharge.
+      // An empty collection can be prepared with CMS pending; the driver is
+      // what waits for it. Enforced here rather than in the route so it holds
+      // for every caller and for both stores.
+      const refusal = movementRefusal({ ...draft, containerId: draft.containerId ?? null }, false);
       if (refusal) throw new Error(refusal);
 
       const movement = {
@@ -1007,6 +1036,9 @@ export function createMemoryRepository(): Repository {
       const movement = Object.values(movements).flat()
         .find((m) => m.movementId === movementId);
       if (!movement) throw new Error(`Unknown movement ${movementId}`);
+      const assigning = plan.driver !== undefined || plan.truck !== undefined;
+      const refusal = movementRefusal(movement, assigning);
+      if (refusal) throw new Error(refusal);
       const fields = movement as unknown as Record<string, unknown>;
       for (const [field, to] of Object.entries(plan)) {
         if (to === undefined) continue;
@@ -1021,6 +1053,10 @@ export function createMemoryRepository(): Repository {
       const movement = Object.values(movements).flat()
         .find((m) => m.movementId === movementId);
       if (!movement) throw new Error(`Unknown movement ${movementId}`);
+      // Dispatching is assigning: a trip cannot be under way before it could
+      // have been given a driver.
+      const refusal = movementRefusal(movement, true);
+      if (refusal) throw new Error(refusal);
       const fields = movement as unknown as Record<string, unknown>;
       for (const [field, to] of Object.entries(progress)) {
         if (to === undefined) continue;
@@ -1453,8 +1489,11 @@ export function createMemoryRepository(): Repository {
         trip.cmsStatus = status;
         trip.cmsCompletedAt = new Date().toISOString();
         trip.cmsCompletedBy = actor;
-        record(movementId, 'cms.completed', actor, { field: 'cmsStatus', from: was, to: status });
-        if (reason) record(movementId, 'cms.completed', actor, { field: 'reason', to: reason });
+        // On the job's log, naming the collection, so the consolidated history
+        // shows who completed which booking.
+        const which = `CMS for ${trip.movementRef}${trip.origin ? ` (${trip.origin})` : ''}`;
+        record(jobId, 'cms.completed', actor, { field: which, from: was, to: status });
+        if (reason) record(jobId, 'cms.completed', actor, { field: `${which} reason`, to: reason });
         return;
       }
 
@@ -1553,8 +1592,9 @@ export function createMemoryRepository(): Repository {
       // §13. The value, the reason, the actor and the time, which is what
       // somebody needs six weeks later when the demurrage invoice is queried.
       if (overridden) {
-        record(containerId, 'freetime.overridden', actor, {
-          field: `last free day (${terms.lfdOverrideReason?.trim()})`,
+        record(container.jobId, 'freetime.overridden', actor, {
+          field: `last free day for ${container.containerNumber ?? containerId} `
+            + `(${terms.lfdOverrideReason?.trim()})`,
           from: null, to: overridden,
         });
       }
@@ -1631,6 +1671,14 @@ export function createMemoryRepository(): Repository {
       // Handing over twice is not an error and not a second event: the first
       // decision stands, and re-stamping it would lose who actually made it.
       if (c.handedOverAt) return;
+      const job = importJobs.find((j) => j.jobId === c.jobId);
+      if (!job) throw new Error(`Unknown import job ${c.jobId}`);
+      const gate = canHandOver(job, c,
+        permits.filter((p) => p.jobId === job.jobId).map(toPermitRecord));
+      if (!gate.passed) {
+        throw new Error(`${c.containerNumber ?? 'This container'} is not ready to hand over: `
+          + `${gate.failures.join(', ')}`);
+      }
       c.handedOverAt = new Date().toISOString();
       c.handedOverBy = actor;
       record(jobOfContainer(containerId), 'container.handedToController', actor,

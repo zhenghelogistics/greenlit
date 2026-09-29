@@ -225,3 +225,63 @@ test('marking documents ready does not touch handover or collection', async () =
   assert.equal(box1(after).canPlanCollection, box1(before).canPlanCollection,
     'planning eligibility unmoved');
 });
+
+test('a job needing no permit hands over, and one missing its voyage does not', async () => {
+  // The store refuses what the gate refuses, so the screen hiding a button is
+  // not the only thing in the way.
+  const repo = createMemoryRepository();
+  const job = await importJob(repo, { permitRequired: false });
+  const [box] = await repo.listContainersForImportJob(job.jobId);
+  await repo.handContainerToController(box!.containerId, 'operations');
+  assert.ok((await repo.listContainersForImportJob(job.jobId))[0]!.handedOverAt);
+
+  const noVoyage = await importJob(repo, { permitRequired: false, voyageNumber: null });
+  const [held] = await repo.listContainersForImportJob(noVoyage.jobId);
+  await assert.rejects(() => repo.handContainerToController(held!.containerId, 'operations'), /Voyage/);
+});
+
+test('CMS pending lets a collection be prepared, not given a driver', async () => {
+  const repo = createMemoryRepository();
+  const job = await repo.createExportJob({
+    customerCode: 'ABC', shipper: 'S', bookingReference: 'BK5',
+    exportClearanceReference: 'CLR5', vesselName: 'V', voyageNumber: '1',
+    etaSingapore: '2026-10-05', emptyCollectionYard: 'Allied 1',
+    containerQuantity: 2, containerSizeType: '20GP',
+  } as never, 'tester');
+  const trip = (origin: string) => repo.createMovement({
+    jobId: job.exportJobId, movementType: 'EMPTY_COLLECTION',
+    origin, originType: 'YARD', destination: 'Shipper', destinationType: 'CUSTOMER',
+  }, 'tester');
+
+  const allied = await trip('Allied 1');
+  const cwt = await trip('CWT');
+  await assert.rejects(
+    () => repo.scheduleMovement(allied.movementId, { driver: 'Tan BM' }, 'controller'), /CMS pending/);
+  await repo.scheduleMovement(allied.movementId, { plannedDate: '2026-10-04' }, 'controller');
+
+  await repo.recordCms(job.exportJobId, 'COMPLETED', 'operations', undefined, allied.movementId);
+  await repo.scheduleMovement(allied.movementId, { driver: 'Tan BM' }, 'controller');
+  await assert.rejects(
+    () => repo.scheduleMovement(cwt.movementId, { driver: 'Lim' }, 'controller'), /CMS pending/,
+    'completing one collection never clears another');
+  await assert.rejects(
+    () => repo.recordMovementProgress(cwt.movementId, { movementStatus: 'COLLECTED' }, 'controller'),
+    /CMS pending/, 'nor can it be dispatched');
+
+  const log = await new JobService(repo).getJob(job.exportJobId);
+  assert.ok(log!.activity.some((e) => e.actor === 'operations' && /CMS for MOV-001/.test(e.description)),
+    'who completed which collection is on the job log');
+});
+
+test('a controller override of the last free day is on the job log', async () => {
+  const repo = createMemoryRepository();
+  const job = await importJob(repo);
+  const [box] = await repo.listContainersForImportJob(job.jobId);
+  await repo.recordFreeTime(box!.containerId, {
+    freeTimeModel: 'COMBINED', combinedFreeDays: 10, combinedLfd: '2026-10-20',
+    lfdOverrideReason: 'Carrier confirmed by email',
+  } as never, 'controller');
+  const view = await new JobService(repo).getJob(job.jobId);
+  assert.ok(view!.activity.some((e) => e.actor === 'controller'
+    && /Carrier confirmed by email/.test(e.description)));
+});

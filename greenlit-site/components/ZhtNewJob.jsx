@@ -480,6 +480,10 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
     }
     if (type === "IMPORT") {
       if (!job.vesselName) return ["sec-shipment", "Enter the vessel."];
+      // A vessel without a voyage is incomplete.
+      if (!job.voyageNumber) return ["sec-shipment", "Enter the voyage."];
+      if (!job.etaDate) return ["sec-shipment", "Enter the ETA date. The time can stay blank."];
+      if (!job.carrier) return ["sec-shipment", "Choose the master carrier."];
       if (!job.blNumber) return ["sec-shipment", "Enter the master bill of lading."];
       if (job.addressMode === "container" && rows.some((r) => !r.deliveryAddress)) {
         return ["sec-containers", "Every container needs a delivery address."];
@@ -540,6 +544,9 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
               permitVesselVoyage: shout(p.permitVesselVoyage) || null,
             })),
           ].filter((p) => p.permitNumber),
+          // Which rows the release email covered, recorded once the job exists
+          // and its containers have ids.
+          portnetReleasedRows: rows.flatMap((r, i) => (r.portnetReleased ? [i] : [])),
           containers: rows.map((r) => ({
             containerNumber: shout(r.containerNumber) || null,
             sizeType: r.sizeType || null,
@@ -934,14 +941,14 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
               <Field label="Vessel" required>
                 <input value={job.vesselName} onChange={(e) => set({ vesselName: shout(e.target.value) })} />
               </Field>
-              <Field label="Voyage">
+              <Field label="Voyage" required={isImport}>
                 <input value={job.voyageNumber} onChange={(e) => set({ voyageNumber: shout(e.target.value) })} />
               </Field>
 
               {isImport ? (
                 <>
                   <WhenField
-                    label="Vessel ETA" date={job.etaDate} time={job.etaTime}
+                    label="ETA Singapore" required date={job.etaDate} time={job.etaTime}
                     onDate={(v) => set({ etaDate: v })} onTime={(v) => set({ etaTime: v })}
                   />
                   {/* A notice issued by the carrier names itself; one issued
@@ -950,9 +957,9 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                       operations say and what fits in a table — the notice
                       prints "ORIENT OVERSEAS CONTAINER LINE" and this shows
                       OOCL. */}
-                  <Field label="Master carrier" filled={filled.carrier}>
+                  <Field label="Master carrier" required filled={filled.carrier}>
                     <select value={job.carrier} onChange={(e) => set({ carrier: e.target.value })}>
-                      <option value="">Not known yet</option>
+                      <option value="">Choose the carrier</option>
                       {CARRIERS.map((c) => (
                         <option key={c.code} value={c.code}>{c.code} — {c.name}</option>
                       ))}
@@ -976,12 +983,12 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                   <Field label="House bill of lading">
                     <input value={job.houseBlNumber} onChange={(e) => set({ houseBlNumber: shout(e.target.value) })} />
                   </Field>
-                  <Field label="Permit">
+                  <Field label="Permit applicability" required>
                     <select
                       value={job.permitRequired ? "yes" : "no"}
                       onChange={(e) => set({ permitRequired: e.target.value === "yes" })}
                     >
-                      <option value="no">Not required by this customer</option>
+                      <option value="no">Not required</option>
                       <option value="yes">Required</option>
                     </select>
                   </Field>
@@ -1047,6 +1054,11 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                   button on any row.
                 </div>
               </div>
+              {/* The release email usually covers the whole job. */}
+              <button type="button" className="btn secondary"
+                onClick={() => setRows((was) => was.map((row) => ({ ...row, portnetReleased: true })))}>
+                Portnet released: all
+              </button>
             </div>
 
             {rows.map((r, i) => (
@@ -1105,6 +1117,17 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                           {" "}{label}
                         </label>
                       ))}
+                      {/* Operations often have the release email before the
+                          job exists. Ticked boxes are recorded as released
+                          when the job is saved, as the same audited event the
+                          job screen and the board record. */}
+                      <label className="container-special-option">
+                        <input
+                          type="checkbox" checked={Boolean(r.portnetReleased)}
+                          onChange={(e) => setRow(i, { portnetReleased: e.target.checked })}
+                        />
+                        {" "}Portnet released
+                      </label>
                     </div>
                   </div>
 

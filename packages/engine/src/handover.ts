@@ -38,13 +38,19 @@ const missing = (value: unknown): boolean =>
 /**
  * What an import job is missing before any of its containers can be handed on.
  *
- * Two fields. A controller who knows the customer and the delivery address can
- * begin; one who knows neither cannot begin at all.
+ * Who the customer is and which sailing the boxes are on. Operations named
+ * these on 29 September 2026: customer delivery details, vessel, voyage and
+ * the permit. The delivery address is checked per container, because a job
+ * may deliver each box somewhere different and then has no address of its own.
+ *
+ * Not the empty return date, the last three days or the final last free day:
+ * those land while the container is already on the controller's board.
  */
 export function importHandoverShipmentGaps(job: ImportJob): string[] {
   const gaps: string[] = [];
   if (missing(job.customer)) gaps.push('Customer');
-  if (missing(job.deliveryAddress)) gaps.push('Delivery address');
+  if (missing(job.vesselName)) gaps.push('Vessel');
+  if (missing(job.voyageNumber)) gaps.push('Voyage');
   return gaps;
 }
 
@@ -70,24 +76,33 @@ export function exportHandoverShipmentGaps(job: ExportJob): string[] {
 /**
  * What one container is missing, over and above its job.
  *
- * Only the permit, and only when the job says a permit is required. A permit
- * is per-container because a shipment's permits are allocated to particular
- * boxes, and a container nobody allocated one to will be stopped at the gate
- * however complete the rest of the job looks.
+ * Where it is going, and the permit when the job says one is required. The
+ * address is the box's own when it has one and the job's otherwise, which is
+ * what a null container address has always meant.
+ *
+ * A permit is per-container because a shipment's permits are allocated to
+ * particular boxes, and a container nobody allocated one to will be stopped
+ * at the gate however complete the rest of the job looks.
  *
  * Note what is not here. The container number, its size, its weight: all
  * necessary, none of them the controller's blocker. They are chased through
  * the missing-information list, which is where chasing belongs.
  */
 export function containerHandoverGaps(
-  job: { permitRequired: boolean },
-  container: Pick<ImportContainer, 'containerId'>,
+  job: { permitRequired: boolean; deliveryAddress?: string | null },
+  container: Pick<ImportContainer, 'containerId'> & { deliveryAddress?: string | null },
   permits: readonly PermitRecord[],
 ): string[] {
-  if (!job.permitRequired) return [];
-  const covered = permits.some((permit) =>
-    !missing(permit.permitNumber) && permit.linkedContainerIds.includes(container.containerId));
-  return covered ? [] : ['Permit'];
+  const gaps: string[] = [];
+  if (missing(container.deliveryAddress) && missing(job.deliveryAddress)) {
+    gaps.push('Delivery address');
+  }
+  if (job.permitRequired) {
+    const covered = permits.some((permit) =>
+      !missing(permit.permitNumber) && permit.linkedContainerIds.includes(container.containerId));
+    if (!covered) gaps.push('Permit');
+  }
+  return gaps;
 }
 
 /**
@@ -99,7 +114,7 @@ export function containerHandoverGaps(
  */
 export function canHandOver(
   job: ImportJob,
-  container: Pick<ImportContainer, 'containerId'>,
+  container: Pick<ImportContainer, 'containerId'> & { deliveryAddress?: string | null },
   permits: readonly PermitRecord[],
 ): GateResult {
   const failures = [
@@ -173,8 +188,12 @@ export function documentGaps(
   };
 
   need('Customer & delivery', 'Customer', job.customer);
-  need('Customer & delivery', 'Delivery address', job.deliveryAddress);
+  // A job delivering each box somewhere different has no address of its own,
+  // so the address is asked of each container instead.
+  const perContainerAddress = containers.some((c) => !missing(c.deliveryAddress));
+  if (!perContainerAddress) need('Customer & delivery', 'Delivery address', job.deliveryAddress);
   need('Shipment', 'Vessel', job.vesselName);
+  need('Shipment', 'Voyage', job.voyageNumber);
   need('Shipment', 'ETA', job.eta);
   need('Shipment', 'Master bill of lading', job.blNumber);
 
@@ -182,6 +201,9 @@ export function documentGaps(
     const name = c.containerNumber || c.containerRef || `Container ${index + 1}`;
     need('Container', 'Container number', c.containerNumber, name);
     need('Container', 'Size', c.containerSize, name);
+    if (perContainerAddress && missing(job.deliveryAddress)) {
+      need('Customer & delivery', 'Delivery address', c.deliveryAddress, name);
+    }
     need('Container', 'Empty return yard', c.emptyReturnYard, name);
 
     // The free-time terms, whichever shape this carrier issues them in. An

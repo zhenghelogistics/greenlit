@@ -201,6 +201,16 @@ export function runRepositoryContract(
 
     assert.equal(first!.handedOverAt, null, 'nothing is handed over until somebody says so');
 
+    // The store refuses a box the controller could not act on: this job needs
+    // a permit, and none is allocated to this container yet.
+    const job = await repo.getImportJob(seeded.importJobId);
+    if (job!.permitRequired) {
+      await assert.rejects(
+        () => repo.handContainerToController(first!.containerId, 'operations'), /Permit/);
+      await repo.recordPermit(seeded.importJobId,
+        { permitNumber: 'IG6I356324B', containerIds: [first!.containerId] }, 'operations');
+    }
+
     await repo.handContainerToController(first!.containerId, 'operations');
     const after = (await repo.listContainersForImportJob(seeded.importJobId))
       .find((c) => c.containerId === first!.containerId);
@@ -682,6 +692,8 @@ export function runRepositoryContract(
     const repo = await fresh();
     const added = await repo.addContainerToJob(seeded.importJobId,
       { containerNumber: 'MOVED1234567' }, 'tester');
+    await repo.recordPortnetReleased(seeded.importJobId, 'tester', [added.containerId]);
+    await repo.recordDischarged(added.containerId, 'tester');
     await repo.createMovement({
       jobId: seeded.importJobId, containerId: added.containerId,
       movementType: 'IMPORT_DELIVERY',
@@ -694,13 +706,42 @@ export function runRepositoryContract(
       /movements against it/);
   });
 
+  /** A container released and discharged, so a collection may be planned for it. */
+  const readyBox = async (repo: Repository): Promise<string> => {
+    const [box] = await repo.listContainersForImportJob(seeded.importJobId);
+    await repo.recordPortnetReleased(seeded.importJobId, 'tester', [box!.containerId]);
+    await repo.recordDischarged(box!.containerId, 'tester');
+    return box!.containerId;
+  };
+
+  test(`[${name}] an import collection cannot be planned before release and discharge`, async () => {
+    // Operations, 29 September 2026: Plan is not available until both are
+    // Ready, and the server refuses rather than trusting the screen to hide it.
+    const repo = await fresh();
+    const [box] = await repo.listContainersForImportJob(seeded.importJobId);
+    const draft = {
+      jobId: seeded.importJobId, containerId: box!.containerId, movementType: 'IMPORT_DELIVERY',
+      origin: 'PSA', originType: 'TERMINAL', destination: 'Customer', destinationType: 'CUSTOMER',
+    };
+    await repo.recordPortnetReleased(seeded.importJobId, 'tester', [box!.containerId]);
+    const fresh1 = (await repo.listContainersForImportJob(seeded.importJobId))
+      .find((c) => c.containerId === box!.containerId);
+    if (!fresh1!.dischargedAt) {
+      await assert.rejects(() => repo.createMovement(draft, 'tester'), /Waiting for Discharge/);
+      await repo.recordDischarged(box!.containerId, 'tester');
+    }
+    const planned = await repo.createMovement(draft, 'tester');
+    assert.equal(planned.containerId, box!.containerId);
+  });
+
   test(`[${name}] §18: a movement can be planned, and it stays planned`, async () => {
     // The engine has rules about movements being overdue and the role model
     // has five movement permissions; until now the port could only read them,
     // so planning a trip rewrote a copy in the browser and persisted nothing.
     const repo = await fresh();
+    const box = await readyBox(repo);
     const movement = await repo.createMovement({
-      jobId: seeded.importJobId,
+      jobId: seeded.importJobId, containerId: box,
       movementType: 'IMPORT_DELIVERY',
       origin: 'PSA Pasir Panjang', originType: 'TERMINAL',
       destination: '47 Jalan Buroh', destinationType: 'CUSTOMER',
@@ -724,7 +765,7 @@ export function runRepositoryContract(
     // the same name.
     const repo = await fresh();
     const draft = {
-      jobId: seeded.importJobId, movementType: 'IMPORT_DELIVERY',
+      jobId: seeded.importJobId, containerId: await readyBox(repo), movementType: 'IMPORT_DELIVERY',
       origin: 'PSA', originType: 'TERMINAL',
       destination: 'Customer', destinationType: 'CUSTOMER',
     };
@@ -740,7 +781,7 @@ export function runRepositoryContract(
   test(`[${name}] §18.4: cancelling keeps the movement and its reason`, async () => {
     const repo = await fresh();
     const movement = await repo.createMovement({
-      jobId: seeded.importJobId, movementType: 'IMPORT_DELIVERY',
+      jobId: seeded.importJobId, containerId: await readyBox(repo), movementType: 'IMPORT_DELIVERY',
       origin: 'PSA', originType: 'TERMINAL',
       destination: 'Customer', destinationType: 'CUSTOMER',
     }, 'tester');
@@ -756,7 +797,7 @@ export function runRepositoryContract(
   test(`[${name}] §18.4: a cancellation without a reason is refused`, async () => {
     const repo = await fresh();
     const movement = await repo.createMovement({
-      jobId: seeded.importJobId, movementType: 'IMPORT_DELIVERY',
+      jobId: seeded.importJobId, containerId: await readyBox(repo), movementType: 'IMPORT_DELIVERY',
       origin: 'PSA', originType: 'TERMINAL',
       destination: 'Customer', destinationType: 'CUSTOMER',
     }, 'tester');
@@ -769,7 +810,7 @@ export function runRepositoryContract(
     // past that should not. Keeping them apart is why there are two methods.
     const repo = await fresh();
     const movement = await repo.createMovement({
-      jobId: seeded.importJobId, movementType: 'IMPORT_DELIVERY',
+      jobId: seeded.importJobId, containerId: await readyBox(repo), movementType: 'IMPORT_DELIVERY',
       origin: 'PSA', originType: 'TERMINAL',
       destination: 'Customer', destinationType: 'CUSTOMER',
     }, 'tester');

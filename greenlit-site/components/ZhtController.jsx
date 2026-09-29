@@ -29,6 +29,25 @@ const day = (v) => {
  * Deliberately not re-derived here: a screen that works out for itself whether
  * a container is ready is a screen that can disagree with the one next to it.
  */
+/** Export containers that have left the controller's hands. */
+const EXPORT_DONE = new Set(["Delivered to Port", "Completed"]);
+
+/**
+ * The CMS state of the empty collection for this export container, in the
+ * words the board shows.
+ *
+ * Its own collection's status when it has one, the job's otherwise, which is
+ * what a job with a single collection has always meant. Completing one
+ * collection never reads as done for another.
+ */
+export function cmsWords(job, c) {
+  const collections = (job.trips ?? []).filter((t) => t.type === "EMPTY_COLLECTION");
+  const own = collections.find((t) => t.containerId && t.containerId === c.id)
+    ?? (collections.length === 1 && !collections[0].containerId ? collections[0] : null);
+  const status = own?.cmsStatus ?? (job.cmsCompleted ? "COMPLETED" : "PENDING");
+  return status === "COMPLETED" || status === "NOT_REQUIRED" ? "CMS completed" : "CMS pending";
+}
+
 export function controllerQueues(jobs) {
   const containersOf = (job) => (job.containers ?? []).map((c) => ({ job, c }));
   const iso = today();
@@ -43,10 +62,12 @@ export function controllerQueues(jobs) {
   // this board, one of them offering Plan and Delivered while its permit was
   // still missing. Operations found it on 28 September 2026.
   //
-  // Exports are not handed over — there is no import paperwork to finish — so
-  // the filter applies to imports only.
+  // Exports hand over as a job (0028), and are shown from then on whether or
+  // not CMS is done: CMS often cannot be completed until the day the empty is
+  // collected, and a job that only appeared once it was done would be hidden
+  // for exactly the period the controller needs to plan around it.
   const all = jobs.flatMap(containersOf)
-    .filter(({ job, c }) => job.type !== "Import" || c.handedOver);
+    .filter(({ job, c }) => (job.type === "Import" ? c.handedOver : Boolean(job.handedOverAt)));
 
   return {
     // The four import piles, read off the stage the engine derived rather than
@@ -59,7 +80,7 @@ export function controllerQueues(jobs) {
     importDelivered: all.filter(({ job, c }) =>
       job.type === "Import" && c.controllerStage === "DELIVERED"),
     exportReady: all.filter(({ job, c }) =>
-      job.type === "Export" && (c.status ?? c.state) === "Ready for Empty Collection"),
+      job.type === "Export" && !EXPORT_DONE.has(c.status ?? c.state)),
     emptyReturns: all.filter(({ c }) => c.controllerStage === "EMPTY"),
     planned: jobs.flatMap((job) =>
       (job.trips ?? [])
@@ -178,8 +199,9 @@ function PendingByJob({ rows, onOpenJob, onDischargeMany, onPortnet }) {
         const undischarged = group.filter(({ c }) => !c.dischargedAt);
         const chosen = undischarged.filter(({ c }) => picked.has(c.id)).map(({ c }) => c.id);
         // A release email names particular boxes far more often than a whole
-        // job. Released is per container now, and the picker that already
-        // exists for discharge answers the same question.
+        // job. Released is per container, and the same picker answers both
+        // questions, so a box already discharged can still be picked for its
+        // release.
         const unreleased = group.filter(({ c }) => !c.portnetReleasedAt);
         const pickedForRelease = unreleased.filter(({ c }) => picked.has(c.id)).map(({ c }) => c.id);
 
@@ -190,22 +212,27 @@ function PendingByJob({ rows, onOpenJob, onDischargeMany, onPortnet }) {
                 <div className="section-title">
                   {job.id} · {job.vessel || "Vessel TBA"} · {group.length} container{group.length === 1 ? "" : "s"}
                 </div>
-                <div className="muted">{job.customer || "Customer TBA"} · ETA {day(job.eta)}</div>
+                <div className="muted">
+                  {job.customer || "Customer TBA"} · ETA {day(job.eta)} · Portnet release{" "}
+                  {unreleased.length === 0 ? "Ready for all"
+                    : unreleased.length === group.length ? "Pending for all"
+                      : `Ready for ${group.length - unreleased.length} of ${group.length}`}
+                </div>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {unreleased.length > 0 ? (
                   <button className="btn secondary" type="button"
                     onClick={() => {
                       // Nothing ticked means the email covered the job, which
-                      // is the ordinary case and what this always did.
-                      onPortnet(job, pickedForRelease);
+                      // is the ordinary case: one click releases every box.
+                      onPortnet(job, pickedForRelease.length ? pickedForRelease : unreleased.map(({ c }) => c.id));
                       setPicked(new Set());
                     }}>
                     {pickedForRelease.length
-                      ? `Portnet released — ${pickedForRelease.length} selected`
+                      ? `Portnet released: ${pickedForRelease.length} selected`
                       : unreleased.length < group.length
-                        ? `Portnet released — remaining ${unreleased.length}`
-                        : "Portnet released"}
+                        ? `Portnet released: remaining ${unreleased.length}`
+                        : "Portnet released: all"}
                   </button>
                 ) : null}
                 {undischarged.length > 0 ? (
@@ -228,36 +255,8 @@ function PendingByJob({ rows, onOpenJob, onDischargeMany, onPortnet }) {
               </div>
             </div>
 
-            <table className="moves">
-              <thead>
-                <tr><th /><th>Container</th><th>Portnet</th><th>Discharged</th><th>Waiting on</th></tr>
-              </thead>
-              <tbody>
-                {group.map(({ c }) => (
-                  <tr key={c.id ?? c.ref}>
-                    <td>
-                      {c.dischargedAt ? null : (
-                        <input
-                          type="checkbox" checked={picked.has(c.id)}
-                          onChange={() => toggle(c.id)}
-                          aria-label={`Select ${c.number || c.ref}`}
-                          style={{ width: 16, height: 16 }}
-                        />
-                      )}
-                    </td>
-                    <td className="route">
-                      <button className="btn ghost" type="button" onClick={() => onOpenJob(job)}>
-                        {c.number || c.ref}
-                      </button>
-                      <span className="sub">{c.sizeType}</span>
-                    </td>
-                    <td>{job.portnetReleased ? "Released" : "Pending"}</td>
-                    <td>{c.dischargedAt ? day(c.dischargedAt) : "Pending"}</td>
-                    <td>{(c.pendingReasons ?? []).join(" and ") || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ContainerTable rows={group} onOpenJob={onOpenJob}
+              picked={picked} onToggle={toggle} />
           </section>
         );
       })}
@@ -265,40 +264,122 @@ function PendingByJob({ rows, onOpenJob, onDischargeMany, onPortnet }) {
   );
 }
 
-function QueueTable({ rows, onOpenJob, empty, onDeliver }) {
-  if (!rows.length) return <div className="clean-empty">{empty}</div>;
+/**
+ * One row per container, carrying what a controller scans for: the box, the
+ * job under it, where it is going, whether it can leave the terminal, when it
+ * is due and when free time runs out.
+ *
+ * Plan is shown on every row and disabled with the reason until the box is
+ * released and discharged. The server refuses the same thing in the same
+ * words, so the button cannot be the only thing standing in the way.
+ */
+function ContainerTable({ rows, onOpenJob, onDeliver, picked, onToggle }) {
   return (
     <table className="moves">
       <thead>
-        <tr><th>Job / Container</th><th>Customer</th><th>Vessel / ETA</th><th>Status</th><th /></tr>
+        <tr>
+          {onToggle ? <th /> : null}
+          <th>Container</th><th>Customer</th><th>Vessel / ETA</th><th>Delivery address</th>
+          <th>Portnet release</th><th>Discharge</th><th>Delivery date</th><th>Last free day</th><th />
+        </tr>
       </thead>
       <tbody>
-        {rows.map(({ job, c }) => (
-          <tr key={`${job.id}-${c.id ?? c.ref}`}>
-            <td className="route">
-              {job.id}<span className="sub">{c.number || c.ref}</span>
-            </td>
-            <td>{job.customer || "Customer TBA"}</td>
-            <td>{job.vessel || "—"}<span className="sub">{day(job.eta)}</span></td>
-            <td>{c.status ?? c.state}</td>
-            <td style={{ display: "flex", gap: 6 }}>
-              <button className="btn secondary" type="button" onClick={() => onOpenJob(job)}>
-                Plan
-              </button>
-              {/* Only where the trip has happened: a container is marked
-                  delivered once, by the person who knows it arrived. */}
-              {onDeliver && c.canPlanCollection ? (
-                <button className="btn ghost" type="button" onClick={() => onDeliver(job, c)}>
-                  Delivered
-                </button>
+        {rows.map(({ job, c }) => {
+          const done = c.portnetReleasedAt && c.dischargedAt;
+          return (
+            <tr key={`${job.id}-${c.id ?? c.ref}`}>
+              {onToggle ? (
+                <td>
+                  {done ? null : (
+                    <input
+                      type="checkbox" checked={picked.has(c.id)}
+                      onChange={() => onToggle(c.id)}
+                      aria-label={`Select ${c.number || c.ref}`}
+                      style={{ width: 16, height: 16 }}
+                    />
+                  )}
+                </td>
               ) : null}
-            </td>
-          </tr>
-        ))}
+              <td className="route">
+                {c.number || c.ref}
+                <span className="sub">{c.sizeType || "Size not recorded"}</span>
+                <span className="sub">{job.id}</span>
+              </td>
+              <td>{job.customer || "Customer TBA"}</td>
+              <td>{job.vessel || "—"}<span className="sub">{day(job.eta)}</span></td>
+              <td>{c.containerDeliveryAddress || job.deliveryAddress || "Not recorded"}</td>
+              <td>{c.portnetReleasedAt ? "Ready" : "Pending"}</td>
+              <td>{c.dischargedAt ? "Ready" : "Pending"}</td>
+              <td>{day(c.plannedDeliveryDate)}</td>
+              <td>{day(c.lastFreeDay)}</td>
+              <td>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <button className="btn secondary" type="button"
+                    disabled={!c.canPlanCollection}
+                    title={c.planBlockedReason ?? undefined}
+                    onClick={() => onOpenJob(job)}>
+                    Plan
+                  </button>
+                  {/* Only where the trip has happened: a container is marked
+                      delivered once, by the person who knows it arrived. */}
+                  {onDeliver && c.canPlanCollection ? (
+                    <button className="btn ghost" type="button" onClick={() => onDeliver(job, c)}>
+                      Delivered
+                    </button>
+                  ) : null}
+                </div>
+                {!c.canPlanCollection && c.planBlockedReason
+                  ? <span className="sub">{c.planBlockedReason}</span> : null}
+              </td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
 }
+
+/** Export containers, with the CMS state of the collection each one needs. */
+function ExportTable({ rows, onOpenJob }) {
+  if (!rows.length) return <div className="clean-empty">No export has been handed over yet.</div>;
+  return (
+    <table className="moves">
+      <thead>
+        <tr><th>Container</th><th>Customer</th><th>Vessel / ETA</th><th>Stuffing address</th>
+          <th>Empty collection</th><th>Status</th><th /></tr>
+      </thead>
+      <tbody>
+        {rows.map(({ job, c }) => {
+          const cms = cmsWords(job, c);
+          return (
+            <tr key={`${job.id}-${c.id ?? c.ref}`}>
+              <td className="route">
+                {c.number || c.ref}
+                <span className="sub">{c.sizeType || "Size not recorded"}</span>
+                <span className="sub">{job.id}</span>
+              </td>
+              <td>{job.customer || "Customer TBA"}</td>
+              <td>{job.vessel || "—"}<span className="sub">{day(job.eta)}</span></td>
+              <td>{c.stuffingLocation || "Not recorded"}</td>
+              {/* Beside the collection it blocks. Completed clears the blocker;
+                  it does not mean the empty has been collected. */}
+              <td>{job.emptyYard || "Yard not recorded"}<span className="sub">{cms}</span></td>
+              <td>{c.status ?? c.state}</td>
+              <td>
+                <button className="btn secondary" type="button" onClick={() => onOpenJob(job)}>
+                  {cms === "CMS pending" ? "Open" : "Plan"}
+                </button>
+                {cms === "CMS pending"
+                  ? <span className="sub">A driver cannot be assigned until CMS is completed.</span> : null}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
 
 export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany, onPortnet, onDeliver }) {
   const q = controllerQueues(jobs);
@@ -312,7 +393,7 @@ export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany,
     ["importReady", "Ready for collection", q.importReady.length],
     ["importDelivered", "Delivered", q.importDelivered.length],
     ["emptyReturns", "Empty returns", q.emptyReturns.length],
-    ["exportReady", "Export ready", q.exportReady.length],
+    ["exportReady", "Exports", q.exportReady.length],
     ["planned", "Planned today", q.planned.length],
   ];
 
@@ -323,7 +404,7 @@ export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany,
     importReady: "Released and discharged. A truck can be sent.",
     importDelivered: "At the customer. Waiting for them to finish with the box.",
     emptyReturns: "Finished with. Ready to plan the empty back to the depot.",
-    exportReady: "CMS done. The empty can be collected.",
+    exportReady: "Handed over. CMS pending blocks the driver for that empty collection, not the job.",
     planned: "Every movement planned for today.",
   };
 
@@ -441,14 +522,16 @@ export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany,
               </tbody>
             </table>
           ) : <div className="clean-empty">Nothing is planned for today yet.</div>
+        ) : tab === "exportReady" ? (
+          <ExportTable rows={q.exportReady} onOpenJob={onOpenJob} />
+        ) : q[tab].length ? (
+          <ContainerTable rows={q[tab]} onOpenJob={onOpenJob}
+            onDeliver={tab === "importReady" ? onDeliver : undefined} />
         ) : (
-          <QueueTable rows={q[tab]} onOpenJob={onOpenJob}
-            onDeliver={tab === "importReady" ? onDeliver : undefined}
-            empty={
-              tab === "importReady" ? "Nothing is released and discharged yet."
-                : tab === "exportReady" ? "No export booking is ready for empty collection."
-                  : "No container is waiting to go back empty."
-            } />
+          <div className="clean-empty">
+            {tab === "importReady" ? "Nothing is released and discharged yet."
+              : "No container is waiting to go back empty."}
+          </div>
         )}
       </div>
 

@@ -472,7 +472,7 @@ const PERMIT_TONE = {
   ATTENTION: "border-rose-200 bg-rose-50 text-[color:var(--gl-state-blocked-ink)]",
   REVIEW: "border-slate-300 bg-slate-100 text-slate-700",
 };
-const PERMIT_WORD = { VALID: "Checks out", ATTENTION: "Needs attention", REVIEW: "Not checked yet" };
+const PERMIT_WORD = { VALID: "Checks out", ATTENTION: "Requires attention", REVIEW: "Not checked yet" };
 
 function PermitPanel({ jobId, containers, onChanged }) {
   const [state, setState] = useState({ status: "loading", permits: [], uncovered: [] });
@@ -2515,11 +2515,13 @@ function ActionRequired({ jobs, filter, setFilter, dashboardFilter, clearDashboa
     if (filter === "carrier") return waitingOn(job) === "Carrier";
     if (filter === "import") return job.type === "Import";
     if (filter === "export") return job.type === "Export";
-    // Handed over and still owing operations something. Not "not handed over":
-    // before handover the whole job is theirs and every other filter shows it.
+    // Handed over and not yet marked ready by operations. Not "not handed
+    // over": before handover the whole job is theirs and every other filter
+    // shows it. It leaves on the explicit "Mark operational documents ready",
+    // not when the last field happens to be filled: that button is a person
+    // saying they checked the job, and an empty list is only arithmetic.
     if (filter === "documents") {
-      return (job.containers ?? []).some((c) => c.handedOver)
-        && !job.documentsComplete;
+      return (job.containers ?? []).some((c) => c.handedOver) && !job.documentsCompletedAt;
     }
     return true;
   });
@@ -4408,17 +4410,26 @@ export default function GreenlitControlTower() {
       // was entirely fictional: the engine has rules about movements being
       // overdue and there was nothing that could create one.
       const base = `/api/jobs/${encodeURIComponent(apiJobId)}/movements`;
+      // The panel holds the trip's reference (MOV-001), which is only unique
+      // within the job; the routes address the movement by its own id. And a
+      // trip names its container by the container's id, which is what the
+      // server checks release and discharge against.
+      const tripJob = jobs.find((j) => j.id === targetJobId) ?? {};
+      const tripId = (tripJob.trips ?? []).find((t) => t.id === panel.tripId)?.movementId ?? panel.tripId;
+      const tripContainerId = jobContainers(tripJob)
+        .find((c) => c.ref === draft.containerRef || (draft.containerNumber && c.number === draft.containerNumber))?.id
+        ?? null;
 
       void (async () => {
         const request = draft.status === "Cancelled" && panel.tripId
           ? {
-              url: `${base}/${encodeURIComponent(panel.tripId)}`,
+              url: `${base}/${encodeURIComponent(tripId)}`,
               method: "DELETE",
               body: { reason: draft.cancelledReason || "" },
             }
           : panel.tripId
             ? {
-                url: `${base}/${encodeURIComponent(panel.tripId)}`,
+                url: `${base}/${encodeURIComponent(tripId)}`,
                 method: "PATCH",
                 body: {
                   plannedDate: draft.plannedDate || null,
@@ -4430,7 +4441,7 @@ export default function GreenlitControlTower() {
                 method: "POST",
                 body: {
                   movementType: MOVEMENT_TYPE_FOR[draft.type] ?? null,
-                  containerId: draft.containerRef || null,
+                  containerId: tripContainerId,
                   origin: draft.origin || null,
                   destination: draft.destination || null,
                   plannedDate: draft.plannedDate || null,
@@ -4678,7 +4689,7 @@ export default function GreenlitControlTower() {
    * one: a customer rings, the booking is agreed, and the notice follows two
    * days later.
    */
-  async function createJob(type, draft, { stayHere = false, sourceFile = null } = {}) {
+  async function createJob(type, { portnetReleasedRows = [], ...draft }, { stayHere = false, sourceFile = null } = {}) {
     const response = await fetch("/api/jobs", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -4708,6 +4719,21 @@ export default function GreenlitControlTower() {
       // The job exists either way, so a failed attachment is said and not
       // thrown: losing the job over its paperwork would be the worse trade.
       if (!stored?.ok) showToast("The job was created, but its document was not attached.");
+    }
+
+    // The release email that arrived before the job did. Recorded through the
+    // same command as a release on the saved job, so it is one audited event
+    // that operations and the controller both see.
+    const releasedIds = portnetReleasedRows
+      .map((i) => body?.job?.containers?.[i]?.containerId)
+      .filter(Boolean);
+    if (newId && releasedIds.length) {
+      const released = await fetch(`/api/jobs/${encodeURIComponent(newId)}/portnet`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ containerIds: releasedIds }),
+      }).catch(() => null);
+      if (!released?.ok) showToast("The job was created, but its Portnet release was not recorded.");
     }
 
     showToast(`${created ?? "The job"} created.`);

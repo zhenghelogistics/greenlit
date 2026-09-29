@@ -211,6 +211,9 @@ export function jobFromApi(view) {
       dischargedAt: view.containers?.[i]?.dischargedAt ?? null,
       deliveredAt: view.containers?.[i]?.deliveredAt ?? null,
       canPlanCollection: Boolean(view.containers?.[i]?.canPlanCollection),
+      // Why Plan is not available yet, in the engine's words, so the button and
+      // the server's refusal say the same thing.
+      planBlockedReason: view.containers?.[i]?.planBlockedReason ?? null,
       plannedDeliveryDate: c.plannedDeliveryDate ?? null,
       plannedDeliveryTime: c.plannedDeliveryTime ?? "",
       warnings: view.containers?.[i]?.warnings ?? [],
@@ -221,6 +224,9 @@ export function jobFromApi(view) {
       // collection and the reference is scoped to the job.
       movementId: m.movementId,
       cmsStatus: m.cmsStatus ?? null,
+      // The container this trip is for, by internal id, so a board row can
+      // find its own collection rather than the job's first one.
+      containerId: m.containerId ?? null,
       type: m.movementType,
       status: m.movementStatus,
       origin: m.origin,

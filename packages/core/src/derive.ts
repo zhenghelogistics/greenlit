@@ -18,6 +18,7 @@ import {
   controllerStage,
   pendingReasons,
   canPlanCollection,
+  planBlockedReason,
   deliveryDateWarning,
   cmsWarning,
   staleEtaWarning,
@@ -111,6 +112,8 @@ export interface DerivedContainerView {
   portnetReleasedAt: string | null;
   /** Whether a truck can be sent: released and discharged, both. */
   canPlanCollection: boolean;
+  /** Why Plan is not available yet, in the words the button shows. Null when it is. */
+  planBlockedReason: string | null;
   /**
    * Dates that are possible but almost certainly wrong.
    *
@@ -424,6 +427,9 @@ export function deriveImportJob(
       deliveredAt: c.deliveredAt,
       portnetReleasedAt: c.portnetReleasedAt ?? null,
       canPlanCollection: canPlanCollection(boardFacts),
+      planBlockedReason: planBlockedReason({
+        portnetReleased: boardFacts.portnetReleased, discharged: Boolean(c.dischargedAt),
+      }),
       warnings: [deliveryDateWarning(job.eta, c.plannedDeliveryDate)].filter(Boolean) as Warning[],
       charge: chargeEstimate(clocks, { dailyRate: c.dailyRate, currency: c.currency }),
     };
@@ -549,6 +555,7 @@ export function deriveExportJob(
       permitNumbers: [],
       deliveredAt: null,
       canPlanCollection: false,
+      planBlockedReason: null,
       warnings: [],
       charge: null,
     };
