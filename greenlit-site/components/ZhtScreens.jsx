@@ -1724,3 +1724,185 @@ export function ZhtReports() {
     </Shell>
   );
 }
+
+/** The same label-and-value pair the job screen uses. */
+const ReportField = ({ label, value }) => (
+  <div className="field"><span className="field-label">{label}</span><b>{value || "—"}</b></div>
+);
+
+/**
+ * What people have told us is wrong.
+ *
+ * ## Why the original words are kept beside the write-up
+ *
+ * The write-up is a reading of what somebody said, and readings are wrong
+ * sometimes. When the two disagree the words win, so both are on screen and
+ * the words are never edited.
+ *
+ * ## Why the recorded context is shown at all
+ *
+ * Because it is usually the useful half. Somebody writes "the permit thing is
+ * wrong" and the capture says which job, what the engine had derived for it,
+ * and which request failed. That is what a fix starts from; the sentence is
+ * how it was noticed.
+ */
+export function ZhtProblemReports() {
+  const [state, setState] = useState({ loading: true, reports: [] });
+  const [open, setOpen] = useState(null);
+  const [resolution, setResolution] = useState("");
+  const [error, setError] = useState("");
+
+  function load() {
+    fetch("/api/problem-reports")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((payload) => setState({ loading: false, reports: payload?.reports ?? [] }))
+      .catch(() => setState({ loading: false, reports: [] }));
+  }
+  useEffect(() => {
+    let live = true;
+    fetch("/api/problem-reports")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((payload) => { if (live) setState({ loading: false, reports: payload?.reports ?? [] }); })
+      .catch(() => { if (live) setState({ loading: false, reports: [] }); });
+    return () => { live = false; };
+  }, []);
+
+  const WORDS = {
+    BLOCKER: "Stopping work",
+    PROBLEM: "Wrong, but there is a way round it",
+    NICE_TO_HAVE: "Would be better",
+  };
+  const RANK = { BLOCKER: 0, PROBLEM: 1, NICE_TO_HAVE: 2 };
+
+  const openReports = state.reports
+    .filter((r) => r.status === "NEW" || r.status === "TRIAGED")
+    .sort((a, b) => (RANK[a.structured?.priority ?? "PROBLEM"] - RANK[b.structured?.priority ?? "PROBLEM"])
+      || String(a.reportedAt).localeCompare(String(b.reportedAt)));
+
+  async function settle(report, status) {
+    setError("");
+    const response = await fetch(`/api/problem-reports/${encodeURIComponent(report.reportId)}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ status, resolution }),
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    if (!response?.ok) { setError(payload?.error ?? "That was not saved."); return; }
+    setOpen(null);
+    setResolution("");
+    load();
+  }
+
+  return (
+    <Shell title="Reported problems"
+      action={
+        <button className="btn secondary" type="button"
+          onClick={() => window.open("/api/problem-reports/export", "_blank")}>
+          Download for a developer
+        </button>
+      }>
+      <div className="zht">
+        {error ? <div className="callout" role="alert">{error}</div> : null}
+
+        {state.loading ? <Empty>Loading…</Empty>
+          : openReports.length === 0 ? <Empty>Nothing outstanding.</Empty> : (
+          openReports.map((report) => {
+            const s = report.structured;
+            const c = report.context ?? {};
+            return (
+              <section className="creation-section" key={report.reportId} style={{ marginBottom: 14 }}>
+                <div className="creation-section-head">
+                  <div>
+                    <div className="section-title">
+                      {s?.summary ?? String(report.brainDump).slice(0, 90)}
+                    </div>
+                    <div className="muted">
+                      {WORDS[s?.priority ?? "PROBLEM"]} · {report.reportedBy} ·{" "}
+                      {String(report.reportedAt).slice(0, 16).replace("T", " ")}
+                      {c.screen ? ` · ${c.screen}` : ""}
+                      {c.jobNumber ? ` · ${c.jobNumber}` : ""}
+                    </div>
+                  </div>
+                  <button className="btn ghost" type="button"
+                    onClick={() => { setOpen(open === report.reportId ? null : report.reportId); setResolution(""); }}>
+                    {open === report.reportId ? "Close" : "Open"}
+                  </button>
+                </div>
+
+                {open === report.reportId ? (
+                  <>
+                    {s ? (
+                      <div className="fieldgrid">
+                        <ReportField label="What happens now" value={s.painPoint} />
+                        <ReportField label="What good looks like" value={s.goal} />
+                      </div>
+                    ) : null}
+
+                    {s?.steps?.length ? (
+                      <div style={{ marginTop: 10 }}>
+                        <div className="section-title">Steps</div>
+                        {s.steps.map((step, i) => (
+                          <div className="alert" key={i}>{i + 1}. {step}</div>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {s?.openQuestions?.length ? (
+                      <div className="permit-alert" style={{ marginTop: 10 }}>
+                        Not established: {s.openQuestions.join(" · ")}
+                      </div>
+                    ) : null}
+
+                    {/* Never edited, and shown whatever the write-up made of
+                        it. When the two disagree, these win. */}
+                    <div style={{ marginTop: 12 }}>
+                      <div className="section-title">In their words</div>
+                      <div className="stop">{report.brainDump}</div>
+                    </div>
+
+                    <div style={{ marginTop: 12 }}>
+                      <div className="section-title">Recorded at the time</div>
+                      <div className="fieldgrid">
+                        <ReportField label="Version" value={c.release || "—"} />
+                        <ReportField label="Role" value={c.role || "—"} />
+                        <ReportField label="Waiting on"
+                          value={c.derived?.waitingOn || "—"} />
+                        <ReportField label="Blocking reason"
+                          value={c.derived?.blockingReason || "—"} />
+                        <ReportField label="Failed request"
+                          value={c.failedRequest
+                            ? `${c.failedRequest.method} ${c.failedRequest.path} → ${c.failedRequest.status}`
+                            : "None"} />
+                      </div>
+                    </div>
+
+                    <div className="field full" style={{ marginTop: 12 }}>
+                      <label htmlFor={`res-${report.reportId}`}>What happened to this</label>
+                      <input id={`res-${report.reportId}`} value={resolution}
+                        onChange={(e) => setResolution(e.target.value)}
+                        placeholder="Fixed in the release of 29 September" />
+                      <span className="field-helper">
+                        Required. Closing without it is how the same thing is reported
+                        again in three months with nobody able to say what became of
+                        the first.
+                      </span>
+                    </div>
+
+                    <div className="action-row" style={{ marginTop: 10, gap: 8, justifyContent: "flex-end" }}>
+                      <button className="btn ghost" type="button"
+                        onClick={() => settle(report, "DECLINED")}>Not doing this</button>
+                      <button className="btn secondary" type="button"
+                        onClick={() => settle(report, "TRIAGED")}>Looked at</button>
+                      <button className="btn primary" type="button"
+                        onClick={() => settle(report, "FIXED")}>Fixed</button>
+                    </div>
+                  </>
+                ) : null}
+              </section>
+            );
+          })
+        )}
+      </div>
+    </Shell>
+  );
+}

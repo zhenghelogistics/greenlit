@@ -47,7 +47,7 @@ import ZhtController from "./components/ZhtController.jsx";
 import ZhtReportProblem from "./components/ZhtReportProblem.jsx";
 import {
   ZhtJobs, ZhtPlanning, ZhtDrivers, ZhtChassis, ZhtBilling,
-  ZhtEmptyReturns, ZhtSearchResults, ZhtCustomers, ZhtCustomerDetail, ZhtYardRates, ZhtReports,
+  ZhtEmptyReturns, ZhtSearchResults, ZhtCustomers, ZhtCustomerDetail, ZhtYardRates, ZhtReports, ZhtProblemReports,
 } from "./components/ZhtScreens.jsx";
 import { lastFreeDayFromEta, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
 import { checkContainerNumber, validateContainerCount } from "@greenlit/engine";
@@ -5081,6 +5081,7 @@ export default function GreenlitControlTower() {
     // seeded amounts and ZhtYardRates all stand, and this line brings it back.
     // { id: "yardRates", label: "Yard Rates", count: null, icon: Receipt },
     { id: "reports", label: "Reports", count: null, icon: CalendarRange },
+    { id: "problems", label: "Reported Problems", count: null, icon: FileSearch },
     { id: "billing", label: "Billing Ready", count: null, icon: Receipt },
     { id: "people", label: "People", count: null, icon: UserRound },
   ];
@@ -5245,6 +5246,7 @@ export default function GreenlitControlTower() {
       {current === "people" ? <People /> : null}
       {current === "yardRates" ? <ZhtYardRates /> : null}
       {current === "reports" ? <ZhtReports /> : null}
+      {current === "problems" ? <ZhtProblemReports /> : null}
       {current === "companies" ? (
         <ZhtCustomers onOpenCustomer={(code) => { setSelectedCompany(code); setScreen("company"); }} />
       ) : null}
