@@ -740,6 +740,9 @@ export default function ZhtJobDetail({
     ["Last Free Day", formatDay(container.lastFreeDay)],
   ];
 
+  // §41. The trips to a yard for an empty. Each is one CMS booking.
+  const emptyCollections = (job.trips ?? []).filter((t) => t.type === "EMPTY_COLLECTION");
+
   // §34.4. The clocks, counted server-side, in his field grid.
   const clocks = container.freeTime ?? [];
 
@@ -807,10 +810,24 @@ export default function ZhtJobDetail({
             || (job.type === "Export" && job.transhipment === "PENDING")) ? (
             <div className="card" style={{ marginBottom: 12 }}>
               <div className="action-row" style={{ gap: 8, flexWrap: "wrap" }}>
+                {/* §41. One booking per trip to a yard. A job collecting from
+                    two yards has two, and recording one used to clear both —
+                    leaving the yard nobody had booked reading as ready to
+                    dispatch. With one collection there is nothing to choose
+                    between, so it stays a single button. */}
                 {job.type === "Export" && !job.cmsCompleted ? (
-                  <button className="btn success" type="button" onClick={onRecordCms}>
-                    Record CMS completed
-                  </button>
+                  emptyCollections.length > 1
+                    ? emptyCollections.filter((t) => t.cmsStatus !== "COMPLETED").map((trip) => (
+                        <button className="btn success" key={trip.movementId} type="button"
+                          onClick={() => onRecordCms(trip.movementId)}>
+                          CMS done — {trip.origin || trip.id}
+                        </button>
+                      ))
+                    : (
+                      <button className="btn success" type="button" onClick={() => onRecordCms()}>
+                        Record CMS completed
+                      </button>
+                    )
                 ) : null}
                 {job.type === "Export" && !container.number ? (
                   <button className="btn primary" type="button" onClick={onRecordDetails}>

@@ -217,6 +217,10 @@ export function jobFromApi(view) {
     })),
     trips: (view.movements ?? []).map((m) => ({
       id: m.movementRef,
+      // §41. The record id, because CMS is booked against a particular
+      // collection and the reference is scoped to the job.
+      movementId: m.movementId,
+      cmsStatus: m.cmsStatus ?? null,
       type: m.movementType,
       status: m.movementStatus,
       origin: m.origin,

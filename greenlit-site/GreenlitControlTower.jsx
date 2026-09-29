@@ -4619,8 +4619,12 @@ export default function GreenlitControlTower() {
   }
 
   /** §40.2. Recording CMS opens the empty collection gate (§41). */
-  async function recordCms() {
-    await runJobCommand(selectedJob, "/cms", { status: "COMPLETED" },
+  async function recordCms(movementId) {
+    // §41. Against the collection it books, when one is named. A job
+    // collecting from two yards has two bookings, and recording the job's
+    // status would clear both — including the yard nobody has booked.
+    await runJobCommand(selectedJob, "/cms",
+      movementId ? { status: "COMPLETED", movementId } : { status: "COMPLETED" },
       "CMS recorded. The empty collection gate reopened.");
   }
 
