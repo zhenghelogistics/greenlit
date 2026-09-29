@@ -4,6 +4,7 @@ import { routeOpportunities, sameLocation, describeOpportunity } from '../src/ro
 import type { Movement } from '../src/types.ts';
 
 const mv = (o: Partial<Movement> = {}): Movement => ({
+  cmsStatus: null, cmsCompletedAt: null, cmsCompletedBy: null,
   movementId: 'm1', movementRef: 'MOV-1', jobId: 'j1',
   jobDomain: 'IMPORT', jobNumber: 'IMP-260916-001',
   containerId: 'c1', containerNumber: null, secondaryContainerId: null,

@@ -146,6 +146,7 @@ function buildFleetRegister(): Chassis[] {
 }
 
 const mv = (o: Partial<Movement> & Pick<Movement, 'movementId' | 'movementRef' | 'jobId' | 'jobDomain' | 'jobNumber' | 'movementType' | 'movementStatus'>): Movement => ({
+  cmsStatus: null, cmsCompletedAt: null, cmsCompletedBy: null,
   containerId: null, containerNumber: null, secondaryContainerId: null,
   isDoubleMounted: false, cargoState: 'LADEN',
   originType: 'TERMINAL', origin: '', destinationType: 'CUSTOMER', destination: '',
@@ -1431,7 +1432,7 @@ export function createMemoryRepository(): Repository {
       return clone(holdings);
     },
 
-    async recordCms(jobId, status, actor, reason) {
+    async recordCms(jobId, status, actor, reason, movementId) {
       const job = exportJobs.find((j) => j.exportJobId === jobId);
       if (!job) {
         // §40 puts CMS on the export job only. Saying the job is unknown when
@@ -1442,6 +1443,21 @@ export function createMemoryRepository(): Repository {
           ? `§40: CMS applies to export jobs. ${asImport.jobNumber} is an import job`
           : `Unknown export job ${jobId}`);
       }
+      // §41. Against the collection it books, when one is named. A job
+      // collecting from two yards has two bookings, and setting the job's
+      // status would clear both.
+      if (movementId) {
+        const trip = (movements[jobId] ?? []).find((m) => m.movementId === movementId);
+        if (!trip) throw new Error(`Unknown movement ${movementId}`);
+        const was = trip.cmsStatus;
+        trip.cmsStatus = status;
+        trip.cmsCompletedAt = new Date().toISOString();
+        trip.cmsCompletedBy = actor;
+        record(movementId, 'cms.completed', actor, { field: 'cmsStatus', from: was, to: status });
+        if (reason) record(movementId, 'cms.completed', actor, { field: 'reason', to: reason });
+        return;
+      }
+
       const from = job.cmsStatus;
       job.cmsStatus = status;
       record(jobId, 'cms.completed', actor, { field: 'cmsStatus', from, to: status });

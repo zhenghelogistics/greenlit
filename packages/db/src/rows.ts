@@ -192,6 +192,9 @@ export const toExportContainer = (r: Record<string, unknown>): ExportContainer =
 });
 
 export const toMovement = (r: Record<string, unknown>): Movement => ({
+  cmsStatus: (r.cms_status as Movement['cmsStatus']) ?? null,
+  cmsCompletedAt: nn(r.cms_completed_at as string),
+  cmsCompletedBy: nn(r.cms_completed_by as string),
   movementId: r.movement_id as string,
   movementRef: r.movement_ref as string,
   jobId: r.job_id as string,

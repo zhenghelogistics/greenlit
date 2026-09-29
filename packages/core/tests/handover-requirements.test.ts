@@ -165,3 +165,19 @@ test('an export with a core field missing says which', async () => {
   await assert.rejects(
     () => repo.handExportToController(job.exportJobId, 'tester'), /weight/i);
 });
+
+test('completing CMS for one collection never clears another', () => {
+  // The document's own acceptance check, and the one item that could not pass
+  // while CMS was a single field on the job: a job collecting from two yards
+  // had one status, so booking either made both read as ready — including the
+  // yard nobody had booked.
+  const job = { customer: 'ABC', cmsRequired: true, cmsStatus: 'PENDING' } as never;
+  const NO_FIELDS = { fields: [] };
+
+  const allied = canCollectEmpty(job, NO_FIELDS, { cmsStatus: 'COMPLETED' });
+  const cwt = canCollectEmpty(job, NO_FIELDS, { cmsStatus: 'PENDING' });
+
+  assert.equal(allied.passed, true, 'the booked yard may be dispatched');
+  assert.equal(cwt.passed, false, 'the unbooked one may not');
+  assert.match(cwt.failures.join(' '), /CMS/);
+});

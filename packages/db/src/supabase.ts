@@ -134,7 +134,8 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
   const record = async (
     entityId: string, event: string, actor: string,
     change: { field?: string; from?: unknown; to?: unknown } = {},
-    entityType: 'job' | 'container' = 'job',
+    // The table allows movement, document and exception too (0001).
+    entityType: AuditEvent['entityType'] = 'job',
   ) => {
     const e = userEvent({
       event, entityType, entityId,
@@ -1443,7 +1444,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
     },
 
     // ---- commands ----
-    async recordCms(jobId, status, actor, reason) {
+    async recordCms(jobId, status, actor, reason, movementId) {
       const before = await this.getExportJob(jobId);
       if (!before) {
         // §40 puts CMS on the export job only. "Unknown" sends the caller
@@ -1453,6 +1454,30 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
           ? `§40: CMS applies to export jobs. ${asImport.jobNumber} is an import job`
           : `Unknown export job ${jobId}`);
       }
+      // §41. Against the collection it books, when one is named. A job
+      // collecting from two yards has two bookings, and setting the job's
+      // status would clear both.
+      if (movementId) {
+        const trip = await db.from('movements').select('cms_status')
+          .eq('movement_id', movementId).maybeSingle();
+        if (trip.error) throw new Error(`movement: ${trip.error.message}`);
+        if (!trip.data) throw new Error(`Unknown movement ${movementId}`);
+
+        const written = await db.from('movements').update({
+          cms_status: status,
+          cms_completed_at: new Date().toISOString(),
+          cms_completed_by: actor,
+        }).eq('movement_id', movementId);
+        if (written.error) throw new Error(`record CMS: ${written.error.message}`);
+
+        await record(movementId, 'cms.completed', actor,
+          { field: 'cmsStatus', from: trip.data.cms_status, to: status }, 'movement');
+        if (reason) {
+          await record(movementId, 'cms.completed', actor, { field: 'reason', to: reason }, 'movement');
+        }
+        return;
+      }
+
       unwrap(await db.from('export_jobs').update({ cms_status: status })
         .eq('export_job_id', jobId).select().single(), 'record CMS');
       await record(jobId, 'cms.completed', actor,

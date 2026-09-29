@@ -1,5 +1,6 @@
 import { canPlanCollection } from './controller-board.ts';
 import { fieldWords } from './field-words.ts';
+import type { CmsStatus } from './enums.ts';
 import type {
   ExportContainer, ExportJob, ImportContainer, ImportJob, MandatoryFieldSet,
 } from './types.ts';
@@ -111,6 +112,19 @@ export function canCollect(
 export function canCollectEmpty(
   job: ExportJob,
   mandatory: MandatoryFieldSet,
+  /**
+   * §41. The empty-collection trip being asked about, when there is one.
+   *
+   * A booking covers a trip to a yard rather than a container: one truck
+   * taking two boxes from Allied is one booking. A job collecting from two
+   * yards therefore has two, and while CMS was one field on the job,
+   * completing either cleared both — leaving the yard nobody had booked
+   * reading as ready to dispatch.
+   *
+   * Omitted, or with no status of its own, it falls back to the job's, which
+   * is what a job with a single collection has always meant.
+   */
+  collection?: { cmsStatus: CmsStatus | null } | null,
 ): GateResult {
   const missing = missingMandatoryFields(job as unknown as Record<string, unknown>, mandatory);
   const failures: string[] = [];
@@ -132,7 +146,8 @@ export function canCollectEmpty(
   // also no longer offered on the form. A status nobody can choose cannot
   // strand a new job, and the ones that already have it are visible as
   // Awaiting CMS rather than silently ready.
-  if (job.cmsRequired && job.cmsStatus !== 'COMPLETED') failures.push('CMS');
+  const cms = collection?.cmsStatus ?? job.cmsStatus;
+  if (job.cmsRequired && cms !== 'COMPLETED') failures.push('CMS');
 
   return failures.length === 0 ? pass : { passed: false, failures };
 }

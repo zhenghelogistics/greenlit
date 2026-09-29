@@ -425,7 +425,21 @@ export interface Repository {
    * no `setJobStatus`, no `setNextAction` and no `setLocation` here — by
    * construction, not by convention. If the engine can be bypassed, it will be.
    */
-  recordCms(jobId: string, status: 'COMPLETED' | 'NOT_REQUIRED', actor: string, reason?: string): Promise<void>;
+  /**
+   * §41. Record a CMS booking.
+   *
+   * `movementId` names the empty collection it covers. Omitted means the job,
+   * which is what a job with a single collection has always meant.
+   *
+   * A booking covers a trip to a yard rather than a container: one truck
+   * taking two boxes from Allied is one booking. A job collecting from two
+   * yards has two, and while this was one field on the job, completing either
+   * cleared both — leaving the yard nobody had booked reading as ready.
+   */
+  recordCms(
+    jobId: string, status: 'COMPLETED' | 'NOT_REQUIRED', actor: string,
+    reason?: string, movementId?: string,
+  ): Promise<void>;
   recordPermitReceived(jobId: string, permitNumber: string, actor: string): Promise<void>;
   /**
    * §31. Record a Portnet release.

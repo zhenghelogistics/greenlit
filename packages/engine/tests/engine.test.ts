@@ -7,6 +7,7 @@ import { exportContainerStatus, exportJobStatus, importJobStatus } from '../src/
 import type { ExportContainer, ExportJob, ImportContainer, ImportJob, Movement } from '../src/types.ts';
 
 const movement = (over: Partial<Movement>): Movement => ({
+  cmsStatus: null, cmsCompletedAt: null, cmsCompletedBy: null,
   movementId: 'm', movementRef: 'MOV-001', jobId: 'j', jobDomain: 'EXPORT',
   jobNumber: 'EXP-1', containerId: 'c', containerNumber: null,
   secondaryContainerId: null, isDoubleMounted: false,

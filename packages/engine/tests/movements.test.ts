@@ -9,6 +9,7 @@ import { detectExportExceptions, detectImportExceptions } from '../src/exception
 import type { ExportContainer, ExportJob, ImportContainer, ImportJob, Movement, Thresholds } from '../src/types.ts';
 
 const mv = (o: Partial<Movement> = {}): Movement => ({
+  cmsStatus: null, cmsCompletedAt: null, cmsCompletedBy: null,
   movementId: 'm', movementRef: 'MOV-001', jobId: 'j', jobDomain: 'EXPORT',
   jobNumber: 'EXP-1', containerId: 'c', containerNumber: null,
   secondaryContainerId: null, isDoubleMounted: false,

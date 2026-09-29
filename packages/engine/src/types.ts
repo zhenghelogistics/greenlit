@@ -17,6 +17,17 @@ export type IsoInstant = string;
  */
 export interface Movement {
   movementId: string;
+  /**
+   * §41. CMS for this empty collection, when it has its own.
+   *
+   * Null means it follows the job's status, which is what a job with a single
+   * collection has always meant. A job collecting from two yards has two
+   * bookings, and completing one used to clear both — leaving the yard nobody
+   * had booked reading as ready to dispatch.
+   */
+  cmsStatus: CmsStatus | null;
+  cmsCompletedAt: string | null;
+  cmsCompletedBy: string | null;
   /** §18. `MOV-NNN`, unique within the job, never reused after cancellation. */
   movementRef: string;
   jobId: string;
