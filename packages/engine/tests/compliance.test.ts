@@ -229,7 +229,7 @@ const RULES: Rule[] = [
       };
       const counts = freeTimeCountdown(both, '2026-09-10', 3);
       assert.equal(counts.length, 1, 'a combined allowance is one countdown');
-      assert.equal(counts[0]?.label, 'Combined D&D');
+      assert.equal(counts[0]?.label, 'Combined D+D');
       assert.equal(counts[0]?.daysRemaining, 18,
         'counted against the combined date, not a stale demurrage one');
     } },

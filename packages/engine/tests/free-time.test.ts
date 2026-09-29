@@ -13,7 +13,7 @@ test('§34.3: a combined carrier shows one countdown, never two', () => {
   // exist and hides the one that does."
   const clocks = freeTimeClocks({ ...base, freeTimeModel: 'COMBINED' });
   assert.equal(clocks.length, 1);
-  assert.equal(clocks[0]?.label, 'Combined D&D');
+  assert.equal(clocks[0]?.label, 'Combined D+D');
   assert.equal(clocks[0]?.lastFreeDay, '2026-09-28');
 });
 
@@ -103,7 +103,7 @@ test('§34.3: a combined carrier gets one countdown, never two', () => {
     combinedFreeDays: 14, combinedLfd: '2026-09-28',
   }, '2026-09-10', 3);
   assert.equal(counts.length, 1);
-  assert.equal(counts[0]?.label, 'Combined D&D');
+  assert.equal(counts[0]?.label, 'Combined D+D');
   assert.equal(counts[0]?.daysRemaining, 18, 'the combined date, not the stale demurrage one');
 });
 

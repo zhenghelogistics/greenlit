@@ -21,7 +21,7 @@ import type { FreeTimeModel } from './enums.ts';
 import type { IsoDate } from './types.ts';
 
 export interface FreeTimeClock {
-  /** 'Demurrage', 'Detention' or 'Combined D&D' — what a person should read. */
+  /** 'Demurrage', 'Detention' or 'Combined D+D' — what a person should read. */
   label: string;
   freeDays: number | null;
   /** What applies: the controller's date where there is one, else the count. */
@@ -149,7 +149,7 @@ export function freeTimeClocks(container: FreeTimeSource): FreeTimeClock[] {
   };
 
   if (container.freeTimeModel === 'COMBINED') {
-    return [clock('Combined D&D', container.combinedFreeDays, container.combinedLfd)];
+    return [clock('Combined D+D', container.combinedFreeDays, container.combinedLfd)];
   }
   if (container.freeTimeModel === 'SPLIT') {
     return [
@@ -214,7 +214,7 @@ export type FreeTimeStanding =
  * count. A combined allowance runs to empty return too. Demurrage does not
  * appear here: it ends at gate-out, long before the empty is returned.
  */
-const STOPPED_BY_EMPTY_RETURN = new Set(['Detention', 'Combined D&D']);
+const STOPPED_BY_EMPTY_RETURN = new Set(['Detention', 'Combined D+D']);
 
 export interface FreeTimeCountdown extends FreeTimeClock {
   /** Negative once the last free day has passed. Null when there is no date. */

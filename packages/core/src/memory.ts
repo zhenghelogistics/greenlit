@@ -1533,8 +1533,11 @@ export function createMemoryRepository(): Repository {
         if (box.portnetReleasedAt) continue;
         box.portnetReleasedAt = at;
         box.portnetReleasedBy = actor;
-        record(box.containerId, 'portnet.released', actor,
-          { field: 'portnetReleasedAt', from: null, to: at });
+        // On the job's log, naming the box: a release covering only some
+        // containers is the event operations and the controller both need
+        // to see, and the log is read by the job.
+        record(jobId, 'portnet.released', actor,
+          { field: `Portnet release for ${box.containerNumber ?? box.containerId}`, from: null, to: at });
       }
 
       // The job flag means every box, and is set only when every box is.

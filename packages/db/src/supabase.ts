@@ -1545,10 +1545,10 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       const before = await this.getImportJob(jobId);
       if (!before) throw new Error(`Unknown import job ${jobId}`);
 
-      const all = await db.from('containers').select('container_id,portnet_released_at')
+      const all = await db.from('containers').select('container_id,container_number,portnet_released_at')
         .eq('job_id', jobId);
       if (all.error) throw new Error(`containers: ${all.error.message}`);
-      const boxes = (all.data ?? []) as { container_id: string; portnet_released_at: string | null }[];
+      const boxes = (all.data ?? []) as { container_id: string; container_number: string | null; portnet_released_at: string | null }[];
 
       const covered = containerIds?.length
         ? boxes.filter((c) => containerIds.includes(c.container_id))
@@ -1565,8 +1565,13 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
           .in('container_id', fresh.map((c) => c.container_id));
         if (written.error) throw new Error(`record Portnet: ${written.error.message}`);
         for (const box of fresh) {
-          await record(box.container_id, 'portnet.released', actor,
-            { field: 'portnetReleasedAt', from: null, to: at }, 'container');
+          // On the job's log, naming the box: a release covering only some
+          // containers is the event operations and the controller both need
+          // to see, and the log is read by the job.
+          await record(jobId, 'portnet.released', actor, {
+            field: `Portnet release for ${box.container_number ?? box.container_id}`,
+            from: null, to: at,
+          });
         }
       }
 

@@ -1333,7 +1333,7 @@ const DOCUMENT_FIELD_GROUPS = [
 /** §34. The shapes a carrier's allowance can take. */
 const FREE_TIME_MODELS = [
   { value: "SPLIT", label: "Separate demurrage and detention" },
-  { value: "COMBINED", label: "Combined D&D" },
+  { value: "COMBINED", label: "Combined D+D" },
   { value: "NOT_CONFIRMED", label: "Not confirmed yet" },
 ];
 
@@ -3420,7 +3420,7 @@ function FreeTimeFields({ draft, confidence, onChange }) {
       ) : null}
 
       {model === "COMBINED" ? (
-        <DocumentField field={{ key: "combinedFreeDays", label: "Combined D&D days", inputMode: "numeric" }}
+        <DocumentField field={{ key: "combinedFreeDays", label: "Combined D+D days", inputMode: "numeric" }}
           value={draft.combinedFreeDays} confidence={confidence.combinedFreeDays} onChange={onChange} />
       ) : null}
 

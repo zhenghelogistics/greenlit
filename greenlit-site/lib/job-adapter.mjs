@@ -116,7 +116,7 @@ export function jobFromApi(view) {
     // detention date, and this now says so instead of reaching for a split
     // value the carrier's terms do not give.
     demurrageLastFreeDay: lfdOf(view.containers?.[0], "Demurrage")
-      ?? lfdOf(view.containers?.[0], "Combined D&D"),
+      ?? lfdOf(view.containers?.[0], "Combined D+D"),
     detentionLastFreeDay: lfdOf(view.containers?.[0], "Detention"),
     atCarparkSince: first.carparkArrivedAt ?? null,
     readyConfirmedAt: first.containerReadyAt ?? null,
