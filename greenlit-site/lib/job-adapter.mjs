@@ -232,6 +232,8 @@ export function jobFromApi(view) {
       requestedDeliveryDate: c.requestedDeliveryDate ?? null,
       requestedDeliveryTime: c.requestedDeliveryTime ?? "",
       containerDeliveryInstructions: c.deliveryInstructions ?? "",
+      // Places this box stops at after its delivery address.
+      extraStops: Array.isArray(c.extraStops) ? c.extraStops : [],
       plannedDeliveryTime: c.plannedDeliveryTime ?? "",
       warnings: view.containers?.[i]?.warnings ?? [],
     })),

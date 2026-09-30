@@ -87,6 +87,7 @@ export const toImportContainer = (r: Record<string, unknown>): ImportContainer =
   requestedDeliveryDate: nn(r.requested_delivery_date as string),
   requestedDeliveryTime: nn(r.requested_delivery_time as string),
   deliveryInstructions: nn(r.delivery_instructions as string),
+  extraStops: Array.isArray(r.extra_stops) ? r.extra_stops as { company: string; address: string; note: string | null }[] : [],
   plannedDeliveryTime: nn(r.planned_delivery_time as string),
   containerNumber: r.container_number as string,
   jobId: r.job_id as string,

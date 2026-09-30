@@ -82,3 +82,20 @@ test('permits typed at creation keep their file and cover the rows ticked', asyn
   assert.equal(a!.requestedDeliveryTime, '09:30');
   assert.equal(a!.deliveryInstructions, 'Gate B');
 });
+
+test('a container keeps its further delivery stops in order', async () => {
+  const repo = createMemoryRepository();
+  const job = await repo.createImportJob({
+    customerCode: 'ABC', deliveryAddress: '1 Tuas Avenue 1',
+    containers: [{ containerNumber: 'OOLU1234567', sizeType: '20 GP' }],
+  } as never, 'operations');
+  const [box] = await repo.listContainersForImportJob(job.jobId);
+  const stops = [
+    { company: 'ABC WAREHOUSE', address: '9 Gul Circle', note: 'Unload half' },
+    { company: 'ABC STORE', address: '2 Benoi Crescent', note: null },
+  ];
+  await repo.amendContainer(box!.containerId, { extraStops: stops }, 'operations');
+  const [after] = await repo.listContainersForImportJob(job.jobId);
+  assert.deepEqual(after!.extraStops, stops);
+  assert.equal(after!.deliveryAddress ?? null, null, 'the first stop is still the delivery address');
+});

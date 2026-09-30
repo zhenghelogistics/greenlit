@@ -384,19 +384,26 @@ export function ZhtChassis({ fleet, onOpenJob, onUnit }) {
       <div className="card">
         <table>
           <thead>
-            <tr><th>Chassis</th><th>Compatibility</th><th>Status</th><th>Current Job</th><th>Days Held</th><th>Action</th></tr>
+            <tr><th>Chassis</th><th>Compatibility</th><th>Max weight</th><th>Status</th><th>Current / planned container</th><th>Job / movement</th><th>Days held</th><th>Action</th></tr>
           </thead>
           <tbody>
             {units.length ? units.map((u) => (
               <tr key={u.unit}>
                 <td>{u.unit}</td>
                 <td>{u.size}</td>
+                <td>{u.maxWeight ? `${Number(u.maxWeight).toLocaleString()} kg` : "—"}</td>
                 <td>
                   <span className={`tag ${u.status === "IN_USE" ? "green" : u.status === "AVAILABLE" ? "ready" : u.status === "PLANNED" ? "pending" : "gray"}`}>
                     {u.status === "IN_USE" ? "In Use" : u.status === "AVAILABLE" ? "Available" : u.status === "PLANNED" ? "Planned" : "Maintenance"}
                   </span>
                 </td>
-                <td>{u.jobId ? <button type="button" className="job-link" onClick={() => onOpenJob({ id: u.jobId })}>{u.jobId}</button> : "-"}</td>
+                <td>{u.container || "—"}</td>
+                <td>
+                  {u.jobId || u.movementJob
+                    ? <button type="button" className="job-link" onClick={() => onOpenJob({ id: u.jobId || u.movementJob })}>{u.jobId || u.movementJob}</button>
+                    : "—"}
+                  {u.movementRef ? <small style={{ display: "block" }}>{u.movementRef}</small> : null}
+                </td>
                 <td>{u.days || 0}</td>
                 {/* §35.4. Assign and release live behind the same drawer the
                     old fleet screen opened; a read-only table would have made
@@ -411,7 +418,7 @@ export function ZhtChassis({ fleet, onOpenJob, onUnit }) {
                 </td>
               </tr>
             )) : (
-              <tr><td colSpan={6}><Empty>No chassis on record.</Empty></td></tr>
+              <tr><td colSpan={8}><Empty>No chassis on record.</Empty></td></tr>
             )}
           </tbody>
         </table>
@@ -441,9 +448,34 @@ export function ZhtBilling({ jobs, onOpenJob }) {
     }
   }
 
+  // The demo's billing table: every movement, Review once it is done and
+  // Pending Completion until then. The charge comes from the master pricing.
+  const moves = jobs.flatMap((job) => (job.trips ?? [])
+    .filter((t) => t.status !== "CANCELLED")
+    .map((t) => ({ job, t, box: (job.containers ?? []).find((c) => c.id === t.containerId) })));
+
   return (
     <Shell title="Billing Ready"
-      note="Demurrage and detention exposure. Transport rates are not held in this system.">
+      note="Movements to bill, and demurrage and detention exposure. Transport rates come from the master pricing.">
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div className="section-title">Movements</div>
+        <table>
+          <thead><tr><th>Job</th><th>Container</th><th>Movement</th><th>Charge</th><th>Status</th></tr></thead>
+          <tbody>
+            {moves.length ? moves.map(({ job, t, box }) => (
+              <tr key={`${job.id}-${t.id}`}>
+                <td><button type="button" className="job-link" onClick={() => onOpenJob(job)}>{job.id}</button></td>
+                <td>{box?.number || box?.ref || "—"}</td>
+                <td>{t.id} · {t.type}</td>
+                <td>From master pricing</td>
+                <td><span className="tag">{t.status === "COMPLETED" ? "Review" : "Pending Completion"}</span></td>
+              </tr>
+            )) : (
+              <tr><td colSpan={5}><Empty>No movements yet.</Empty></td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
       <div className="card">
         <table>
           <thead>
@@ -705,7 +737,7 @@ function AddCustomer({ onCancel, onSaved }) {
   const [tab, setTab] = useState("profile");
   const [form, setForm] = useState({
     code: "", companyName: "", shortName: "", billingName: "",
-    defaultContact: "", emailDomains: "", notes: "",
+    defaultContact: "", emailDomains: "", notes: "", requiresPermit: "yes",
   });
   const [locations, setLocations] = useState([]);
   const [error, setError] = useState("");
@@ -726,6 +758,13 @@ function AddCustomer({ onCancel, onSaved }) {
     if (!form.code.trim() || !form.companyName.trim()) {
       setTab("profile");
       setError("A code and a company name are required.");
+      return;
+    }
+    // As the demo: a customer is created with at least one address, because
+    // no job can be created for one without.
+    if (locations.length === 0) {
+      setTab("locations");
+      setError("Add at least one delivery address for this customer.");
       return;
     }
     const unfinished = locations.findIndex((l) => !l.label.trim() || !l.address.trim());
@@ -763,6 +802,8 @@ function AddCustomer({ onCancel, onSaved }) {
     if (form.billingName.trim()) rest.billingName = form.billingName.trim();
     if (form.defaultContact.trim()) rest.defaultContact = form.defaultContact.trim();
     if (form.notes.trim()) rest.notes = form.notes.trim();
+    // Asked at creation, as the demo does; Required unless chosen otherwise.
+    rest.requiresPermit = form.requiresPermit !== "no";
     if (Object.keys(rest).length) {
       await fetch(`/api/customers/${encodeURIComponent(code)}`, {
         method: "PATCH",
@@ -812,7 +853,7 @@ function AddCustomer({ onCancel, onSaved }) {
           <div className="job-create-grid formgrid">
             <div className="field">
               <label htmlFor="zht-cust-code">Code<span className="req"> *</span></label>
-              <input id="zht-cust-code" required value={form.code} maxLength={6}
+              <input id="zht-cust-code" required value={form.code} maxLength={10}
                 onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase() }))}
                 placeholder="ABC" />
               <span className="field-helper">
@@ -845,11 +886,20 @@ function AddCustomer({ onCancel, onSaved }) {
                 How an arrival notice is matched to this customer automatically.
               </span>
             </div>
+            <div className="field">
+              <label htmlFor="zht-cust-permit">Permit preference<span className="req"> *</span></label>
+              <select id="zht-cust-permit" value={form.requiresPermit ?? "yes"}
+                onChange={(e) => setForm((f) => ({ ...f, requiresPermit: e.target.value }))}>
+                <option value="yes">Permit Required by Customer</option>
+                <option value="no">Permit Not Required by Customer</option>
+              </select>
+              <span className="field-helper">New jobs for this customer start with this.</span>
+            </div>
             <div className="field full">
-              <label htmlFor="zht-cust-notes">Account notes</label>
+              <label htmlFor="zht-cust-notes">General instructions</label>
               <textarea id="zht-cust-notes" rows={2} value={form.notes} onChange={set("notes")} />
               <span className="field-helper">
-                About the account. Instructions for a place go on its address.
+                True of every job for this customer. Instructions for one place go on its address.
               </span>
             </div>
           </div>
@@ -873,8 +923,8 @@ function AddCustomer({ onCancel, onSaved }) {
 
           {locations.length === 0 ? (
             <Empty>
-              No addresses yet. A customer can be saved without one, but no job can be
-              created for them until they have at least one.
+              No addresses yet. Add at least one before saving: no job can be
+              created for a customer without an address.
             </Empty>
           ) : null}
 
@@ -918,6 +968,19 @@ export function ZhtCustomerDetail({ code, onBack }) {
   const [state, setState] = useState({ loading: true, customer: null, locations: [] });
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
+  // The demo's "Last updated": who changed this customer last, and when.
+  const [last, setLast] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/customers/${encodeURIComponent(code)}/history`)
+      .then((r) => (r.ok ? r.json() : { events: [] }))
+      .then((d) => {
+        const events = d.events ?? [];
+        if (!cancelled) setLast(events[events.length - 1] ?? null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [code, state.customer, state.locations]);
 
   function load() {
     Promise.all([
@@ -949,6 +1012,7 @@ export function ZhtCustomerDetail({ code, onBack }) {
 
   return (
     <Shell title={c?.companyName || code}
+      note={last ? `Last updated: ${last.actor} · ${formatWhen(last.createdAt)}${last.field ? ` · ${last.field}` : ""}` : undefined}
       action={<button className="btn secondary" type="button" onClick={onBack}>← Back</button>}>
       <div className="zht">
         <SectionNav sections={sections} current={tab} onJump={setTab} />

@@ -135,6 +135,13 @@ export interface ImportContainer {
   requestedDeliveryTime?: string | null;
   /** Delivery instructions for this box only, whatever the delivery mode. */
   deliveryInstructions?: string | null;
+  /**
+   * Further places this box stops at after its delivery address, in order,
+   * each from the customer's saved locations with a note. The demo's
+   * Delivery Stops. The first stop stays deliveryAddress, which the handover
+   * and the delivery trip read.
+   */
+  extraStops?: readonly DeliveryStop[];
   /** A half-hour, or null when the day is agreed and the hour is not. */
   plannedDeliveryTime: string | null;
   /**
@@ -492,4 +499,12 @@ export interface Driver {
   name: string;
   vehicle: string | null;
   active: boolean;
+}
+
+
+/** One more place a container stops at, beyond its delivery address. */
+export interface DeliveryStop {
+  company: string;
+  address: string;
+  note: string | null;
 }

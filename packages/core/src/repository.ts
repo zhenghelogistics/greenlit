@@ -649,6 +649,8 @@ export interface ContainerAmendment {
   requestedDeliveryDate?: string | null;
   requestedDeliveryTime?: string | null;
   deliveryInstructions?: string | null;
+  /** Stops after the delivery address, replacing the list. */
+  extraStops?: readonly { company: string; address: string; note: string | null }[];
   /**
    * The day this box is to be delivered, set by the controller for all of a
    * job's boxes or the ones picked, so a staggered delivery keeps its dates.

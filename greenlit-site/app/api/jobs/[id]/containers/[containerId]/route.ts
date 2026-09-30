@@ -23,11 +23,27 @@ export async function PATCH(request: Request, ctx: {
     "grossWeight", "packageCount", "packageType", "emptyReturnYard", "triAxle",
     // The customer's date. The controller's planned date has its own route,
     // which waits for release and discharge.
-    "requestedDeliveryDate", "requestedDeliveryTime", "deliveryInstructions",
+    "requestedDeliveryDate", "requestedDeliveryTime", "deliveryInstructions", "extraStops",
     "deliveryCompany", "deliveryAddress",
     // Export: the box's own weight and where it is stuffed, and its size.
     "grossWeightKg", "stuffingLocation", "sizeType",
   ] as const;
+
+  // Further stops: a list of company, address and note, each text.
+  if ("extraStops" in body) {
+    const stops = body.extraStops;
+    const isStop = (st: unknown) => {
+      if (!st || typeof st !== "object") return false;
+      const { company, address, note } = st as { company?: unknown; address?: unknown; note?: unknown };
+      return typeof company === "string" && typeof address === "string"
+        && (note === undefined || note === null || typeof note === "string");
+    };
+    const ok = Array.isArray(stops) && stops.every(isStop);
+    if (!ok) return badRequest("extraStops must be a list of { company, address, note }.");
+    body.extraStops = (stops as { company: string; address: string; note?: string | null }[])
+      .filter((st) => st.address.trim())
+      .map((st) => ({ company: st.company.trim(), address: st.address.trim(), note: st.note?.trim() || null }));
+  }
 
   const changes: Record<string, unknown> = {};
   for (const field of AMENDABLE) {

@@ -513,6 +513,19 @@ function PermitPanel({ jobId, containers, onChanged }) {
   const label = (cid) =>
     containers.find((c) => c.id === cid)?.number || cid;
 
+  /** The permit file, stored on the job as a permit document. */
+  async function upload(file) {
+    if (!file) return true;
+    const form = new FormData();
+    form.append("file", file);
+    form.append("documentType", "PERMIT");
+    form.append("source", "MANUAL_UPLOAD");
+    const r = await fetch(`/api/jobs/${encodeURIComponent(jobId)}/documents`, { method: "POST", body: form })
+      .catch(() => null);
+    if (!r?.ok) { setError(`The permit file ${file.name} was not uploaded.`); return false; }
+    return true;
+  }
+
   return (
     <Panel
       title="Permits"
@@ -542,7 +555,8 @@ function PermitPanel({ jobId, containers, onChanged }) {
       {adding ? (
         <AddPermit
           onCancel={() => setAdding(false)}
-          onSave={async (draft) => {
+          onSave={async (draft, file) => {
+            if (!(await upload(file))) return;
             const r = await send(`/api/jobs/${encodeURIComponent(jobId)}/permits`, "POST", draft);
             if (r) { setAdding(false); if (r.warning) setError(r.warning); }
           }}
@@ -628,11 +642,12 @@ function PermitPanel({ jobId, containers, onChanged }) {
               <div className="mt-4">
                 <AddPermit initial={permit}
                   onCancel={() => setEditing(null)}
-                  onSave={async (draft) => {
+                  onSave={async (draft, file) => {
                     const was = permit.permitNumber ?? "";
                     const now = String(draft.permitNumber ?? "").trim().toUpperCase();
                     if (was && now && was !== now
                       && !window.confirm(`This permit was ${was} and is now ${now}. Save the new number?`)) return;
+                    if (!(await upload(file))) return;
                     const r = await send(`/api/jobs/${encodeURIComponent(jobId)}/permits/${permit.permitId}`, "PATCH", draft);
                     if (r) setEditing(null);
                   }} />
@@ -718,6 +733,8 @@ function AddPermit({ onCancel, onSave, initial = null }) {
     permitVesselVoyage: initial?.permitVesselVoyage ?? "", fileName: initial?.fileName ?? "",
   }));
   const [saving, setSaving] = useState(false);
+  // The file itself, uploaded to the job as a permit document when saved.
+  const [file, setFile] = useState(null);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const field = "min-h-12 w-full rounded-md border border-[color:var(--gl-line-strong)] bg-white px-3 text-[17px] text-[color:var(--gl-ink)]";
 
@@ -726,7 +743,7 @@ function AddPermit({ onCancel, onSave, initial = null }) {
       onSubmit={async (event) => {
         event.preventDefault();
         setSaving(true);
-        await onSave(form);
+        await onSave(form, file);
         setSaving(false);
       }}
       className="mb-5 rounded-lg border border-[color:var(--gl-line-strong)] bg-[color:var(--gl-bg)] p-4"
@@ -750,10 +767,16 @@ function AddPermit({ onCancel, onSave, initial = null }) {
           <span className="gl-caption">Checked against the job, so a changed voyage shows up.</span>
         </label>
         <label className="grid gap-2">
-          <span className="gl-label">File name</span>
-          <input value={form.fileName} onChange={set("fileName")}
-            placeholder="permit.pdf" className={field} />
-          <span className="gl-caption">Held once here, not copied to each container.</span>
+          <span className="gl-label">Permit file</span>
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" className={field}
+            onChange={(e) => {
+              const picked = e.target.files?.[0] ?? null;
+              setFile(picked);
+              if (picked) setForm((f) => ({ ...f, fileName: picked.name }));
+            }} />
+          <span className="gl-caption">
+            {form.fileName ? `${form.fileName} · ` : ""}Held once on the job, not copied to each container.
+          </span>
         </label>
       </div>
       <div className="mt-4 flex flex-wrap gap-3">
@@ -3425,6 +3448,10 @@ function fleetFromApi(view) {
     heldSince: u.heldSince,
     days: u.daysHeld,
     inspectionDue: u.inspectionDueDate,
+    maxWeight: u.maxGrossWeightKg ?? null,
+    movementRef: u.movementRef ?? null,
+    movementJob: u.movementJobNumber ?? null,
+    container: u.containerNumber ?? null,
   }));
   return {
     inUse: rows.filter((r) => r.status === 'IN_USE'),
@@ -5427,8 +5454,8 @@ export default function GreenlitControlTower() {
   // is needed — and what it still does is the thing that form cannot: a
   // morning's post, twenty notices at once, grouped by the company each names
   // as consignee and turned into jobs in one pass.
-  const ASSISTANT_SECTIONS = ["dashboard", "actions", "jobs", "documents", "companies", "people"];
-  const CONTROLLER_SECTIONS = ["controller", "planning", "drivers", "fleet", "emptyReturns", "jobs", "people"];
+  const ASSISTANT_SECTIONS = ["dashboard", "actions", "jobs", "documents", "companies", "people", "billing"];
+  const CONTROLLER_SECTIONS = ["controller", "planning", "drivers", "fleet", "emptyReturns", "jobs", "people", "billing"];
 
   const allSections = [
     { id: "dashboard", label: "Dashboard", count: jobs.filter((job) => jobStatus(job) !== "Completed").length, icon: LayoutDashboard },
@@ -5599,6 +5626,9 @@ export default function GreenlitControlTower() {
           >
             <input
               name="q" type="search" className="search" defaultValue={searchQuery}
+              // Remounted when the search is cleared, so opening a result or
+              // going back empties the box, as the demo does.
+              key={searchQuery ? "q-set" : "q-clear"}
               placeholder="Job, container, customer, vessel, bill of lading"
               aria-label="Search"
             />
@@ -5643,7 +5673,9 @@ export default function GreenlitControlTower() {
       {current === "drivers" ? <ZhtDrivers fleet={fleet} jobs={jobs} drivers={drivers} onSaveDriver={saveDriver} onDeleteDriver={deleteDriver} /> : null}
       {current === "emptyReturns" ? <ZhtEmptyReturns jobs={jobs} onOpenJob={(job, index) => openJob(job.id, index ?? 0)} /> : null}
       {current === "billing" ? <ZhtBilling jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
-      {current === "search" ? <ZhtSearchResults jobs={jobs} query={searchQuery} onOpenJob={(job, index) => openJob(job.id, index)} onBack={goBack} /> : null}
+      {current === "search" ? <ZhtSearchResults jobs={jobs} query={searchQuery}
+        onOpenJob={(job, index) => { setSearchQuery(""); openJob(job.id, index); }}
+        onBack={() => { setSearchQuery(""); goBack(); }} /> : null}
       {current === "detail" && selectedJob ? (
         <ZhtJobDetail
           job={selectedJob}
@@ -5672,6 +5704,18 @@ export default function GreenlitControlTower() {
           onReleaseContainer={(container) => releasePortnet(selectedJob, [container.id])}
           onReleaseContainers={(ids) => releasePortnet(selectedJob, ids)}
           onAddNote={(text) => runJobCommand(selectedJob, "/notes", { text }, "Note added to the job log.")}
+          customerCode={customers.find((c) => c.companyName === selectedJob.customer || c.code === selectedJob.customer)?.code ?? ""}
+          onSaveStops={async (container, stops) => {
+            const response = await fetch(`/api/jobs/${encodeURIComponent(selectedJob.apiId)}/containers/${encodeURIComponent(container.id)}`, {
+              method: "PATCH", headers: { "content-type": "application/json" },
+              body: JSON.stringify({ extraStops: stops }),
+            }).catch(() => null);
+            const payload = await response?.json().catch(() => ({}));
+            if (!response?.ok) { showToast(payload?.error ?? "Those stops were not saved."); return false; }
+            await loadJobs();
+            showToast("Delivery stops saved.");
+            return true;
+          }}
           onDischargeContainer={(container) => dischargeMany(selectedJob, [container.id])}
           onHandOverExport={async () => {
             const response = await fetch(

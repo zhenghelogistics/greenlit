@@ -544,9 +544,45 @@ function PlanForm({ target, jobs, fleet, drivers = [], onClose, onSave }) {
   );
 }
 
+const isoPlus = (iso, days) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+};
+
+/**
+ * The demo's date tools on the Export page: Today, Tomorrow, the next 3 or 7
+ * days after today, or one date, by ETA SIN. "All" shows every export.
+ */
+function ExportByDate({ rows, onOpenJob }) {
+  const [range, setRange] = useState("all");
+  const [on, setOn] = useState("");
+  const today = new Date().toISOString().slice(0, 10);
+  const windows = { today: [0, 0], tomorrow: [1, 1], three: [1, 3], seven: [1, 7] };
+  const shown = rows.filter(({ job }) => {
+    const eta = String(job.eta ?? "").slice(0, 10);
+    if (range === "all") return true;
+    if (range === "date") return !on || eta === on;
+    const [from, to] = windows[range];
+    return eta && eta >= isoPlus(today, from) && eta <= isoPlus(today, to);
+  });
+  return (
+    <>
+      <div className="controller-date-tools" style={{ marginBottom: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {[["all", "All"], ["today", "Today"], ["tomorrow", "Tomorrow"], ["three", "Next 3 days"], ["seven", "Next 7 days"]].map(([id, label]) => (
+          <button key={id} type="button" className={`btn ${range === id ? "secondary" : "ghost"}`}
+            onClick={() => setRange(id)}>{label}</button>
+        ))}
+        <input id="export-date" type="date" className="app-date-input" value={on} aria-label="ETA SIN on"
+          onChange={(e) => { setOn(e.target.value); setRange("date"); }} />
+      </div>
+      <ExportTable rows={shown} onOpenJob={onOpenJob} />
+    </>
+  );
+}
+
 /** Export containers, with the CMS state of the collection each one needs. */
 function ExportTable({ rows, onOpenJob }) {
-  if (!rows.length) return <div className="clean-empty">No export has been handed over yet.</div>;
+  if (!rows.length) return <div className="clean-empty">No export in this range.</div>;
   return (
     <table className="moves">
       <thead>
@@ -722,7 +758,7 @@ export default function ZhtController({ jobs, fleet, drivers = [], onOpenJob, on
           <ReadyByJob rows={q.importReady} onOpenJob={onOpenJob} onDeliver={onDeliver}
             onSetDeliveryDate={onSetDeliveryDate} onPlan={openPlan} />
         ) : tab === "exportReady" ? (
-          <ExportTable rows={q.exportReady} onOpenJob={onOpenJob} />
+          <ExportByDate rows={q.exportReady} onOpenJob={onOpenJob} />
         ) : q[tab].length ? (
           <EmptyReturnsTable rows={q[tab]} onPlan={openPlan} />
         ) : (

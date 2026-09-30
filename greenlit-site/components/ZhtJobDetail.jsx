@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { SectionNav } from "./ZhtNewJob.jsx";
+import { useCustomerLocations } from "../lib/use-customer-locations.mjs";
 import { IMPORT_CONTAINER_STATUS, EXPORT_JOB_STATUS, DATE_AMENDMENT_REASON } from "@greenlit/engine";
 
 /**
@@ -689,6 +690,82 @@ function Handover({ job, onHandOver, onHandOverJob }) {
   );
 }
 
+/**
+ * Where this container stops, in order: its delivery address, then any
+ * further stops, each chosen from the customer's saved locations with a note.
+ * The demo's Delivery Stops card and "+ Add Stop".
+ */
+function DeliveryStops({ job, container, customerCode, onSaveStops }) {
+  const { companies, addressesFor } = useCustomerLocations(customerCode || "");
+  const [adding, setAdding] = useState(null);
+  const first = container.containerDeliveryAddress || job.deliveryAddress || "";
+  const firstCompany = container.containerDeliveryCompany || job.deliveryCompany || "";
+  const extra = container.extraStops ?? [];
+  const save = (stops) => onSaveStops?.(container, stops);
+
+  return (
+    <div className="card" style={{ marginBottom: 12 }}>
+      <div className="header-row">
+        <div className="section-title">Delivery stops</div>
+        {onSaveStops && !adding ? (
+          <button className="btn secondary" type="button" disabled={!customerCode}
+            onClick={() => setAdding({ company: "", address: "", note: "" })}>+ Add Stop</button>
+        ) : null}
+      </div>
+      <div className="stop">
+        <b>Stop 1</b>{firstCompany ? ` · ${firstCompany}` : ""}<br />
+        {first || <span className="muted">No delivery address recorded.</span>}
+      </div>
+      {extra.map((stop, i) => (
+        <div className="stop" key={`${stop.address}-${i}`}
+          style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+          <div>
+            <b>Stop {i + 2}</b>{stop.company ? ` · ${stop.company}` : ""}<br />{stop.address}
+            {stop.note ? <div className="muted">{stop.note}</div> : null}
+          </div>
+          {onSaveStops ? (
+            <button className="btn ghost" type="button"
+              onClick={() => { if (window.confirm(`Remove stop ${i + 2}?`)) save(extra.filter((_, n) => n !== i)); }}>
+              Remove
+            </button>
+          ) : null}
+        </div>
+      ))}
+      {adding ? (
+        <form className="formgrid" style={{ marginTop: 10 }}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!adding.address) return;
+            const ok = await save([...extra, { company: adding.company, address: adding.address, note: adding.note || null }]);
+            if (ok !== false) setAdding(null);
+          }}>
+          <label className="field-wrap"><span className="field-label">Company</span>
+            <select id="stop-company" value={adding.company}
+              onChange={(e) => setAdding({ ...adding, company: e.target.value, address: "" })}>
+              <option value="">Choose a company</option>
+              {companies.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </label>
+          <label className="field-wrap"><span className="field-label">Address</span>
+            <select id="stop-address" value={adding.address} disabled={!adding.company}
+              onChange={(e) => setAdding({ ...adding, address: e.target.value })}>
+              <option value="">Choose an address</option>
+              {addressesFor(adding.company).map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </label>
+          <label className="field-wrap full"><span className="field-label">Note</span>
+            <input id="stop-note" value={adding.note} onChange={(e) => setAdding({ ...adding, note: e.target.value })} />
+          </label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn primary" type="submit" disabled={!adding.address}>Add stop</button>
+            <button className="btn secondary" type="button" onClick={() => setAdding(null)}>Cancel</button>
+          </div>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
 /** The demo's "+ Add Job Note": a line on the job's log in the writer's words. */
 function JobNote({ onAdd }) {
   const [open, setOpen] = useState(false);
@@ -728,6 +805,7 @@ export default function ZhtJobDetail({
   onRecordCms, onSendDetails, onSetTranshipment, onRecordDetails, onHandOver,
   onDocumentsComplete, extras, permitPanel, freeTimePanel, onSetPermitRequired,
   onHandOverExport, onReleaseContainer, onReleaseContainers, onDischargeContainer, onAddNote,
+  customerCode, onSaveStops,
 }) {
   /** Opened by the journey's closing step, and by hand otherwise. */
   const [showClosing, setShowClosing] = useState(false);
@@ -1260,6 +1338,10 @@ export default function ZhtJobDetail({
               </div>
             ) : null}
 
+            {job.type === "Import" ? (
+              <DeliveryStops job={job} container={container} customerCode={customerCode} onSaveStops={onSaveStops} />
+            ) : null}
+
             <div className="action-row" style={{ marginTop: 10 }}>
               {/* The container being looked at, not whichever is first. */}
               <button className="btn secondary" type="button"
@@ -1319,7 +1401,7 @@ export default function ZhtJobDetail({
                 <div className="job-log-content">
                   <div className="job-log-meta">
                     <div><b>{item.text}</b></div>
-                    <span>{formatDay(item.at)}</span>
+                    <span>{formatDateTime(item.at)}</span>
                   </div>
                   <div className="muted">{item.actor}</div>
                 </div>

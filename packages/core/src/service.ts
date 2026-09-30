@@ -222,9 +222,12 @@ export class JobService {
     ]);
     const vehicles = vehicleOccupancy(movements, now);
     // Chassis named on a trip still to be done are promised to it.
-    const plannedChassis = new Set(movements
-      .filter((m) => m.chassisId && !['COMPLETED', 'CANCELLED'].includes(m.movementStatus))
-      .map((m) => m.chassisId as string));
+    const openTrips = movements
+      .filter((m) => m.chassisId && !['COMPLETED', 'CANCELLED'].includes(m.movementStatus));
+    const plannedChassis = new Set(openTrips.map((m) => m.chassisId as string));
+    // Which container and trip each chassis is on, as the demo's chassis list.
+    const boxes = await this.#repo.listContainersForImportJobs(importJobs.map((j) => j.jobId));
+    const numberOf = new Map(boxes.map((c) => [c.containerId, c.containerNumber]));
 
     const jobNumber = new Map<string, { jobNumber: string; customer: string }>();
     for (const j of importJobs) jobNumber.set(j.jobId, { jobNumber: j.jobNumber, customer: j.customer });
@@ -244,6 +247,16 @@ export class JobService {
         customer: job?.customer ?? null,
         heldSince: open?.mountedAt?.slice(0, 10) ?? null,
         daysHeld: open ? chassisDays(open, now) : 0,
+        maxGrossWeightKg: unit.maxGrossWeightKg,
+        ...(() => {
+          const trip = openTrips.find((m) => m.chassisId === unit.chassisNo || m.chassisId === unit.chassisId);
+          return {
+            movementRef: trip?.movementRef ?? null,
+            movementJobNumber: trip?.jobNumber ?? null,
+            containerNumber: (open ? numberOf.get(open.containerId) : null)
+              ?? (trip?.containerId ? numberOf.get(trip.containerId) : null) ?? null,
+          };
+        })(),
       };
     });
 
@@ -290,6 +303,11 @@ export interface FleetUnitView {
   customer: string | null;
   heldSince: string | null;
   daysHeld: number;
+  maxGrossWeightKg: number | null;
+  /** The trip this chassis is planned on or doing, when there is one. */
+  movementRef: string | null;
+  movementJobNumber: string | null;
+  containerNumber: string | null;
 }
 
 export interface FleetView {

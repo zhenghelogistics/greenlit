@@ -89,14 +89,15 @@ const shout = (value) => String(value ?? "").toUpperCase();
 export function SectionNav({ sections, current, onJump }) {
   return (
     <nav className="import-create-tabs" aria-label="Sections of this form">
-      {sections.map((section) => (
+      {sections.map((section, index) => (
         <button
           key={section.id} type="button"
           className={`import-create-tab${current === section.id ? " current" : ""}`}
           aria-current={current === section.id ? "true" : undefined}
           onClick={() => onJump(section.id)}
         >
-          <span>{section.label}</span>
+          {/* Numbered, as the demo's tabs are: the order is the order to work in. */}
+          <span>{index + 1}. {section.label}</span>
           {section.outstanding ? (
             <>
               <span className="wants-dot" aria-hidden="true" />
