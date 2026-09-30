@@ -4881,6 +4881,43 @@ export default function GreenlitControlTower() {
       `Delivery date set for ${containerIds.length} container${containerIds.length === 1 ? "" : "s"}.`);
   }
 
+  /**
+   * Plan a trip for one container from the controller's board: a new trip,
+   * or the one already planned when it is being replanned.
+   */
+  async function planContainer(job, container, type, trip, plan) {
+    const base = `/api/jobs/${encodeURIComponent(job.apiId ?? job.id)}/movements`;
+    const crew = {
+      driver: plan.driver.trim(), truck: plan.truck.trim(), chassisId: plan.chassisId,
+      plannedDate: plan.plannedDate || null, plannedTime: plan.plannedTime || null,
+    };
+    const response = await fetch(trip ? `${base}/${encodeURIComponent(trip.movementId)}` : base, {
+      method: trip ? "PATCH" : "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(trip ? crew : {
+        movementType: type, containerId: container.id,
+        origin: plan.origin.trim(), originType: type === "EMPTY_RETURN" ? "CUSTOMER" : "TERMINAL",
+        destination: plan.destination.trim(), destinationType: type === "EMPTY_RETURN" ? "YARD" : "CUSTOMER",
+        ...crew,
+      }),
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    if (!response?.ok) {
+      showToast(payload?.error ?? "That plan was not saved.");
+      return false;
+    }
+    await loadJobs();
+    showToast(`${container.number || "The container"}: ${type === "EMPTY_RETURN" ? "empty return" : "delivery"} planned with ${crew.driver}.`);
+    return true;
+  }
+
+  /** The customer has finished with the box; it joins Empty Returns. */
+  async function markEmpty(job, container) {
+    await runJobCommand(job, `/containers/${encodeURIComponent(container.id)}/empty-ready`,
+      { source: "MANUAL" },
+      `${container.number || "The container"} is empty and waiting for its return.`);
+  }
+
   /** The container reached the customer. */
   async function markDelivered(job, container) {
     await runJobCommand(
@@ -5381,7 +5418,7 @@ export default function GreenlitControlTower() {
       {current === "fleet" ? <ZhtChassis fleet={fleet} onOpenJob={(job) => openJob(job.id)} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, apiJobId: jobs.find((j) => j.id === item.jobId)?.apiId ?? null, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
       {current === "controller" ? <ZhtController jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)}
         onDischargeMany={dischargeMany} onPortnet={releasePortnet} onDeliver={markDelivered}
-        onSetDeliveryDate={setDeliveryDate} /> : null}
+        onSetDeliveryDate={setDeliveryDate} onPlan={planContainer} onEmpty={markEmpty} /> : null}
       {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => setCreatingJob(true)} /> : null}
 
       {current === "planning" ? <ZhtPlanning jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)} /> : null}

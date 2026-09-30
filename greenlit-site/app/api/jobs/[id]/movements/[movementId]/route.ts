@@ -13,12 +13,12 @@ export async function PATCH(request: Request, ctx: {
 }) {
   const { id, movementId } = await ctx.params;
   const body = await readJson<{
-    plannedDate?: string; plannedTime?: string; truck?: string; driver?: string;
+    plannedDate?: string; plannedTime?: string; truck?: string; driver?: string; chassisId?: string;
     movementStatus?: string; actualCollectionAt?: string; actualDeliveryAt?: string;
   }>(request);
   if (!body) return badRequest("A JSON body is required");
 
-  const plan = pick(body, ["plannedDate", "plannedTime", "truck", "driver"]);
+  const plan = pick(body, ["plannedDate", "plannedTime", "truck", "driver", "chassisId"]);
   const progress = pick(body, ["movementStatus", "actualCollectionAt", "actualDeliveryAt"]);
 
   if (Object.keys(plan).length === 0 && Object.keys(progress).length === 0) {

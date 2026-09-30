@@ -1029,7 +1029,8 @@ export function createMemoryRepository(): Repository {
       // An empty collection can be prepared with CMS pending; the driver is
       // what waits for it. Enforced here rather than in the route so it holds
       // for every caller and for both stores.
-      const refusal = movementRefusal({ ...draft, containerId: draft.containerId ?? null }, false);
+      const crewed = Boolean(draft.driver || draft.truck || draft.chassisId);
+      const refusal = movementRefusal({ ...draft, containerId: draft.containerId ?? null }, crewed);
       if (refusal) throw new Error(refusal);
 
       const movement = {
@@ -1050,10 +1051,11 @@ export function createMemoryRepository(): Repository {
         destination: draft.destination,
         plannedDate: draft.plannedDate ?? null,
         plannedTime: draft.plannedTime ?? null,
-        truck: null,
-        driver: null,
-        chassisId: null,
-        movementStatus: 'PENDING',
+        truck: draft.truck ?? null,
+        driver: draft.driver ?? null,
+        chassisId: draft.chassisId ?? null,
+        // Planned with a crew is scheduled; without one it waits for them.
+        movementStatus: crewed ? 'SCHEDULED' : 'PENDING',
         actualCollectionAt: null,
         actualDeliveryAt: null,
         standbyRequired: false,
@@ -1073,7 +1075,7 @@ export function createMemoryRepository(): Repository {
       const movement = Object.values(movements).flat()
         .find((m) => m.movementId === movementId);
       if (!movement) throw new Error(`Unknown movement ${movementId}`);
-      const assigning = plan.driver !== undefined || plan.truck !== undefined;
+      const assigning = plan.driver !== undefined || plan.truck !== undefined || plan.chassisId !== undefined;
       const refusal = movementRefusal(movement, assigning);
       if (refusal) throw new Error(refusal);
       const fields = movement as unknown as Record<string, unknown>;
@@ -1761,6 +1763,18 @@ export function createMemoryRepository(): Repository {
       c.deliveredAt = new Date().toISOString();
       record(jobOfContainer(containerId), 'container.delivered', actor,
         { field: 'deliveredAt', from: null, to: c.deliveredAt });
+      // The delivery trip is done with it, so the box's location is the
+      // customer's rather than a trip still open.
+      const trip = [...(movements[c.jobId] ?? [])].reverse().find((m) =>
+        m.containerId === containerId && m.movementType === 'IMPORT_DELIVERY'
+        && !['COMPLETED', 'CANCELLED'].includes(m.movementStatus));
+      if (trip) {
+        const fields = trip as unknown as Record<string, unknown>;
+        fields.movementStatus = 'COMPLETED';
+        fields.actualDeliveryAt = c.deliveredAt;
+        record(c.jobId, 'movement.progressed', actor,
+          { field: `${trip.movementRef} movementStatus`, from: trip.movementStatus, to: 'COMPLETED' });
+      }
     },
     async recordContainerReady(containerId, actor) {
       const c = findExportContainer(containerId);

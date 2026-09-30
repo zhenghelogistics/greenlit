@@ -102,80 +102,7 @@ export function controllerQueues(jobs) {
  * silently mark another vessel's containers too.
  */
 
-/**
- * The days a controller actually asks about.
- *
- * "Next 3 days" means the three days *after* today, not today and two more.
- * That distinction is worth being exact about: a controller pressing it on
- * Thursday morning is planning Friday, Saturday and Sunday — they already know
- * about Thursday, because they are standing in it.
- */
-const RANGES = [
-  ["today", "Today", 0, 0],
-  ["tomorrow", "Tomorrow", 1, 1],
-  ["three", "Next 3 days", 1, 3],
-  ["seven", "Next 7 days", 1, 7],
-];
-
-const isoPlus = (iso, days) => {
-  const [y, m, d] = iso.split("-").map(Number);
-  const at = new Date(Date.UTC(y, m - 1, d + days));
-  return at.toISOString().slice(0, 10);
-};
-
-/**
- * What is arriving, grouped by vessel and day.
- *
- * A controller's morning question is not "which containers" but "what is
- * landing, and is any of it ready" — one ship at a time, because one ship is
- * one conversation with the terminal.
- */
-function ArrivalBrief({ rows, range, today, onOpenJob }) {
-  const [, , from, to] = RANGES.find((r) => r[0] === range) ?? RANGES[0];
-  const first = isoPlus(today, from);
-  const last = isoPlus(today, to);
-
-  const groups = new Map();
-  for (const { job, c } of rows) {
-    const eta = (job.eta ?? "").slice(0, 10);
-    if (!eta || eta < first || eta > last) continue;
-    const key = `${eta}|${job.vessel || "Vessel to be advised"}`;
-    const group = groups.get(key);
-    if (group) group.rows.push({ job, c });
-    else groups.set(key, { eta, vessel: job.vessel || "Vessel to be advised", rows: [{ job, c }] });
-  }
-
-  const arrivals = [...groups.values()].sort((a, b) => a.eta.localeCompare(b.eta));
-  // Nothing in the window is not worth a paragraph: the date buttons above it
-  // already say which window is open, and an empty strip between them and the
-  // piles below just separates two things that belong together.
-  if (arrivals.length === 0) return null;
-
-  return (
-    <div className="controller-arrival-brief">
-      {arrivals.map((a) => {
-        const ready = a.rows.filter(({ c }) => c.controllerStage === "READY").length;
-        const waiting = a.rows.length - ready;
-        return (
-          <button
-            key={`${a.eta}-${a.vessel}`} type="button"
-            className={`arrival-card${a.eta === today ? " today" : ""}`}
-            onClick={() => onOpenJob(a.rows[0].job)}
-          >
-            <div className="arrival-date">{a.eta === today ? "Today" : day(a.eta)}</div>
-            <div className="arrival-vessel">{a.vessel}</div>
-            <div className="arrival-stats">
-              {a.rows.length} container{a.rows.length === 1 ? "" : "s"}<br />
-              {ready} ready · {waiting} waiting
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function PendingByJob({ rows, onOpenJob, onDischargeMany, onPortnet }) {
+function PendingByJob({ rows, jobs, onOpenJob, onDischargeMany, onPortnet }) {
   const [picked, setPicked] = useState(() => new Set());
 
   if (!rows.length) return <div className="clean-empty">Nothing waiting on Portnet or discharge.</div>;
@@ -191,72 +118,77 @@ function PendingByJob({ rows, onOpenJob, onDischargeMany, onPortnet }) {
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
+  const setMany = (ids, on) => setPicked((was) => {
+    const next = new Set(was);
+    ids.forEach((id) => (on ? next.add(id) : next.delete(id)));
+    return next;
+  });
 
   return (
     <>
       {[...byJob.values()].map((group) => {
         const job = group[0].job;
-        const undischarged = group.filter(({ c }) => !c.dischargedAt);
-        const chosen = undischarged.filter(({ c }) => picked.has(c.id)).map(({ c }) => c.id);
-        // A release email names particular boxes far more often than a whole
-        // job. Released is per container, and the same picker answers both
-        // questions, so a box already discharged can still be picked for its
-        // release.
-        const unreleased = group.filter(({ c }) => !c.portnetReleasedAt);
-        const pickedForRelease = unreleased.filter(({ c }) => picked.has(c.id)).map(({ c }) => c.id);
+        const ids = group.map(({ c }) => c.id);
+        const selected = group.filter(({ c }) => picked.has(c.id));
+        // The job's handed-over boxes by stage, as the demo's header counts them.
+        const all = ((jobs ?? []).find((j) => j.id === job.id)?.containers ?? job.containers ?? [])
+          .filter((c) => c.handedOver);
+        const count = (stage) => all.filter((c) => c.controllerStage === stage).length;
+
+        // The demo's four actions. "Selected" with nothing ticked says so;
+        // every one asks first, because a release or discharge is recorded as
+        // a fact about the box.
+        const apply = (kind, mode) => {
+          const scope = mode === "all" ? group : selected;
+          const targets = scope
+            .filter(({ c }) => (kind === "portnet" ? !c.portnetReleasedAt : !c.dischargedAt))
+            .map(({ c }) => c.id);
+          if (mode === "selected" && selected.length === 0) {
+            window.alert("Select at least one container in this job.");
+            return;
+          }
+          if (targets.length === 0) {
+            window.alert(kind === "portnet" ? "Those containers are already released." : "Those containers are already discharged.");
+            return;
+          }
+          const label = kind === "portnet" ? "Portnet Release" : "Discharge";
+          const where = mode === "all" ? `all pending containers in ${job.id}` : `selected containers in ${job.id}`;
+          if (!window.confirm(`${label}: apply to ${where} (${targets.length})?`)) return;
+          if (kind === "portnet") onPortnet(job, targets); else onDischargeMany(job, targets);
+          setMany(targets, false);
+        };
 
         return (
           <section className="card" key={job.id} style={{ marginBottom: 14 }}>
             <div className="clean-section-head">
               <div>
                 <div className="section-title">
-                  {job.id} · {job.vessel || "Vessel TBA"} · {group.length} container{group.length === 1 ? "" : "s"}
+                  {job.id} · {job.vessel || "Vessel TBA"}{job.eta ? ` · ETA ${day(job.eta)}` : ""} · {all.length || group.length} container{(all.length || group.length) === 1 ? "" : "s"}
                 </div>
-                <div className="muted">
-                  {job.customer || "Customer TBA"} · ETA {day(job.eta)} · Portnet release{" "}
-                  {unreleased.length === 0 ? "Ready for all"
-                    : unreleased.length === group.length ? "Pending for all"
-                      : `Ready for ${group.length - unreleased.length} of ${group.length}`}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                  <span className="tag">{group.length} Pending</span>
+                  <span className="tag">{count("READY")} Ready</span>
+                  {count("DELIVERED") ? <span className="tag">{count("DELIVERED")} Delivered</span> : null}
+                  {count("EMPTY") ? <span className="tag">{count("EMPTY")} Empty</span> : null}
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {unreleased.length > 0 ? (
-                  <button className="btn secondary" type="button"
-                    onClick={() => {
-                      // Nothing ticked means the email covered the job, which
-                      // is the ordinary case: one click releases every box.
-                      onPortnet(job, pickedForRelease.length ? pickedForRelease : unreleased.map(({ c }) => c.id));
-                      setPicked(new Set());
-                    }}>
-                    {pickedForRelease.length
-                      ? `Portnet released: ${pickedForRelease.length} selected`
-                      : unreleased.length < group.length
-                        ? `Portnet released: remaining ${unreleased.length}`
-                        : "Portnet released: all"}
-                  </button>
-                ) : null}
-                {undischarged.length > 0 ? (
-                  <>
-                    <button
-                      className="btn secondary" type="button"
-                      disabled={chosen.length === 0}
-                      onClick={() => { onDischargeMany(job, chosen); setPicked(new Set()); }}
-                    >
-                      Discharge {chosen.length || ""} selected
-                    </button>
-                    <button
-                      className="btn primary" type="button"
-                      onClick={() => onDischargeMany(job, undischarged.map(({ c }) => c.id))}
-                    >
-                      Discharge all {undischarged.length}
-                    </button>
-                  </>
-                ) : null}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <span className="tag">Selected {selected.length}</span>
+                <button className="btn secondary" type="button" onClick={() => apply("portnet", "selected")}>Portnet · Selected</button>
+                <button className="btn ghost" type="button" onClick={() => apply("portnet", "all")}>Portnet · All in Job</button>
+                <button className="btn secondary" type="button" onClick={() => apply("discharge", "selected")}>Discharge · Selected</button>
+                <button className="btn ghost" type="button" onClick={() => apply("discharge", "all")}>Discharge · All in Job</button>
               </div>
             </div>
 
             <ContainerTable rows={group} onOpenJob={onOpenJob}
-              picked={picked} onToggle={toggle} />
+              picked={picked} onToggle={toggle} selectAll
+              allPicked={ids.length > 0 && ids.every((id) => picked.has(id))}
+              onToggleAll={(on) => setMany(ids, on)}
+              rowActions={{
+                portnet: (c) => onPortnet(job, [c.id]),
+                discharge: (c) => onDischargeMany(job, [c.id]),
+              }} />
           </section>
         );
       })}
@@ -273,12 +205,28 @@ function PendingByJob({ rows, onOpenJob, onDischargeMany, onPortnet }) {
  * released and discharged. The server refuses the same thing in the same
  * words, so the button cannot be the only thing standing in the way.
  */
-function ContainerTable({ rows, onOpenJob, onDeliver, picked, onToggle, selectAll = false }) {
+/** The open trip of this kind for this box, if one is planned. */
+export function activeTrip(job, c, type) {
+  return [...(job.trips ?? [])].reverse().find((t) =>
+    t.containerId === c.id && t.type === type && !["CANCELLED", "COMPLETED"].includes(t.status));
+}
+
+function ContainerTable({
+  rows, onOpenJob, onDeliver, onPlan, picked, onToggle, selectAll = false,
+  allPicked = false, onToggleAll, rowActions,
+}) {
   return (
     <table className="moves">
       <thead>
         <tr>
-          {onToggle ? <th /> : null}
+          {onToggle ? (
+            <th>
+              {onToggleAll ? (
+                <input type="checkbox" checked={allPicked} aria-label="Select every container in this job"
+                  onChange={(e) => onToggleAll(e.target.checked)} style={{ width: 16, height: 16 }} />
+              ) : null}
+            </th>
+          ) : null}
           <th>Container</th><th>Customer</th><th>Vessel / ETA</th><th>Delivery address</th>
           <th>Portnet release</th><th>Discharge</th><th>Delivery date</th><th>Last free day</th><th />
         </tr>
@@ -311,8 +259,8 @@ function ContainerTable({ rows, onOpenJob, onDeliver, picked, onToggle, selectAl
                 {job.terminal ? <span className="sub">{job.terminal}</span> : null}
               </td>
               <td>{c.containerDeliveryAddress || job.deliveryAddress || "Not recorded"}</td>
-              <td>{c.portnetReleasedAt ? "Ready" : "Pending"}</td>
-              <td>{c.dischargedAt ? "Ready" : "Pending"}</td>
+              <td>{c.portnetReleasedAt ? "Released" : "Pending"}</td>
+              <td>{c.dischargedAt ? "Discharged" : "Pending"}</td>
               {/* The customer's date, and the controller's when it has been
                   brought forward. */}
               <td>
@@ -325,21 +273,40 @@ function ContainerTable({ rows, onOpenJob, onDeliver, picked, onToggle, selectAl
               </td>
               <td>{day(c.lastFreeDay)}</td>
               <td>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <button className="btn secondary" type="button"
-                    disabled={!c.canPlanCollection}
-                    title={c.planBlockedReason ?? undefined}
-                    onClick={() => onOpenJob(job)}>
-                    Plan
-                  </button>
-                  {/* Only where the trip has happened: a container is marked
-                      delivered once, by the person who knows it arrived. */}
-                  {onDeliver && c.canPlanCollection ? (
-                    <button className="btn ghost" type="button" onClick={() => onDeliver(job, c)}>
-                      Delivered
-                    </button>
-                  ) : null}
-                </div>
+                {rowActions ? (
+                  // Pending: each box can be released or discharged on its own.
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {!c.portnetReleasedAt ? (
+                      <button className="btn secondary" type="button" onClick={() => rowActions.portnet(c)}>
+                        Portnet Release
+                      </button>
+                    ) : null}
+                    {!c.dischargedAt ? (
+                      <button className="btn secondary" type="button" onClick={() => rowActions.discharge(c)}>
+                        Discharge
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (() => {
+                  const trip = activeTrip(job, c, "IMPORT_DELIVERY");
+                  return (
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <button className={`btn ${trip ? "secondary" : "primary"}`} type="button"
+                        disabled={!c.canPlanCollection}
+                        title={c.planBlockedReason ?? undefined}
+                        onClick={() => (onPlan ? onPlan(job, c, "IMPORT_DELIVERY", trip) : onOpenJob(job))}>
+                        {trip ? "View / Replan" : "Plan"}
+                      </button>
+                      {/* Only once a trip is planned: the demo will not mark a
+                          box delivered that nobody sent a truck for. */}
+                      {onDeliver && trip ? (
+                        <button className="btn ghost" type="button" onClick={() => onDeliver(job, c)}>
+                          Delivered
+                        </button>
+                      ) : null}
+                    </div>
+                  );
+                })()}
                 {!c.canPlanCollection && c.planBlockedReason
                   ? <span className="sub">{c.planBlockedReason}</span> : null}
               </td>
@@ -361,7 +328,7 @@ function ContainerTable({ rows, onOpenJob, onDeliver, picked, onToggle, selectAl
  * delivery is two actions rather than opening each container. Only ready
  * boxes are here, and the server refuses the rest in the same words.
  */
-function ReadyByJob({ rows, onOpenJob, onDeliver, onSetDeliveryDate }) {
+function ReadyByJob({ rows, onOpenJob, onDeliver, onSetDeliveryDate, onPlan }) {
   const [picked, setPicked] = useState(() => new Set());
   const [dates, setDates] = useState({});
 
@@ -411,12 +378,158 @@ function ReadyByJob({ rows, onOpenJob, onDeliver, onSetDeliveryDate }) {
                 </button>
               </div>
             </div>
-            <ContainerTable rows={group} onOpenJob={onOpenJob} onDeliver={onDeliver}
+            <ContainerTable rows={group} onOpenJob={onOpenJob} onDeliver={onDeliver} onPlan={onPlan}
               picked={picked} onToggle={toggle} selectAll />
           </section>
         );
       })}
     </>
+  );
+}
+
+const dayTime = (v) => {
+  if (!v) return "—";
+  const at = new Date(v);
+  if (Number.isNaN(at.getTime())) return day(v);
+  const h = at.getHours(), m = String(at.getMinutes()).padStart(2, "0");
+  return `${day(v)} ${h % 12 || 12}:${m} ${h < 12 ? "AM" : "PM"}`;
+};
+
+/** Empty containers waiting to go back, with the return planned from here. */
+function EmptyReturnsTable({ rows, onPlan }) {
+  return (
+    <table className="moves">
+      <thead>
+        <tr><th>Container</th><th>Chassis</th><th>Current location</th><th>Empty return yard</th><th /></tr>
+      </thead>
+      <tbody>
+        {rows.map(({ job, c }) => {
+          const trip = activeTrip(job, c, "EMPTY_RETURN");
+          const delivery = [...(job.trips ?? [])].reverse()
+            .find((t) => t.containerId === c.id && t.type === "IMPORT_DELIVERY");
+          return (
+            <tr key={`${job.id}-${c.id ?? c.ref}`}>
+              <td className="route">{c.number || c.ref}<span className="sub">{job.id}</span></td>
+              <td>{trip?.chassisId || delivery?.chassisId || "—"}</td>
+              <td>{delivery?.destination || c.containerDeliveryAddress || job.deliveryAddress || "Not recorded"}</td>
+              <td>{c.emptyReturnYard || "Not recorded"}</td>
+              <td>
+                <button className={`btn ${trip ? "secondary" : "primary"}`} type="button"
+                  onClick={() => onPlan(job, c, "EMPTY_RETURN", trip)}>
+                  {trip ? "View / Replan" : "Plan Return"}
+                </button>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
+/** Half-hours, morning first, as every time on the demo is offered. */
+const HALF_HOURS = Array.from({ length: 48 }, (_, i) => {
+  const h = Math.floor(i / 2), m = i % 2 ? "30" : "00";
+  return { value: `${String(h).padStart(2, "0")}:${m}`, label: `${h % 12 || 12}:${m} ${h < 12 ? "AM" : "PM"}` };
+});
+
+/**
+ * Plan a trip for one container: who, with what, when, from where to where.
+ *
+ * The demo's Plan form. Driver, vehicle and chassis are all required, because
+ * a trip without them is a row on a board rather than work anybody can do.
+ * A chassis in maintenance is not offered. From and To start where the box
+ * is and where it is going.
+ */
+function PlanForm({ target, jobs, fleet, onClose, onSave }) {
+  const { job, c, type, trip } = target;
+  const isReturn = type === "EMPTY_RETURN";
+  const delivery = [...(job.trips ?? [])].reverse()
+    .find((t) => t.containerId === c.id && t.type === "IMPORT_DELIVERY");
+  const [form, setForm] = useState(() => ({
+    driver: trip?.driver ?? "",
+    truck: trip?.truck ?? "",
+    chassisId: trip?.chassisId ?? (isReturn ? delivery?.chassisId ?? "" : ""),
+    plannedDate: String(trip?.plannedDate ?? "").slice(0, 10)
+      || (!isReturn ? String(c.plannedDeliveryDate ?? c.requestedDeliveryDate ?? "").slice(0, 10) : ""),
+    plannedTime: trip?.plannedTime ?? "",
+    origin: trip?.origin ?? (isReturn
+      ? delivery?.destination || c.containerDeliveryAddress || job.deliveryAddress || ""
+      : job.terminal || "PSA"),
+    destination: trip?.destination ?? (isReturn
+      ? c.emptyReturnYard || ""
+      : c.containerDeliveryAddress || job.deliveryAddress || ""),
+  }));
+  const [problem, setProblem] = useState("");
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  // Names already used on trips, so the same driver is typed the same way.
+  const used = (key) => [...new Set((jobs ?? []).flatMap((j) => (j.trips ?? []).map((t) => t[key])).filter(Boolean))].sort();
+  const chassis = [...(fleet?.available ?? []), ...(fleet?.inUse ?? [])].map((u) => u.unit);
+  const chassisOptions = form.chassisId && !chassis.includes(form.chassisId) ? [form.chassisId, ...chassis] : chassis;
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!form.driver.trim() || !form.truck.trim() || !form.chassisId) {
+      setProblem("Please select Driver, Vehicle and Chassis before saving the plan.");
+      return;
+    }
+    if (!form.origin.trim() || !form.destination.trim()) {
+      setProblem("Say where the trip starts and where it ends.");
+      return;
+    }
+    setProblem("");
+    onSave(form);
+  };
+
+  return (
+    <div role="presentation" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      style={{ position: "fixed", inset: 0, background: "rgba(21,33,44,.35)", zIndex: 80,
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <form className="card" role="dialog" aria-modal="true" aria-labelledby="plan-title" onSubmit={submit}
+        style={{ width: "min(640px, 100%)", maxHeight: "90vh", overflow: "auto" }}>
+        <div className="section-title" id="plan-title">{isReturn ? "Plan Empty Return" : "Plan Import Delivery"}</div>
+        <div className="muted" style={{ marginBottom: 12 }}>
+          {c.number || c.ref} · {job.id} · {job.customer || "Customer TBA"}
+        </div>
+        <div className="formgrid">
+          <label className="field-wrap"><span className="field-label">Driver *</span>
+            <input id="plan-driver" list="plan-drivers" value={form.driver} onChange={(e) => set("driver", e.target.value.toUpperCase())} />
+            <datalist id="plan-drivers">{used("driver").map((d) => <option key={d} value={d} />)}</datalist>
+          </label>
+          <label className="field-wrap"><span className="field-label">Vehicle *</span>
+            <input id="plan-truck" list="plan-trucks" value={form.truck} onChange={(e) => set("truck", e.target.value.toUpperCase())} />
+            <datalist id="plan-trucks">{used("truck").map((d) => <option key={d} value={d} />)}</datalist>
+          </label>
+          <label className="field-wrap"><span className="field-label">Chassis *</span>
+            <select id="plan-chassis" value={form.chassisId} onChange={(e) => set("chassisId", e.target.value)}>
+              <option value="">Select chassis</option>
+              {chassisOptions.map((u) => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </label>
+          <label className="field-wrap"><span className="field-label">Planned date</span>
+            <input id="plan-date" type="date" className="app-date-input" value={form.plannedDate} onChange={(e) => set("plannedDate", e.target.value)} />
+          </label>
+          <label className="field-wrap"><span className="field-label">Planned time</span>
+            <select id="plan-time" value={form.plannedTime} onChange={(e) => set("plannedTime", e.target.value)}>
+              <option value="">Time not set</option>
+              {HALF_HOURS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </label>
+          <label className="field-wrap"><span className="field-label">From</span>
+            <input id="plan-from" value={form.origin} onChange={(e) => set("origin", e.target.value)} />
+          </label>
+          <label className="field-wrap full"><span className="field-label">To</span>
+            <input id="plan-to" value={form.destination} onChange={(e) => set("destination", e.target.value)} />
+          </label>
+        </div>
+        {problem ? <div className="stop" role="alert" style={{ marginTop: 10 }}>{problem}</div> : null}
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14 }}>
+          <button className="btn secondary" type="button" onClick={onClose}>Cancel</button>
+          <button className="btn primary" type="submit">{trip ? "Save changes" : "Save plan"}</button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -462,10 +575,12 @@ function ExportTable({ rows, onOpenJob }) {
 }
 
 
-export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany, onPortnet, onDeliver, onSetDeliveryDate }) {
+export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany, onPortnet, onDeliver, onSetDeliveryDate, onPlan, onEmpty }) {
   const q = controllerQueues(jobs);
+  // The Plan form, open on one container at a time.
+  const [planning, setPlanning] = useState(null);
+  const openPlan = (job, c, type, trip) => setPlanning({ job, c, type, trip: trip ?? null });
   const [tab, setTab] = useState("importPending");
-  const [range, setRange] = useState("today");
 
   // The import piles in the order a container moves through them, so the board
   // reads left to right the way the work does.
@@ -488,10 +603,6 @@ export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany,
     exportReady: "Handed over. CMS pending blocks the driver for that empty collection, not the job.",
     planned: "Every movement planned for today.",
   };
-
-  const engaged = fleet?.vehicles ?? [];
-  const opportunities = fleet?.routeOpportunities ?? [];
-  const chainsFor = (truck) => opportunities.filter((o) => o.finishing.truck === truck);
 
   // Every rule in the ported stylesheet is scoped to `.zht`. Without this
   // wrapper the screen renders as unstyled markup — which is exactly what it
@@ -525,23 +636,8 @@ export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany,
           Jobs stay visible by movement, so trips can be chained and empty running reduced.
         </div>
 
-        {/* What is landing, before which pile it is in: the morning question
-            is about ships, and only then about boxes. */}
-        <div className="controller-date-tools" style={{ marginBottom: 10 }}>
-          {RANGES.map(([id, label]) => (
-            <button
-              key={id} type="button"
-              className={`btn ${range === id ? "secondary" : "ghost"}`}
-              onClick={() => setRange(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <ArrivalBrief
-          rows={[...q.importPending, ...q.importReady]}
-          range={range} today={today()} onOpenJob={onOpenJob}
-        />
+        {/* The arrival summary and its date buttons were here. The demo took
+            them off the board (v12.120): vessel and ETA belong to the job. */}
 
         <div className="queue-tabs" role="tablist">
           {tabs.map(([id, label, n]) => (
@@ -557,6 +653,7 @@ export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany,
         {tab === "importPending" ? (
           <PendingByJob
             rows={q.importPending}
+            jobs={jobs}
             onOpenJob={onOpenJob}
             onDischargeMany={onDischargeMany}
             onPortnet={onPortnet}
@@ -565,22 +662,29 @@ export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany,
           q.importDelivered.length ? (
             <table className="moves">
               <thead>
-                <tr><th>Container</th><th>Job</th><th>Customer</th><th>Delivered</th><th /></tr>
+                <tr><th>Container</th><th>Customer / Current location</th><th>Chassis</th><th>Delivered</th><th /></tr>
               </thead>
               <tbody>
-                {q.importDelivered.map(({ job, c }) => (
-                  <tr key={`${job.id}-${c.id ?? c.ref}`}>
-                    <td className="route">{c.number || c.ref}<span className="sub">{c.sizeType}</span></td>
-                    <td>{job.id}</td>
-                    <td>{job.customer || "Customer TBA"}</td>
-                    <td>{day(c.deliveredAt)}</td>
-                    <td>
-                      <button className="btn secondary" type="button" onClick={() => onOpenJob(job)}>
-                        Open
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {q.importDelivered.map(({ job, c }) => {
+                  const trip = [...(job.trips ?? [])].reverse()
+                    .find((t) => t.containerId === c.id && t.type === "IMPORT_DELIVERY");
+                  return (
+                    <tr key={`${job.id}-${c.id ?? c.ref}`}>
+                      <td className="route">{c.number || c.ref}<span className="sub">{job.id}</span></td>
+                      <td>{trip?.destination || c.containerDeliveryAddress || job.deliveryAddress || "Not recorded"}
+                        <span className="sub">{job.customer || "Customer TBA"}</span></td>
+                      <td>{trip?.chassisId || "—"}</td>
+                      <td>{dayTime(c.deliveredAt)}</td>
+                      <td>
+                        {/* The customer has finished with it: it moves to
+                            Empty Returns, where the return is planned. */}
+                        <button className="btn primary" type="button" onClick={() => onEmpty?.(job, c)}>
+                          Empty
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           ) : <div className="clean-empty">Nothing delivered and waiting on the customer.</div>
@@ -605,55 +709,27 @@ export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany,
           ) : <div className="clean-empty">Nothing is planned for today yet.</div>
         ) : tab === "importReady" ? (
           <ReadyByJob rows={q.importReady} onOpenJob={onOpenJob} onDeliver={onDeliver}
-            onSetDeliveryDate={onSetDeliveryDate} />
+            onSetDeliveryDate={onSetDeliveryDate} onPlan={openPlan} />
         ) : tab === "exportReady" ? (
           <ExportTable rows={q.exportReady} onOpenJob={onOpenJob} />
         ) : q[tab].length ? (
-          <ContainerTable rows={q[tab]} onOpenJob={onOpenJob}
-            onDeliver={tab === "importReady" ? onDeliver : undefined} />
+          <EmptyReturnsTable rows={q[tab]} onPlan={openPlan} />
         ) : (
-          <div className="clean-empty">
-            {tab === "importReady" ? "Nothing is released and discharged yet."
-              : "No container is waiting to go back empty."}
-          </div>
+          <div className="clean-empty">No container is waiting to go back empty.</div>
         )}
       </div>
 
-      <div className="card">
-        <div className="section-title">Today&rsquo;s fleet plan</div>
-        <div className="muted">
-          Where each engaged vehicle finishes, and what is waiting there.
-        </div>
+      {planning ? (
+        <PlanForm target={planning} jobs={jobs} fleet={fleet}
+          onClose={() => setPlanning(null)}
+          onSave={async (plan) => {
+            const ok = await onPlan?.(planning.job, planning.c, planning.type, planning.trip, plan);
+            if (ok !== false) setPlanning(null);
+          }} />
+      ) : null}
 
-        {engaged.length ? engaged.map((e) => {
-          const chains = chainsFor(e.truck);
-          return (
-            <div className="crew" key={`${e.truck}-${e.movementRef}`}>
-              <div className="crew-who">{e.driver || "Unassigned"}<small>{e.truck}</small></div>
-              <div className="crew-now">
-                {e.reason === "ON_STANDBY" ? "Held on standby" : "In transit"} · {e.movementRef}
-                <small>{e.openEnded ? "No release recorded" : "Finishes this trip"}</small>
-              </div>
-              <div className="crew-now">
-                {chains[0] ? <>Finishes at<small>{chains[0].at}</small></> : <span className="muted">—</span>}
-              </div>
-              <div>
-                {chains.length ? (
-                  <button className="btn secondary" type="button"
-                    onClick={() => onOpenJob({ id: chains[0].waiting.jobNumber })}>
-                    {chains.length} possible next job{chains.length === 1 ? "" : "s"}
-                  </button>
-                ) : <span className="muted" style={{ fontSize: 12 }}>Nothing waiting there</span>}
-              </div>
-            </div>
-          );
-        }) : (
-          <div className="crew-idle">
-            No vehicle is currently engaged. Movements appear here once a trip is
-            collected or a driver is held on standby.
-          </div>
-        )}
-      </div>
+      {/* "Today's fleet plan" was here. The demo removed its Fleet Plan
+          (v12.100); where drivers are is the Drivers & Vehicles screen. */}
       </div>
     </div>
   );

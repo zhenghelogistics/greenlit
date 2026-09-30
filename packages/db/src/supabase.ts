@@ -672,8 +672,9 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       // An empty collection can be prepared with CMS pending; the driver is
       // what waits for it. Enforced in the adapter rather than in the route so
       // it holds for every caller and identically in both stores.
+      const crewed = Boolean(draft.driver || draft.truck || draft.chassisId);
       const refusal = await movementRefusal(
-        { ...draft, containerId: draft.containerId ?? null, cmsStatus: null }, false);
+        { ...draft, containerId: draft.containerId ?? null, cmsStatus: null }, crewed);
       if (refusal) throw new Error(refusal);
 
       // §18. MOV-NNN, unique within the job and never reused after a
@@ -704,7 +705,11 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         destination: draft.destination,
         planned_date: draft.plannedDate ?? null,
         planned_time: draft.plannedTime ?? null,
-        movement_status: 'PENDING',
+        driver: draft.driver ?? null,
+        truck: draft.truck ?? null,
+        chassis_id: draft.chassisId ?? null,
+        // Planned with a crew is scheduled; without one it waits for them.
+        movement_status: crewed ? 'SCHEDULED' : 'PENDING',
         auto_created: false,
       }).select().single(), 'create movement') as Record<string, unknown>;
 
@@ -714,7 +719,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
     },
 
     async scheduleMovement(movementId, plan, actor) {
-      await refuseWorkOn(movementId, plan.driver !== undefined || plan.truck !== undefined);
+      await refuseWorkOn(movementId, plan.driver !== undefined || plan.truck !== undefined || plan.chassisId !== undefined);
       await patchMovement(movementId, { ...plan }, 'movement.scheduled', actor);
     },
 
@@ -1799,6 +1804,16 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         .eq('container_id', containerId).select().single(), 'record delivery');
       await record(before.data.job_id as string, 'container.delivered', actor,
         { field: 'deliveredAt', from: null, to: at });
+      // The delivery trip is done with it, so the box's location is the
+      // customer's rather than a trip still open.
+      const open = rows(await db.from('movements').select('movement_id,movement_status')
+        .eq('container_id', containerId).eq('movement_type', 'IMPORT_DELIVERY')
+        .not('movement_status', 'in', '(COMPLETED,CANCELLED)')
+        .order('movement_ref', { ascending: false }).limit(1), 'delivery trip');
+      if (open[0]) {
+        await patchMovement(open[0].movement_id as string,
+          { movementStatus: 'COMPLETED', actualDeliveryAt: at }, 'movement.progressed', actor);
+      }
     },
     async recordContainerReady(containerId, actor) {
       const jobId = await jobOfExportContainer(containerId);

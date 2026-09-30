@@ -18,6 +18,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     origin?: string; originType?: string;
     destination?: string; destinationType?: string;
     plannedDate?: string; plannedTime?: string;
+    driver?: string; truck?: string; chassisId?: string;
   }>(request);
   if (!body) return badRequest("A JSON body is required");
 
@@ -43,6 +44,10 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       destinationType: body.destinationType ?? "OTHER",
       plannedDate: body.plannedDate ?? null,
       plannedTime: body.plannedTime ?? null,
+      // Planned with its crew from the controller's Plan form.
+      driver: body.driver?.trim() || null,
+      truck: body.truck?.trim() || null,
+      chassisId: body.chassisId?.trim() || null,
     }, auth.displayName);
   });
 }

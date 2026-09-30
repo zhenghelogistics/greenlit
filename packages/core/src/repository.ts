@@ -716,6 +716,10 @@ export interface MovementDraft {
   destinationType: string;
   plannedDate?: string | null;
   plannedTime?: string | null;
+  /** Planned with its crew, as the controller's Plan form does. */
+  driver?: string | null;
+  truck?: string | null;
+  chassisId?: string | null;
 }
 
 /** §19. Who is doing it and when. */
@@ -724,6 +728,7 @@ export interface MovementPlan {
   plannedTime?: string | null;
   truck?: string | null;
   driver?: string | null;
+  chassisId?: string | null;
 }
 
 /** §20. What happened, as it happens. */
