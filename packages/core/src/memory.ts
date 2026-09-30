@@ -681,6 +681,8 @@ export function createMemoryRepository(): Repository {
           plannedDeliveryDate: null,
           plannedDeliveryTime: null,
           requestedDeliveryDate: c.requestedDeliveryDate ?? null,
+          requestedDeliveryTime: c.requestedDeliveryTime ?? null,
+          deliveryInstructions: c.deliveryInstructions ?? null,
           containerNumber: c.containerNumber?.trim() || null,
           secondaryContainerId: null,
           containerSize: size || '',
@@ -709,13 +711,19 @@ export function createMemoryRepository(): Repository {
       movements[jobId] = [];
       // §24. Permits already in hand, each covering every container unless it
       // names them. Collected on the form and stored nowhere until now.
+      // A permit counts when its number or its file is on record; one typed
+      // without a number, or uploaded before it is read, is still a permit.
       for (const permit of draft.permits ?? []) {
-        if (!permit.permitNumber?.trim()) continue;
+        if (!permit.permitNumber?.trim() && !permit.fileName?.trim()) continue;
+        const boxes = importContainers[jobId] ?? [];
+        const { containerIndexes, ...rest } = permit;
         await this.recordPermit(jobId, {
-          ...permit,
+          ...rest,
           containerIds: permit.containerIds?.length
             ? permit.containerIds
-            : (importContainers[jobId] ?? []).map((c) => c.containerId),
+            : containerIndexes
+              ? containerIndexes.map((i) => boxes[i]?.containerId).filter((id): id is string => Boolean(id))
+              : boxes.map((c) => c.containerId),
         }, actor);
       }
 

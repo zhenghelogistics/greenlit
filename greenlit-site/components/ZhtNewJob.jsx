@@ -331,6 +331,7 @@ const BLANK_JOB = {
   // the customer master made by accident from a job form.
   deliveryInstructions: "",
   permitNumber: "", permitExpiryDate: "", permitVesselVoyage: "",
+  permitFileName: "", permitScope: "all", permitRows: [],
   // §24. Permits two onwards. The first is the one the reader fills in from
   // the document; a job commonly carries several.
   extraPermits: [],
@@ -360,6 +361,8 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
   const [readAddress, setReadAddress] = useState("");
 
   const form = useRef(null);
+  /** The permit files chosen, by card, attached to the job once it exists. */
+  const permitFiles = useRef({});
   const [job, setJob] = useState(() => ({ ...BLANK_JOB }));
 
   const set = (patch) => setJob((was) => ({ ...was, ...patch }));
@@ -421,8 +424,17 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
    * job could be created at all.
    */
   const {
-    loading: loadingLocations, companies, addressesFor, siteAt,
+    loading: loadingLocations, companies, addressesFor, siteAt, defaultSite,
   } = useCustomerLocations(job.customerCode);
+
+  // The demo picks the customer's default company and address as soon as the
+  // customer is chosen, so the ordinary job needs no second click.
+  useEffect(() => {
+    if (!defaultSite || job.addressMode !== "job" || job.deliveryAddress) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    set({ deliveryCompany: defaultSite.company || "", deliveryAddress: defaultSite.address || "" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.customerCode, defaultSite?.address]);
 
   const setRow = (i, patch) =>
     setRows((was) => was.map((r, n) => (n === i ? { ...r, ...patch } : r)));
@@ -446,6 +458,39 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
       ? { ...row, ...Object.fromEntries(keys.map((k) => [k, was[from][k]])) }
       : row)));
 
+  // Every permit on the form as one list: the first is the one the reader
+  // fills from a document, the rest are added by hand.
+  const FIRST_KEYS = { permitNumber: "permitNumber", expiryDate: "permitExpiryDate",
+    permitVesselVoyage: "permitVesselVoyage", fileName: "permitFileName", scope: "permitScope", rows: "permitRows" };
+  const permitCards = [
+    { permitNumber: job.permitNumber, expiryDate: job.permitExpiryDate, permitVesselVoyage: job.permitVesselVoyage,
+      fileName: job.permitFileName, scope: job.permitScope || "all", rows: job.permitRows || [] },
+    ...(job.extraPermits ?? []).map((p) => ({ scope: "all", rows: [], fileName: "", ...p })),
+  ];
+  const setCard = (index, patch) => {
+    if (index === 0) {
+      set(Object.fromEntries(Object.entries(patch).map(([k, v]) => [FIRST_KEYS[k], v])));
+    } else {
+      set({ extraPermits: job.extraPermits.map((p, i) => (i === index - 1 ? { ...p, ...patch } : p)) });
+    }
+  };
+  const cardIssues = (card) => (card.permitNumber
+    ? checkPermit(
+        {
+          permitId: "draft", permitNumber: card.permitNumber,
+          expiryDate: card.expiryDate || null,
+          permitVesselVoyage: card.permitVesselVoyage || null,
+          fileName: card.fileName || null, linkedContainerIds: [],
+        },
+        { vesselName: job.vesselName || null, voyageNumber: job.voyageNumber || null, eta: job.etaDate || null },
+      ).issues
+    : []);
+  const permitIssues = permitCards.flatMap(cardIssues);
+  const entered = permitCards.filter((c) => c.permitNumber || c.fileName);
+  // Which rows a permit covers: every row, or the ones ticked.
+  const covers = (card, i) => card.scope !== "selected" || (card.rows ?? []).includes(i);
+  const uncoveredRows = rows.map((_, i) => i).filter((i) => !entered.some((card) => covers(card, i)));
+
   function validate() {
     if (!job.customerCode) return ["sec-customer", "Choose a customer."];
     if (job.addressMode === "job" && !job.deliveryAddress) {
@@ -455,8 +500,10 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
       if (!job.vesselName) return ["sec-shipment", "Enter the vessel."];
       // A vessel without a voyage is incomplete.
       if (!job.voyageNumber) return ["sec-shipment", "Enter the voyage."];
-      if (!job.etaDate) return ["sec-shipment", "Enter the ETA date. The time can stay blank."];
       if (!job.carrier) return ["sec-shipment", "Choose the master carrier."];
+      if (rows.some((row) => !row.containerNumber?.trim())) {
+        return ["sec-containers", "Please enter a container number for every import container."];
+      }
       if (!job.blNumber) return ["sec-shipment", "Enter the master bill of lading."];
       if (job.addressMode === "container" && rows.some((r) => !r.deliveryAddress)) {
         return ["sec-containers", "Every container needs a delivery address."];
@@ -487,6 +534,24 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
   async function submit(event) {
     event.preventDefault();
     const failure = validate();
+    if (!failure && type === "IMPORT") {
+      // The demo asks before creating a job it can see a problem with. It
+      // does not refuse: the permit may be on its way.
+      const worries = [];
+      if (job.permitRequired && entered.length === 0) worries.push("No permit has been entered.");
+      if (job.permitRequired && permitIssues.length) worries.push(...permitIssues);
+      if (job.permitRequired && entered.length && uncoveredRows.length) {
+        worries.push(`No permit covers ${uncoveredRows.map((i) => rows[i].containerNumber || `container ${i + 1}`).join(", ")}.`);
+      }
+      const eta = job.etaDate;
+      rows.forEach((row, i) => {
+        const when = row.requestedDeliveryDate || job.requestedDeliveryDate;
+        if (eta && when && when < eta) {
+          worries.push(`${row.containerNumber || `Container ${i + 1}`}: delivery date is before the ETA.`);
+        }
+      });
+      if (worries.length && !window.confirm(`${worries.join("\n")}\n\nCreate the job anyway?`)) return;
+    }
     if (failure) { setProblem(failure[1]); setTab(failure[0]); return; }
 
     setBusy(true);
@@ -516,16 +581,16 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
           // §24. Every permit in hand, stored as records rather than as three
           // fields on the job. They were collected here and written nowhere,
           // so a permit read off a document vanished the moment it was saved.
-          permits: [
-            { permitNumber: shout(job.permitNumber) || null,
-              expiryDate: job.permitExpiryDate || null,
-              permitVesselVoyage: shout(job.permitVesselVoyage) || null },
-            ...(job.extraPermits ?? []).map((p) => ({
-              permitNumber: shout(p.permitNumber) || null,
-              expiryDate: p.expiryDate || null,
-              permitVesselVoyage: shout(p.permitVesselVoyage) || null,
-            })),
-          ].filter((p) => p.permitNumber),
+          permits: job.permitRequired ? permitCards
+            .filter((card) => card.permitNumber || card.fileName)
+            .map((card) => ({
+              permitNumber: shout(card.permitNumber) || null,
+              expiryDate: card.expiryDate || null,
+              permitVesselVoyage: shout(card.permitVesselVoyage) || null,
+              fileName: card.fileName || null,
+              // Every container, or the rows ticked.
+              ...(card.scope === "selected" ? { containerIndexes: card.rows ?? [] } : {}),
+            })) : [],
           // Which rows the release email covered, recorded once the job exists
           // and its containers have ids.
           portnetReleasedRows: rows.flatMap((r, i) => (r.portnetReleased ? [i] : [])),
@@ -541,6 +606,8 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
             // The customer's date: this box's own when it differs, the job's
             // otherwise.
             requestedDeliveryDate: r.requestedDeliveryDate || job.requestedDeliveryDate || null,
+            requestedDeliveryTime: r.requestedDeliveryTime || null,
+            deliveryInstructions: r.deliveryInstructions?.trim() || null,
             deliveryCompany: job.addressMode === "container" ? (r.deliveryCompany || null) : null,
             deliveryAddress: job.addressMode === "container" ? (r.deliveryAddress || null) : null,
             freeTimeModel: r.freeTimeModel,
@@ -588,11 +655,12 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
         };
 
     try {
-      await onCreate(type, draft, { stayHere: again, sourceFile });
+      await onCreate(type, draft, { stayHere: again, sourceFile, permitFiles: { ...permitFiles.current } });
       if (again) {
         // A blank job, as the demo does. Keeping half the last one carried its
         // permits and its document onto the next job without anyone noticing.
         setJob({ ...BLANK_JOB });
+        permitFiles.current = {};
         setRows([{ ...EMPTY_ROW }]);
         setSlots([{ ...BLANK_SLOT }]);
         setNoaNote("");
@@ -659,21 +727,6 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
    * about a permit nobody has uploaded, and an empty checklist reads as a
    * failure rather than as an absence.
    */
-  const permitIssues = job.permitNumber
-    ? checkPermit(
-        {
-          permitId: "draft", permitNumber: job.permitNumber,
-          expiryDate: job.permitExpiryDate || null,
-          permitVesselVoyage: job.permitVesselVoyage || null,
-          fileName: null, linkedContainerIds: [],
-        },
-        {
-          vesselName: job.vesselName || null,
-          voyageNumber: job.voyageNumber || null,
-          eta: job.etaDate || null,
-        },
-      ).issues
-    : [];
 
   /**
    * What each section still wants, computed live.
@@ -956,7 +1009,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
               {isImport ? (
                 <>
                   <WhenField
-                    label="ETA Singapore" required date={job.etaDate} time={job.etaTime}
+                    label="ETA Singapore" date={job.etaDate} time={job.etaTime}
                     onDate={(v) => set({ etaDate: v })} onTime={(v) => set({ etaTime: v })}
                   />
                   <Field label="Terminal">
@@ -1094,7 +1147,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                 </div>
 
                 <div className="formgrid">
-                  <Field label="Container number">
+                  <Field label="Container number" required>
                     <input
                       value={r.containerNumber}
                       onChange={(e) => setRow(i, { containerNumber: shout(e.target.value) })}
@@ -1125,6 +1178,23 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                     <input type="date" className="app-date-input" value={r.requestedDeliveryDate ?? ""}
                       onChange={(e) => setRow(i, { requestedDeliveryDate: e.target.value })} />
                   </Field>
+                  <Field label="Container delivery instructions" hint="For this box only, whatever the delivery mode.">
+                    <input value={r.deliveryInstructions ?? ""}
+                      onChange={(e) => setRow(i, { deliveryInstructions: e.target.value })} />
+                  </Field>
+                  <Field label="Delivery time">
+                    <select className="app-time-input" value={r.requestedDeliveryTime ?? ""}
+                      onChange={(e) => setRow(i, { requestedDeliveryTime: e.target.value })}>
+                      <option value="">Time not known</option>
+                      {TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </Field>
+                  {job.permitRequired ? (
+                    <div className="muted full">
+                      Permit(s) linked to this container:{" "}
+                      {entered.filter((card) => covers(card, i)).map((card) => card.permitNumber || card.fileName).join(", ") || "none yet"}
+                    </div>
+                  ) : null}
 
                   <div className="container-special-config">
                     <div className="container-special-title">Equipment</div>
@@ -1403,77 +1473,99 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
               </label>
             </div>
 
-            {job.permitNumber ? (
+            {/* The demo's permit cards: number, expiry, vessel/voyage and the
+                file, one card per permit, each covering every container or
+                the ones ticked. Shown whenever the job needs a permit, so one
+                can be typed in by hand as well as read from a document. */}
+            {job.permitRequired ? (
               <>
-                <div className="job-create-grid">
-                  <Field label="Permit number" filled={filled.permitNumber}>
-                    <input
-                      className="app-input" value={job.permitNumber}
-                      onChange={(e) => set({ permitNumber: shout(e.target.value) })}
-                    />
-                  </Field>
-                  <Field label="Expires" filled={filled.permitExpiryDate}>
-                    <input
-                      className="app-date-input" type="date" value={job.permitExpiryDate}
-                      onChange={(e) => set({ permitExpiryDate: e.target.value })}
-                    />
-                  </Field>
-                  <Field label="Declared against" filled={filled.permitVesselVoyage}>
-                    <input
-                      className="app-input" value={job.permitVesselVoyage}
-                      onChange={(e) => set({ permitVesselVoyage: shout(e.target.value) })}
-                    />
-                  </Field>
-                </div>
-
-                {/* The same three checks the engine runs after the job exists,
-                    run here — so a permit for the wrong sailing is caught while
-                    the person who can fix it is still looking at the form,
-                    rather than at the gate. They warn; none of them refuses. */}
-                {permitIssues.length ? (
-                  <div className="permit-guidance warn" role="status">
-                    <b>Worth checking before you create this</b>
-                    {permitIssues.map((issue) => <span key={issue}>{issue}</span>)}
-                  </div>
-                ) : (
-                  <div className="permit-guidance ok" role="status">
-                    <b>Checks out</b>
-                    <span>Number, expiry and vessel all agree with this shipment.</span>
-                  </div>
-                )}
-                {/* Two onwards. Each covers every container on the job unless
-                    it is narrowed afterwards on the permit tab, because a
-                    permit arriving with the notice is normally the whole
-                    shipment's. */}
-                {(job.extraPermits ?? []).map((extra, index) => (
-                  <div className="job-create-grid" key={index}>
-                    <Field label={`Permit ${index + 2} number`}>
-                      <input className="app-input" value={extra.permitNumber}
-                        onChange={(e) => set({ extraPermits: job.extraPermits.map((p, i) =>
-                          i === index ? { ...p, permitNumber: shout(e.target.value) } : p) })} />
-                    </Field>
-                    <Field label="Expires">
-                      <input className="app-date-input" type="date" value={extra.expiryDate}
-                        onChange={(e) => set({ extraPermits: job.extraPermits.map((p, i) =>
-                          i === index ? { ...p, expiryDate: e.target.value } : p) })} />
-                    </Field>
-                    <Field label="Declared against">
-                      <input className="app-input" value={extra.permitVesselVoyage}
-                        onChange={(e) => set({ extraPermits: job.extraPermits.map((p, i) =>
-                          i === index ? { ...p, permitVesselVoyage: shout(e.target.value) } : p) })} />
-                    </Field>
-                  </div>
-                ))}
+                {permitCards.map((card, index) => {
+                  const issues = cardIssues(card);
+                  return (
+                    <div className="container-entry" key={index}>
+                      <div className="container-entry-head">
+                        <b>Permit {index + 1}</b>
+                        {index > 0 ? (
+                          <button type="button" className="btn ghost"
+                            onClick={() => {
+                              delete permitFiles.current[index];
+                              set({ extraPermits: job.extraPermits.filter((_, i) => i !== index - 1) });
+                            }}>Remove</button>
+                        ) : null}
+                      </div>
+                      <div className="job-create-grid">
+                        <Field label="Permit number" filled={index === 0 ? filled.permitNumber : undefined}>
+                          <input className="app-input" value={card.permitNumber ?? ""}
+                            onChange={(e) => setCard(index, { permitNumber: shout(e.target.value) })} />
+                        </Field>
+                        <Field label="Expires" filled={index === 0 ? filled.permitExpiryDate : undefined}>
+                          <input className="app-date-input" type="date" value={card.expiryDate ?? ""}
+                            onChange={(e) => setCard(index, { expiryDate: e.target.value })} />
+                        </Field>
+                        <Field label="Permit vessel / voyage" filled={index === 0 ? filled.permitVesselVoyage : undefined}>
+                          <input className="app-input" value={card.permitVesselVoyage ?? ""}
+                            onChange={(e) => setCard(index, { permitVesselVoyage: shout(e.target.value) })} />
+                        </Field>
+                        <Field label="Permit file" hint={card.fileName || "PDF, JPG or PNG"}>
+                          <input type="file" accept=".pdf,.jpg,.jpeg,.png"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] ?? null;
+                              if (file) permitFiles.current[index] = file; else delete permitFiles.current[index];
+                              setCard(index, { fileName: file?.name ?? "" });
+                            }} />
+                        </Field>
+                      </div>
+                      <div className="action-row" style={{ gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                        <button type="button" className={`btn ${card.scope !== "selected" ? "primary" : "secondary"}`}
+                          onClick={() => setCard(index, { scope: "all" })}>Copy to All</button>
+                        <button type="button" className={`btn ${card.scope === "selected" ? "primary" : "secondary"}`}
+                          onClick={() => setCard(index, { scope: "selected" })}>Copy to Selected</button>
+                      </div>
+                      {card.scope === "selected" ? (
+                        <div className="container-special-options" style={{ marginTop: 8 }}>
+                          {rows.map((row, i) => (
+                            <label className="container-special-option" key={i}>
+                              <input type="checkbox" checked={(card.rows ?? []).includes(i)}
+                                onChange={(e) => setCard(index, { rows: e.target.checked
+                                  ? [...(card.rows ?? []), i] : (card.rows ?? []).filter((x) => x !== i) })} />
+                              {" "}{row.containerNumber || `Container ${i + 1}`}
+                            </label>
+                          ))}
+                        </div>
+                      ) : null}
+                      <div className="muted" style={{ marginTop: 6 }}>
+                        Covers {card.scope === "selected"
+                          ? `${(card.rows ?? []).length} of ${rows.length} container${rows.length === 1 ? "" : "s"}`
+                          : `all ${rows.length} container${rows.length === 1 ? "" : "s"}`}.
+                      </div>
+                      {card.permitNumber ? (
+                        issues.length ? (
+                          <div className="permit-guidance warn" role="status">
+                            <b>Requires attention</b>
+                            {issues.map((issue) => <span key={issue}>{issue}</span>)}
+                          </div>
+                        ) : (
+                          <div className="permit-guidance ok" role="status">
+                            <b>Checks out</b>
+                            <span>Number, expiry and vessel all agree with this shipment.</span>
+                          </div>
+                        )
+                      ) : null}
+                    </div>
+                  );
+                })}
 
                 <div className="action-row" style={{ marginTop: 10 }}>
                   <button className="btn ghost" type="button"
                     onClick={() => set({ extraPermits: [...(job.extraPermits ?? []),
-                      { permitNumber: "", expiryDate: "", permitVesselVoyage: "" }] })}>
-                    Add another permit
+                      { permitNumber: "", expiryDate: "", permitVesselVoyage: "", fileName: "", scope: "all", rows: [] }] })}>
+                    + Add Permit
                   </button>
                 </div>
               </>
-            ) : null}
+            ) : (
+              <div className="muted">Permit not required for this job.</div>
+            )}
           </section>
         ) : null}
 

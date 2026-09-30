@@ -4946,7 +4946,7 @@ export default function GreenlitControlTower() {
    * one: a customer rings, the booking is agreed, and the notice follows two
    * days later.
    */
-  async function createJob(type, { portnetReleasedRows = [], ...draft }, { stayHere = false, sourceFile = null } = {}) {
+  async function createJob(type, { portnetReleasedRows = [], ...draft }, { stayHere = false, sourceFile = null, permitFiles = {} } = {}) {
     const response = await fetch("/api/jobs", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -4976,6 +4976,19 @@ export default function GreenlitControlTower() {
       // The job exists either way, so a failed attachment is said and not
       // thrown: losing the job over its paperwork would be the worse trade.
       if (!stored?.ok) showToast("The job was created, but its document was not attached.");
+    }
+
+    // Each permit file, stored once on the job as a permit document.
+    for (const file of Object.values(permitFiles)) {
+      if (!file || !newId) continue;
+      const form = new FormData();
+      form.append("file", file);
+      form.append("documentType", "PERMIT");
+      form.append("source", "MANUAL_UPLOAD");
+      const saved = await fetch(`/api/jobs/${encodeURIComponent(newId)}/documents`, {
+        method: "POST", body: form,
+      }).catch(() => null);
+      if (!saved?.ok) showToast(`The job was created, but the permit file ${file.name} was not attached.`);
     }
 
     // The release email that arrived before the job did. Recorded through the

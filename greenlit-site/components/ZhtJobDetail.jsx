@@ -851,7 +851,10 @@ export default function ZhtJobDetail({
     ["Packages", container.packageCount],
     ["Tare (KGS)", container.tare],
     ["Status", container.status ?? container.state],
-    ["Requested delivery date", container.requestedDeliveryDate ? formatDay(container.requestedDeliveryDate) : "Not given"],
+    ["Requested delivery date", container.requestedDeliveryDate
+      ? `${formatDay(container.requestedDeliveryDate)}${container.requestedDeliveryTime ? ` ${container.requestedDeliveryTime}` : ""}`
+      : "Not given"],
+    ["Delivery instructions", container.containerDeliveryInstructions || "None"],
     ["Planned delivery date", container.plannedDeliveryDate ? formatDay(container.plannedDeliveryDate) : "As requested"],
     ["Last Free Day", formatDay(container.lastFreeDay)],
   ];

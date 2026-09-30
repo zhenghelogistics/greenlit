@@ -230,6 +230,8 @@ export function jobFromApi(view) {
       planBlockedReason: view.containers?.[i]?.planBlockedReason ?? null,
       plannedDeliveryDate: c.plannedDeliveryDate ?? null,
       requestedDeliveryDate: c.requestedDeliveryDate ?? null,
+      requestedDeliveryTime: c.requestedDeliveryTime ?? "",
+      containerDeliveryInstructions: c.deliveryInstructions ?? "",
       plannedDeliveryTime: c.plannedDeliveryTime ?? "",
       warnings: view.containers?.[i]?.warnings ?? [],
     })),

@@ -60,3 +60,25 @@ test('renaming a customer keeps its jobs with it', async () => {
   await repo.amendCustomer('ABC', { companyName: 'ABC Holdings' }, 'operations');
   assert.equal((await repo.getImportJob(job.jobId))!.customer, 'ABC Holdings');
 });
+
+test('permits typed at creation keep their file and cover the rows ticked', async () => {
+  const repo = createMemoryRepository();
+  const job = await repo.createImportJob({
+    customerCode: 'ABC', deliveryAddress: '1 Tuas Avenue 1', permitRequired: true,
+    containers: [
+      { containerNumber: 'OOLU1234567', sizeType: '20 GP', requestedDeliveryTime: '09:30', deliveryInstructions: 'Gate B' },
+      { containerNumber: 'TCLU7654321', sizeType: '40 HQ' },
+    ],
+    permits: [
+      { permitNumber: 'IG6I356324B', containerIndexes: [0] },
+      { permitNumber: null, fileName: 'permit-b.pdf', containerIndexes: [1] },
+    ],
+  } as never, 'operations');
+  const [a, b] = await repo.listContainersForImportJob(job.jobId);
+  const permits = await repo.listPermitsForJob(job.jobId);
+  assert.equal(permits.length, 2, 'a permit with only its file is kept');
+  assert.deepEqual(permits[0]!.linkedContainerIds, [a!.containerId]);
+  assert.deepEqual(permits[1]!.linkedContainerIds, [b!.containerId]);
+  assert.equal(a!.requestedDeliveryTime, '09:30');
+  assert.equal(a!.deliveryInstructions, 'Gate B');
+});

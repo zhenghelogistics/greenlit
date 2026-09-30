@@ -630,6 +630,8 @@ export interface ContainerAmendment {
   triAxle?: boolean;
   /** The delivery date the customer asked for, correctable after creation. */
   requestedDeliveryDate?: string | null;
+  requestedDeliveryTime?: string | null;
+  deliveryInstructions?: string | null;
   /**
    * The day this box is to be delivered, set by the controller for all of a
    * job's boxes or the ones picked, so a staggered delivery keeps its dates.
@@ -793,6 +795,11 @@ export interface PermitDraft {
   fileName?: string | null;
   /** Containers it covers. Empty is legitimate: a permit can arrive untagged. */
   containerIds?: readonly string[];
+  /**
+   * At creation, before the containers have ids: which rows of the job's
+   * container list it covers. Absent means every container.
+   */
+  containerIndexes?: readonly number[];
 }
 
 /** Permits grouped by the job they belong to, for a batched read. */
@@ -847,6 +854,8 @@ export interface ImportContainerDraft {
   triAxle?: boolean;
   /** The delivery date the customer asked for. */
   requestedDeliveryDate?: string | null;
+  requestedDeliveryTime?: string | null;
+  deliveryInstructions?: string | null;
   /** Where this box goes back empty. Asked at creation; was dropped on save. */
   emptyReturnYard?: string | null;
   /** §9.3. Where this box goes, when the job delivers to more than one place. */

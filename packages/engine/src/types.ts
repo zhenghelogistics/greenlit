@@ -131,6 +131,10 @@ export interface ImportContainer {
    * Optional so records made before 0037 read as not recorded.
    */
   requestedDeliveryDate?: IsoDate | null;
+  /** The time the customer asked for, a half-hour, when they gave one. */
+  requestedDeliveryTime?: string | null;
+  /** Delivery instructions for this box only, whatever the delivery mode. */
+  deliveryInstructions?: string | null;
   /** A half-hour, or null when the day is agreed and the hour is not. */
   plannedDeliveryTime: string | null;
   /**

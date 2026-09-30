@@ -23,7 +23,7 @@ export async function PATCH(request: Request, ctx: {
     "grossWeight", "packageCount", "packageType", "emptyReturnYard", "triAxle",
     // The customer's date. The controller's planned date has its own route,
     // which waits for release and discharge.
-    "requestedDeliveryDate",
+    "requestedDeliveryDate", "requestedDeliveryTime", "deliveryInstructions",
     "deliveryCompany", "deliveryAddress",
     // Export: the box's own weight and where it is stuffed, and its size.
     "grossWeightKg", "stuffingLocation", "sizeType",

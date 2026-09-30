@@ -1427,6 +1427,8 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
           // §29. Asked for on the form since the start and stored from 0024.
           tri_axle: c.triAxle === true,
           requested_delivery_date: c.requestedDeliveryDate ?? null,
+          requested_delivery_time: c.requestedDeliveryTime ?? null,
+          delivery_instructions: c.deliveryInstructions ?? null,
           empty_return_yard: c.emptyReturnYard?.trim() || null,
           // §9.3. Null means this box uses the job's own address.
           delivery_company: c.deliveryCompany?.trim() || null,
@@ -1467,12 +1469,15 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       // for. Collected on the form and stored nowhere until now, so a permit
       // read off a document vanished the moment the job was saved.
       for (const permit of draft.permits ?? []) {
-        if (!permit.permitNumber?.trim()) continue;
+        if (!permit.permitNumber?.trim() && !permit.fileName?.trim()) continue;
+        const { containerIndexes, ...rest } = permit;
         await this.recordPermit(jobId, {
-          ...permit,
+          ...rest,
           containerIds: permit.containerIds?.length
             ? permit.containerIds
-            : drafts.map((_, index) => `${jobId}-c${index + 1}`),
+            : containerIndexes
+              ? containerIndexes.filter((i) => i >= 0 && i < drafts.length).map((i) => `${jobId}-c${i + 1}`)
+              : drafts.map((_, index) => `${jobId}-c${index + 1}`),
         }, actor);
       }
 

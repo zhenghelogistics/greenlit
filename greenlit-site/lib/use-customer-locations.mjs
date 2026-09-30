@@ -36,6 +36,8 @@ export function useCustomerLocations(customerCode) {
     companies: [...new Set(usable.map((l) => l.company).filter(Boolean))],
     addressesFor: (company) =>
       usable.filter((l) => l.company === company).map((l) => l.address).filter(Boolean),
+    /** The customer's default location, or its first, to pre-select. */
+    defaultSite: usable.find((l) => l.isDefault) ?? usable[0] ?? null,
     /** The site behind a chosen address, for its standing instructions. */
     siteAt: (company, address) =>
       usable.find((l) => l.company === company && l.address === address) ?? null,
