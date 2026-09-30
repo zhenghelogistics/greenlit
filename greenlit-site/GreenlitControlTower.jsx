@@ -4282,6 +4282,16 @@ export default function GreenlitControlTower() {
   const fleet = useFleet(FLEET_SCREENS.includes(current));
   const [drivers, reloadDrivers] = useDrivers(FLEET_SCREENS.includes(current) || current === "drivers");
 
+  /** Delete a driver never put on a trip; the server says so when one was. */
+  async function deleteDriver(driver) {
+    const response = await fetch(`/api/drivers/${encodeURIComponent(driver.driverId)}`, { method: "DELETE" })
+      .catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    if (!response?.ok) { showToast(payload?.error ?? "That driver was not deleted."); return; }
+    reloadDrivers();
+    showToast(`${driver.name} deleted.`);
+  }
+
   /** Add a driver, or change one's vehicle or whether they are in use. */
   async function saveDriver(driver) {
     const response = await fetch("/api/drivers", {
@@ -5630,7 +5640,7 @@ export default function GreenlitControlTower() {
       {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => setCreatingJob(true)} /> : null}
 
       {current === "planning" ? <ZhtPlanning jobs={jobs} fleet={fleet} drivers={drivers} onOpenJob={(job) => openJob(job.id)} /> : null}
-      {current === "drivers" ? <ZhtDrivers fleet={fleet} jobs={jobs} drivers={drivers} onSaveDriver={saveDriver} /> : null}
+      {current === "drivers" ? <ZhtDrivers fleet={fleet} jobs={jobs} drivers={drivers} onSaveDriver={saveDriver} onDeleteDriver={deleteDriver} /> : null}
       {current === "emptyReturns" ? <ZhtEmptyReturns jobs={jobs} onOpenJob={(job, index) => openJob(job.id, index ?? 0)} /> : null}
       {current === "billing" ? <ZhtBilling jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
       {current === "search" ? <ZhtSearchResults jobs={jobs} query={searchQuery} onOpenJob={(job, index) => openJob(job.id, index)} onBack={goBack} /> : null}

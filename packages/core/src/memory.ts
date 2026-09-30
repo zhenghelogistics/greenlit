@@ -1465,6 +1465,18 @@ export function createMemoryRepository(): Repository {
 
     async listChassis() { return clone(fleet); },
     async listDrivers() { return clone(drivers); },
+    async deleteDriver(driverId, actor) {
+      const at = drivers.findIndex((d) => d.driverId === driverId);
+      if (at < 0) throw new Error(`Unknown driver ${driverId}`);
+      const name = drivers[at]!.name;
+      const onTrips = Object.values(movements).flat()
+        .filter((m) => String(m.driver ?? '').trim().toUpperCase() === name).length;
+      if (onTrips) {
+        throw new Error(`${name} is on ${onTrips} trip${onTrips === 1 ? '' : 's'}, so cannot be deleted. Take them out of use instead.`);
+      }
+      drivers.splice(at, 1);
+      record(driverId, 'driver.deleted', actor, { field: 'driver', from: name, to: null });
+    },
     async saveDriver(draft, actor) {
       const name = draft.name.trim().toUpperCase();
       if (!name) throw new Error('A driver needs a name.');

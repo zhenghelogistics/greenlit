@@ -288,7 +288,7 @@ function ZhtPlanningRow({ truck, driver, entries, slots, onOpenJob }) {
  * they are free: the demo's Drivers & Vehicles. A driver named on a trip but
  * not on file is listed too, so nobody planned disappears from the list.
  */
-export function ZhtDrivers({ fleet, jobs = [], drivers = [], onSaveDriver }) {
+export function ZhtDrivers({ fleet, jobs = [], drivers = [], onSaveDriver, onDeleteDriver }) {
   const [adding, setAdding] = useState({ name: "", vehicle: "" });
   const open = jobs.flatMap((job) => (job.trips ?? [])
     .filter((t) => t.driver && !["COMPLETED", "CANCELLED"].includes(t.status))
@@ -325,10 +325,18 @@ export function ZhtDrivers({ fleet, jobs = [], drivers = [], onSaveDriver }) {
                 </td>
                 <td>
                   {row.onFile ? (
-                    <button className="btn ghost" type="button"
-                      onClick={() => onSaveDriver?.({ driverId: row.onFile.driverId, name: row.name, active: row.onFile.active === false })}>
-                      {row.onFile.active === false ? "Put back in use" : "Take out of use"}
-                    </button>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <button className="btn ghost" type="button"
+                        onClick={() => onSaveDriver?.({ driverId: row.onFile.driverId, name: row.name, active: row.onFile.active === false })}>
+                        {row.onFile.active === false ? "Put back in use" : "Take out of use"}
+                      </button>
+                      <button className="btn ghost" type="button"
+                        onClick={() => {
+                          if (window.confirm(`Delete ${row.name}? This cannot be undone.`)) onDeleteDriver?.(row.onFile);
+                        }}>
+                        Delete
+                      </button>
+                    </div>
                   ) : (
                     <button className="btn ghost" type="button"
                       onClick={() => onSaveDriver?.({ name: row.name, vehicle: row.vehicle || null })}>

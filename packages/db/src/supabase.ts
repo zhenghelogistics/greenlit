@@ -1269,6 +1269,22 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         vehicle: (r.vehicle as string | null) ?? null, active: r.active !== false,
       }));
     },
+    async deleteDriver(driverId, actor) {
+      const found = await db.from('drivers').select('name').eq('driver_id', driverId).maybeSingle();
+      if (found.error) throw new Error(`driver lookup: ${found.error.message}`);
+      if (!found.data) throw new Error(`Unknown driver ${driverId}`);
+      const name = found.data.name as string;
+      const trips = await db.from('movements').select('movement_id', { count: 'exact', head: true })
+        .ilike('driver', name);
+      if (trips.error) throw new Error(`driver trips: ${trips.error.message}`);
+      const onTrips = trips.count ?? 0;
+      if (onTrips) {
+        throw new Error(`${name} is on ${onTrips} trip${onTrips === 1 ? '' : 's'}, so cannot be deleted. Take them out of use instead.`);
+      }
+      const gone = await db.from('drivers').delete().eq('driver_id', driverId);
+      if (gone.error) throw new Error(`delete driver: ${gone.error.message}`);
+      await record(driverId, 'driver.deleted', actor, { field: 'driver', from: name, to: null });
+    },
     async saveDriver(draft, actor) {
       const name = draft.name.trim().toUpperCase();
       if (!name) throw new Error('A driver needs a name.');

@@ -316,6 +316,11 @@ export interface Repository {
   listDrivers(): Promise<Driver[]>;
   /** Add a driver, or change one's name, vehicle or whether they are in use. */
   saveDriver(draft: DriverDraft, actor: string): Promise<Driver>;
+  /**
+   * Remove a driver who was never put on a trip. One named on a trip is on
+   * that trip's history, so is taken out of use instead, and this refuses.
+   */
+  deleteDriver(driverId: string, actor: string): Promise<void>;
   listChassisHoldings(): Promise<ChassisHolding[]>;
   /**
    * §35.8. A mid-job chassis change is an exception, not a workflow: the
