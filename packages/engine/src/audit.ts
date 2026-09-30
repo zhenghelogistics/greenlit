@@ -154,6 +154,8 @@ export function asNarrative(events: readonly AuditEvent[]): AuditEvent[] {
 export function describe(event: AuditEvent): string {
   // A note somebody wrote is shown as they wrote it, not as a field change.
   if (event.event === 'job.note') return `Note: ${event.newValue ?? ''}`;
+  // A line the system writes in words, such as the scope of a bulk action.
+  if (event.event === 'job.said') return String(event.newValue ?? '');
   const change = event.field
     ? `${event.field}: ${event.previousValue ?? '(empty)'} → ${event.newValue ?? '(empty)'}`
     : event.event;

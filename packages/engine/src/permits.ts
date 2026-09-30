@@ -30,7 +30,9 @@
  * real permit is worse than accepting a mistyped one that the vessel and
  * expiry checks will still scrutinise.
  */
-const PERMIT_NUMBER = /^(IG|ME)\d[A-Z]\d{6}[A-Z]$/;
+// The demo's shape, AA9A999999A: any two letters, not only IG and ME, so a
+// prefix we have not seen yet is not flagged as a mistake.
+const PERMIT_NUMBER = /^[A-Z]{2}\d[A-Z]\d{6}[A-Z]$/;
 
 export function normalisePermitNumber(value: string): string {
   return value.trim().toUpperCase().replace(/[\s-]/g, '');
@@ -111,7 +113,7 @@ export function checkPermit(
     if (numberFormat === 'ATTENTION') {
       issues.push(
         `Permit number ${permit.permitNumber} is not the usual shape `
-        + '(IG or ME, a digit, a letter, six digits, a letter). Check it against the permit.',
+        + '(two letters, a digit, a letter, six digits, a letter). Check it against the permit.',
       );
     }
   }

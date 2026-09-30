@@ -28,5 +28,11 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     for (const containerId of ids) {
       await repo.recordDischarged(containerId, auth.displayName);
     }
+    // What the bulk action covered, in the demo's words, so the log says
+    // it was one decision and not several.
+    if (body?.scope === "all" || body?.scope === "selected") {
+      await repo.sayOnJob(id, `Controller applied Discharge to ${body.scope === "all"
+        ? "all pending containers in this job" : "selected containers in this job"} (${ids.length}).`, auth.displayName);
+    }
   });
 }

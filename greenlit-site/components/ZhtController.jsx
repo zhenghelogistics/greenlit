@@ -154,7 +154,7 @@ function PendingByJob({ rows, jobs, onOpenJob, onDischargeMany, onPortnet }) {
           const label = kind === "portnet" ? "Portnet Release" : "Discharge";
           const where = mode === "all" ? `all pending containers in ${job.id}` : `selected containers in ${job.id}`;
           if (!window.confirm(`${label}: apply to ${where} (${targets.length})?`)) return;
-          if (kind === "portnet") onPortnet(job, targets); else onDischargeMany(job, targets);
+          if (kind === "portnet") onPortnet(job, targets, mode); else onDischargeMany(job, targets, mode);
           setMany(targets, false);
         };
 
@@ -622,7 +622,7 @@ function ExportTable({ rows, onOpenJob }) {
 }
 
 
-export default function ZhtController({ jobs, fleet, drivers = [], onOpenJob, onDischargeMany, onPortnet, onDeliver, onSetDeliveryDate, onPlan, onEmpty }) {
+export default function ZhtController({ jobs, fleet, drivers = [], onOpenPlanning, onOpenJob, onDischargeMany, onPortnet, onDeliver, onSetDeliveryDate, onPlan, onEmpty }) {
   const q = controllerQueues(jobs);
   // The Plan form, open on one container at a time.
   const [planning, setPlanning] = useState(null);
@@ -664,17 +664,32 @@ export default function ZhtController({ jobs, fleet, drivers = [], onOpenJob, on
           What stays at the top is the only number that is not a pile: how much
           of today is unplanned, which is the question the board exists to
           answer and which no tab shows. */}
-      <div className="clean-metrics" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-        <div className={`clean-metric${q.importPending.length > 0 ? " attention-soft" : ""}`}>
-          <span>Waiting on Portnet or discharge</span>
-          <strong>{q.importPending.length}</strong>
-          <small>Nothing can be collected until both are done</small>
-        </div>
-        <div className="clean-metric">
-          <span>Ready, and not yet planned</span>
-          <strong>{q.importReady.filter(({ job, c }) => !(job.trips ?? []).some((t) => t.containerId === c.id)).length}</strong>
-          <small>A truck can go today</small>
-        </div>
+      {/* The demo's four page cards: each opens its part of the board, and
+          Planned Movements opens the Planning board. */}
+      <div className="clean-metrics" style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}>
+        <button type="button" className={`clean-metric${["importPending", "importReady", "importDelivered"].includes(tab) ? " attention-soft" : ""}`}
+          onClick={() => setTab("importReady")}>
+          <span>Import Operations</span>
+          <strong>{q.importReady.length}</strong>
+          <small>{q.importPending.length} pending · {q.importReady.length} ready · {q.importDelivered.length} delivered</small>
+        </button>
+        <button type="button" className={`clean-metric${tab === "exportReady" ? " attention-soft" : ""}`}
+          onClick={() => setTab("exportReady")}>
+          <span>Export Collection</span>
+          <strong>{q.exportReady.filter(({ job, c }) => cmsWords(job, c) === "CMS completed").length}</strong>
+          <small>CMS done, ready for empty collection</small>
+        </button>
+        <button type="button" className={`clean-metric${tab === "emptyReturns" ? " attention-soft" : ""}`}
+          onClick={() => setTab("emptyReturns")}>
+          <span>Empty Returns</span>
+          <strong>{q.emptyReturns.length}</strong>
+          <small>Finished with, waiting to go back</small>
+        </button>
+        <button type="button" className="clean-metric" onClick={() => onOpenPlanning?.()}>
+          <span>Planned Movements</span>
+          <strong>{jobs.flatMap((j) => j.trips ?? []).filter((t) => !["COMPLETED", "CANCELLED"].includes(t.status)).length}</strong>
+          <small>Open movements, dated or not</small>
+        </button>
       </div>
 
       <div className="card" style={{ marginBottom: 12 }}>

@@ -1205,6 +1205,10 @@ export function createMemoryRepository(): Repository {
         doubleMountingPermitted: draft.doubleMountingPermitted ?? true,
         standbyUsual: draft.standbyUsual ?? false,
         active: draft.active ?? true,
+        receivingFrom: draft.receivingFrom || null,
+        receivingTo: draft.receivingTo || null,
+        parkingAccess: draft.parkingAccess?.trim() || null,
+        specialRemarks: draft.specialRemarks?.trim() || null,
       };
 
       // One default per customer. Setting a new one clears the old rather than
@@ -1387,6 +1391,9 @@ export function createMemoryRepository(): Repository {
       if (!known) throw new Error(`Unknown job ${jobId}`);
       if (!text.trim()) throw new Error('Write the note first.');
       record(jobId, 'job.note', actor, { field: 'note', to: text.trim() });
+    },
+    async sayOnJob(jobId, text, actor) {
+      record(jobId, 'job.said', actor, { field: 'said', to: text });
     },
     async amendPermit(permitId, changes, actor) {
       const stored = permits.find((p) => p.permitId === permitId);
@@ -1637,7 +1644,7 @@ export function createMemoryRepository(): Repository {
         // containers is the event operations and the controller both need
         // to see, and the log is read by the job.
         record(jobId, 'portnet.released', actor,
-          { field: `Portnet release for ${box.containerNumber ?? box.containerId}`, from: null, to: at });
+          { field: `Portnet (${box.containerNumber ?? box.containerId})`, from: 'Pending', to: 'Released' });
       }
 
       // The job flag means every box, and is set only when every box is.
@@ -1819,7 +1826,7 @@ export function createMemoryRepository(): Repository {
       if (c.dischargedAt) return;
       c.dischargedAt = new Date().toISOString();
       record(jobOfContainer(containerId), 'container.discharged', actor,
-        { field: 'dischargedAt', from: null, to: c.dischargedAt });
+        { field: `Discharged (${c.containerNumber ?? containerId})`, from: 'No', to: 'Yes' });
     },
     async recordDelivered(containerId, actor) {
       const c = Object.values(importContainers).flat()

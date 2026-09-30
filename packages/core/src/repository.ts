@@ -307,6 +307,8 @@ export interface Repository {
   removePermit(permitId: string, actor: string): Promise<void>;
   /** A note on the job's log, in the words of whoever wrote it. */
   addJobNote(jobId: string, text: string, actor: string): Promise<void>;
+  /** A line on the job's log in words, such as what a bulk action covered. */
+  sayOnJob(jobId: string, text: string, actor: string): Promise<void>;
   /** Correct a permit's number, expiry, vessel/voyage or file, field by field in the log. */
   amendPermit(permitId: string, changes: PermitAmendment, actor: string): Promise<PermitRecord>;
   listPrincipals(): Promise<Principal[]>;
@@ -736,6 +738,12 @@ export interface CustomerLocationDraft {
   doubleMountingPermitted?: boolean;
   standbyUsual?: boolean;
   active?: boolean;
+  /** The demo's receiving window, half-hours, when the site gives one. */
+  receivingFrom?: string | null;
+  receivingTo?: string | null;
+  /** Parking and access at the site, and anything else a driver must know. */
+  parkingAccess?: string | null;
+  specialRemarks?: string | null;
 }
 
 /** §18. A movement as a controller plans it. */

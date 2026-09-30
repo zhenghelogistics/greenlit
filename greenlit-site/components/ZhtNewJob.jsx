@@ -358,6 +358,8 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
   const [filled, setFilled] = useState({});
   const [reading, setReading] = useState("");
   const [noaNote, setNoaNote] = useState("");
+  /** A document read and waiting for review, before anything is applied. */
+  const [pendingRead, setPendingRead] = useState(null);
   /** What the notice said the delivery address was. Shown, never applied. */
   const [readAddress, setReadAddress] = useState("");
 
@@ -667,6 +669,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
         setNoaNote("");
         setFilled({});
         setReadAddress("");
+        setPendingRead(null);
         setSourceFile(null);
         setSourceName("");
         if (sourceUrl) URL.revokeObjectURL(sourceUrl);
@@ -771,7 +774,15 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
    * field that cannot be matched safely — the delivery address — is shown
    * beside the picker rather than chosen.
    */
+  // The demo's Extraction Review: what was read is shown first, and nothing is
+  // written into the form until "Apply Reviewed Extraction".
   function applyDocument(read, fileName) {
+    setPendingRead({ read, fileName });
+  }
+  function applyReviewed() {
+    if (!pendingRead) return;
+    const { read, fileName } = pendingRead;
+    setPendingRead(null);
     const {
       job: patch, filled: marks, rows: readRows,
       readAddress: address, count, documentType,
@@ -811,6 +822,46 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
           onRead={applyDocument} onFile={keepSource} note={noaNote}
           busy={reading} setBusy={setReading}
         />
+
+        {pendingRead ? (() => {
+          const preview = jobFromDocument(pendingRead.read, []);
+          const p = preview.job ?? {};
+          const lines = [
+            ["Master carrier", p.carrier], ["Vessel", p.vesselName], ["Voyage", p.voyageNumber],
+            ["ETA SIN", p.etaDate ? `${p.etaDate}${p.etaTime ? ` ${p.etaTime}` : ""}` : ""],
+            ["MBL", p.blNumber], ["HBL", p.houseBlNumber],
+            ["Empty return yard", preview.rows?.[0]?.emptyReturnYard],
+          ];
+          return (
+            <div className="card" role="region" aria-label="Extraction review" style={{ marginBottom: 12 }}>
+              <div className="section-title">Extraction Review · {pendingRead.fileName}</div>
+              <div className="muted">Check what was read. Nothing is written into the form until you apply it.</div>
+              <div className="fieldgrid" style={{ marginTop: 8 }}>
+                {lines.map(([label, value]) => (
+                  <div className="field" key={label}><span className="field-label">{label}</span><b>{value || "Not read"}</b></div>
+                ))}
+              </div>
+              {preview.rows?.length ? (
+                <table className="moves" style={{ marginTop: 8 }}>
+                  <thead><tr><th>Container</th><th>Format</th><th>Size</th></tr></thead>
+                  <tbody>
+                    {preview.rows.map((row, i) => (
+                      <tr key={i}>
+                        <td>{row.containerNumber || "—"}</td>
+                        <td>{/^[A-Z]{4}\d{7}$/.test(row.containerNumber || "") ? "OK" : "Check"}</td>
+                        <td>{row.sizeType || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : null}
+              <div className="action-row" style={{ marginTop: 10, gap: 8 }}>
+                <button type="button" className="btn primary" onClick={applyReviewed}>Apply Reviewed Extraction</button>
+                <button type="button" className="btn secondary" onClick={() => setPendingRead(null)}>Keep Manual Entry</button>
+              </div>
+            </div>
+          );
+        })() : null}
 
         <SectionNav sections={sections} current={openTab} onJump={setTab} />
 

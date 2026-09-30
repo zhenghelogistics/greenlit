@@ -218,6 +218,7 @@ export function jobFromApi(view) {
       handedOver: view.containers?.[i]?.handedOver ?? false,
       // §24. Which permits cover this box, read from the container's own side.
       permitNumbers: view.containers?.[i]?.permitNumbers ?? [],
+      permitDetails: view.containers?.[i]?.permitDetails ?? [],
       readyForHandover: view.containers?.[i]?.readyForHandover ?? false,
       // The controller's four piles, and the two facts behind them.
       controllerStage: view.containers?.[i]?.controllerStage ?? "PENDING",

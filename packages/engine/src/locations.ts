@@ -40,6 +40,12 @@ export interface CustomerLocation {
   doubleMountingPermitted: boolean;
   /** §21.3. A default about this site, not an instruction for this trip. */
   standbyUsual: boolean;
+  /** The demo's receiving window, half-hours, when the site gives one. */
+  receivingFrom?: string | null;
+  receivingTo?: string | null;
+  /** Parking and access at the site, and anything else a driver must know. */
+  parkingAccess?: string | null;
+  specialRemarks?: string | null;
   active: boolean;
 }
 

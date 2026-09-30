@@ -3,9 +3,19 @@ import { authorize, badRequest, readJson } from "../../../lib/command";
 import { getRepository, jsonError } from "../../../lib/greenlit";
 
 /** The customer master. Retainer customers are the organising unit (ADR-0007). */
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    return Response.json({ customers: await getRepository().listCustomers() });
+    const repo = getRepository();
+    const customers = await repo.listCustomers();
+    // The Customer Master list shows each customer's saved addresses and
+    // searches them, so it asks for them; other callers do not pay for it.
+    if (new URL(request.url).searchParams.get("withLocations") !== "1") {
+      return Response.json({ customers });
+    }
+    const withLocations = await Promise.all(customers.map(async (c) => ({
+      ...c, locations: await repo.listCustomerLocations(c.code),
+    })));
+    return Response.json({ customers: withLocations });
   } catch (error) {
     return jsonError(error);
   }

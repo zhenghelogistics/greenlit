@@ -39,6 +39,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ code: stri
       company?: string; label?: string; address?: string; isDefault?: boolean;
       operationalInstructions?: string | null;
       doubleMountingPermitted?: boolean; standbyUsual?: boolean;
+      receivingFrom?: string | null; receivingTo?: string | null;
+      parkingAccess?: string | null; specialRemarks?: string | null;
     }>(request);
     if (!body) return badRequest("A JSON body is required");
 
@@ -55,6 +57,10 @@ export async function POST(request: Request, ctx: { params: Promise<{ code: stri
       isDefault: body.isDefault ?? false,
       doubleMountingPermitted: body.doubleMountingPermitted ?? true,
       standbyUsual: body.standbyUsual ?? false,
+      receivingFrom: body.receivingFrom ?? null,
+      receivingTo: body.receivingTo ?? null,
+      parkingAccess: body.parkingAccess ?? null,
+      specialRemarks: body.specialRemarks ?? null,
     }, auth.displayName);
 
     return Response.json({ location }, { status: 201 });

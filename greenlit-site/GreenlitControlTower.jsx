@@ -40,7 +40,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import { groupByCustomer, matchCustomer } from "@greenlit/engine";
+import { groupByCustomer, matchCustomer, CARRIERS } from "@greenlit/engine";
 import ZhtDashboard from "./components/ZhtDashboard.jsx";
 import ZhtJobDetail from "./components/ZhtJobDetail.jsx";
 import ZhtNewJob from "./components/ZhtNewJob.jsx";
@@ -3173,7 +3173,7 @@ function OperationsDrawer({ panel, jobs, customers = [], onClose, onCommit }) {
                     import, and nothing for the house bill or the carrier. So
                     half of what was typed at intake could not be corrected. */}
                 <div className="grid gap-5 sm:grid-cols-2">
-                  <DrawerField label="Carrier" hint="Decides where the last free day and return yard are looked up."><input value={draft.carrier || ""} onChange={(event) => update("carrier", event.target.value.toUpperCase())} className={drawerInputClass} /></DrawerField>
+                  <DrawerField label="Master carrier" hint="Decides where the last free day and return yard are looked up."><select value={draft.carrier || ""} onChange={(event) => update("carrier", event.target.value)} className={drawerInputClass}><option value="">Choose the carrier</option>{draft.carrier && !CARRIERS.some((c) => c.code === draft.carrier) ? <option value={draft.carrier}>{draft.carrier}</option> : null}{CARRIERS.map((c) => <option key={c.code} value={c.code}>{c.code} — {c.name}</option>)}</select></DrawerField>
                   <DrawerField label={job.type === "Import" ? "Master B/L" : "Booking reference"}><input value={draft.booking || ""} onChange={(event) => update("booking", event.target.value)} className={drawerInputClass} /></DrawerField>
                 </div>
                 {job.type === "Import" ? (
@@ -5088,22 +5088,22 @@ export default function GreenlitControlTower() {
    * container to say one thing about one bill of lading is the largest piece
    * of repetition in the workflow; a thirty-container job was sixty clicks.
    */
-  async function dischargeMany(job, containerIds) {
+  async function dischargeMany(job, containerIds, scope = null) {
     if (!containerIds?.length) { showToast("Choose the containers to discharge."); return; }
     await runJobCommand(
       job,
       "/discharge-many",
-      { containerIds },
+      { containerIds, ...(scope ? { scope } : {}) },
       `${containerIds.length} container${containerIds.length === 1 ? "" : "s"} discharged.`,
     );
   }
 
   /** §31. The shipment is cleared to leave the terminal. */
-  async function releasePortnet(job, containerIds = []) {
+  async function releasePortnet(job, containerIds = [], scope = null) {
     // Nothing chosen means the release covered the job, which is the ordinary
     // case and what this always did. Naming boxes releases only those.
     await runJobCommand(job, "/portnet",
-      containerIds.length ? { containerIds } : {},
+      { ...(containerIds.length ? { containerIds } : {}), ...(scope ? { scope } : {}) },
       containerIds.length
         ? `Portnet release recorded for ${containerIds.length} container${containerIds.length === 1 ? "" : "s"}.`
         : "Portnet release recorded.");
@@ -5666,7 +5666,8 @@ export default function GreenlitControlTower() {
       {current === "fleet" ? <ZhtChassis fleet={fleet} onOpenJob={(job) => openJob(job.id)} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, apiJobId: jobs.find((j) => j.id === item.jobId)?.apiId ?? null, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
       {current === "controller" ? <ZhtController jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)}
         onDischargeMany={dischargeMany} onPortnet={releasePortnet} onDeliver={markDelivered}
-        onSetDeliveryDate={setDeliveryDate} onPlan={planContainer} onEmpty={markEmpty} drivers={drivers} /> : null}
+        onSetDeliveryDate={setDeliveryDate} onPlan={planContainer} onEmpty={markEmpty} drivers={drivers}
+        onOpenPlanning={() => goTo("planning")} /> : null}
       {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => setCreatingJob(true)} /> : null}
 
       {current === "planning" ? <ZhtPlanning jobs={jobs} fleet={fleet} drivers={drivers} onOpenJob={(job) => openJob(job.id)} /> : null}

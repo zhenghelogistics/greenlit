@@ -64,7 +64,8 @@ test('§24: the Singapore permit number shape', () => {
   assert.equal(permitNumberLooksValid('IG6I 728642 H'), true, 'spacing is not identity');
 
   assert.equal(permitNumberLooksValid('IG6I72864H'), false, 'five digits, not six');
-  assert.equal(permitNumberLooksValid('XX6I728642H'), false, 'not an issued prefix');
+  assert.equal(permitNumberLooksValid('XX6I728642H'), true, 'any two letters, as the demo');
+  assert.equal(permitNumberLooksValid('1G6I728642H'), false, 'the prefix is letters');
   assert.equal(permitNumberLooksValid('IG6I7286421'), false, 'must end in a letter');
   assert.equal(permitNumberLooksValid(''), false);
 });

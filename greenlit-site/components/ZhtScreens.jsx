@@ -569,7 +569,7 @@ export function ZhtCustomers({ onOpenCustomer }) {
   const [adding, setAdding] = useState(false);
 
   function load() {
-    fetch("/api/customers")
+    fetch("/api/customers?withLocations=1")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((d) => setState({ loading: false, customers: d.customers ?? [] }))
       .catch(() => setState({ loading: false, customers: [] }));
@@ -577,8 +577,11 @@ export function ZhtCustomers({ onOpenCustomer }) {
   useEffect(load, []);
 
   const needle = query.trim().toLowerCase();
+  // As the demo: name, code, instructions, and every saved address's company,
+  // address and standing instructions.
   const rows = state.customers.filter((c) => !needle
-    || [c.companyName, c.code, c.shortName, c.defaultDeliveryAddress, c.notes]
+    || [c.companyName, c.code, c.shortName, c.defaultDeliveryAddress, c.notes,
+      ...(c.locations ?? []).flatMap((l) => [l.company, l.address, l.label, l.operationalInstructions])]
       .filter(Boolean).some((v) => String(v).toLowerCase().includes(needle)));
 
   return (
@@ -613,21 +616,26 @@ export function ZhtCustomers({ onOpenCustomer }) {
       <div className="card">
         <table>
           <thead>
-            <tr><th>Customer</th><th>Code</th><th>Default Address</th><th>Status</th><th>Action</th></tr>
+            <tr><th>Customer</th><th>Code</th><th>Permit</th><th>Saved addresses</th><th>Default address</th><th>Status</th><th>Action</th></tr>
           </thead>
           <tbody>
             {rows.length ? rows.map((c) => (
               <tr key={c.customerId ?? c.code}>
-                <td>{c.companyName}</td>
+                <td>{c.companyName}{c.notes ? <small style={{ display: "block" }}>{c.notes}</small> : null}</td>
                 <td>{c.code}</td>
-                <td>{c.defaultDeliveryAddress || "—"}</td>
+                <td><span className="tag">{c.requiresPermit ? "Permit required" : "Permit not required"}</span></td>
+                <td>{(c.locations ?? []).filter((l) => l.active !== false).length} of {(c.locations ?? []).length}</td>
+                <td>{(() => {
+                  const d = (c.locations ?? []).find((l) => l.isDefault) ?? null;
+                  return d ? <>{d.company || d.label}<small style={{ display: "block" }}>{d.address}</small></> : (c.defaultDeliveryAddress || "—");
+                })()}</td>
                 <td>{c.accountStatus}</td>
                 <td>
                   <button className="btn secondary" type="button" onClick={() => onOpenCustomer(c.code)}>Open</button>
                 </td>
               </tr>
             )) : (
-              <tr><td colSpan={5}><Empty>
+              <tr><td colSpan={7}><Empty>
                 {state.loading ? "Loading…" : "No customers on record yet."}
               </Empty></td></tr>
             )}
@@ -647,6 +655,12 @@ export function ZhtCustomers({ onOpenCustomer }) {
  * record. It was add-only before: a saved location offered "make default" and
  * "take out of use", and no way at all to fix a typo in the address.
  */
+/** Half-hours, morning first, as every time in the demo is offered. */
+const HALF_HOURS = Array.from({ length: 48 }, (_, i) => {
+  const h = Math.floor(i / 2), m = i % 2 ? "30" : "00";
+  return { value: `${String(h).padStart(2, "0")}:${m}`, label: `${h % 12 || 12}:${m} ${h < 12 ? "AM" : "PM"}` };
+});
+
 function LocationFields({ value, onChange, customerName }) {
   const set = (key) => (event) => onChange({
     ...value,
@@ -689,6 +703,31 @@ function LocationFields({ value, onChange, customerName }) {
           something for one delivery without changing this.
         </span>
       </label>
+      {/* The demo's site details: when it receives, how to get in, and
+          anything else the driver needs. */}
+      <label className="field">
+        <span className="field-label">Receiving from</span>
+        <select value={value.receivingFrom ?? ""} onChange={set("receivingFrom")}>
+          <option value="">Not given</option>
+          {HALF_HOURS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
+      </label>
+      <label className="field">
+        <span className="field-label">Receiving to</span>
+        <select value={value.receivingTo ?? ""} onChange={set("receivingTo")}>
+          <option value="">Not given</option>
+          {HALF_HOURS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+        </select>
+      </label>
+      <label className="field full">
+        <span className="field-label">Parking / access</span>
+        <input value={value.parkingAccess ?? ""} onChange={set("parkingAccess")}
+          placeholder="Loading bay 2, trailer parking on Pioneer Road" />
+      </label>
+      <label className="field full">
+        <span className="field-label">Special remarks</span>
+        <input value={value.specialRemarks ?? ""} onChange={set("specialRemarks")} />
+      </label>
       <div className="field full">
         <div className="action-row" style={{ gap: 14, flexWrap: "wrap" }}>
           <label className="checkline">
@@ -714,6 +753,7 @@ function LocationFields({ value, onChange, customerName }) {
 const BLANK_LOCATION = {
   company: "", label: "", address: "", operationalInstructions: "",
   isDefault: false, doubleMountingPermitted: true, standbyUsual: false,
+  receivingFrom: "", receivingTo: "", parkingAccess: "", specialRemarks: "",
 };
 
 /**
@@ -1007,6 +1047,7 @@ export function ZhtCustomerDetail({ code, onBack }) {
   const sections = [
     { id: "profile", label: "Profile" },
     { id: "locations", label: "Delivery Companies & Addresses" },
+    { id: "instructions", label: "Operational Instructions" },
     { id: "history", label: "Change History" },
   ];
 
@@ -1046,9 +1087,54 @@ export function ZhtCustomerDetail({ code, onBack }) {
           />
         ) : null}
 
+        {tab === "instructions" && c ? (
+          <CustomerInstructions customer={c}
+            onSaved={(saved) => { setState((was) => ({ ...was, customer: saved })); setNote("Instructions saved."); }}
+            onError={setError} />
+        ) : null}
+
         {tab === "history" ? <CustomerHistory code={code} /> : null}
       </div>
     </Shell>
+  );
+}
+
+/**
+ * The demo's Operational Instructions tab: what is true of every job for this
+ * customer, saved on its own and kept in the change history.
+ */
+function CustomerInstructions({ customer, onSaved, onError }) {
+  const [text, setText] = useState(customer.notes ?? "");
+  const [saving, setSaving] = useState(false);
+  return (
+    <section className="creation-section">
+      <div className="creation-section-head">
+        <div>
+          <div className="section-title">Operational Instructions</div>
+          <div className="muted">True of every job for this customer. Instructions for one place go on its address.</div>
+        </div>
+      </div>
+      <label className="field full">
+        <span className="field-label">General instructions</span>
+        <textarea id="cust-instructions" rows={5} value={text} onChange={(e) => setText(e.target.value)} />
+      </label>
+      <div className="action-row" style={{ marginTop: 10 }}>
+        <button className="btn primary" type="button" disabled={saving || text === (customer.notes ?? "")}
+          onClick={async () => {
+            setSaving(true);
+            const response = await fetch(`/api/customers/${encodeURIComponent(customer.code)}`, {
+              method: "PATCH", headers: { "content-type": "application/json" },
+              body: JSON.stringify({ notes: text.trim() || null }),
+            }).catch(() => null);
+            const payload = await response?.json().catch(() => ({}));
+            setSaving(false);
+            if (!response?.ok) { onError(payload?.error ?? "Those instructions were not saved."); return; }
+            onSaved(payload.customer);
+          }}>
+          {saving ? "Saving…" : "Save instructions"}
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -1319,8 +1405,22 @@ function CustomerLocations({ customerName, locations, loading, onSave }) {
       ) : null}
 
       <div className="location-card-list" style={{ marginTop: drafts.length ? 16 : 0 }}>
-        {locations.length ? locations.map((loc) => (
-          <div className="location-card" key={loc.locationId}>
+        {locations.length ? [...locations]
+          // Grouped under their company, as the demo's Delivery Companies &
+          // Addresses: every address of one company together.
+          .sort((a, b) => String(a.company).localeCompare(String(b.company)))
+          .map((loc, i, list) => (
+          <div key={loc.locationId}>
+          {i === 0 || list[i - 1].company !== loc.company ? (
+            <div className="section-title" style={{ marginTop: i ? 14 : 0 }}>
+              {loc.company}
+              <span className="muted" style={{ marginLeft: 8, fontWeight: 400 }}>
+                {list.filter((l) => l.company === loc.company).length} address
+                {list.filter((l) => l.company === loc.company).length === 1 ? "" : "es"}
+              </span>
+            </div>
+          ) : null}
+          <div className="location-card">
             {editing[loc.locationId] ? (
               <>
                 <LocationFields
@@ -1361,6 +1461,11 @@ function CustomerLocations({ customerName, locations, loading, onSave }) {
                   {loc.doubleMountingPermitted ? "Double mounting permitted" : "No double mounting"}
                   {loc.standbyUsual ? " · standby usual" : ""}
                 </div>
+                {loc.receivingFrom || loc.receivingTo ? (
+                  <div className="muted">Receiving {loc.receivingFrom || "?"} to {loc.receivingTo || "?"}</div>
+                ) : null}
+                {loc.parkingAccess ? <div className="muted">Parking / access: {loc.parkingAccess}</div> : null}
+                {loc.specialRemarks ? <div className="muted">Remarks: {loc.specialRemarks}</div> : null}
                 <div className="action-row" style={{ marginTop: 6, gap: 8 }}>
                   <button className="btn ghost" type="button"
                     onClick={() => setEditing((was) => ({
@@ -1372,6 +1477,8 @@ function CustomerLocations({ customerName, locations, loading, onSave }) {
                         isDefault: Boolean(loc.isDefault),
                         doubleMountingPermitted: loc.doubleMountingPermitted !== false,
                         standbyUsual: Boolean(loc.standbyUsual),
+                        receivingFrom: loc.receivingFrom ?? "", receivingTo: loc.receivingTo ?? "",
+                        parkingAccess: loc.parkingAccess ?? "", specialRemarks: loc.specialRemarks ?? "",
                       },
                     }))}>
                     Edit
@@ -1389,6 +1496,7 @@ function CustomerLocations({ customerName, locations, loading, onSave }) {
                 </div>
               </>
             )}
+          </div>
           </div>
         )) : (
           <Empty>

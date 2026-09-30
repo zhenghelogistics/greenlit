@@ -31,6 +31,7 @@
 import type { ExportJob, ImportContainer, ImportJob } from './types.ts';
 import type { GateResult } from './gates.ts';
 import type { PermitRecord } from './permits.ts';
+import { checkPermit } from './permits.ts';
 
 const missing = (value: unknown): boolean =>
   value === null || value === undefined || String(value).trim() === '';
@@ -231,6 +232,10 @@ export function documentGaps(
       const mapped = permits.filter((p) => p.linkedContainerIds.includes(c.containerId));
       if (!mapped.some((p) => !missing(p.permitNumber) || !missing(p.fileName))) {
         gaps.push({ area: 'Permit', container: name, field: 'Permit' });
+      } else if (mapped.some((p) => checkPermit(p, job).vessel === 'ATTENTION')) {
+        // The demo asks for the permit to be updated once the vessel or
+        // voyage it was issued against no longer matches the shipment.
+        gaps.push({ area: 'Permit', container: name, field: 'Update Permit' });
       }
     }
   });

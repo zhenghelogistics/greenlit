@@ -851,6 +851,10 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         double_mounting_permitted: draft.doubleMountingPermitted ?? true,
         standby_usual: draft.standbyUsual ?? false,
         active: draft.active ?? true,
+        receiving_from: draft.receivingFrom || null,
+        receiving_to: draft.receivingTo || null,
+        parking_access: draft.parkingAccess?.trim() || null,
+        special_remarks: draft.specialRemarks?.trim() || null,
         created_by: actor,
       }).select().single(), 'add customer location') as Record<string, unknown>;
 
@@ -1154,6 +1158,9 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       if (!known) throw new Error(`Unknown job ${jobId}`);
       if (!text.trim()) throw new Error('Write the note first.');
       await record(jobId, 'job.note', actor, { field: 'note', to: text.trim() });
+    },
+    async sayOnJob(jobId, text, actor) {
+      await record(jobId, 'job.said', actor, { field: 'said', to: text });
     },
     async amendPermit(permitId, changes, actor) {
       const found = await db.from('permits').select('*').eq('permit_id', permitId).maybeSingle();
@@ -1673,8 +1680,8 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
           // containers is the event operations and the controller both need
           // to see, and the log is read by the job.
           await record(jobId, 'portnet.released', actor, {
-            field: `Portnet release for ${box.container_number ?? box.container_id}`,
-            from: null, to: at,
+            field: `Portnet (${box.container_number ?? box.container_id})`,
+            from: 'Pending', to: 'Released',
           });
         }
       }
@@ -1861,7 +1868,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         { field: 'documentsCompletedAt', from: null, to: at });
     },
     async recordDischarged(containerId, actor) {
-      const before = await db.from('containers').select('job_id,discharged_at')
+      const before = await db.from('containers').select('job_id,discharged_at,container_number')
         .eq('container_id', containerId).maybeSingle();
       if (!before.data) throw new Error(`Unknown import container ${containerId}`);
       if (before.data.discharged_at) return;
@@ -1869,7 +1876,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       unwrap(await db.from('containers').update({ discharged_at: at })
         .eq('container_id', containerId).select().single(), 'record discharge');
       await record(before.data.job_id as string, 'container.discharged', actor,
-        { field: 'dischargedAt', from: null, to: at });
+        { field: `Discharged (${before.data.container_number ?? containerId})`, from: 'No', to: 'Yes' });
     },
     async recordDelivered(containerId, actor) {
       const before = await db.from('containers').select('job_id,delivered_at')

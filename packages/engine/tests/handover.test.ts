@@ -234,3 +234,14 @@ test('the customer and the stuffing address are named, not counted', () => {
   ]);
   assert.deepEqual(gate.failures, ['Customer', 'C1: stuffing address']);
 });
+
+test('a permit for another sailing asks for the permit to be updated', () => {
+  const job = importJob({ vesselName: 'X', voyageNumber: '2W', eta: '2026-09-23', blNumber: 'B', carrier: 'HL',
+    deliveryCompany: 'DKSH', permitRequired: true } as Partial<ImportJob>);
+  const box = { containerId: 'ic1', containerNumber: 'A', containerSize: '20', emptyReturnYard: 'Yard',
+    freeTimeModel: 'COMBINED', combinedFreeDays: 14 } as never;
+  const stale = permit({ permitVesselVoyage: 'X 1W', expiryDate: '2026-10-30' });
+  assert.ok(documentGaps(job, [box], [stale]).some((g) => g.field === 'Update Permit'));
+  const current = permit({ permitVesselVoyage: 'X 2W', expiryDate: '2026-10-30' });
+  assert.ok(!documentGaps(job, [box], [current]).some((g) => g.field === 'Update Permit'));
+});

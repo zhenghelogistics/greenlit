@@ -924,8 +924,18 @@ export default function ZhtJobDetail({
     // permit covers; this says which permit covers the container, which is the
     // question somebody looking at one box actually has.
     ...(job.permitRequired
-      ? [["Permit", (container.permitNumbers ?? []).join(", ") || "Not recorded"]]
+      ? [["Permit", (container.permitDetails ?? []).length
+        ? container.permitDetails.map((p) => `${p.permitNumber || p.fileName || "Permit"}${p.expiryDate ? ` (expires ${formatDay(p.expiryDate)})` : ""}`).join(", ")
+        : (container.permitNumbers ?? []).join(", ") || "Not recorded"]]
       : []),
+    // Where this box goes, and whether that is its own address or the job's.
+    ["Delivery", container.containerDeliveryAddress
+      ? `${container.containerDeliveryCompany ? `${container.containerDeliveryCompany} — ` : ""}${container.containerDeliveryAddress} (container level)`
+      : job.deliveryAddress
+        ? `${job.deliveryCompany ? `${job.deliveryCompany} — ` : ""}${job.deliveryAddress} (from the job)`
+        : "Not recorded"],
+    // The demo's count basis: free days counted with the vessel ETA as day one.
+    ["LFD count basis", "Vessel ETA is Day 1"],
     ["Packages", container.packageCount],
     ["Tare (KGS)", container.tare],
     ["Status", container.status ?? container.state],

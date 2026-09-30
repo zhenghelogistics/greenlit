@@ -92,6 +92,7 @@ export interface DerivedContainerView {
   handoverGaps: string[];
   /** §24. The permits covering this container, by number. */
   permitNumbers: string[];
+  permitDetails?: { permitNumber: string | null; expiryDate: string | null; fileName: string | null }[];
   /** §54. Whether this container is already the controller's. */
   handedOver: boolean;
   /** §54. Whether it could be handed over now — the gate, not the gaps. */
@@ -416,6 +417,10 @@ export function deriveImportJob(
       permitNumbers: permits
         .filter((p) => p.linkedContainerIds.includes(c.containerId) && p.permitNumber)
         .map((p) => p.permitNumber as string),
+      // With each permit's expiry, as the demo shows them on the container.
+      permitDetails: permits
+        .filter((p) => p.linkedContainerIds.includes(c.containerId))
+        .map((p) => ({ permitNumber: p.permitNumber, expiryDate: p.expiryDate, fileName: p.fileName })),
       // §54. Both of these were worked out on the screen instead: "handed
       // over" as a truthiness check on the timestamp, and "ready" as the
       // shipment's gaps and the container's both being empty. Neither is the

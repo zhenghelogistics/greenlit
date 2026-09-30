@@ -315,4 +315,8 @@ export const toCustomerLocation = (r: Record<string, unknown>): CustomerLocation
   doubleMountingPermitted: Boolean(r.double_mounting_permitted),
   standbyUsual: Boolean(r.standby_usual),
   active: Boolean(r.active),
+  receivingFrom: nn(r.receiving_from as string),
+  receivingTo: nn(r.receiving_to as string),
+  parkingAccess: nn(r.parking_access as string),
+  specialRemarks: nn(r.special_remarks as string),
 });

@@ -22,6 +22,14 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     ? body.containerIds.map(String).filter(Boolean)
     : undefined;
 
-  return runCommand(id, (repo) =>
-    repo.recordPortnetReleased(id, auth.displayName, containerIds));
+  const scope = body?.scope === "all" || body?.scope === "selected" ? body.scope : null;
+  return runCommand(id, async (repo) => {
+    await repo.recordPortnetReleased(id, auth.displayName, containerIds);
+    // What the bulk action covered, in the demo's words.
+    if (scope) {
+      await repo.sayOnJob(id, `Controller applied Portnet Release to ${scope === "all"
+        ? "all pending containers in this job" : "selected containers in this job"}`
+        + `${containerIds ? ` (${containerIds.length})` : ""}.`, auth.displayName);
+    }
+  });
 }
