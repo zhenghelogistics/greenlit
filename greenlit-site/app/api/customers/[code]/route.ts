@@ -40,7 +40,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ code: str
     const body = await readJson<Record<string, unknown>>(request);
     if (!body) return badRequest("A JSON body is required");
 
-    const auth = await authorize("masterData.manage");
+    const auth = await authorize("customer.manage");
     if (!auth.ok) return auth.response;
 
     if ("code" in body) {
@@ -91,7 +91,7 @@ export async function DELETE(_request: Request, ctx: { params: Promise<{ code: s
   try {
     const { code } = await ctx.params;
 
-    const auth = await authorize("masterData.manage");
+    const auth = await authorize("customer.manage");
     if (!auth.ok) return auth.response;
 
     const customer = await getRepository().getCustomerByCode(code);

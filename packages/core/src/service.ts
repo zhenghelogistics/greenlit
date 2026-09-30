@@ -221,6 +221,10 @@ export class JobService {
       ...exportJobs.map((j) => j.exportJobId),
     ]);
     const vehicles = vehicleOccupancy(movements, now);
+    // Chassis named on a trip still to be done are promised to it.
+    const plannedChassis = new Set(movements
+      .filter((m) => m.chassisId && !['COMPLETED', 'CANCELLED'].includes(m.movementStatus))
+      .map((m) => m.chassisId as string));
 
     const jobNumber = new Map<string, { jobNumber: string; customer: string }>();
     for (const j of importJobs) jobNumber.set(j.jobId, { jobNumber: j.jobNumber, customer: j.customer });
@@ -234,7 +238,7 @@ export class JobService {
         chassisNo: unit.chassisNo,
         plateNo: unit.plateNo,
         size: unit.size,
-        status: chassisStatus(unit, holdings, today),
+        status: chassisStatus(unit, holdings, today, plannedChassis),
         inspectionDueDate: unit.inspectionDueDate,
         jobNumber: job?.jobNumber ?? null,
         customer: job?.customer ?? null,

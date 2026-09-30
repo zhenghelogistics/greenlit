@@ -1263,6 +1263,33 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       return rows(await db.from('chassis').select('*').order('chassis_no'), 'chassis')
         .map(toChassis) as Chassis[];
     },
+    async listDrivers() {
+      return rows(await db.from('drivers').select('*').order('name'), 'drivers').map((r) => ({
+        driverId: r.driver_id as string, name: r.name as string,
+        vehicle: (r.vehicle as string | null) ?? null, active: r.active !== false,
+      }));
+    },
+    async saveDriver(draft, actor) {
+      const name = draft.name.trim().toUpperCase();
+      if (!name) throw new Error('A driver needs a name.');
+      const all = await this.listDrivers();
+      const clash = all.find((d) => d.name === name && d.driverId !== draft.driverId);
+      if (clash) throw new Error(`${name} is already on file.`);
+      const existing = draft.driverId ? all.find((d) => d.driverId === draft.driverId) : undefined;
+      if (draft.driverId && !existing) throw new Error(`Unknown driver ${draft.driverId}`);
+      const next = {
+        driverId: existing?.driverId ?? `drv-${crypto.randomUUID()}`,
+        name,
+        vehicle: draft.vehicle === undefined ? existing?.vehicle ?? null : (draft.vehicle?.trim().toUpperCase() || null),
+        active: draft.active ?? existing?.active ?? true,
+      };
+      unwrap(await db.from('drivers').upsert({
+        driver_id: next.driverId, name: next.name, vehicle: next.vehicle, active: next.active,
+      }).select().single(), 'save driver');
+      await record(next.driverId, existing ? 'driver.amended' : 'driver.added', actor,
+        { field: 'driver', from: existing?.name ?? null, to: `${next.name}${next.vehicle ? ` · ${next.vehicle}` : ''}` });
+      return next;
+    },
     async listChassisHoldings() {
       const [imp, exp] = await Promise.all([
         db.from('containers').select('container_id,job_id,chassis_id,chassis_mounted_at,chassis_released_at')

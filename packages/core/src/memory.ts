@@ -13,7 +13,7 @@ import {
   type Principal, type YardRate,
 } from '@greenlit/engine';
 import type {
-  ExceptionRecord, ExportContainer, ExportJob, ImportContainer, ImportJob,
+  Driver, ExceptionRecord, ExportContainer, ExportJob, ImportContainer, ImportJob,
   Movement, Thresholds,
 } from '@greenlit/engine';
 import type {
@@ -448,6 +448,13 @@ export function createMemoryRepository(): Repository {
    * §13. Append-only. Every command records who did it and what changed, so a
    * later reader can reconstruct the decision without asking anyone.
    */
+  /** Drivers on file, each with the vehicle they normally drive. */
+  const drivers: Driver[] = [
+    { driverId: 'drv-1', name: 'TAN BM', vehicle: 'XD1234A', active: true },
+    { driverId: 'drv-2', name: 'LIM AH', vehicle: 'XE5521B', active: true },
+    { driverId: 'drv-3', name: 'RAJ K', vehicle: 'XF8810C', active: true },
+  ];
+
   const audit: AuditEvent[] = [];
   const record = (
     entityId: string, event: string, actor: string,
@@ -1457,6 +1464,25 @@ export function createMemoryRepository(): Repository {
     async listPrincipals() { return clone(USERS); },
 
     async listChassis() { return clone(fleet); },
+    async listDrivers() { return clone(drivers); },
+    async saveDriver(draft, actor) {
+      const name = draft.name.trim().toUpperCase();
+      if (!name) throw new Error('A driver needs a name.');
+      const clash = drivers.find((d) => d.name === name && d.driverId !== draft.driverId);
+      if (clash) throw new Error(`${name} is already on file.`);
+      const existing = draft.driverId ? drivers.find((d) => d.driverId === draft.driverId) : undefined;
+      if (draft.driverId && !existing) throw new Error(`Unknown driver ${draft.driverId}`);
+      const next: Driver = {
+        driverId: existing?.driverId ?? `drv-${drivers.length + 1}`,
+        name,
+        vehicle: draft.vehicle === undefined ? existing?.vehicle ?? null : (draft.vehicle?.trim().toUpperCase() || null),
+        active: draft.active ?? existing?.active ?? true,
+      };
+      if (existing) Object.assign(existing, next); else drivers.push(next);
+      record(next.driverId, existing ? 'driver.amended' : 'driver.added', actor,
+        { field: 'driver', from: existing?.name ?? null, to: `${next.name}${next.vehicle ? ` · ${next.vehicle}` : ''}` });
+      return clone(next);
+    },
 
     async recordChassisChange(request, actor) {
       const change = recordChassisChange(

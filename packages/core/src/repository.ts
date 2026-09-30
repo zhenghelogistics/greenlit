@@ -2,7 +2,7 @@ import type { CustomerLocation, DocumentRecord, PermitRecord,
   ReportContext, StructuredReport,
   YardCharge, YardRate } from '@greenlit/engine';
 import type {
-  AuditEvent, Chassis, ChassisChange, ChassisChangeRequest, ChassisHolding,
+  AuditEvent, Chassis, ChassisChange, ChassisChangeRequest, ChassisHolding, Driver,
   Customer, CustomerDraft, DateAmendment, Discrepancy, ExceptionRecord, Principal,
   ExportContainer, ExportJob, ImportContainer, ImportJob, Movement, Thresholds,
 } from '@greenlit/engine';
@@ -312,6 +312,10 @@ export interface Repository {
   listPrincipals(): Promise<Principal[]>;
 
   listChassis(): Promise<Chassis[]>;
+  /** Every driver on file, active or not. */
+  listDrivers(): Promise<Driver[]>;
+  /** Add a driver, or change one's name, vehicle or whether they are in use. */
+  saveDriver(draft: DriverDraft, actor: string): Promise<Driver>;
   listChassisHoldings(): Promise<ChassisHolding[]>;
   /**
    * §35.8. A mid-job chassis change is an exception, not a workflow: the
@@ -597,6 +601,14 @@ export interface ExportContainerAmendment {
   isReefer?: boolean;
   temperatureMode?: string | null;
   temperatureSetpointC?: number | null;
+}
+
+/** A driver as the Drivers & Vehicles screen records one. */
+export interface DriverDraft {
+  driverId?: string;
+  name: string;
+  vehicle?: string | null;
+  active?: boolean;
 }
 
 /** What may be corrected on a permit. */

@@ -478,3 +478,18 @@ export interface NextActionResult {
 }
 
 export type { ImportContainerStatus, ImportJobStatus, ExportJobStatus };
+
+
+/**
+ * A driver on file, with the vehicle they normally drive.
+ *
+ * The demo's Drivers & Vehicles lists every driver, planned or not, so the
+ * controller can see who is free. A driver who has left is taken out of use
+ * rather than deleted: their name is on trips that already happened.
+ */
+export interface Driver {
+  driverId: string;
+  name: string;
+  vehicle: string | null;
+  active: boolean;
+}

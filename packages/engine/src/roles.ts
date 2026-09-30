@@ -30,6 +30,14 @@ export type Role = (typeof ROLE)[number];
 export const PERMISSION = [
   // Master data and configuration — §7.1
   'user.manage', 'masterData.manage', 'thresholds.configure',
+  /**
+   * Customers, their companies and delivery addresses.
+   *
+   * The demo lets anyone running jobs keep the Customer Master: the people
+   * who find a new delivery site are the ones creating the job. Kept apart
+   * from masterData.manage, which also covers resetting data and yard rates.
+   */
+  'customer.manage',
 
   // Operational work — §7.2
   'job.create', 'job.edit', 'job.close',
@@ -75,6 +83,7 @@ const READ_ONLY: readonly Permission[] = [
 /** §7.2. Operations runs the book, start to close. */
 const OPERATIONS_PERMISSIONS: readonly Permission[] = [
   ...READ_ONLY,
+  'customer.manage',
   'job.create', 'job.edit', 'job.close',
   'document.upload', 'extraction.review',
   'permit.confirm', 'portnet.confirm', 'cms.record',
@@ -100,6 +109,7 @@ const OPERATIONS_PERMISSIONS: readonly Permission[] = [
  */
 const CONTROLLER_PERMISSIONS: readonly Permission[] = [
   ...READ_ONLY,
+  'customer.manage',
   'job.edit',
   'movement.create', 'movement.schedule', 'movement.assign',
   'movement.update', 'movement.cancel',
@@ -227,6 +237,7 @@ const PERMISSION_LABEL: Partial<Record<Permission, string>> = {
   'gate.override': 'override a blocked gate',
   'status.override': 'set a status the evidence does not support',
   'masterData.manage': 'change companies or master data',
+  'customer.manage': 'change customers or their addresses',
   'user.manage': 'manage users',
   'thresholds.configure': 'change the configured thresholds',
   'job.close': 'complete a job',

@@ -42,7 +42,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ code: stri
     }>(request);
     if (!body) return badRequest("A JSON body is required");
 
-    const auth = await authorize("masterData.manage");
+    const auth = await authorize("customer.manage");
     if (!auth.ok) return auth.response;
 
     const location = await getRepository().addCustomerLocation(code, {
@@ -79,7 +79,7 @@ export async function PATCH(request: Request) {
     }>(request);
     if (!body) return badRequest("A JSON body is required");
 
-    const auth = await authorize("masterData.manage");
+    const auth = await authorize("customer.manage");
     if (!auth.ok) return auth.response;
     if (!body.locationId) return badRequest("locationId is required");
 

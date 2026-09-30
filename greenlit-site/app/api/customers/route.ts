@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     }>(request);
   if (!body) return badRequest("A JSON body is required");
 
-    const auth = await authorize("masterData.manage");
+    const auth = await authorize("customer.manage");
     if (!auth.ok) return auth.response;
 
     if (!body?.code?.trim()) return badRequest("code is required");

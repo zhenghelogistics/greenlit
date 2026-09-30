@@ -14,7 +14,7 @@
 export const CHASSIS_SIZE = ['20FT', '40FT'] as const;
 export type ChassisSize = (typeof CHASSIS_SIZE)[number];
 
-export const CHASSIS_STATUS = ['AVAILABLE', 'IN_USE', 'MAINTENANCE', 'INSPECTION', 'RETIRED'] as const;
+export const CHASSIS_STATUS = ['AVAILABLE', 'PLANNED', 'IN_USE', 'MAINTENANCE', 'INSPECTION', 'RETIRED'] as const;
 export type ChassisStatus = (typeof CHASSIS_STATUS)[number];
 
 /** §9.1. Master data: the fleet is fixed and every unit is registered. */
@@ -83,6 +83,12 @@ export function chassisStatus(
   unit: Chassis,
   holdings: readonly ChassisHolding[],
   today: string,
+  /**
+   * Chassis named on a trip that is planned and not yet done, by number or id.
+   * The demo shows those as PLANNED, so a unit promised to tomorrow's trip is
+   * not offered again as free.
+   */
+  planned: ReadonlySet<string> = new Set(),
 ): ChassisStatus {
   if (!unit.active || unit.manualStatus === 'RETIRED') return 'RETIRED';
 
@@ -95,6 +101,7 @@ export function chassisStatus(
 
   if (unit.inspectionDueDate && unit.inspectionDueDate <= today) return 'INSPECTION';
   if (unit.manualStatus === 'MAINTENANCE') return 'MAINTENANCE';
+  if (planned.has(unit.chassisNo) || planned.has(unit.chassisId)) return 'PLANNED';
   return 'AVAILABLE';
 }
 

@@ -3429,6 +3429,9 @@ function fleetFromApi(view) {
   return {
     inUse: rows.filter((r) => r.status === 'IN_USE'),
     available: rows.filter((r) => r.status === 'AVAILABLE'),
+    // Promised to a planned trip: shown, and offered on the plan form only
+    // for the trip it is on.
+    planned: rows.filter((r) => r.status === 'PLANNED'),
     maintenance: rows.filter((r) => r.status === 'MAINTENANCE' || r.status === 'INSPECTION'),
     availability: view?.availability ?? null,
     averageJobDays: view?.averageJobDays ?? null,
@@ -3443,7 +3446,7 @@ function fleetFromApi(view) {
   };
 }
 
-const EMPTY_FLEET = { inUse: [], available: [], maintenance: [], availability: null,
+const EMPTY_FLEET = { inUse: [], available: [], planned: [], maintenance: [], availability: null,
   averageJobDays: null, monthlyCapacity20ft: null, monthlyCapacity40ft: null,
   vehicles: [], vehicleClashes: [], routeOpportunities: [], loaded: false };
 
@@ -3459,6 +3462,21 @@ const EMPTY_FLEET = { inUse: [], available: [], maintenance: [], availability: n
  * The counts are simply absent until the fleet is loaded, which the rail
  * already renders as no number rather than a zero. A zero would be a claim.
  */
+/** Drivers on file, loaded with the fleet and reloaded after a change. */
+function useDrivers(enabled) {
+  const [state, setState] = useState({ drivers: [], version: 0 });
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let cancelled = false;
+    fetch("/api/drivers")
+      .then((r) => (r.ok ? r.json() : { drivers: [] }))
+      .then((d) => { if (!cancelled) setState((s) => ({ ...s, drivers: d.drivers ?? [] })); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [enabled, state.version]);
+  return [state.drivers, () => setState((s) => ({ ...s, version: s.version + 1 }))];
+}
+
 function useFleet(enabled) {
   const [fleet, setFleet] = useState(EMPTY_FLEET);
   useEffect(() => {
@@ -4262,6 +4280,19 @@ export default function GreenlitControlTower() {
   // The screens that read it. Everything else pays nothing for it.
   const FLEET_SCREENS = ["controller", "planning", "drivers", "fleet"];
   const fleet = useFleet(FLEET_SCREENS.includes(current));
+  const [drivers, reloadDrivers] = useDrivers(FLEET_SCREENS.includes(current) || current === "drivers");
+
+  /** Add a driver, or change one's vehicle or whether they are in use. */
+  async function saveDriver(driver) {
+    const response = await fetch("/api/drivers", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(driver),
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    if (!response?.ok) { showToast(payload?.error ?? "That driver was not saved."); return false; }
+    reloadDrivers();
+    showToast(`${payload.driver?.name ?? "Driver"} saved.`);
+    return true;
+  }
   const selectedJob = jobs.find((job) => job.id === selectedJobId);
 
   function showToast(message) {
@@ -5595,12 +5626,12 @@ export default function GreenlitControlTower() {
       {current === "fleet" ? <ZhtChassis fleet={fleet} onOpenJob={(job) => openJob(job.id)} onUnit={(item) => setWorkPanel({ type: "chassis", jobId: item.jobId, apiJobId: jobs.find((j) => j.id === item.jobId)?.apiId ?? null, unit: item.unit, size: item.size, condition: item.condition })} /> : null}
       {current === "controller" ? <ZhtController jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)}
         onDischargeMany={dischargeMany} onPortnet={releasePortnet} onDeliver={markDelivered}
-        onSetDeliveryDate={setDeliveryDate} onPlan={planContainer} onEmpty={markEmpty} /> : null}
+        onSetDeliveryDate={setDeliveryDate} onPlan={planContainer} onEmpty={markEmpty} drivers={drivers} /> : null}
       {current === "jobs" ? <ZhtJobs jobs={jobs} onOpenJob={(job) => openJob(job.id)} onNewJob={() => setCreatingJob(true)} /> : null}
 
-      {current === "planning" ? <ZhtPlanning jobs={jobs} fleet={fleet} onOpenJob={(job) => openJob(job.id)} /> : null}
-      {current === "drivers" ? <ZhtDrivers fleet={fleet} /> : null}
-      {current === "emptyReturns" ? <ZhtEmptyReturns jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
+      {current === "planning" ? <ZhtPlanning jobs={jobs} fleet={fleet} drivers={drivers} onOpenJob={(job) => openJob(job.id)} /> : null}
+      {current === "drivers" ? <ZhtDrivers fleet={fleet} jobs={jobs} drivers={drivers} onSaveDriver={saveDriver} /> : null}
+      {current === "emptyReturns" ? <ZhtEmptyReturns jobs={jobs} onOpenJob={(job, index) => openJob(job.id, index ?? 0)} /> : null}
       {current === "billing" ? <ZhtBilling jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
       {current === "search" ? <ZhtSearchResults jobs={jobs} query={searchQuery} onOpenJob={(job, index) => openJob(job.id, index)} onBack={goBack} /> : null}
       {current === "detail" && selectedJob ? (

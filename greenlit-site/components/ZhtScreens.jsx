@@ -149,16 +149,24 @@ export function ZhtJobs({ jobs, onOpenJob, onNewJob }) {
  * movements actually assigned, grouped by the truck carrying them, so a vehicle
  * appears here exactly when something is booked on it.
  */
-export function ZhtPlanning({ jobs, fleet, onOpenJob }) {
-  const byVehicle = new Map();
-  for (const job of jobs) {
-    for (const trip of job.trips ?? []) {
-      if (!trip.truck) continue;
-      if (!byVehicle.has(trip.truck)) byVehicle.set(trip.truck, []);
-      byVehicle.get(trip.truck).push({ trip, job });
-    }
-  }
-  const vehicles = [...byVehicle.entries()];
+export function ZhtPlanning({ jobs, fleet, drivers = [], onOpenJob }) {
+  // One row per driver, as the demo's board: every driver on file, and any
+  // driver named on a trip, with their trips still to do in date order. A
+  // driver with nothing planned shows as available.
+  const open = jobs.flatMap((job) => (job.trips ?? [])
+    .filter((trip) => trip.driver && !["COMPLETED", "CANCELLED"].includes(trip.status))
+    .map((trip) => ({ trip, job })));
+  const when = ({ trip }) => `${trip.plannedDate ?? "9999"}T${trip.plannedTime ?? "99:99"}`;
+  const names = [...new Set([
+    ...drivers.filter((d) => d.active !== false).map((d) => d.name),
+    ...open.map(({ trip }) => trip.driver),
+  ])].sort();
+  const vehicles = names.map((name) => [
+    drivers.find((d) => d.name === name)?.vehicle
+      ?? open.find(({ trip }) => trip.driver === name)?.trip.truck ?? "",
+    open.filter(({ trip }) => trip.driver === name).sort((a, b) => when(a).localeCompare(when(b))),
+    name,
+  ]);
 
   // The board groups by truck, so a movement with no truck on it appeared
   // nowhere: planned, invisible, and nobody doing it. They are listed first,
@@ -234,24 +242,23 @@ export function ZhtPlanning({ jobs, fleet, onOpenJob }) {
           <div className="board">
             <div><b>Driver</b></div><div><b>Movement 1</b></div>
             <div><b>Movement 2</b></div><div><b>Movement 3</b></div><div><b>Next</b></div>
-            {vehicles.map(([truck, entries]) => {
+            {vehicles.map(([truck, entries, name]) => {
               const slots = [0, 1, 2].map((i) => entries[i]);
               return (
-                <ZhtPlanningRow key={truck} truck={truck} entries={entries}
+                <ZhtPlanningRow key={name} truck={truck} driver={name} entries={entries}
                   slots={slots} onOpenJob={onOpenJob} />
               );
             })}
           </div>
         ) : (
-          <Empty>No movements are assigned to a vehicle yet.</Empty>
+          <Empty>No drivers on file yet.</Empty>
         )}
       </div>
     </Shell>
   );
 }
 
-function ZhtPlanningRow({ truck, entries, slots, onOpenJob }) {
-  const driver = entries[0]?.trip.driver;
+function ZhtPlanningRow({ truck, driver, entries, slots, onOpenJob }) {
   return (
     <>
       <div><b>{driver || "Unassigned"}</b><br /><small>{truck}</small></div>
@@ -261,6 +268,7 @@ function ZhtPlanningRow({ truck, entries, slots, onOpenJob }) {
             {entry.job.id}
           </button>
           <br /><small>{entry.trip.origin} → {entry.trip.destination}</small>
+          {entry.trip.plannedDate ? <><br /><small>{fmt(entry.trip.plannedDate)}{entry.trip.plannedTime ? ` ${entry.trip.plannedTime}` : ""}</small></> : null}
         </div>
       ) : <div className="muted" key={i}>Available</div>)}
       <div className="muted">{entries.length > 3 ? `+${entries.length - 3} more` : "Available"}</div>
@@ -275,46 +283,80 @@ function ZhtPlanningRow({ truck, entries, slots, onOpenJob }) {
  * the schedule uses — so a truck held on standby shows as engaged here rather
  * than as free.
  */
-export function ZhtDrivers({ fleet }) {
-  const engagements = fleet?.vehicles ?? [];
-  const byTruck = new Map();
-  for (const e of engagements) {
-    if (!byTruck.has(e.truck)) byTruck.set(e.truck, []);
-    byTruck.get(e.truck).push(e);
-  }
+/**
+ * Every driver, the vehicle they drive, what they have planned, and whether
+ * they are free: the demo's Drivers & Vehicles. A driver named on a trip but
+ * not on file is listed too, so nobody planned disappears from the list.
+ */
+export function ZhtDrivers({ fleet, jobs = [], drivers = [], onSaveDriver }) {
+  const [adding, setAdding] = useState({ name: "", vehicle: "" });
+  const open = jobs.flatMap((job) => (job.trips ?? [])
+    .filter((t) => t.driver && !["COMPLETED", "CANCELLED"].includes(t.status))
+    .map((t) => ({ job, t })));
+  const when = ({ t }) => `${t.plannedDate ?? "9999"}T${t.plannedTime ?? "99:99"}`;
+  const names = [...new Set([...drivers.map((d) => d.name), ...open.map(({ t }) => t.driver)])];
+  const rows = names.map((name) => {
+    const onFile = drivers.find((d) => d.name === name);
+    const mine = open.filter(({ t }) => t.driver === name).sort((a, b) => when(a).localeCompare(when(b)));
+    return { name, onFile, vehicle: onFile?.vehicle ?? mine[0]?.t.truck ?? "", first: mine[0], next: mine[1] };
+  }).sort((a, b) => Number(a.onFile?.active === false) - Number(b.onFile?.active === false) || a.name.localeCompare(b.name));
+
+  const trip = (x) => x ? `${x.t.id} · ${x.job.id} · ${x.t.origin} → ${x.t.destination}${x.t.plannedDate ? ` · ${fmt(x.t.plannedDate)}` : ""}` : "—";
 
   return (
     <Shell title="Drivers &amp; Vehicles"
-      note="A vehicle is engaged while in transit or held on standby.">
+      note="Every driver on file, what they have planned, and who is free.">
       <div className="card">
         <table>
           <thead>
-            <tr><th>Driver</th><th>Vehicle</th><th>Current Movement</th><th>For</th><th>Status</th></tr>
+            <tr><th>Driver</th><th>Vehicle</th><th>Current / first planned</th><th>Next planned</th><th>Status</th><th /></tr>
           </thead>
           <tbody>
-            {byTruck.size ? [...byTruck.entries()].map(([truck, list]) => {
-              const now = list[0];
-              const hours = now.minutes >= 60
-                ? `${Math.floor(now.minutes / 60)}h ${now.minutes % 60}m`
-                : `${now.minutes}m`;
-              return (
-                <tr key={truck}>
-                  <td>{now.driver || "Unassigned"}</td>
-                  <td>{truck}</td>
-                  <td>{now.movementRef}</td>
-                  <td>{hours}{now.openEnded ? " · no release recorded" : ""}</td>
-                  <td>
-                    <span className={`tag ${now.reason === "ON_STANDBY" ? "pending" : "green"}`}>
-                      {now.reason === "ON_STANDBY" ? "On Standby" : "On Job"}
-                    </span>
-                  </td>
-                </tr>
-              );
-            }) : (
-              <tr><td colSpan={5}><Empty>No vehicle is currently engaged.</Empty></td></tr>
+            {rows.length ? rows.map((row) => (
+              <tr key={row.name}>
+                <td>{row.name}{row.onFile ? null : <small style={{ display: "block" }}>Not on file</small>}</td>
+                <td>{row.vehicle || "—"}</td>
+                <td>{trip(row.first)}</td>
+                <td>{trip(row.next)}</td>
+                <td>
+                  <span className={`tag ${row.onFile?.active === false ? "gray" : row.first ? "pending" : "green"}`}>
+                    {row.onFile?.active === false ? "Not in use" : row.first ? "Planned" : "Available"}
+                  </span>
+                </td>
+                <td>
+                  {row.onFile ? (
+                    <button className="btn ghost" type="button"
+                      onClick={() => onSaveDriver?.({ driverId: row.onFile.driverId, name: row.name, active: row.onFile.active === false })}>
+                      {row.onFile.active === false ? "Put back in use" : "Take out of use"}
+                    </button>
+                  ) : (
+                    <button className="btn ghost" type="button"
+                      onClick={() => onSaveDriver?.({ name: row.name, vehicle: row.vehicle || null })}>
+                      Add to file
+                    </button>
+                  )}
+                </td>
+              </tr>
+            )) : (
+              <tr><td colSpan={6}><Empty>No drivers on file yet.</Empty></td></tr>
             )}
           </tbody>
         </table>
+
+        <form className="toolbar" style={{ marginTop: 12 }}
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!adding.name.trim()) return;
+            const ok = await onSaveDriver?.({ name: adding.name, vehicle: adding.vehicle || null });
+            if (ok !== false) setAdding({ name: "", vehicle: "" });
+          }}>
+          <input id="driver-name" placeholder="Driver name" aria-label="Driver name" value={adding.name}
+            onChange={(e) => setAdding((a) => ({ ...a, name: e.target.value.toUpperCase() }))} />
+          <input id="driver-vehicle" placeholder="Vehicle" aria-label="Vehicle" value={adding.vehicle}
+            onChange={(e) => setAdding((a) => ({ ...a, vehicle: e.target.value.toUpperCase() }))} />
+          <button className="btn primary" type="submit">Add driver</button>
+        </form>
+
         {fleet?.vehicleClashes?.length ? (
           <div className="callout" style={{ marginTop: 12 }}>
             {fleet.vehicleClashes.length} vehicle{fleet.vehicleClashes.length === 1 ? " is" : "s are"} booked twice at once.
@@ -327,7 +369,7 @@ export function ZhtDrivers({ fleet }) {
 
 /** §35. The chassis master, from the fleet view where status is derived. */
 export function ZhtChassis({ fleet, onOpenJob, onUnit }) {
-  const units = [...(fleet?.inUse ?? []), ...(fleet?.available ?? []), ...(fleet?.maintenance ?? [])];
+  const units = [...(fleet?.inUse ?? []), ...(fleet?.planned ?? []), ...(fleet?.available ?? []), ...(fleet?.maintenance ?? [])];
   return (
     <Shell title="Chassis Master"
       note={fleet?.availability ? `${units.length} units on record.` : undefined}>
@@ -342,8 +384,8 @@ export function ZhtChassis({ fleet, onOpenJob, onUnit }) {
                 <td>{u.unit}</td>
                 <td>{u.size}</td>
                 <td>
-                  <span className={`tag ${u.status === "IN_USE" ? "green" : u.status === "AVAILABLE" ? "ready" : "gray"}`}>
-                    {u.status === "IN_USE" ? "In Use" : u.status === "AVAILABLE" ? "Available" : "Maintenance"}
+                  <span className={`tag ${u.status === "IN_USE" ? "green" : u.status === "AVAILABLE" ? "ready" : u.status === "PLANNED" ? "pending" : "gray"}`}>
+                    {u.status === "IN_USE" ? "In Use" : u.status === "AVAILABLE" ? "Available" : u.status === "PLANNED" ? "Planned" : "Maintenance"}
                   </span>
                 </td>
                 <td>{u.jobId ? <button type="button" className="job-link" onClick={() => onOpenJob({ id: u.jobId })}>{u.jobId}</button> : "-"}</td>
@@ -423,32 +465,59 @@ export function ZhtBilling({ jobs, onOpenJob }) {
 }
 
 /** §36.3. Containers in the empty-return stage. */
+/**
+ * Import containers at the customer or on their way back, grouped by job.
+ *
+ * The demo lists every box from delivery until its empty is returned, not only
+ * the ones whose return has been planned: the box that most needs a return
+ * planning is the one that has none yet. Each shows its return yard, its last
+ * free day and where its return stands.
+ */
 export function ZhtEmptyReturns({ jobs, onOpenJob }) {
-  const rows = [];
+  const groups = [];
   for (const job of jobs) {
-    for (const trip of job.trips ?? []) {
-      if (trip.type !== "EMPTY_RETURN" || trip.status === "COMPLETED") continue;
-      rows.push({ job, trip });
-    }
+    if (job.type !== "Import") continue;
+    const rows = (job.containers ?? []).map((c, index) => {
+      if (!c.deliveredAt) return null;
+      const back = [...(job.trips ?? [])].reverse()
+        .find((t) => t.containerId === c.id && t.type === "EMPTY_RETURN" && t.status !== "CANCELLED");
+      if (back?.status === "COMPLETED") return null;
+      const stage = back ? "Empty Return Planned"
+        : c.controllerStage === "EMPTY" ? "Empty Ready" : "Delivered";
+      return { c, index, back, stage };
+    }).filter(Boolean);
+    if (rows.length) groups.push({ job, rows });
   }
 
   return (
-    <Shell title="Empty Returns" note="Containers currently in the empty-return stage.">
-      <div className="card">
-        {rows.length ? rows.map(({ job, trip }) => (
-          <div className="movement" key={`${job.id}-${trip.id}`}>
-            <strong>
-              <button type="button" className="job-link" onClick={() => onOpenJob(job)}>{job.id}</button>
-            </strong>
-            {trip.origin} → {trip.destination}
-            <br />
-            <span className="muted">
-              {trip.status}{trip.plannedDate ? ` · planned ${fmt(trip.plannedDate)}` : ""}
-              {job.emptyYard ? ` · ${job.emptyYard}` : ""}
-            </span>
+    <Shell title="Empty Returns" note="Delivered containers until their empty is back at the yard.">
+      {groups.length ? groups.map(({ job, rows }) => (
+        <div className="card" key={job.id} style={{ marginBottom: 12 }}>
+          <div className="clean-section-head">
+            <div>
+              <div className="section-title">{job.id} · {job.customer || "Customer TBA"}</div>
+              <div className="muted">{rows.length} container{rows.length === 1 ? "" : "s"}</div>
+            </div>
+            <button className="btn secondary" type="button" onClick={() => onOpenJob(job)}>Open Job</button>
           </div>
-        )) : <Empty>No containers are awaiting empty return.</Empty>}
-      </div>
+          <table>
+            <thead>
+              <tr><th>Container</th><th>Stage</th><th>Empty return yard</th><th>Last free day</th><th>Return</th></tr>
+            </thead>
+            <tbody>
+              {rows.map(({ c, index, back, stage }) => (
+                <tr key={c.id ?? index}>
+                  <td><button type="button" className="job-link" onClick={() => onOpenJob(job, index)}>{c.number || c.ref}</button></td>
+                  <td>{stage}</td>
+                  <td>{c.emptyReturnYard || "Not recorded"}</td>
+                  <td>{fmt(c.lastFreeDay)}</td>
+                  <td>{back ? `${back.driver || "No driver"}${back.plannedDate ? ` · ${fmt(back.plannedDate)}` : ""}` : "Not planned"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )) : <div className="card"><Empty>No containers are awaiting empty return.</Empty></div>}
     </Shell>
   );
 }

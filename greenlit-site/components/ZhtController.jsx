@@ -441,7 +441,7 @@ const HALF_HOURS = Array.from({ length: 48 }, (_, i) => {
  * A chassis in maintenance is not offered. From and To start where the box
  * is and where it is going.
  */
-function PlanForm({ target, jobs, fleet, onClose, onSave }) {
+function PlanForm({ target, jobs, fleet, drivers = [], onClose, onSave }) {
   const { job, c, type, trip } = target;
   const isReturn = type === "EMPTY_RETURN";
   const delivery = [...(job.trips ?? [])].reverse()
@@ -465,7 +465,11 @@ function PlanForm({ target, jobs, fleet, onClose, onSave }) {
 
   // Names already used on trips, so the same driver is typed the same way.
   const used = (key) => [...new Set((jobs ?? []).flatMap((j) => (j.trips ?? []).map((t) => t[key])).filter(Boolean))].sort();
-  const chassis = [...(fleet?.available ?? []), ...(fleet?.inUse ?? [])].map((u) => u.unit);
+  // Drivers on file first, as the demo's list, then any name used on a trip.
+  const onFile = drivers.filter((d) => d.active !== false);
+  const driverNames = [...new Set([...onFile.map((d) => d.name), ...used("driver")])];
+  const vehicleNames = [...new Set([...onFile.map((d) => d.vehicle).filter(Boolean), ...used("truck")])];
+  const chassis = [...(fleet?.available ?? []), ...(fleet?.planned ?? []), ...(fleet?.inUse ?? [])].map((u) => u.unit);
   const chassisOptions = form.chassisId && !chassis.includes(form.chassisId) ? [form.chassisId, ...chassis] : chassis;
 
   const submit = (e) => {
@@ -494,12 +498,19 @@ function PlanForm({ target, jobs, fleet, onClose, onSave }) {
         </div>
         <div className="formgrid">
           <label className="field-wrap"><span className="field-label">Driver *</span>
-            <input id="plan-driver" list="plan-drivers" value={form.driver} onChange={(e) => set("driver", e.target.value.toUpperCase())} />
-            <datalist id="plan-drivers">{used("driver").map((d) => <option key={d} value={d} />)}</datalist>
+            <input id="plan-driver" list="plan-drivers" value={form.driver}
+              onChange={(e) => {
+                const name = e.target.value.toUpperCase();
+                set("driver", name);
+                // Picking a driver fills in the vehicle they normally drive.
+                const known = onFile.find((d) => d.name === name);
+                if (known?.vehicle && !form.truck) set("truck", known.vehicle);
+              }} />
+            <datalist id="plan-drivers">{driverNames.map((d) => <option key={d} value={d} />)}</datalist>
           </label>
           <label className="field-wrap"><span className="field-label">Vehicle *</span>
             <input id="plan-truck" list="plan-trucks" value={form.truck} onChange={(e) => set("truck", e.target.value.toUpperCase())} />
-            <datalist id="plan-trucks">{used("truck").map((d) => <option key={d} value={d} />)}</datalist>
+            <datalist id="plan-trucks">{vehicleNames.map((d) => <option key={d} value={d} />)}</datalist>
           </label>
           <label className="field-wrap"><span className="field-label">Chassis *</span>
             <select id="plan-chassis" value={form.chassisId} onChange={(e) => set("chassisId", e.target.value)}>
@@ -575,7 +586,7 @@ function ExportTable({ rows, onOpenJob }) {
 }
 
 
-export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany, onPortnet, onDeliver, onSetDeliveryDate, onPlan, onEmpty }) {
+export default function ZhtController({ jobs, fleet, drivers = [], onOpenJob, onDischargeMany, onPortnet, onDeliver, onSetDeliveryDate, onPlan, onEmpty }) {
   const q = controllerQueues(jobs);
   // The Plan form, open on one container at a time.
   const [planning, setPlanning] = useState(null);
@@ -720,7 +731,7 @@ export default function ZhtController({ jobs, fleet, onOpenJob, onDischargeMany,
       </div>
 
       {planning ? (
-        <PlanForm target={planning} jobs={jobs} fleet={fleet}
+        <PlanForm target={planning} jobs={jobs} fleet={fleet} drivers={drivers}
           onClose={() => setPlanning(null)}
           onSave={async (plan) => {
             const ok = await onPlan?.(planning.job, planning.c, planning.type, planning.trip, plan);
