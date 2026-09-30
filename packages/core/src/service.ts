@@ -61,33 +61,39 @@ export class JobService {
 
   async getJob(jobId: string): Promise<DerivedJobView | null> {
     const now = this.#now();
-    const thresholds = await this.#repo.getThresholds();
+    // Everything this job needs, asked at once rather than one after another:
+    // each of these is a round trip to the database, and in sequence they were
+    // most of the wait when a job was opened or a button was pressed.
+    // The job is one kind or the other, so one of each pair comes back empty;
+    // asking for both costs nothing and saves a second round trip.
+    const [thresholds, importJob, exportJob, movements, exceptions, activity, discrepancies,
+      importContainers, exportContainers, permits] = await Promise.all([
+      this.#repo.getThresholds(),
+      this.#repo.getImportJob(jobId),
+      this.#repo.getExportJob(jobId),
+      this.#repo.listMovementsForJob(jobId),
+      this.#repo.listOpenExceptionsForJob(jobId),
+      this.#activity(jobId),
+      this.#repo.listOpenDiscrepancies(jobId),
+      this.#repo.listContainersForImportJob(jobId),
+      this.#repo.listContainersForExportJob(jobId),
+      this.#repo.listPermitsForJob(jobId),
+    ]);
 
-    const importJob = await this.#repo.getImportJob(jobId);
     if (importJob) {
-      const [containers, movements, exceptions, permits] = await Promise.all([
-        this.#repo.listContainersForImportJob(jobId),
-        this.#repo.listMovementsForJob(jobId),
-        this.#repo.listOpenExceptionsForJob(jobId),
-        this.#repo.listPermitsForJob(jobId),
-      ]);
+      const containers = importContainers;
       const view = deriveImportJob(
         importJob, containers, movements, exceptions, IMPORT_MANDATORY, thresholds, now, permits);
-      view.activity = await this.#activity(jobId);
-      view.discrepancies = await this.#repo.listOpenDiscrepancies(jobId);
+      view.activity = activity;
+      view.discrepancies = discrepancies;
       return view;
     }
 
-    const exportJob = await this.#repo.getExportJob(jobId);
     if (exportJob) {
-      const [containers, movements, exceptions] = await Promise.all([
-        this.#repo.listContainersForExportJob(jobId),
-        this.#repo.listMovementsForJob(jobId),
-        this.#repo.listOpenExceptionsForJob(jobId),
-      ]);
+      const containers = exportContainers;
       const view = deriveExportJob(exportJob, containers, movements, exceptions, EXPORT_MANDATORY, thresholds, now);
-      view.activity = await this.#activity(jobId);
-      view.discrepancies = await this.#repo.listOpenDiscrepancies(jobId);
+      view.activity = activity;
+      view.discrepancies = discrepancies;
       return view;
     }
 

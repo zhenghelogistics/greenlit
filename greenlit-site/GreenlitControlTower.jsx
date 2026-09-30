@@ -4214,7 +4214,11 @@ export default function GreenlitControlTower() {
   const [lastLoaded, setLastLoaded] = useState(null);
 
   const loadJobs = React.useCallback(() => {
-    setSource("loading");
+    // "Loading" only before there is anything to show. A refresh after a
+    // button press, or the periodic one, keeps the screen as it is and swaps
+    // the rows in when they arrive: blanking the dashboard on every refresh
+    // made the whole app feel slow.
+    setSource((was) => (was === "engine" || was === "empty" ? was : "loading"));
     return fetch("/api/jobs")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((data) => {
@@ -4933,7 +4937,15 @@ export default function GreenlitControlTower() {
         showToast(payload.error ?? `That could not be saved (HTTP ${response.status}).`);
         return false;
       }
-      await loadJobs();
+      // The command answers with the job as it now stands, so show that at
+      // once and refresh the rest of the board behind it.
+      if (payload.job?.jobId || payload.job?.jobNumber) {
+        const updated = jobFromApi(payload.job);
+        setJobs((current) => current.map((j) => (j.apiId === updated.apiId ? updated : j)));
+        void loadJobs();
+      } else {
+        await loadJobs();
+      }
       if (successMessage) showToast(successMessage);
       return true;
     } catch {
