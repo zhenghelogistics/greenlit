@@ -183,3 +183,23 @@ export function permitNumberChanged(before: string | null, after: string | null)
   return `This permit was ${was} and is now ${now}. `
     + 'Check it against the permit before saving — the old number may already be on paperwork.';
 }
+
+
+/**
+ * Why a permit should not be saved against this shipment, or null.
+ *
+ * The PM's demo refuses to save a permit whose vessel and voyage do not match
+ * the shipment, or whose expiry is not after the ETA: either one is a permit
+ * that will be turned away at the counter. An unfamiliar number shape is only
+ * a warning, because Customs can issue a format we have not seen.
+ */
+export function refusePermitSave(
+  permit: PermitRecord,
+  shipment: { vesselName: string | null; voyageNumber: string | null; eta: string | null },
+): string | null {
+  const verdict = checkPermit(permit, shipment);
+  const blocking: string[] = [];
+  if (verdict.vessel === 'ATTENTION') blocking.push(verdict.issues.find((i) => i.startsWith('Permit covers')) ?? 'The permit is for a different vessel or voyage.');
+  if (verdict.expiry === 'ATTENTION') blocking.push(verdict.issues.find((i) => /expire/.test(i)) ?? 'The permit expires before the vessel arrives.');
+  return blocking.length ? blocking.join(' ') : null;
+}

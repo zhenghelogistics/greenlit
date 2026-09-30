@@ -135,6 +135,7 @@ test('document readiness is the longer list, and a different question', () => {
   // passes the second and fails the first all week.
   const job = importJob({
     vesselName: 'DALLAS EXPRESS', eta: '2026-09-23', blNumber: 'HLCU123',
+    carrier: 'HL', deliveryCompany: 'DKSH',
   } as Partial<ImportJob>);
   const container = {
     containerId: 'ic1', containerNumber: 'SEGU3218850', containerSize: '40',
@@ -150,18 +151,21 @@ test('document readiness is the longer list, and a different question', () => {
   assert.ok(documentGaps(bare, [container], []).length > 0, 'operations have not finished');
 });
 
-test('an unconfirmed free-time model is itself the gap', () => {
-  // Not "no free days" but "nobody has read the carrier's terms yet", which is
-  // a different thing to chase and a different person to ask.
-  const job = importJob({ vesselName: 'X', eta: '2026-09-23', blNumber: 'B' } as Partial<ImportJob>);
+test('a box with no last free day is itself the gap', () => {
+  // The demo asks for an LFD per box: one set by hand, or one that can be
+  // counted from the ETA and the carrier's allowance.
+  const job = importJob({ vesselName: 'X', eta: '2026-09-23', blNumber: 'B', carrier: 'HL',
+    deliveryCompany: 'DKSH' } as Partial<ImportJob>);
   const unread = { containerId: 'ic1', containerNumber: 'A', containerSize: '20',
     emptyReturnYard: 'Yard', freeTimeModel: 'NOT_CONFIRMED' } as never;
-  const gaps = documentGaps(job, [unread], []);
-  assert.ok(gaps.some((g) => g.field === 'Free time terms'));
+  assert.ok(documentGaps(job, [unread], []).some((g) => g.field === 'LFD'));
+  const setByHand = { ...(unread as object), combinedLfd: '2026-10-02' } as never;
+  assert.ok(!documentGaps(job, [setByHand], []).some((g) => g.field === 'LFD'));
 });
 
 test('a job with no containers is not ready, whatever else is filled in', () => {
-  const job = importJob({ vesselName: 'X', eta: '2026-09-23', blNumber: 'B' } as Partial<ImportJob>);
+  const job = importJob({ vesselName: 'X', eta: '2026-09-23', blNumber: 'B', carrier: 'HL',
+    deliveryCompany: 'DKSH' } as Partial<ImportJob>);
   assert.deepEqual(documentGaps(job, [], []), [{ area: 'Container', field: 'At least one container' }]);
 });
 
@@ -172,7 +176,7 @@ test('confirming the documents is a different claim from the list being empty', 
   // before the mark means anything — which is why the command refuses while
   // anything is outstanding.
   const job = importJob({
-    vesselName: 'X', eta: '2026-09-24', blNumber: 'B',
+    vesselName: 'X', eta: '2026-09-24', blNumber: 'B', carrier: 'HL', deliveryCompany: 'DKSH',
   } as Partial<ImportJob>);
   const container = { containerId: 'ic1', containerNumber: 'A', containerSize: '20',
     emptyReturnYard: 'Yard', freeTimeModel: 'COMBINED', combinedFreeDays: 14 } as never;

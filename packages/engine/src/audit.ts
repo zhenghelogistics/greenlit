@@ -152,6 +152,8 @@ export function asNarrative(events: readonly AuditEvent[]): AuditEvent[] {
 
 /** A one-line human rendering. System entries always show their rule. */
 export function describe(event: AuditEvent): string {
+  // A note somebody wrote is shown as they wrote it, not as a field change.
+  if (event.event === 'job.note') return `Note: ${event.newValue ?? ''}`;
   const change = event.field
     ? `${event.field}: ${event.previousValue ?? '(empty)'} → ${event.newValue ?? '(empty)'}`
     : event.event;

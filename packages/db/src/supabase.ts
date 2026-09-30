@@ -1149,6 +1149,35 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       }
       return [...byJob].map(([jobId, permits]) => ({ jobId, permits }));
     },
+    async addJobNote(jobId, text, actor) {
+      const known = (await this.getImportJob(jobId)) ?? (await this.getExportJob(jobId));
+      if (!known) throw new Error(`Unknown job ${jobId}`);
+      if (!text.trim()) throw new Error('Write the note first.');
+      await record(jobId, 'job.note', actor, { field: 'note', to: text.trim() });
+    },
+    async amendPermit(permitId, changes, actor) {
+      const found = await db.from('permits').select('*').eq('permit_id', permitId).maybeSingle();
+      if (found.error) throw new Error(`permit lookup: ${found.error.message}`);
+      if (!found.data) throw new Error(`Unknown permit ${permitId}`);
+      const before = found.data as Record<string, unknown>;
+      const patch: Record<string, unknown> = {};
+      const changed: Array<{ field: string; from: unknown; to: unknown }> = [];
+      for (const [field, raw] of Object.entries(changes)) {
+        if (raw === undefined) continue;
+        const to = field === 'permitNumber' && raw ? normalisePermitNumber(String(raw)) : raw;
+        const column = camelToSnake(field);
+        const from = before[column] ?? null;
+        if (String(from ?? '') === String(to ?? '')) continue;
+        patch[column] = to;
+        changed.push({ field: `permit ${field}`, from, to });
+      }
+      if (changed.length) {
+        unwrap(await db.from('permits').update(patch).eq('permit_id', permitId).select().single(), 'amend permit');
+        for (const c of changed) await record(before.job_id as string, 'permit.amended', actor, c);
+      }
+      const jobId = before.job_id as string;
+      return (await this.listPermitsForJob(jobId)).find((p) => p.permitId === permitId)!;
+    },
     async recordPermit(jobId, draft, actor) {
       const permitId = `permit-${crypto.randomUUID()}`;
       unwrap(await db.from('permits').insert({

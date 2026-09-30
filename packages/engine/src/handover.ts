@@ -195,40 +195,42 @@ export function documentGaps(
     if (missing(value)) gaps.push(container ? { area, field, container } : { area, field });
   };
 
+  // The demo's list (v12.108): customer and where it goes; the sailing, the
+  // master carrier and the MBL; and per box its number, size, return yard,
+  // a last free day, and a permit where one is needed.
   need('Customer & delivery', 'Customer', job.customer);
   // A job delivering each box somewhere different has no address of its own,
-  // so the address is asked of each container instead.
+  // so the company and address are asked of each container instead.
   const perContainerAddress = containers.some((c) => !missing(c.deliveryAddress));
-  if (!perContainerAddress) need('Customer & delivery', 'Delivery address', job.deliveryAddress);
-  need('Shipment', 'Vessel', job.vesselName);
-  need('Shipment', 'Voyage', job.voyageNumber);
-  need('Shipment', 'ETA', job.eta);
-  need('Shipment', 'Master bill of lading', job.blNumber);
+  if (!perContainerAddress) {
+    need('Customer & delivery', 'Delivery address company name', job.deliveryCompany);
+    need('Customer & delivery', 'Delivery address', job.deliveryAddress);
+  }
+  if (missing(job.vesselName) || missing(job.voyageNumber)) {
+    gaps.push({ area: 'Shipment', field: 'Vessel / Voyage' });
+  }
+  need('Shipment', 'Master carrier', job.carrier);
+  need('Shipment', 'MBL / OBL', job.blNumber);
 
   containers.forEach((c, index) => {
     const name = c.containerNumber || c.containerRef || `Container ${index + 1}`;
     need('Container', 'Container number', c.containerNumber, name);
-    need('Container', 'Size', c.containerSize, name);
-    if (perContainerAddress && missing(job.deliveryAddress)) {
-      need('Customer & delivery', 'Delivery address', c.deliveryAddress, name);
+    need('Container', 'Container size', c.containerSize, name);
+    if (perContainerAddress) {
+      need('Container', 'Delivery address company name', c.deliveryCompany, name);
+      need('Container', 'Delivery address', c.deliveryAddress, name);
     }
     need('Container', 'Empty return yard', c.emptyReturnYard, name);
-
-    // The free-time terms, whichever shape this carrier issues them in. An
-    // unconfirmed model is itself the gap: nobody has read the terms yet.
-    if (c.freeTimeModel === 'COMBINED') {
-      need('Container', 'Combined free days', c.combinedFreeDays, name);
-    } else if (c.freeTimeModel === 'SPLIT') {
-      need('Container', 'Demurrage free days', c.demurrageFreeDays, name);
-      need('Container', 'Detention free days', c.detentionFreeDays, name);
-    } else {
-      gaps.push({ area: 'Container', container: name, field: 'Free time terms' });
+    if (!hasLastFreeDay(c, job.eta)) {
+      gaps.push({ area: 'Container', container: name, field: 'LFD' });
     }
 
+    // The demo counts a permit linked to the box whether its number or its
+    // file is on record; the number is what handover asks for.
     if (job.permitRequired) {
       const mapped = permits.filter((p) => p.linkedContainerIds.includes(c.containerId));
-      if (!mapped.some(permitOnFile)) {
-        gaps.push({ area: 'Permit', container: name, field: 'Permit number' });
+      if (!mapped.some((p) => !missing(p.permitNumber) || !missing(p.fileName))) {
+        gaps.push({ area: 'Permit', container: name, field: 'Permit' });
       }
     }
   });
@@ -238,6 +240,22 @@ export function documentGaps(
   }
 
   return gaps;
+}
+
+/**
+ * Whether this box has a last free day: one set by hand, or one that can be
+ * counted from the ETA and the carrier's allowance.
+ */
+function hasLastFreeDay(
+  c: Pick<ImportContainer, 'freeTimeModel' | 'combinedFreeDays' | 'combinedLfd'
+    | 'demurrageFreeDays' | 'demurrageLfd' | 'detentionFreeDays' | 'detentionLfd'>,
+  eta: string | null,
+): boolean {
+  if (!missing(c.combinedLfd) || !missing(c.demurrageLfd) || !missing(c.detentionLfd)) return true;
+  if (missing(eta)) return false;
+  if (c.freeTimeModel === 'COMBINED') return !missing(c.combinedFreeDays);
+  if (c.freeTimeModel === 'SPLIT') return !missing(c.demurrageFreeDays) || !missing(c.detentionFreeDays);
+  return false;
 }
 
 /** Whether operations have finished gathering this job. */

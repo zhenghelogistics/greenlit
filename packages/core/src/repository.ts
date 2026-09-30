@@ -305,6 +305,10 @@ export interface Repository {
     permitId: string, containerIds: readonly string[], actor: string,
   ): Promise<void>;
   removePermit(permitId: string, actor: string): Promise<void>;
+  /** A note on the job's log, in the words of whoever wrote it. */
+  addJobNote(jobId: string, text: string, actor: string): Promise<void>;
+  /** Correct a permit's number, expiry, vessel/voyage or file, field by field in the log. */
+  amendPermit(permitId: string, changes: PermitAmendment, actor: string): Promise<PermitRecord>;
   listPrincipals(): Promise<Principal[]>;
 
   listChassis(): Promise<Chassis[]>;
@@ -593,6 +597,14 @@ export interface ExportContainerAmendment {
   isReefer?: boolean;
   temperatureMode?: string | null;
   temperatureSetpointC?: number | null;
+}
+
+/** What may be corrected on a permit. */
+export interface PermitAmendment {
+  permitNumber?: string | null;
+  expiryDate?: string | null;
+  permitVesselVoyage?: string | null;
+  fileName?: string | null;
 }
 
 /** §29. What may be corrected on a container. */

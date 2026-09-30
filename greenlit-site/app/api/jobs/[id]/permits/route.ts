@@ -1,4 +1,4 @@
-import { checkPermit, permitNumberChanged, permitNumberLooksValid } from "@greenlit/engine";
+import { checkPermit, permitNumberChanged, permitNumberLooksValid, refusePermitSave } from "@greenlit/engine";
 import { authorize, badRequest, readJson } from "../../../../../lib/command";
 import { currentPrincipal } from "../../../../../lib/auth";
 import { getRepository, getJobService, jsonError } from "../../../../../lib/greenlit";
@@ -79,6 +79,19 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     // be pointed out. A permit number that changes is ordinary — an amended
     // permit is issued with a new one — and it is also how the number on the
     // paperwork at the gate stops matching the number on the job.
+    // The demo refuses a permit for another sailing, or one that expires
+    // before the vessel arrives: it would be turned away at the counter.
+    const shipmentOf = (await getJobService().getJob(id))?.record as
+      { vesselName?: string | null; voyageNumber?: string | null; eta?: string | null } | undefined;
+    const refusal = refusePermitSave({
+      permitId: "new", permitNumber: body.permitNumber ?? null, expiryDate: body.expiryDate ?? null,
+      permitVesselVoyage: body.permitVesselVoyage ?? null, fileName: body.fileName ?? null, linkedContainerIds: [],
+    }, {
+      vesselName: shipmentOf?.vesselName ?? null, voyageNumber: shipmentOf?.voyageNumber ?? null,
+      eta: shipmentOf?.eta ?? null,
+    });
+    if (refusal) return badRequest(refusal);
+
     const previous = (await getRepository().listPermitsForJob(id))
       .map((permit) => permit.permitNumber)
       .filter((number): number is string => Boolean(number));

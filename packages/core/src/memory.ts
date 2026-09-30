@@ -1367,6 +1367,26 @@ export function createMemoryRepository(): Repository {
       }
       return clone([...byJob].map(([jobId, list]) => ({ jobId, permits: list })));
     },
+    async addJobNote(jobId, text, actor) {
+      const known = importJobs.some((j) => j.jobId === jobId) || exportJobs.some((j) => j.exportJobId === jobId);
+      if (!known) throw new Error(`Unknown job ${jobId}`);
+      if (!text.trim()) throw new Error('Write the note first.');
+      record(jobId, 'job.note', actor, { field: 'note', to: text.trim() });
+    },
+    async amendPermit(permitId, changes, actor) {
+      const stored = permits.find((p) => p.permitId === permitId);
+      if (!stored) throw new Error(`Unknown permit ${permitId}`);
+      const fields = stored as unknown as Record<string, unknown>;
+      for (const [field, raw] of Object.entries(changes)) {
+        if (raw === undefined) continue;
+        const to = field === 'permitNumber' && raw ? normalisePermitNumber(String(raw)) : raw;
+        const from = fields[field] ?? null;
+        if (String(from ?? '') === String(to ?? '')) continue;
+        fields[field] = to;
+        record(stored.jobId, 'permit.amended', actor, { field: `permit ${field}`, from, to });
+      }
+      return clone(toPermitRecord(stored));
+    },
     async recordPermit(jobId, draft, actor) {
       const permitId = `permit-${jobId}-${permits.length + 1}`;
       const stored = {

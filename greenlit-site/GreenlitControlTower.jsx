@@ -480,6 +480,7 @@ function PermitPanel({ jobId, containers, onChanged }) {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
   const [allocating, setAllocating] = useState(null);
+  const [editing, setEditing] = useState(null);
 
   const load = React.useCallback(() => {
     if (!jobId) return;
@@ -594,6 +595,11 @@ function PermitPanel({ jobId, containers, onChanged }) {
                   : "Not yet applied to any container"}
               </span>
               <button type="button"
+                onClick={() => setEditing(editing === permit.permitId ? null : permit.permitId)}
+                className="min-h-11 cursor-pointer px-1 text-[15px] font-semibold text-[var(--gl-accent)] underline underline-offset-4">
+                Edit
+              </button>
+              <button type="button"
                 onClick={() => setAllocating(allocating === permit.permitId ? null : permit.permitId)}
                 className="min-h-11 cursor-pointer px-1 text-[15px] font-semibold text-[var(--gl-accent)] underline underline-offset-4">
                 Choose containers
@@ -614,6 +620,24 @@ function PermitPanel({ jobId, containers, onChanged }) {
                 Remove
               </button>
             </div>
+
+            {/* Corrected in place, keeping which containers it covers. A number
+                that changes is asked about first: the old one may already be
+                on paperwork. */}
+            {editing === permit.permitId ? (
+              <div className="mt-4">
+                <AddPermit initial={permit}
+                  onCancel={() => setEditing(null)}
+                  onSave={async (draft) => {
+                    const was = permit.permitNumber ?? "";
+                    const now = String(draft.permitNumber ?? "").trim().toUpperCase();
+                    if (was && now && was !== now
+                      && !window.confirm(`This permit was ${was} and is now ${now}. Save the new number?`)) return;
+                    const r = await send(`/api/jobs/${encodeURIComponent(jobId)}/permits/${permit.permitId}`, "PATCH", draft);
+                    if (r) setEditing(null);
+                  }} />
+              </div>
+            ) : null}
 
             {allocating === permit.permitId ? (
               <ContainerAllocation
@@ -687,10 +711,12 @@ function ContainerAllocation({ containers, selected, onCancel, onApply }) {
 }
 
 /** Recording a permit. The vessel is asked for because it is what gets checked. */
-function AddPermit({ onCancel, onSave }) {
-  const [form, setForm] = useState({
-    permitNumber: "", expiryDate: "", permitVesselVoyage: "", fileName: "",
-  });
+function AddPermit({ onCancel, onSave, initial = null }) {
+  // Opened on an existing permit, it corrects that permit rather than adding one.
+  const [form, setForm] = useState(() => ({
+    permitNumber: initial?.permitNumber ?? "", expiryDate: String(initial?.expiryDate ?? "").slice(0, 10),
+    permitVesselVoyage: initial?.permitVesselVoyage ?? "", fileName: initial?.fileName ?? "",
+  }));
   const [saving, setSaving] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const field = "min-h-12 w-full rounded-md border border-[color:var(--gl-line-strong)] bg-white px-3 text-[17px] text-[color:var(--gl-ink)]";
@@ -733,7 +759,7 @@ function AddPermit({ onCancel, onSave }) {
       <div className="mt-4 flex flex-wrap gap-3">
         <button type="submit" disabled={saving}
           className="btn primary">
-          {saving ? "Saving…" : "Record permit"}
+          {saving ? "Saving…" : initial ? "Save changes" : "Record permit"}
         </button>
         <button type="button" onClick={onCancel}
           className="btn ghost">
@@ -2805,6 +2831,11 @@ function initialDrawerDraft(panel, job) {
     deliveryAddress: job.deliveryAddress || "",
     deliveryCompany: job.deliveryCompany || "",
     pointOfContact: job.pointOfContact || "",
+    // Job level or container level, as the demo's Delivery Assignment asks.
+    deliveryMode: jobContainers(job).some((c) => c.containerDeliveryAddress) ? "container" : "job",
+    containerDelivery: Object.fromEntries(jobContainers(job).map((c) => [c.id, {
+      company: c.containerDeliveryCompany || "", address: c.containerDeliveryAddress || "",
+    }])),
     operatingLocation: job.type === "Import" ? job.terminal || "" : job.emptyYard || "",
     deliveryInstructions: job.deliveryInstructions || "",
   };
@@ -2879,7 +2910,6 @@ function panelHeading(panel) {
 function CustomerDeliveryFields({ job, draft, update, customers }) {
   const code = customers.find((c) => c.companyName === job.customer || c.code === job.customer)?.code ?? "";
   const { loading, companies, addressesFor, siteAt } = useCustomerLocations(code);
-  const perContainer = jobContainers(job).some((c) => c.containerDeliveryAddress);
   // An address on file that is not one of the saved ones stays selectable,
   // so opening the drawer never blanks what the job already says.
   const addresses = addressesFor(draft.deliveryCompany);
@@ -2895,12 +2925,20 @@ function CustomerDeliveryFields({ job, draft, update, customers }) {
       <DrawerField label="Point of contact">
         <input value={draft.pointOfContact || ""} onChange={(event) => update("pointOfContact", event.target.value.toUpperCase())} className={drawerInputClass} />
       </DrawerField>
-      {job.type === "Import" && perContainer ? (
-        <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-[17px] text-slate-700">
-          Each container has its own delivery address. Change it on the container.
-        </div>
+      {job.type === "Import" ? (
+        <DrawerField label="Delivery assignment">
+          <div className="flex flex-wrap gap-2">
+            {[["job", "Apply to Job Level"], ["container", "Prompt at Container Level"]].map(([mode, label]) => (
+              <button key={mode} type="button" aria-pressed={draft.deliveryMode === mode}
+                onClick={() => update("deliveryMode", mode)}
+                className={`min-h-11 rounded-md border px-4 py-2 text-[17px] font-semibold ${draft.deliveryMode === mode ? "border-[var(--gl-accent)] bg-[var(--gl-accent)] text-[color:var(--gl-on-accent)]" : "border-slate-300 bg-white text-slate-700"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </DrawerField>
       ) : null}
-      {job.type === "Import" && !perContainer ? (
+      {job.type === "Import" && draft.deliveryMode === "job" ? (
         <div className="grid gap-5 sm:grid-cols-2">
           <DrawerField label="Delivery company">
             <select value={draft.deliveryCompany || ""} disabled={!code}
@@ -2923,6 +2961,31 @@ function CustomerDeliveryFields({ job, draft, update, customers }) {
           </DrawerField>
         </div>
       ) : null}
+      {/* One company and address per container, from Customer Master only:
+          no destination is typed freely anywhere in the demo. */}
+      {job.type === "Import" && draft.deliveryMode === "container" ? jobContainers(job).map((c, i) => {
+        const pick = draft.containerDelivery?.[c.id] ?? { company: "", address: "" };
+        const set = (next) => update("containerDelivery", { ...draft.containerDelivery, [c.id]: { ...pick, ...next } });
+        const own = addressesFor(pick.company);
+        const options = pick.address && !own.includes(pick.address) ? [pick.address, ...own] : own;
+        return (
+          <div key={c.id ?? i} className="grid gap-5 sm:grid-cols-2">
+            <DrawerField label={`${c.number || `Container ${i + 1}`}: delivery company`}>
+              <select value={pick.company} disabled={!code}
+                onChange={(event) => set({ company: event.target.value, address: "" })} className={drawerInputClass}>
+                <option value="">Choose a company</option>
+                {companies.map((co) => <option key={co} value={co}>{co}</option>)}
+              </select>
+            </DrawerField>
+            <DrawerField label="Delivery address">
+              <select value={pick.address} onChange={(event) => set({ address: event.target.value })} className={drawerInputClass}>
+                <option value="">Choose an address</option>
+                {options.map((a) => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </DrawerField>
+          </div>
+        );
+      }) : null}
       {site?.operationalInstructions ? (
         <div className="rounded-md border border-slate-200 bg-white px-4 py-3 text-[17px] text-slate-700">
           <b>Always at this address</b>
@@ -2933,6 +2996,72 @@ function CustomerDeliveryFields({ job, draft, update, customers }) {
         <textarea rows={2} value={draft.deliveryInstructions || ""} onChange={(event) => update("deliveryInstructions", event.target.value)} className={drawerInputClass} />
       </DrawerField>
     </>
+  );
+}
+
+/**
+ * Where one container goes, when it goes somewhere other than the job's
+ * address: a company and address from Customer Master, never typed freely.
+ */
+/**
+ * Apply a value to this container, all of them, or the ones ticked: the
+ * demo's distribution control, shown against the empty return depot and the
+ * free-time terms.
+ */
+function ApplyTo({ job, currentId, mode, targets, onMode, onTargets, what }) {
+  const others = jobContainers(job).filter((c) => c.id !== currentId);
+  if (others.length === 0) return null;
+  const toggle = (id) => onTargets(targets.includes(id) ? targets.filter((t) => t !== id) : [...targets, id]);
+  return (
+    <div className="grid gap-2 rounded-md border border-slate-200 bg-white px-4 py-3">
+      <span className="gl-label">Apply {what} to</span>
+      <div className="flex flex-wrap gap-2">
+        {[["this", "Only this container"], ["all", `All ${others.length + 1} containers`], ["selected", "Selected containers"]].map(([m, label]) => (
+          <button key={m} type="button" aria-pressed={mode === m} onClick={() => onMode(m)}
+            className={`min-h-11 rounded-md border px-3 py-2 text-[17px] font-semibold ${mode === m ? "border-[var(--gl-accent)] bg-[var(--gl-accent)] text-[color:var(--gl-on-accent)]" : "border-slate-300 bg-white text-slate-700"}`}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {mode === "selected" ? (
+        <div className="flex flex-wrap gap-x-5 gap-y-2">
+          {others.map((c) => (
+            <label key={c.id} className="flex min-h-11 items-center gap-2 text-[17px]">
+              <input type="checkbox" checked={targets.includes(c.id)} onChange={() => toggle(c.id)}
+                className="h-5 w-5 accent-[color:var(--gl-accent)]" />
+              {c.number || c.ref}
+            </label>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ContainerDeliveryPicker({ job, customers, draft, update }) {
+  const code = customers.find((c) => c.companyName === job.customer || c.code === job.customer)?.code ?? "";
+  const { companies, addressesFor } = useCustomerLocations(code);
+  const own = addressesFor(draft.containerDeliveryCompany);
+  const options = draft.containerDeliveryAddress && !own.includes(draft.containerDeliveryAddress)
+    ? [draft.containerDeliveryAddress, ...own] : own;
+  return (
+    <div className="grid gap-5 sm:grid-cols-2">
+      <DrawerField label="Delivery company" hint="Leave blank to use the job's own delivery address.">
+        <select value={draft.containerDeliveryCompany || ""} disabled={!code}
+          onChange={(event) => { update("containerDeliveryCompany", event.target.value); update("containerDeliveryAddress", ""); }}
+          className={drawerInputClass}>
+          <option value="">Use the job&rsquo;s address</option>
+          {companies.map((co) => <option key={co} value={co}>{co}</option>)}
+        </select>
+      </DrawerField>
+      <DrawerField label="Delivery address" hint="Only when this box goes somewhere different from the rest.">
+        <select value={draft.containerDeliveryAddress || ""} disabled={!draft.containerDeliveryCompany}
+          onChange={(event) => update("containerDeliveryAddress", event.target.value)} className={drawerInputClass}>
+          <option value="">Choose an address</option>
+          {options.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+      </DrawerField>
+    </div>
   );
 }
 
@@ -3093,10 +3222,8 @@ function OperationsDrawer({ panel, jobs, customers = [], onClose, onCommit }) {
                   <DrawerField label="Weight (kg)" hint="Gross weight, as operations record it after Portnet."><input min="1" type="number" inputMode="numeric" value={draft.grossWeight ?? ""} onChange={(event) => update("grossWeight", event.target.value)} className={drawerInputClass} /></DrawerField>
                   <DrawerField label="Empty return yard" hint="Where this box goes back. Per container, not per job."><input value={draft.emptyReturnYard || ""} onChange={(event) => update("emptyReturnYard", event.target.value)} className={drawerInputClass} /></DrawerField>
                 </div>
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <DrawerField label="Delivery company" hint="Leave blank to use the job's own delivery address."><input value={draft.containerDeliveryCompany || ""} onChange={(event) => update("containerDeliveryCompany", event.target.value)} className={drawerInputClass} /></DrawerField>
-                  <DrawerField label="Delivery address" hint="Only when this box goes somewhere different from the rest."><input value={draft.containerDeliveryAddress || ""} onChange={(event) => update("containerDeliveryAddress", event.target.value)} className={drawerInputClass} /></DrawerField>
-                </div>
+                {panel.mode !== "new" ? <ApplyTo job={job} currentId={selectedContainer?.id} what="this empty return yard" mode={draft.yardApply || "this"} targets={draft.yardTargets || []} onMode={(m) => update("yardApply", m)} onTargets={(t) => update("yardTargets", t)} /> : null}
+                <ContainerDeliveryPicker job={job} customers={customers} draft={draft} update={update} />
                 <ChoiceGroup label="Tri-axle chassis" value={Boolean(draft.triAxle)} onChange={(value) => update("triAxle", value)} options={[{ value: true, label: "Needed", note: "Only a tri-axle unit may be assigned." }, { value: false, label: "Not needed", note: "Any suitable unit." }]} />
                 <div className="rounded-md border border-sky-200 bg-sky-50 p-4 text-[17px] font-medium text-sky-900">Marking a container collected or delivered also updates its linked delivery trip. Delivering every container creates the empty-return trip automatically.</div>
                 {containerNumberCheck?.checkDigitValid === false || containerNumberCheck?.wellFormed === false ? <div role="alert" className="callout">{containerNumberCheck.problem}</div> : null}
@@ -3226,18 +3353,11 @@ function OperationsDrawer({ panel, jobs, customers = [], onClose, onCommit }) {
                     Only the allowance travels. The dates are counted from the
                     vessel ETA per container (§34.1), so copying a last free
                     day across would copy one box's arithmetic onto another's. */}
-                {(job?.containers ?? []).length > 1 ? (
-                  <label className="flex min-h-11 cursor-pointer items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(draft.applyToAllContainers)}
-                      onChange={(event) => setDraft((d) => ({ ...d, applyToAllContainers: event.target.checked }))}
-                      className="h-5 w-5 cursor-pointer accent-[color:var(--gl-accent)]"
-                    />
-                    <span className="gl-body-plain text-[color:var(--gl-ink)]">
-                      Apply these terms to all {job.containers.length} containers on this job
-                    </span>
-                  </label>
+                {job ? (
+                  <ApplyTo job={job} currentId={draft.containerId} what="these free-time terms"
+                    mode={draft.ftApply || "this"} targets={draft.ftTargets || []}
+                    onMode={(m) => setDraft((d) => ({ ...d, ftApply: m }))}
+                    onTargets={(t) => setDraft((d) => ({ ...d, ftTargets: t }))} />
                 ) : null}
 
                 <DrawerField label="Free-time remarks">
@@ -4292,8 +4412,12 @@ export default function GreenlitControlTower() {
       // Applying to the whole job goes to a different endpoint, because the
       // dates are counted per container and must not be copied: only the
       // allowance travels.
-      const everyContainer = Boolean(draft.applyToAllContainers);
-      const job = jobs.find((j) => j.apiId === panel.jobId || j.id === panel.jobId);
+      const job = jobs.find((j) => j.apiId === panel.jobId || j.id === panel.jobId || j.apiId === panel.apiJobId);
+      // This container in full; the others, when chosen, get the allowance.
+      const others = draft.ftApply === "all"
+        ? (job?.containers ?? []).map((c) => c.id).filter((id) => id && id !== draft.containerId)
+        : draft.ftApply === "selected" ? (draft.ftTargets ?? []) : [];
+      const everyContainer = others.length > 0;
 
       // Applying to the job replaces figures somebody entered by hand, and
       // doing that silently is how a correction made this morning disappears
@@ -4308,7 +4432,7 @@ export default function GreenlitControlTower() {
           detentionFreeDays: split ? String(numberOrNull(draft.detentionFreeDays) ?? "") : "",
         };
         const replaced = (job?.containers ?? [])
-          .filter((c) => c.id !== draft.containerId)
+          .filter((c) => others.includes(c.id))
           .filter((c) => ["freeTimeModel", "combinedFreeDays", "demurrageFreeDays", "detentionFreeDays"]
             .some((field) => {
               const existing = c[field];
@@ -4327,22 +4451,7 @@ export default function GreenlitControlTower() {
       }
 
       void (async () => {
-        const response = everyContainer ? await fetch(
-          `/api/jobs/${encodeURIComponent(panel.apiJobId)}/free-time-many`,
-          {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              containerIds: (job?.containers ?? []).map((c) => c.id).filter(Boolean),
-              freeTimeModel: draft.freeTimeModel || "NOT_CONFIRMED",
-              demurrageFreeDays: split ? numberOrNull(draft.demurrageFreeDays) : undefined,
-              detentionFreeDays: split ? numberOrNull(draft.detentionFreeDays) : undefined,
-              combinedFreeDays: combined ? numberOrNull(draft.combinedFreeDays) : undefined,
-              freeTimeRemarks: draft.freeTimeRemarks || null,
-              lfdOverrideReason: draft.lfdOverrideReason || null,
-            }),
-          },
-        ).catch(() => null) : await fetch(
+        const response = await fetch(
           `/api/jobs/${encodeURIComponent(panel.apiJobId)}/containers/${encodeURIComponent(draft.containerId)}/free-time`,
           {
             method: "POST",
@@ -4370,6 +4479,26 @@ export default function GreenlitControlTower() {
         if (!response?.ok) {
           showToast(payload?.error ?? "Could not save the free-time terms.");
           return;
+        }
+        // Only the allowance travels to the other containers: their dates are
+        // counted from the ETA for each box.
+        if (everyContainer) {
+          const many = await fetch(`/api/jobs/${encodeURIComponent(panel.apiJobId)}/free-time-many`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              containerIds: others,
+              freeTimeModel: draft.freeTimeModel || "NOT_CONFIRMED",
+              demurrageFreeDays: split ? numberOrNull(draft.demurrageFreeDays) : undefined,
+              detentionFreeDays: split ? numberOrNull(draft.detentionFreeDays) : undefined,
+              combinedFreeDays: combined ? numberOrNull(draft.combinedFreeDays) : undefined,
+              freeTimeRemarks: draft.freeTimeRemarks || null,
+            }),
+          }).catch(() => null);
+          if (!many?.ok) {
+            const why = await many?.json().catch(() => ({}));
+            showToast(why?.error ?? "Saved on this container, but not on the others.");
+          }
         }
         setWorkPanel(null);
         await loadJobs();
@@ -4454,6 +4583,24 @@ export default function GreenlitControlTower() {
          * and tare may have been entered in the same edit.
          */
         const containerId = existing?.id;
+        // The yard to the other containers chosen, asking before replacing a
+        // yard somebody already recorded on them.
+        if (containerId && openJobRecord.type === "Import" && panel.mode !== "new" && draft.yardApply && draft.yardApply !== "this") {
+          const targets = draft.yardApply === "all"
+            ? jobContainers(openJobRecord).filter((c) => c.id !== containerId)
+            : jobContainers(openJobRecord).filter((c) => (draft.yardTargets ?? []).includes(c.id));
+          const yard = draft.emptyReturnYard || null;
+          const replacing = targets.filter((c) => c.emptyReturnYard && c.emptyReturnYard !== yard);
+          if (!replacing.length || window.confirm(
+            `This replaces the empty return yard on ${replacing.map((c) => c.number || c.ref).join(", ")}. Continue?`)) {
+            for (const c of targets) {
+              await fetch(`${base}/${encodeURIComponent(c.id)}`, {
+                method: "PATCH", headers: { "content-type": "application/json" },
+                body: JSON.stringify({ emptyReturnYard: yard }),
+              }).catch(() => null);
+            }
+          }
+        }
         // The free-time terms are on the same screen and save with it, through
         // their own command, which carries the override reason and the log.
         if (containerId && openJobRecord.type === "Import" && panel.mode !== "new" && !draft._delete) {
@@ -4637,8 +4784,10 @@ export default function GreenlitControlTower() {
             ...(edited?.type === "Import"
               ? {
                   terminal: draft.operatingLocation || null,
-                  ...(jobContainers(edited).some((c) => c.containerDeliveryAddress)
-                    ? {}
+                  // Container level leaves the job with no address of its own,
+                  // as the demo saves it.
+                  ...(draft.deliveryMode === "container"
+                    ? { deliveryAddress: null, deliveryCompany: null }
                     : { deliveryAddress: draft.deliveryAddress || null, deliveryCompany: draft.deliveryCompany || null }),
                 }
               : { emptyCollectionYard: draft.operatingLocation ?? null }),
@@ -4649,6 +4798,23 @@ export default function GreenlitControlTower() {
         if (!response?.ok) {
           showToast(payload?.error ?? "Could not save those changes.");
           return;
+        }
+        // Each container's own address when the job delivers per container,
+        // and none when it goes back to one address for the job.
+        if (edited?.type === "Import" && panel.section !== "shipment") {
+          for (const c of jobContainers(edited)) {
+            const pick = draft.deliveryMode === "container"
+              ? (draft.containerDelivery?.[c.id] ?? { company: "", address: "" })
+              : { company: "", address: "" };
+            if ((pick.company || "") === (c.containerDeliveryCompany || "")
+              && (pick.address || "") === (c.containerDeliveryAddress || "")) continue;
+            const saved = await fetch(`/api/jobs/${encodeURIComponent(apiJobId)}/containers/${encodeURIComponent(c.id)}`, {
+              method: "PATCH",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ deliveryCompany: pick.company || null, deliveryAddress: pick.address || null }),
+            }).catch(() => null);
+            if (!saved?.ok) showToast(`${c.number || "A container"}'s delivery address was not saved.`);
+          }
         }
         setWorkPanel(null);
         await loadJobs();
@@ -5453,6 +5619,7 @@ export default function GreenlitControlTower() {
              controller does, and it names particular boxes. */
           onReleaseContainer={(container) => releasePortnet(selectedJob, [container.id])}
           onReleaseContainers={(ids) => releasePortnet(selectedJob, ids)}
+          onAddNote={(text) => runJobCommand(selectedJob, "/notes", { text }, "Note added to the job log.")}
           onDischargeContainer={(container) => dischargeMany(selectedJob, [container.id])}
           onHandOverExport={async () => {
             const response = await fetch(

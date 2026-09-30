@@ -30,6 +30,15 @@ function formatDay(value) {
   return `${d}/${m}/${y}`;
 }
 
+const formatDateTime = (v) => {
+  if (!v) return "";
+  const at = new Date(v);
+  if (Number.isNaN(at.getTime())) return formatDay(v);
+  const h = at.getHours(), m = String(at.getMinutes()).padStart(2, "0");
+  return `${formatDay(v)} ${h % 12 || 12}:${m} ${h < 12 ? "AM" : "PM"}`;
+};
+
+
 /**
  * §42. Tell the customer the container's number, and record that we did.
  *
@@ -479,18 +488,22 @@ function DocumentReadiness({ job, onComplete }) {
             person checked the whole job against the paperwork and agreed.
             "No field is empty" is arithmetic; this is a judgement, and it is
             the one the controller relies on when they plan against free time. */}
+        {/* The demo's wording and flow: the button is there but disabled while
+            anything is outstanding, asks before it is pressed, and then says
+            when documents were made ready. */}
         {job.documentsCompletedAt ? (
           <span className="tag" style={{ whiteSpace: "nowrap" }}>
-            Confirmed{job.documentsCompletedBy ? ` · ${job.documentsCompletedBy}` : ""}
+            DOCUMENT READY · {formatDateTime(job.documentsCompletedAt)}
+            {job.documentsCompletedBy ? ` · ${job.documentsCompletedBy}` : ""}
           </span>
-        ) : done ? (
-          <button className="btn primary" type="button" onClick={() => onComplete?.()}>
-            Mark operational documents ready
-          </button>
         ) : (
-          <span className="tag" style={{ whiteSpace: "nowrap" }}>
-            {gaps.length} outstanding
-          </span>
+          <button className="btn primary" type="button" disabled={!done}
+            title={done ? undefined : `${gaps.length} outstanding`}
+            onClick={() => {
+              if (window.confirm("Mark this job as Document Completed? Operations have finished its document work.")) onComplete?.();
+            }}>
+            Mark Job as Document Completed
+          </button>
         )}
       </div>
 
@@ -676,6 +689,36 @@ function Handover({ job, onHandOver, onHandOverJob }) {
   );
 }
 
+/** The demo's "+ Add Job Note": a line on the job's log in the writer's words. */
+function JobNote({ onAdd }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  if (!onAdd) return null;
+  if (!open) {
+    return (
+      <button className="btn secondary" type="button" style={{ marginTop: 8, marginRight: 8 }}
+        onClick={() => setOpen(true)}>+ Add Job Note</button>
+    );
+  }
+  return (
+    <form style={{ marginTop: 8, display: "grid", gap: 8 }}
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!text.trim()) return;
+        const ok = await onAdd(text.trim());
+        if (ok !== false) { setText(""); setOpen(false); }
+      }}>
+      <label className="field-wrap"><span className="field-label">Job note</span>
+        <textarea id="job-note" rows={3} value={text} onChange={(e) => setText(e.target.value)} />
+      </label>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button className="btn primary" type="submit">Add note</button>
+        <button className="btn secondary" type="button" onClick={() => { setText(""); setOpen(false); }}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
 const Field = ({ label, value }) => (
   <div className="field"><span className="field-label">{label}</span><b>{value || "—"}</b></div>
 );
@@ -684,7 +727,7 @@ export default function ZhtJobDetail({
   job, containerIndex = 0, onSelectContainer, onBack, onManage,
   onRecordCms, onSendDetails, onSetTranshipment, onRecordDetails, onHandOver,
   onDocumentsComplete, extras, permitPanel, freeTimePanel, onSetPermitRequired,
-  onHandOverExport, onReleaseContainer, onReleaseContainers, onDischargeContainer,
+  onHandOverExport, onReleaseContainer, onReleaseContainers, onDischargeContainer, onAddNote,
 }) {
   /** Opened by the journey's closing step, and by hand otherwise. */
   const [showClosing, setShowClosing] = useState(false);
@@ -1279,6 +1322,7 @@ export default function ZhtJobDetail({
                 </div>
               </div>
             )) : <span className="muted">No changes recorded yet.</span>}
+            <JobNote onAdd={onAddNote} />
             <button className="btn ghost" type="button" style={{ marginTop: 8 }}
               onClick={() => onManage("activity")}>Open full activity</button>
           </Drawer>
