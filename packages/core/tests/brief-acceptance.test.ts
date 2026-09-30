@@ -42,15 +42,15 @@ test('B: one permit applied to all ten covers them without editing each box', as
   assert.equal(v!.containers.every((c) => c.readyForHandover), true);
 });
 
-test('an uploaded permit with no number yet still allows handover', async () => {
+test('an uploaded permit with no number yet does not allow handover', async () => {
+  // The demo counts a permit only once it has a number.
   const repo = createMemoryRepository();
   const job = await importJob(repo);
   const ids = (await repo.listContainersForImportJob(job.jobId)).map((c) => c.containerId);
   await repo.recordPermit(job.jobId, { permitNumber: null, fileName: 'permit.pdf', containerIds: ids }, 'operations');
   const v = await view(repo, job.jobId);
-  assert.equal(v!.containers.every((c) => c.readyForHandover), true);
-  assert.ok(v!.documentGaps.some((g) => g.field === 'Permit number'),
-    'the number is still asked for before documents are ready');
+  assert.equal(v!.containers.some((c) => c.readyForHandover), false);
+  assert.ok(v!.containers[0]!.handoverGaps.includes('Permit'));
 });
 
 test('C: handover puts the same job on the controller board, and creates no second job', async () => {
@@ -133,13 +133,13 @@ test('G: the controller\'s confirmed last free day is the one the job runs on', 
   assert.equal(box.carrierLastFreeDay, '2026-10-20', 'confirmed outranks estimated');
 });
 
-test('handover needs customer, delivery, vessel, voyage and permit, and not the free days or yard', async () => {
+test('handover needs customer, delivery and a permit number, not the sailing, free days or yard', async () => {
   const repo = createMemoryRepository();
   const job = await importJob(repo, {
-    permitRequired: false, voyageNumber: null,
+    permitRequired: false, vesselName: null, voyageNumber: null, eta: null,
   });
   const v = await view(repo, job.jobId);
-  assert.deepEqual(v!.handoverShipmentGaps, ['Voyage']);
+  assert.deepEqual(v!.handoverShipmentGaps, []);
   assert.equal(v!.containers.every((c) => c.handoverGaps.length === 0), true,
-    'no empty return yard, no free days, no last free day, and nothing else is asked');
+    'no vessel, voyage, ETA, empty return yard, free days or last free day is asked');
 });

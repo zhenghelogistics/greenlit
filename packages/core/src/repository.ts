@@ -830,6 +830,8 @@ export interface ImportContainerDraft {
   triAxle?: boolean;
   /** The delivery date the customer asked for. */
   requestedDeliveryDate?: string | null;
+  /** Where this box goes back empty. Asked at creation; was dropped on save. */
+  emptyReturnYard?: string | null;
   /** §9.3. Where this box goes, when the job delivers to more than one place. */
   deliveryCompany?: string | null;
   deliveryAddress?: string | null;
@@ -898,11 +900,22 @@ export interface ExportSlot {
   sizeType: string;
   heavyDuty?: boolean;
   rated32_5?: boolean;
+  triAxle?: boolean;
+  /** Where these boxes are stuffed, when each is asked separately. */
+  stuffingCompany?: string | null;
+  stuffingAddress?: string | null;
   reeferMode?: string | null;
   reeferTemperature?: string | null;
 }
 
 export interface ExportJobDraft {
+  /** Where the boxes are stuffed, when one address serves the whole job. */
+  stuffingCompany?: string | null;
+  stuffingAddress?: string | null;
+  /** CMS as operations know it at creation: pending, or already done. */
+  cmsStatus?: 'PENDING' | 'COMPLETED' | null;
+  class2S?: boolean;
+  class2C?: boolean;
   /** §9.3. Instructions for this job's delivery only, never written back. */
   deliveryInstructions?: string | null;
   /** Who at the customer to call about this job. */

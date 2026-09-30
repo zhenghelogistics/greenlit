@@ -2770,6 +2770,29 @@ function suggestedTripDraft(job) {
   return { id: reference, type: "Direct Laden to Port", origin: target?.stuffingLocation || job.deliveryAddress, destination: "PSA Tuas", status: "Pending", plannedDate: "", ...containerFields };
 }
 
+/**
+ * A container's free-time terms as the drawer edits them, opened with what is
+ * on file. It opened with the days blank, so saving without retyping them
+ * erased the carrier's allowance.
+ */
+function freeTimeDraftFor(c) {
+  const text = (v) => (v === null || v === undefined ? "" : String(v));
+  // The controller's confirmed dates, as the engine reports them per clock.
+  const confirmed = (label) =>
+    text((c.freeTime ?? []).find((clock) => clock.label === label)?.overriddenLastFreeDay);
+  return {
+    containerId: c.id ?? null,
+    freeTimeModel: c.freeTimeModel && c.freeTimeModel !== "NOT_CONFIRMED" ? c.freeTimeModel : "SPLIT",
+    demurrageFreeDays: text(c.demurrageFreeDays), demurrageLfd: confirmed("Demurrage"),
+    detentionFreeDays: text(c.detentionFreeDays), detentionLfd: confirmed("Detention"),
+    combinedFreeDays: text(c.combinedFreeDays), combinedLfd: confirmed("Combined D+D"),
+    freeTimeRemarks: c.freeTimeRemarks ?? "",
+    lfdOverrideReason: c.lfdOverrideReason ?? "",
+    dailyRate: c.dailyRate ?? "",
+    currency: c.currency || "SGD",
+  };
+}
+
 function initialDrawerDraft(panel, job) {
   if (!panel) return {};
   if (panel.type === "job" && job) return {
@@ -2794,7 +2817,7 @@ function initialDrawerDraft(panel, job) {
     return {
       number: container.number || "",
       seal: container.seal || "",
-      tareKg: container.tareKg ?? "",
+      tareKg: container.tareKg ?? container.tare ?? "",
       grossWeightKg: container.grossWeightKg ?? "",
       vgmKg: container.vgmKg ?? "",
       sizeType: container.sizeType || job.containerSizeType || "",
@@ -2809,7 +2832,8 @@ function initialDrawerDraft(panel, job) {
     // Weight and yard are seeded like everything else here. A field that saves
     // but opens blank is worse than one that is missing: it reads as "nothing
     // recorded" and the first save wipes what was there.
-    return { number: container.number, type: container.type || "", seal: container.seal || "", grossWeight: container.grossWeight ?? "", emptyReturnYard: container.emptyReturnYard || "", triAxle: container.triAxle === true, containerDeliveryCompany: container.containerDeliveryCompany || "", containerDeliveryAddress: container.containerDeliveryAddress || "", requestedDeliveryDate: container.requestedDeliveryDate || "", state: container.state, lastFreeDay: container.lastFreeDay || job.demurrageLastFreeDay || "" };
+    // Free time is edited here too: one screen for the container.
+    return { ...{ number: container.number, type: container.type || "", seal: container.seal || "", grossWeight: container.grossWeight ?? "", emptyReturnYard: container.emptyReturnYard || "", triAxle: container.triAxle === true, containerDeliveryCompany: container.containerDeliveryCompany || "", containerDeliveryAddress: container.containerDeliveryAddress || "", requestedDeliveryDate: container.requestedDeliveryDate || "", state: container.state, lastFreeDay: container.lastFreeDay || job.demurrageLastFreeDay || "" }, ...freeTimeDraftFor(container) };
   }
   if (panel.type === "trip" && job) {
     const trip = job.trips.find((item) => item.id === panel.tripId);
@@ -2819,18 +2843,7 @@ function initialDrawerDraft(panel, job) {
   if (panel.type === "freeTime" && job) {
     // §34 lives on the container: boxes on one job are discharged and returned
     // separately, so the terms are confirmed per container.
-    const c = (job.containers ?? [])[0] ?? {};
-    return {
-      containerId: c.id ?? null,
-      freeTimeModel: c.freeTimeModel && c.freeTimeModel !== "NOT_CONFIRMED" ? c.freeTimeModel : "SPLIT",
-      demurrageFreeDays: "", demurrageLfd: "",
-      detentionFreeDays: "", detentionLfd: "",
-      combinedFreeDays: "", combinedLfd: "",
-      freeTimeRemarks: c.freeTimeRemarks ?? "",
-      lfdOverrideReason: c.lfdOverrideReason ?? "",
-      dailyRate: c.dailyRate ?? "",
-      currency: c.currency || "SGD",
-    };
+    return freeTimeDraftFor((job.containers ?? [])[panel.index || 0] ?? {});
   }
   return {};
 }
@@ -3070,7 +3083,6 @@ function OperationsDrawer({ panel, jobs, customers = [], onClose, onCommit }) {
                   <DrawerField label="Container type"><input value={draft.type || ""} onChange={(event) => update("type", event.target.value)} className={drawerInputClass} placeholder="20' General Purpose" /></DrawerField>
                   <DrawerField label="Seal number"><input value={draft.seal || ""} onChange={(event) => update("seal", event.target.value)} className={drawerInputClass} /></DrawerField>
                 </div>
-                <DrawerField label="Operational state"><select value={draft.state || ""} onChange={(event) => update("state", event.target.value)} className={drawerInputClass}>{["At terminal", "Awaiting permit", "Ready", "Collected", "Delivered"].map((state) => <option key={state}>{state}</option>)}</select></DrawerField>
                 {/* Typed at creation and, until now, correctable nowhere: the
                     edit drawer offered container number, type, seal, state and
                     last free day, and creation asks for weight and the empty
@@ -3086,7 +3098,6 @@ function OperationsDrawer({ panel, jobs, customers = [], onClose, onCommit }) {
                   <DrawerField label="Delivery address" hint="Only when this box goes somewhere different from the rest."><input value={draft.containerDeliveryAddress || ""} onChange={(event) => update("containerDeliveryAddress", event.target.value)} className={drawerInputClass} /></DrawerField>
                 </div>
                 <ChoiceGroup label="Tri-axle chassis" value={Boolean(draft.triAxle)} onChange={(value) => update("triAxle", value)} options={[{ value: true, label: "Needed", note: "Only a tri-axle unit may be assigned." }, { value: false, label: "Not needed", note: "Any suitable unit." }]} />
-                <DrawerField label="Container last free day"><input required type="date" value={draft.lastFreeDay || ""} onChange={(event) => update("lastFreeDay", event.target.value)} className={drawerInputClass} /></DrawerField>
                 <div className="rounded-md border border-sky-200 bg-sky-50 p-4 text-[17px] font-medium text-sky-900">Marking a container collected or delivered also updates its linked delivery trip. Delivering every container creates the empty-return trip automatically.</div>
                 {containerNumberCheck?.checkDigitValid === false || containerNumberCheck?.wellFormed === false ? <div role="alert" className="callout">{containerNumberCheck.problem}</div> : null}
                 {duplicateContainerNumber ? <div role="alert" className="callout">{draftContainerNumber} is already on this job. Every container number must be unique.</div> : null}
@@ -3126,8 +3137,11 @@ function OperationsDrawer({ panel, jobs, customers = [], onClose, onCommit }) {
               </div>
             ) : null}
 
-            {panel.type === "freeTime" ? (
+            {panel.type === "freeTime" || (panel.type === "container" && job?.type === "Import" && panel.mode !== "new") ? (
               <div className="grid gap-5">
+                {panel.type === "container" ? (
+                  <div className="border-t border-slate-200 pt-5 text-[19px] font-semibold text-slate-950">Free time</div>
+                ) : null}
                 {/* §34.3. The model chooses the fields. Asking for a demurrage
                     and a detention date regardless of what the carrier issues
                     is how a combined allowance ends up shown as two
@@ -4392,6 +4406,11 @@ export default function GreenlitControlTower() {
                 grossWeight: numberOrNull(draft.grossWeight),
                 packageCount: numberOrNull(draft.packageCount),
                 packageType: draft.packageType || null,
+                emptyReturnYard: draft.emptyReturnYard || null,
+                triAxle: draft.triAxle === true,
+                deliveryCompany: draft.containerDeliveryCompany || null,
+                deliveryAddress: draft.containerDeliveryAddress || null,
+                requestedDeliveryDate: draft.requestedDeliveryDate || null,
               } }
             : { url: `${base}/${encodeURIComponent(existing?.id ?? "")}`, method: "PATCH", body: {
                 containerNumber: draft.number || null,
@@ -4405,6 +4424,7 @@ export default function GreenlitControlTower() {
                 requestedDeliveryDate: draft.requestedDeliveryDate || null,
                 // Export only; the route ignores it on an import.
                 grossWeightKg: numberOrNull(draft.grossWeightKg),
+                ...(openJobRecord.type === "Export" ? { tareWeightKg: numberOrNull(draft.tareKg) } : {}),
                 stuffingLocation: draft.stuffingLocation || null,
                 packageCount: numberOrNull(draft.packageCount),
                 packageType: draft.packageType || null,
@@ -4434,6 +4454,12 @@ export default function GreenlitControlTower() {
          * and tare may have been entered in the same edit.
          */
         const containerId = existing?.id;
+        // The free-time terms are on the same screen and save with it, through
+        // their own command, which carries the override reason and the log.
+        if (containerId && openJobRecord.type === "Import" && panel.mode !== "new" && !draft._delete) {
+          commitOperationalPanel({ ...panel, type: "freeTime" }, { ...draft, containerId });
+          return;
+        }
         if (containerId && openJobRecord.type === "Export") {
           const ready = Boolean(draft.customerReady);
           if (ready && !existing?.customerReady) {

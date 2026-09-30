@@ -29,15 +29,14 @@ const permit = (o: Partial<PermitRecord> = {}): PermitRecord => ({
   ...o,
 });
 
-test('a controller needs the customer, the sailing and where the box goes', () => {
-  // Operations, 29 September 2026: customer delivery details, vessel, voyage
-  // and the permit. The address is asked of the container, because a job may
-  // deliver each box somewhere different and then has none of its own.
+test('a controller needs the customer and where the box goes, and that is all', () => {
+  // The PM's demo is the specification: vessel, ETA, carrier and MBL are not
+  // handover gateways. The address is asked of the container, because a job
+  // may deliver each box somewhere different and then has none of its own.
   assert.deepEqual(importHandoverShipmentGaps(importJob()), []);
   assert.deepEqual(importHandoverShipmentGaps(importJob({ customer: '' })), ['Customer']);
-  assert.deepEqual(importHandoverShipmentGaps(importJob({ vesselName: null })), ['Vessel']);
-  assert.deepEqual(importHandoverShipmentGaps(importJob({ voyageNumber: '' })), ['Voyage'],
-    'a vessel without a voyage is incomplete');
+  assert.deepEqual(importHandoverShipmentGaps(importJob({ vesselName: null, voyageNumber: null })), [],
+    'no vessel or voyage, and still handed over');
   assert.deepEqual(
     containerHandoverGaps(importJob({ deliveryAddress: null }), container, []), ['Delivery address']);
   assert.deepEqual(
@@ -82,16 +81,14 @@ test('a permit counts only when it is allocated to THIS container', () => {
   assert.deepEqual(containerHandoverGaps(job, container, [permit()]), []);
 });
 
-test('an uploaded permit mapped to the box is enough to hand over', () => {
-  // Operations, 29 September 2026: handover becomes available once the permit
-  // is uploaded. The number is asked for before documents are ready.
+test('a permit counts only when it has a number', () => {
+  // The demo: "a permit counts only when this container actually stores a
+  // permit reference with a number". An upload with no number yet does not.
   const job = importJob({ permitRequired: true });
   assert.deepEqual(
-    containerHandoverGaps(job, container, [permit({ permitNumber: null })]), [],
-    'uploaded and mapped, number still to be entered');
-  assert.deepEqual(
-    containerHandoverGaps(job, container, [permit({ permitNumber: null, fileName: null })]),
-    ['Permit'], 'a record with neither a file nor a number is not a permit yet');
+    containerHandoverGaps(job, container, [permit({ permitNumber: null })]), ['Permit'],
+    'uploaded and mapped, but no number yet');
+  assert.deepEqual(containerHandoverGaps(job, container, [permit()]), []);
 });
 
 test('the shipment’s gaps are read before the container’s', () => {

@@ -181,6 +181,12 @@ export function jobFromApi(view) {
       packageType: c.packageType ?? "",
       // §34. Which clocks this container actually has is the model's to say.
       freeTimeModel: c.freeTimeModel ?? "NOT_CONFIRMED",
+      // The stored allowance, so the editor opens with what is on file rather
+      // than blank. A date set by hand is read off the engine's clocks.
+      combinedFreeDays: c.combinedFreeDays ?? null,
+      demurrageFreeDays: c.demurrageFreeDays ?? null,
+      detentionFreeDays: c.detentionFreeDays ?? null,
+
       freeTimeRemarks: c.freeTimeRemarks ?? "",
       // §34.2. Stored, so the drawer can show what is already on file rather
       // than presenting an empty box over a rate somebody already entered.

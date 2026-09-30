@@ -559,6 +559,13 @@ export function createMemoryRepository(): Repository {
         if (String(from ?? '') === String(to ?? '')) continue;
         (found as unknown as Record<string, unknown>)[field] = to;
         record(found.code, 'customer.amended', actor, { field, from, to });
+        // A rename carries to the customer's jobs, which hold the name, so
+        // they stay with the customer rather than dropping off it.
+        if (field === 'companyName') {
+          for (const j of [...importJobs, ...exportJobs]) {
+            if (j.customer === from) (j as { customer: string }).customer = String(to);
+          }
+        }
       }
       return clone(found);
     },
@@ -683,7 +690,7 @@ export function createMemoryRepository(): Repository {
           packageCount: c.packageCount ?? null,
           packageType: c.packageType?.trim() || null,
           cargoDescription: null, portTerminal: null,
-          emptyReturnYard: null,
+          emptyReturnYard: c.emptyReturnYard?.trim() || null,
           // §34. Absent is not the same as split: nothing is asserted about
           // the carrier's allowance until someone has read it.
           freeTimeModel: (c.freeTimeModel as ImportContainer['freeTimeModel']) ?? 'NOT_CONFIRMED',
@@ -743,7 +750,11 @@ export function createMemoryRepository(): Repository {
         emptyCollectionDate: draft.emptyCollectionDate ?? null,
         emptyCollectionTime: draft.emptyCollectionTime ?? null,
         cmsRequired: draft.cmsRequired ?? true,
-        cmsStatus: 'PENDING',
+        // As operations know it at creation. It was always saved as pending.
+        cmsStatus: draft.cmsStatus === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
+        stuffingCompany: draft.stuffingCompany?.trim() || null,
+        class2S: draft.class2S === true,
+        class2C: draft.class2C === true,
         containerQuantity: quantity,
         containerSizeType: draft.containerSizeType ?? null,
         truckInDate: draft.truckInDate ?? null,
@@ -770,7 +781,16 @@ export function createMemoryRepository(): Repository {
           exportContainerId: `${jobId}-c${i + 1}`, exportJobId: jobId,
           containerRef: `C${i + 1}`, sizeType: slot.sizeType ?? '',
           heavyDuty: slot.heavyDuty === true, rated32_5: slot.rated32_5 === true,
+          triAxle: slot.triAxle === true,
           grossWeightKg: null,
+          // Where the box is stuffed: its own when asked per container, the
+          // job's otherwise. Not the seed helper's example site.
+          stuffingLocation: slot.stuffingAddress?.trim() || draft.stuffingAddress?.trim() || null,
+          stuffingCompany: slot.stuffingCompany?.trim() || draft.stuffingCompany?.trim() || null,
+          // The reefer instruction and temperature the form requires.
+          isReefer: Boolean(slot.reeferMode),
+          temperatureMode: (slot.reeferMode as ExportContainer['temperatureMode']) || null,
+          temperatureSetpointC: slot.reeferTemperature ? Number(slot.reeferTemperature) : null,
         }));
       movements[jobId] = [];
       record(jobId, 'job.created', actor, { field: 'jobNumber', to: jobNumber });
@@ -845,6 +865,18 @@ export function createMemoryRepository(): Repository {
         detentionLfd: null, combinedFreeDays: draft.combinedFreeDays ?? null,
         combinedLfd: null, freeTimeRemarks: null,
         emptyReturnYard: null, internalLfd: null,
+        // Nothing has happened to a box that was just added. Left undefined,
+        // `portnetReleasedAt !== null` read it as already released.
+        portnetReleasedAt: null, portnetReleasedBy: null,
+        dischargedAt: null, deliveredAt: null,
+        handedOverAt: null, handedOverBy: null,
+        plannedDeliveryDate: null, plannedDeliveryTime: null, requestedDeliveryDate: null,
+        triAxle: false, deliveryCompany: null, deliveryAddress: null,
+        lfdOverrideReason: null, dailyRate: null, currency: null,
+        emptyReadyConfirmed: false, emptyReadyConfirmedAt: null, emptyReadySource: null,
+        chassisId: null, chassisMountedAt: null, chassisReleasedAt: null,
+        portTerminal: null, carparkReason: null, carparkArrivedAt: null,
+        cancelled: false, onHold: false,
       } as unknown as ImportContainer;
 
       (importContainers[jobId] ??= []).push(container);

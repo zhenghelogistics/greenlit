@@ -819,6 +819,17 @@ export default function ZhtJobDetail({
   // §34.4. The clocks, counted server-side, in his field grid.
   const clocks = container.freeTime ?? [];
 
+  // What the Movements card offers on an import: the handover until the job
+  // is the controller's, then Plan once a box is released and discharged.
+  const importCanPlan = containers.some((c) => c.canPlanCollection);
+  const importWaitingToHand = containers.filter((c) => !c.handedOver).length;
+  const importReadyToHand = containers.filter((c) => c.readyForHandover).length;
+  const importMissing = [...new Set([
+    ...(job.handoverShipmentGaps ?? []),
+    ...containers.filter((c) => !c.handedOver).flatMap((c) => c.handoverGaps ?? []),
+  ])];
+  const importPlanReason = containers.find((c) => c.handedOver && c.planBlockedReason)?.planBlockedReason ?? "";
+
   return (
     <div className="zht">
       <div className="content">
@@ -964,11 +975,30 @@ export default function ZhtJobDetail({
           <div className="card" style={{ marginBottom: 12 }}>
             <div className="header-row">
               <div className="section-title">Movements</div>
-              <button className="btn primary" type="button"
-                onClick={() => onManage("trip")}>
-                + Plan a movement
-              </button>
+              {/* On an import, a movement is the controller's, and only once a
+                  box is released and discharged. Until the job is handed over
+                  the next step here is the handover, so that is what this
+                  offers — with what is missing when it cannot. */}
+              {job.type !== "Import" || importCanPlan ? (
+                <button className="btn primary" type="button"
+                  onClick={() => onManage("trip")}>
+                  + Plan a movement
+                </button>
+              ) : importReadyToHand > 0 ? (
+                <button className="btn success" type="button" onClick={() => onHandOverExport?.()}>
+                  Hand over to Controller
+                </button>
+              ) : null}
             </div>
+            {job.type === "Import" && !importCanPlan ? (
+              <div className="muted" style={{ marginBottom: 8 }}>
+                {importWaitingToHand > 0 && importReadyToHand === 0
+                  ? `Not ready to hand over. Missing: ${importMissing.join(", ") || "see Controller handover above"}.`
+                  : importWaitingToHand > 0
+                    ? `${importReadyToHand} container${importReadyToHand === 1 ? "" : "s"} ready to hand over to the Controller.`
+                    : `Handed over. The Controller plans once a container is released and discharged${importPlanReason ? ` (${importPlanReason})` : ""}.`}
+              </div>
+            ) : null}
 
             {(job.trips ?? []).length ? (
               <table className="moves">
@@ -1116,10 +1146,8 @@ export default function ZhtJobDetail({
             {/* §34. The drawer that records the carrier's allowance and the
                 daily rate. Without a way in, the clocks can never be set and
                 the charge estimate can never have a rate to multiply. */}
-            <button className="btn secondary" type="button" style={{ marginTop: 10 }}
-              onClick={() => onManage("freeTime")}>
-              {clocks.length ? "Edit free time" : "Confirm free time"}
-            </button>
+{/* Free time is edited in "Edit container details", with the rest of
+                the container: one screen per container. */}
 
             {clocks.length ? (
               <div className="fieldgrid" style={{ marginTop: 10 }}>

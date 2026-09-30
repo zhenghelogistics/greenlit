@@ -296,6 +296,10 @@ export interface ExportContainer {
   heavyDuty: boolean;
   /** Rated to 32.5 tonnes. */
   rated32_5: boolean;
+  /** Needs a tri-axle chassis. The demo asks it on export as on import. */
+  triAxle?: boolean;
+  /** The company at this box's stuffing address. */
+  stuffingCompany?: string | null;
   /**
    * Gross weight once stuffed, which decides the chassis.
    *
@@ -344,6 +348,11 @@ export interface ExportContainer {
 
 /** §38.1. The commercial header. Container detail lives on ExportContainer. */
 export interface ExportJob {
+  /** The company at the stuffing address, when one address serves the whole job. */
+  stuffingCompany?: string | null;
+  /** Dangerous-goods classes the booking carries, as the demo asks at creation. */
+  class2S?: boolean;
+  class2C?: boolean;
   /** Who at the customer to call about this job. Asked at creation. */
   pointOfContact?: string | null;
   /**

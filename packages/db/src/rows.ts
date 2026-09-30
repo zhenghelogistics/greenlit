@@ -124,6 +124,9 @@ export const toImportContainer = (r: Record<string, unknown>): ImportContainer =
 });
 
 export const toExportJob = (r: Record<string, unknown>): ExportJob => ({
+  stuffingCompany: nn(r.stuffing_company as string),
+  class2S: r.class_2s === true,
+  class2C: r.class_2c === true,
   deliveryInstructions: nn(r.delivery_instructions as string),
   pointOfContact: nn(r.point_of_contact as string),
   handedOverAt: nn(r.handed_over_at as string),
@@ -178,6 +181,8 @@ export const toExportContainer = (r: Record<string, unknown>): ExportContainer =
   temperatureMode: nn(r.temperature_mode as ExportContainer['temperatureMode']),
   temperatureSetpointC: nn(r.temperature_setpoint_c as number),
   stuffingLocation: nn(r.stuffing_location as string),
+  stuffingCompany: nn(r.stuffing_company as string),
+  triAxle: r.tri_axle === true,
   containerDetailsSent: r.container_details_sent as boolean,
   containerDetailsSentAt: nn(r.container_details_sent_at as string),
   containerDetailsSentTo: nn(r.container_details_sent_to as string),

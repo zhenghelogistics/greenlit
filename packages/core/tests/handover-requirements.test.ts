@@ -124,7 +124,7 @@ test('an export hands over with CMS pending, and the collection stays blocked', 
     customerCode: 'ABC', shipper: 'SHIPPER', bookingReference: 'BK1',
     exportClearanceReference: 'CLR1', vesselName: 'V', voyageNumber: '1',
     etaSingapore: '2026-10-05', emptyCollectionYard: 'Allied 1',
-    deliveryAddress: '1 Tuas Avenue 1',
+    stuffingAddress: '1 Tuas Avenue 1',
     containerQuantity: 1, containerSizeType: '20GP',
   } as never, 'tester');
 
@@ -226,18 +226,18 @@ test('marking documents ready does not touch handover or collection', async () =
     'planning eligibility unmoved');
 });
 
-test('a job needing no permit hands over, and one missing its voyage does not', async () => {
+test('a job needing no permit hands over, and the store refuses a box missing its permit', async () => {
   // The store refuses what the gate refuses, so the screen hiding a button is
-  // not the only thing in the way.
+  // not the only thing in the way. Vessel and voyage are not gateways.
   const repo = createMemoryRepository();
-  const job = await importJob(repo, { permitRequired: false });
+  const job = await importJob(repo, { permitRequired: false, voyageNumber: null });
   const [box] = await repo.listContainersForImportJob(job.jobId);
   await repo.handContainerToController(box!.containerId, 'operations');
   assert.ok((await repo.listContainersForImportJob(job.jobId))[0]!.handedOverAt);
 
-  const noVoyage = await importJob(repo, { permitRequired: false, voyageNumber: null });
-  const [held] = await repo.listContainersForImportJob(noVoyage.jobId);
-  await assert.rejects(() => repo.handContainerToController(held!.containerId, 'operations'), /Voyage/);
+  const needsPermit = await importJob(repo, { permitRequired: true });
+  const [held] = await repo.listContainersForImportJob(needsPermit.jobId);
+  await assert.rejects(() => repo.handContainerToController(held!.containerId, 'operations'), /Permit/);
 });
 
 test('CMS pending lets a collection be prepared, not given a driver', async () => {

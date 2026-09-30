@@ -38,19 +38,16 @@ const missing = (value: unknown): boolean =>
 /**
  * What an import job is missing before any of its containers can be handed on.
  *
- * Who the customer is and which sailing the boxes are on. Operations named
- * these on 29 September 2026: customer delivery details, vessel, voyage and
- * the permit. The delivery address is checked per container, because a job
- * may deliver each box somewhere different and then has no address of its own.
- *
- * Not the empty return date, the last three days or the final last free day:
- * those land while the container is already on the controller's board.
+ * The customer. The PM's demo is the specification (29 September 2026), and
+ * its handover check is explicit: customer, delivery address and, where the
+ * job needs one, a permit number on the box — "vessel, ETA, carrier, MBL/OBL,
+ * Portnet, Discharged, D+D, LFD and Empty Return Depot are not Controller
+ * Handover gateways". The delivery address is checked per container, because
+ * a job may deliver each box somewhere different and then has none of its own.
  */
 export function importHandoverShipmentGaps(job: ImportJob): string[] {
   const gaps: string[] = [];
   if (missing(job.customer)) gaps.push('Customer');
-  if (missing(job.vesselName)) gaps.push('Vessel');
-  if (missing(job.voyageNumber)) gaps.push('Voyage');
   return gaps;
 }
 
@@ -74,15 +71,14 @@ export function exportHandoverShipmentGaps(job: ExportJob): string[] {
 }
 
 /**
- * Whether a permit is on file: its document uploaded, or its number entered.
+ * Whether a permit counts toward handover: it has a number.
  *
- * Operations, 29 September 2026: handover becomes available once the permit
- * is uploaded and mapped to the box. A number not read off it yet is flagged
- * on the permit as needing attention and is asked for before the documents
- * are ready — it does not hold the container off the controller's board.
+ * The demo's rule — "a permit counts only when this container actually stores
+ * a permit reference with a number". An uploaded permit whose number is not
+ * yet entered is flagged on the permit as needing attention.
  */
 export function permitOnFile(permit: Pick<PermitRecord, 'permitNumber' | 'fileName'>): boolean {
-  return !missing(permit.permitNumber) || !missing(permit.fileName);
+  return !missing(permit.permitNumber);
 }
 
 /**
@@ -232,10 +228,6 @@ export function documentGaps(
     if (job.permitRequired) {
       const mapped = permits.filter((p) => p.linkedContainerIds.includes(c.containerId));
       if (!mapped.some(permitOnFile)) {
-        gaps.push({ area: 'Permit', container: name, field: 'Permit' });
-      } else if (!mapped.some((p) => !missing(p.permitNumber))) {
-        // Uploaded and mapped, so the box could be handed over; the number is
-        // still owed before operations have finished.
         gaps.push({ area: 'Permit', container: name, field: 'Permit number' });
       }
     }

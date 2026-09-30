@@ -390,6 +390,15 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
       // something changed and not what, which is a log of activity rather than
       // a history.
       for (const entry of changed) await record(key, 'customer.amended', actor, entry);
+      // A rename carries to the customer's jobs, which hold the name, so they
+      // stay with the customer rather than dropping off it.
+      if (patch.company_name !== undefined) {
+        for (const table of ['import_jobs', 'export_jobs']) {
+          const moved = await db.from(table).update({ customer: patch.company_name })
+            .eq('customer_id', before.customer_id as string);
+          if (moved.error) throw new Error(`rename on jobs: ${moved.error.message}`);
+        }
+      }
       return toCustomer(updated);
     },
     async deleteCustomer(code, actor) {
@@ -1384,6 +1393,7 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
           // §29. Asked for on the form since the start and stored from 0024.
           tri_axle: c.triAxle === true,
           requested_delivery_date: c.requestedDeliveryDate ?? null,
+          empty_return_yard: c.emptyReturnYard?.trim() || null,
           // §9.3. Null means this box uses the job's own address.
           delivery_company: c.deliveryCompany?.trim() || null,
           delivery_address: c.deliveryAddress?.trim() || null,
@@ -1453,7 +1463,13 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
         eta_singapore: draft.etaSingapore ?? null,
         vessel_closing_at: draft.vesselClosingAt ?? null,
         empty_collection_yard: draft.emptyCollectionYard ?? null,
+        empty_collection_date: draft.emptyCollectionDate ?? null,
+        empty_collection_time: draft.emptyCollectionTime ?? null,
         cms_required: draft.cmsRequired ?? true,
+        cms_status: draft.cmsStatus === 'COMPLETED' ? 'COMPLETED' : 'PENDING',
+        stuffing_company: draft.stuffingCompany?.trim() || null,
+        class_2s: draft.class2S === true,
+        class_2c: draft.class2C === true,
         delivery_instructions: draft.deliveryInstructions ?? null,
         point_of_contact: draft.pointOfContact ?? null,
         container_quantity: quantity,
@@ -1479,6 +1495,12 @@ export function createSupabaseRepository(options: SupabaseRepositoryOptions): Re
           size_type: slot.sizeType ?? '',
           heavy_duty: slot.heavyDuty === true,
           rated_32_5: slot.rated32_5 === true,
+          tri_axle: slot.triAxle === true,
+          stuffing_location: slot.stuffingAddress?.trim() || draft.stuffingAddress?.trim() || null,
+          stuffing_company: slot.stuffingCompany?.trim() || draft.stuffingCompany?.trim() || null,
+          is_reefer: Boolean(slot.reeferMode),
+          temperature_mode: slot.reeferMode || null,
+          temperature_setpoint_c: slot.reeferTemperature ? Number(slot.reeferTemperature) : null,
         }));
       unwrap(await db.from('export_containers').insert(containers).select(), 'create containers');
 

@@ -13,6 +13,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     grossWeight?: number; packageCount?: number; packageType?: string;
     stuffingLocation?: string; isReefer?: boolean;
     temperatureMode?: string; temperatureSetpointC?: number;
+    emptyReturnYard?: string; triAxle?: boolean; deliveryCompany?: string;
+    deliveryAddress?: string; requestedDeliveryDate?: string;
   }>(request);
   if (!body) return badRequest("A JSON body is required");
 
@@ -49,7 +51,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       return;
     }
 
-    await repo.addContainerToJob(id, {
+    const added = await repo.addContainerToJob(id, {
       containerNumber: body.containerNumber ?? null,
       sizeType: body.sizeType ?? null,
       sealNumber: body.sealNumber ?? null,
@@ -57,5 +59,18 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
       packageCount: body.packageCount ?? null,
       packageType: body.packageType ?? null,
     }, auth.displayName);
+
+    // The rest of what the Add Container form asks, through the same write a
+    // correction uses, so both stores keep it. It was typed and then dropped.
+    const more = {
+      emptyReturnYard: body.emptyReturnYard?.trim() || undefined,
+      triAxle: body.triAxle === true ? true : undefined,
+      deliveryCompany: body.deliveryCompany?.trim() || undefined,
+      deliveryAddress: body.deliveryAddress?.trim() || undefined,
+      requestedDeliveryDate: body.requestedDeliveryDate || undefined,
+    };
+    if (Object.values(more).some((v) => v !== undefined)) {
+      await repo.amendContainer(added.containerId, more, auth.displayName);
+    }
   });
 }

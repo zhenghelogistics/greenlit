@@ -71,7 +71,7 @@ export function attentionItems(job, today) {
 }
 
 export default function ZhtDashboard({ jobs, today, onOpenJob, onNewJob, onShowActions }) {
-  const active = jobs.filter((j) => j.derived?.jobStatus !== "Completed");
+  const active = jobs.filter((j) => j.derived?.status !== "Completed");
   const imports = active.filter((j) => j.type === "Import");
 
   const exports = active.filter((j) => j.type === "Export");
@@ -195,7 +195,7 @@ export default function ZhtDashboard({ jobs, today, onOpenJob, onNewJob, onShowA
                       <td>{job.deliveryAddress || "TBA"}</td>
                       <td>{job.type === "Import" ? (job.portnetReleased ? "Released" : "Pending") : "—"}</td>
                       <td>{formatDay(job.demurrageLastFreeDay)}</td>
-                      <td>{job.derived?.jobStatus ?? "—"}</td>
+                      <td>{job.derived?.status ?? "—"}</td>
                     </tr>
                   )) : (
                     <tr><td colSpan={7}><div className="clean-empty">No active jobs.</div></td></tr>

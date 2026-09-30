@@ -1,3 +1,4 @@
+import { duplicateCustomerName } from "@greenlit/engine";
 import { authorize, badRequest, readJson } from "../../../../lib/command";
 import { getJobService, getRepository, jsonError } from "../../../../lib/greenlit";
 
@@ -59,6 +60,13 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ code: str
 
     if (changes.companyName !== undefined && !String(changes.companyName).trim()) {
       return badRequest("A company name is required");
+    }
+    // The same check creation makes: renaming onto another customer's name
+    // leaves two records nobody can tell apart.
+    if (changes.companyName !== undefined) {
+      const clash = duplicateCustomerName(String(changes.companyName),
+        await getRepository().listCustomers(), code.trim().toUpperCase());
+      if (clash) return badRequest(clash);
     }
 
     const customer = await getRepository().amendCustomer(code, changes, auth.displayName);

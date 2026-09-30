@@ -53,7 +53,7 @@ const REEFER = new Set(["20RF", "40RF", "40RQ"]);
  */
 const EQUIPMENT = {
   IMPORT: [["triAxle", "Tri-axle"]],
-  EXPORT: [["heavyDuty", "Heavy duty"], ["rated32_5", "32.5 tonnes"]],
+  EXPORT: [["heavyDuty", "Heavy duty"], ["rated32_5", "32.5 tonnes"], ["triAxle", "Tri-axle"]],
 };
 
 /** Half-hours, morning first — the way a person reads a working day. */
@@ -318,6 +318,35 @@ function WhenField({ label, required, date, time, onDate, onTime }) {
   );
 }
 
+/** A new job's form, empty. Also what "Create & add another" resets to. */
+const BLANK_JOB = {
+  customerCode: "", pic: "",
+  addressMode: "job", deliveryCompany: "", deliveryAddress: "",
+  vesselName: "", voyageNumber: "", etaDate: "", etaTime: "", terminal: "",
+  requestedDeliveryDate: "",
+  carrier: "", blNumber: "", houseBlNumber: "",
+  permitRequired: false,
+  // What the site always needs, and what this one delivery needs instead.
+  // Kept apart so an override is visibly an override rather than an edit to
+  // the customer master made by accident from a job form.
+  deliveryInstructions: "",
+  permitNumber: "", permitExpiryDate: "", permitVesselVoyage: "",
+  // §24. Permits two onwards. The first is the one the reader fills in from
+  // the document; a job commonly carries several.
+  extraPermits: [],
+  // export only
+  bookingReference: "", exportClearanceReference: "", shipper: "",
+  emptyCollectionYard: "", cmsStatus: "PENDING",
+  emptyCollectionDate: "", emptyCollectionTime: "",
+  etaSinDate: "", etaSinTime: "",
+  class2S: false, class2C: false,
+};
+const BLANK_SLOT = {
+  quantity: 1, sizeType: "20GP", reeferMode: "", reeferTemperature: "",
+  heavyDuty: false, rated32_5: false, triAxle: false,
+  stuffingCompany: "", stuffingAddress: "",
+};
+
 export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobNumber, onCustomerChosen }) {
   const [type, setType] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -331,36 +360,12 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
   const [readAddress, setReadAddress] = useState("");
 
   const form = useRef(null);
-  const [job, setJob] = useState({
-    customerCode: "", pic: "",
-    addressMode: "job", deliveryCompany: "", deliveryAddress: "",
-    vesselName: "", voyageNumber: "", etaDate: "", etaTime: "", terminal: "",
-    requestedDeliveryDate: "",
-    carrier: "", blNumber: "", houseBlNumber: "",
-    permitRequired: false,
-    // What the site always needs, and what this one delivery needs instead.
-    // Kept apart so an override is visibly an override rather than an edit to
-    // the customer master made by accident from a job form.
-    deliveryInstructions: "",
-    permitNumber: "", permitExpiryDate: "", permitVesselVoyage: "",
-    // §24. Permits two onwards. The first stays above because that is the one
-    // the reader fills in from the document; a job commonly carries several,
-    // and one container can need three sets.
-    extraPermits: [],
-    // export only
-    bookingReference: "", exportClearanceReference: "", shipper: "",
-    emptyCollectionYard: "", cmsStatus: "PENDING",
-    emptyCollectionDate: "", emptyCollectionTime: "",
-    class2S: false, class2C: false,
-  });
+  const [job, setJob] = useState(() => ({ ...BLANK_JOB }));
 
   const set = (patch) => setJob((was) => ({ ...was, ...patch }));
 
   const [rows, setRows] = useState([{ ...EMPTY_ROW }]);
-  const [slots, setSlots] = useState([{
-    quantity: 1, sizeType: "20GP", reeferMode: "", reeferTemperature: "",
-    heavyDuty: false, rated32_5: false,
-  }]);
+  const [slots, setSlots] = useState([{ ...BLANK_SLOT }]);
 
   /**
    * Which section is open.
@@ -457,8 +462,12 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
         return ["sec-containers", "Every container needs a delivery address."];
       }
     } else {
+      if (!job.vesselName) return ["sec-shipment", "Enter the vessel."];
       if (!job.bookingReference) return ["sec-shipment", "Enter the booking reference."];
-      if (!job.emptyCollectionYard) return ["sec-shipment", "Enter the empty collection yard."];
+      // The empty collection yard is optional, as in the demo.
+      if (job.addressMode === "container" && slots.some((sl) => !sl.stuffingAddress)) {
+        return ["sec-containers", "Every container line needs its stuffing address."];
+      }
       if (slots.some((s) => REEFER.has(s.sizeType) && (!s.reeferMode || !s.reeferTemperature))) {
         return ["sec-containers", "A reefer needs its instruction and temperature."];
       }
@@ -548,8 +557,17 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
           exportClearanceReference: shout(job.exportClearanceReference) || null,
           vesselName: shout(job.vesselName) || null,
           voyageNumber: shout(job.voyageNumber) || null,
-          etaSingapore: when(job.emptyCollectionDate, job.emptyCollectionTime),
+          // ETA SIN is the vessel's. The collection date was being saved here.
+          etaSingapore: when(job.etaSinDate, job.etaSinTime),
           emptyCollectionYard: shout(job.emptyCollectionYard) || null,
+          emptyCollectionDate: job.emptyCollectionDate || null,
+          emptyCollectionTime: job.emptyCollectionTime || null,
+          cmsStatus: job.cmsStatus === "COMPLETED" ? "COMPLETED" : "PENDING",
+          class2S: job.class2S === true,
+          class2C: job.class2C === true,
+          // Where the boxes are stuffed: the job's address, or each line's.
+          stuffingCompany: job.addressMode === "job" ? (job.deliveryCompany || null) : null,
+          stuffingAddress: job.addressMode === "job" ? (job.deliveryAddress || null) : null,
           deliveryInstructions: job.deliveryInstructions || null,
           containerQuantity: slots.reduce((n, s) => n + Number(s.quantity || 0), 0),
           // The lines themselves, so a mixed booking keeps its sizes. Only the
@@ -560,6 +578,9 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
             sizeType: s.sizeType || "",
             heavyDuty: s.heavyDuty === true,
             rated32_5: s.rated32_5 === true,
+            triAxle: s.triAxle === true,
+            stuffingCompany: job.addressMode === "container" ? (s.stuffingCompany || null) : null,
+            stuffingAddress: job.addressMode === "container" ? (s.stuffingAddress || null) : null,
             reeferMode: s.reeferMode || null,
             reeferTemperature: s.reeferTemperature || null,
           })),
@@ -569,13 +590,20 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
     try {
       await onCreate(type, draft, { stayHere: again, sourceFile });
       if (again) {
-        set({
-          vesselName: "", voyageNumber: "", blNumber: "", houseBlNumber: "",
-          bookingReference: "", exportClearanceReference: "",
-        });
+        // A blank job, as the demo does. Keeping half the last one carried its
+        // permits and its document onto the next job without anyone noticing.
+        setJob({ ...BLANK_JOB });
         setRows([{ ...EMPTY_ROW }]);
+        setSlots([{ ...BLANK_SLOT }]);
         setNoaNote("");
         setFilled({});
+        setReadAddress("");
+        setSourceFile(null);
+        setSourceName("");
+        if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+        setSourceUrl("");
+        setTab("sec-customer");
+        onCustomerChosen?.("");
       }
     } catch (failed) {
       setProblem(failed?.message || "The job could not be created.");
@@ -663,7 +691,7 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
       id: "sec-shipment", label: "Shipment",
       outstanding: isImport
         ? !job.vesselName || !job.blNumber
-        : !job.bookingReference || !job.emptyCollectionYard,
+        : !job.bookingReference || !job.vesselName,
     },
     {
       id: "sec-containers", label: "Containers",
@@ -994,7 +1022,11 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                   <Field label="Shipper">
                     <input value={job.shipper} onChange={(e) => set({ shipper: shout(e.target.value) })} />
                   </Field>
-                  <Field label="Empty collection yard" required>
+                  <WhenField
+                    label="ETA SIN" date={job.etaSinDate} time={job.etaSinTime}
+                    onDate={(v) => set({ etaSinDate: v })} onTime={(v) => set({ etaSinTime: v })}
+                  />
+                  <Field label="Empty collection yard">
                     <input value={job.emptyCollectionYard} onChange={(e) => set({ emptyCollectionYard: shout(e.target.value) })} />
                   </Field>
                   <WhenField
@@ -1279,6 +1311,29 @@ export default function ZhtNewJob({ customers = [], onCreate, onCancel, nextJobN
                     ))}
                   </div>
                 </div>
+
+                {/* Asked here when each line is stuffed somewhere of its own,
+                    from the customer's saved locations only. */}
+                {job.addressMode === "container" ? (
+                  <div className="formgrid" style={{ gridColumn: "1 / -1" }}>
+                    <Field label="Stuffing company" required>
+                      <select value={s.stuffingCompany || ""} disabled={!customer}
+                        onChange={(e) => setSlots((was) => was.map((x, n) =>
+                          (n === i ? { ...x, stuffingCompany: e.target.value, stuffingAddress: "" } : x)))}>
+                        <option value="">{!customer ? "Choose a customer first" : "Choose a company"}</option>
+                        {companies.map((c) => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Stuffing address" required>
+                      <select value={s.stuffingAddress || ""} disabled={!s.stuffingCompany}
+                        onChange={(e) => setSlots((was) => was.map((x, n) =>
+                          (n === i ? { ...x, stuffingAddress: e.target.value } : x)))}>
+                        <option value="">Choose an address</option>
+                        {addressesFor(s.stuffingCompany).map((a) => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                    </Field>
+                  </div>
+                ) : null}
 
                 {REEFER.has(s.sizeType) ? (
                   <div className="export-reefer-config">

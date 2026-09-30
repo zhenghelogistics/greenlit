@@ -49,8 +49,10 @@ export function ZhtJobs({ jobs, onOpenJob, onNewJob }) {
   // answerable from the operational status, which is about where the box is.
   const rows = jobs.filter((j) => {
     if (type && j.type !== type) return false;
-    if (docs === "outstanding" && (j.documentGaps ?? []).length === 0) return false;
-    if (docs === "ready" && (j.documentGaps ?? []).length > 0) return false;
+    // Ready means somebody pressed Mark Document Completed, as in the demo;
+    // an empty list of missing fields is not the same claim.
+    if (docs === "outstanding" && j.documentsCompletedAt) return false;
+    if (docs === "ready" && !j.documentsCompletedAt) return false;
     return true;
   });
 

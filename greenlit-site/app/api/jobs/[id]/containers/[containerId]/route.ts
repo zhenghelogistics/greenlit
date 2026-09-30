@@ -25,8 +25,8 @@ export async function PATCH(request: Request, ctx: {
     // which waits for release and discharge.
     "requestedDeliveryDate",
     "deliveryCompany", "deliveryAddress",
-    // Export: the box's own weight and where it is stuffed.
-    "grossWeightKg", "stuffingLocation",
+    // Export: the box's own weight and where it is stuffed, and its size.
+    "grossWeightKg", "stuffingLocation", "sizeType",
   ] as const;
 
   const changes: Record<string, unknown> = {};
@@ -46,8 +46,21 @@ export async function PATCH(request: Request, ctx: {
   // fields, so the job decides which one is being corrected.
   return runCommand(id, async (repo) => {
     if (await repo.getExportJob(id)) {
+      // Number, seal and tare are the box's identity, captured together under
+      // §39 once the empty is collected. They were sent and never written.
+      if (["containerNumber", "sealNumber", "tareWeightKg"].some((k) => k in body)) {
+        const existing = (await repo.listContainersForExportJob(id))
+          .find((c) => c.exportContainerId === containerId);
+        await repo.captureContainerIdentity(containerId, {
+          containerNumber: String(body.containerNumber ?? existing?.containerNumber ?? "").trim().toUpperCase(),
+          sealNumber: String(body.sealNumber ?? existing?.sealNumber ?? "").trim().toUpperCase(),
+          tareWeightKg: Number(body.tareWeightKg ?? existing?.tareWeightKg ?? 0),
+        }, auth.displayName);
+      }
       await repo.amendExportContainer(containerId, {
-        sizeType: changes.sizeType as string | undefined,
+        // The screen sends containerSize; the export record calls it sizeType.
+        // Reading only the second dropped every size change.
+        sizeType: (changes.sizeType ?? changes.containerSize) as string | undefined,
         stuffingLocation: changes.stuffingLocation as string | null | undefined,
         // Handover is refused without it, and nothing could set it.
         grossWeightKg: changes.grossWeightKg === undefined
