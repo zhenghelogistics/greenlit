@@ -48,7 +48,7 @@ import ZhtController from "./components/ZhtController.jsx";
 import ZhtReportProblem from "./components/ZhtReportProblem.jsx";
 import {
   ZhtJobs, ZhtPlanning, ZhtDrivers, ZhtChassis, ZhtBilling,
-  ZhtEmptyReturns, ZhtSearchResults, ZhtCustomers, ZhtCustomerDetail, ZhtYardRates, ZhtReports, ZhtProblemReports,
+  ZhtEmptyReturns, ZhtSearchResults, searchHits, ZhtCustomers, ZhtCustomerDetail, ZhtYardRates, ZhtReports, ZhtProblemReports,
 } from "./components/ZhtScreens.jsx";
 import { lastFreeDayFromEta, REQUIRED_JOB_FIELDS } from "./lib/arrival-notice-parser.mjs";
 import { checkContainerNumber, validateContainerCount } from "@greenlit/engine";
@@ -4279,7 +4279,7 @@ export default function GreenlitControlTower() {
    * fetched when one is opened, and merged into the row already held so the
    * screen renders immediately rather than waiting.
    */
-  function openJob(id) {
+  function openJob(id, index = 0) {
     // Push where we are, so Back out of a job returns to the list that opened
     // it — and so a second job opened from inside a job comes back to the
     // first, which is the whole reason somebody follows a container across
@@ -4291,8 +4291,8 @@ export default function GreenlitControlTower() {
     setMoved(true);
     setScreen("detail");
     // A new job opens on its first container, not on whichever tab index the
-    // last job happened to leave behind.
-    setContainerIndex(0);
+    // last job happened to leave behind — or on the container asked for.
+    setContainerIndex(index);
     setHighlight("");
     window.scrollTo({ top: 0, behavior: "smooth" });
 
@@ -4344,18 +4344,6 @@ export default function GreenlitControlTower() {
     setSelectedJobId(previous.jobId ?? null);
     setHighlight("");
     window.scrollTo({ top: 0, behavior: "smooth" });
-  }
-
-  function showActions(filter = "all") {
-    // The tabs on Action Required, which is where these land. `import` and
-    // `export` were missing from this list, so the dashboard's two new cards
-    // would have fallen through to "all" and shown every job — which is the
-    // one thing operations asked them not to do.
-    const standard = ["us", "customer", "carrier", "import", "export"].includes(filter)
-      ? filter : "all";
-    setActionFilter(standard);
-    setDashboardFilter(["active", "blocked", "exceptions", "carpark", "freeTime"].includes(filter) ? filter : null);
-    goTo("actions");
   }
 
   function updateJob(id, updater) {
@@ -5554,6 +5542,16 @@ export default function GreenlitControlTower() {
               event.preventDefault();
               const term = new FormData(event.currentTarget).get("q")?.toString().trim() ?? "";
               if (!term) return;
+              // As the demo does: nothing found says so, one match (or several
+              // on the same container) opens it, and more than that lists them.
+              const hits = searchHits(jobs, term);
+              if (hits.length === 0) { showToast(`Nothing matched “${term}”.`); return; }
+              const places = new Set(hits.map((h) => `${h.job.id}|${h.index ?? 0}`));
+              if (places.size === 1) {
+                event.currentTarget.reset();
+                openJob(hits[0].job.id, hits[0].index ?? 0);
+                return;
+              }
               setSearchQuery(term);
               goTo("search");
             }}
@@ -5580,7 +5578,7 @@ export default function GreenlitControlTower() {
       {(current === "dashboard" || current === "actions") && source !== "engine" ? (
         <BoardState source={source} onRetry={loadJobs} onNewJob={() => setCreatingJob(true)} />
       ) : null}
-      {current === "dashboard" && source === "engine" ? <ZhtDashboard jobs={jobs} today={operationalToday()} onOpenJob={(job) => openJob(job.id)} onNewJob={() => setCreatingJob(true)} onShowActions={showActions} /> : null}
+      {current === "dashboard" && source === "engine" ? <ZhtDashboard jobs={jobs} today={operationalToday()} onOpenJob={(job) => openJob(job.id)} onNewJob={() => setCreatingJob(true)} onViewJobs={() => goTo("jobs")} /> : null}
       {current === "actions" && source === "engine" ? <ActionRequired jobs={actionJobs} filter={actionFilter} setFilter={setActionFilter} dashboardFilter={dashboardFilter} clearDashboardFilter={() => setDashboardFilter(null)} onOpen={openJob} /> : null}
       {current === "documents" ? <DocumentIntake documents={documents} onApply={applyDocument} onApplyBatch={applyDocumentFor} onOpenJob={(job) => openJob(job.id)} /> : null}
       {current === "people" ? <People /> : null}
@@ -5604,7 +5602,7 @@ export default function GreenlitControlTower() {
       {current === "drivers" ? <ZhtDrivers fleet={fleet} /> : null}
       {current === "emptyReturns" ? <ZhtEmptyReturns jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
       {current === "billing" ? <ZhtBilling jobs={jobs} onOpenJob={(job) => openJob(job.id)} /> : null}
-      {current === "search" ? <ZhtSearchResults jobs={jobs} query={searchQuery} onOpenJob={(job) => openJob(job.id)} onBack={goBack} /> : null}
+      {current === "search" ? <ZhtSearchResults jobs={jobs} query={searchQuery} onOpenJob={(job, index) => openJob(job.id, index)} onBack={goBack} /> : null}
       {current === "detail" && selectedJob ? (
         <ZhtJobDetail
           job={selectedJob}

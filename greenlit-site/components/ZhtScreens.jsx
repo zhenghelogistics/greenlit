@@ -40,19 +40,41 @@ const Shell = ({ title, note, action, children }) => (
 const Empty = ({ children }) => <div className="clean-empty">{children}</div>;
 
 /** §26. Every job, filterable by domain — his toolbar, our register. */
+/**
+ * Where a job is operationally, from its containers: the one status they all
+ * share, or how many are completed, or Cancelled. As the demo's jobs list.
+ */
+function operationalStatus(job) {
+  if (job.cancelled) return "Cancelled";
+  const boxes = job.containers ?? [];
+  if (!boxes.length) return job.derived?.status ?? "—";
+  const states = [...new Set(boxes.map((c) => c.status || c.state).filter(Boolean))];
+  if (states.length === 1) return states[0];
+  const done = boxes.filter((c) => (c.status || c.state) === "Completed").length;
+  return `${done}/${boxes.length} Containers Completed`;
+}
+
 export function ZhtJobs({ jobs, onOpenJob, onNewJob }) {
   const [type, setType] = useState("");
   const [docs, setDocs] = useState("");
+  const [status, setStatus] = useState("");
+  const [typed, setTyped] = useState("");
+  const [term, setTerm] = useState("");
 
-  // Two questions a person actually opens this list to ask: what is still
-  // being chased, and what is finished and can be handed on. Neither is
-  // answerable from the operational status, which is about where the box is.
+  const needle = term.trim().toLowerCase();
   const rows = jobs.filter((j) => {
     if (type && j.type !== type) return false;
     // Ready means somebody pressed Mark Document Completed, as in the demo;
     // an empty list of missing fields is not the same claim.
     if (docs === "outstanding" && j.documentsCompletedAt) return false;
     if (docs === "ready" && !j.documentsCompletedAt) return false;
+    const done = j.derived?.status === "Completed";
+    if (status === "active" && (done || j.cancelled)) return false;
+    if (status === "completed" && !done) return false;
+    if (status === "cancelled" && !j.cancelled) return false;
+    if (needle && ![j.id, j.customer, j.vessel, j.billOfLading, j.booking,
+      ...(j.containers ?? []).map((c) => c.number)]
+      .filter(Boolean).some((v) => String(v).toLowerCase().includes(needle))) return false;
     return true;
   });
 
@@ -60,38 +82,58 @@ export function ZhtJobs({ jobs, onOpenJob, onNewJob }) {
     <Shell title="Jobs"
       action={<button className="btn primary" type="button" onClick={onNewJob}>+ New Job</button>}>
       <div className="card">
-        <div className="toolbar">
-          <select value={type} onChange={(e) => setType(e.target.value)}>
+        <form className="toolbar" onSubmit={(e) => { e.preventDefault(); setTerm(typed); }}>
+          <input id="jobs-search" type="search" value={typed} onChange={(e) => setTyped(e.target.value)}
+            placeholder="Job no., customer, vessel, MBL, booking, container" aria-label="Search jobs" />
+          <button className="btn secondary" type="submit">Search</button>
+          <select value={type} onChange={(e) => setType(e.target.value)} aria-label="Job type">
             <option value="">All Types</option>
             <option value="Import">Import</option>
             <option value="Export">Export</option>
           </select>
-          <select value={docs} onChange={(e) => setDocs(e.target.value)}>
-            <option value="">Any document status</option>
-            <option value="outstanding">Information outstanding</option>
-            <option value="ready">Documents ready</option>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Job status">
+            <option value="">All Job Status</option>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
           </select>
-        </div>
+          <select value={docs} onChange={(e) => setDocs(e.target.value)} aria-label="Document status">
+            <option value="">Any document status</option>
+            <option value="outstanding">Required Information</option>
+            <option value="ready">Document Ready</option>
+          </select>
+        </form>
         <table>
           <thead>
             <tr>
-              <th>Job</th><th>Type</th><th>Customer</th><th>Containers</th>
-              <th>Vessel / Voyage</th><th>Permit</th><th>Status</th>
+              <th>Job</th><th>Type</th><th>Customer</th><th>Vessel / Voyage</th><th>Containers</th>
+              <th>Document status</th><th>Operational status</th><th />
             </tr>
           </thead>
           <tbody>
-            {rows.length ? rows.map((job) => (
-              <tr key={job.id}>
-                <td><button type="button" className="job-link" onClick={() => onOpenJob(job)}>{job.id}</button></td>
-                <td>{job.type}</td>
-                <td>{job.customer || "Customer TBA"}</td>
-                <td>{(job.containers ?? []).length}</td>
-                <td>{job.vessel || "—"}</td>
-                <td>{job.permitRequired ? (job.permitReceived ? "Received" : "Outstanding") : "Not required"}</td>
-                <td>{job.derived?.status ?? "—"}</td>
-              </tr>
-            )) : (
-              <tr><td colSpan={7}><Empty>No jobs yet.</Empty></td></tr>
+            {rows.length ? rows.map((job) => {
+              const numbers = (job.containers ?? []).map((c) => c.number || c.ref).filter(Boolean);
+              return (
+                <tr key={job.id}>
+                  <td><button type="button" className="job-link" onClick={() => onOpenJob(job)}>{job.id}</button></td>
+                  <td>{job.type}</td>
+                  <td>{job.customer || "Customer TBA"}</td>
+                  <td>{job.vessel || "—"}{job.type === "Import" && job.eta ? <small style={{ display: "block" }}>ETA {fmt(job.eta)}</small> : null}</td>
+                  <td>
+                    {(job.containers ?? []).length}
+                    {numbers.length ? (
+                      <small style={{ display: "block" }}>
+                        {numbers.slice(0, 2).join(", ")}{numbers.length > 2 ? ` +${numbers.length - 2} more` : ""}
+                      </small>
+                    ) : null}
+                  </td>
+                  <td>{job.documentsCompletedAt ? "DOCUMENT READY" : "REQUIRED INFORMATION"}</td>
+                  <td>{operationalStatus(job)}</td>
+                  <td><button type="button" className="btn secondary" onClick={() => onOpenJob(job)}>View Job</button></td>
+                </tr>
+              );
+            }) : (
+              <tr><td colSpan={8}><Empty>{jobs.length ? "No job matches these filters." : "No jobs yet."}</Empty></td></tr>
             )}
           </tbody>
         </table>
@@ -1288,26 +1330,56 @@ function formatWhen(iso) {
 }
 
 /** Global search across jobs, containers and customers. */
+/**
+ * Everything the demo's search looks in: the job's references and delivery,
+ * each container's number, size, seal, depot and tare, and each movement's
+ * driver, vehicle, chassis and route. One result per thing that matched, so
+ * opening a container result opens that container.
+ */
+export function searchHits(jobs, query) {
+  const needle = String(query ?? "").trim().toLowerCase();
+  if (!needle) return [];
+  const has = (...values) => values.filter(Boolean).some((v) => String(v).toLowerCase().includes(needle));
+  const hits = [];
+  for (const job of jobs) {
+    const boxes = job.containers ?? [];
+    if (has(job.id, job.customer, job.vessel, job.billOfLading, job.houseBillOfLading, job.booking,
+      job.deliveryCompany, job.deliveryAddress)) {
+      hits.push({ kind: "Job", job, index: null, label: job.customer || "Customer TBA" });
+    }
+    boxes.forEach((c, index) => {
+      if (has(c.number, c.sizeType, c.seal, c.emptyReturnYard, c.tare, c.containerDeliveryAddress)) {
+        hits.push({ kind: "Container", job, index, label: `${c.number || c.ref} · ${c.sizeType || ""}` });
+      }
+    });
+    for (const t of job.trips ?? []) {
+      if (has(t.driver, t.truck, t.chassisId, t.origin, t.destination, t.type)) {
+        const index = Math.max(0, boxes.findIndex((c) => c.id === t.containerId));
+        hits.push({ kind: "Movement", job, index, label: `${t.id} · ${t.origin} → ${t.destination}${t.driver ? ` · ${t.driver}` : ""}` });
+      }
+    }
+  }
+  return hits;
+}
+
 export function ZhtSearchResults({ jobs, query, onOpenJob, onBack }) {
-  const needle = (query ?? "").trim().toLowerCase();
-  const hits = !needle ? [] : jobs.filter((j) =>
-    [j.id, j.customer, j.vessel, j.booking, j.billOfLading, j.container]
-      .filter(Boolean).some((v) => String(v).toLowerCase().includes(needle))
-    || (j.containers ?? []).some((c) => String(c.number ?? "").toLowerCase().includes(needle)));
+  const hits = searchHits(jobs, query);
+  const needle = String(query ?? "").trim();
 
   return (
     <Shell title="Search Results" note={needle ? `${hits.length} for “${query}”` : "Type to search."}
       action={<button className="btn secondary" type="button" onClick={onBack}>← Back</button>}>
       <div className="card">
-        {hits.length ? hits.map((job) => (
-          <div className="movement" key={job.id}>
+        {hits.length ? hits.map((hit, i) => (
+          <div className="movement" key={`${hit.job.id}-${hit.kind}-${i}`}>
             <strong>
-              <button type="button" className="job-link" onClick={() => onOpenJob(job)}>{job.id}</button>
+              <span className="tag">{hit.kind}</span>{" "}
+              <button type="button" className="job-link" onClick={() => onOpenJob(hit.job, hit.index ?? 0)}>{hit.job.id}</button>
             </strong>
-            {job.customer || "Customer TBA"}
+            {" "}{hit.label}
             <br />
             <span className="muted">
-              {job.type} · {job.vessel || "no vessel"} · {job.derived?.status ?? ""}
+              {hit.job.type} · {hit.job.vessel || "no vessel"} · {hit.job.derived?.status ?? ""}
             </span>
           </div>
         )) : <Empty>{needle ? "Nothing matched." : "Type a job number, container or customer."}</Empty>}

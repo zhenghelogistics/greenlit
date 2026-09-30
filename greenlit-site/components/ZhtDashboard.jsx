@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 /**
  * The Control Tower dashboard, in the PM's markup.
  *
@@ -70,61 +72,64 @@ export function attentionItems(job, today) {
   return items;
 }
 
-export default function ZhtDashboard({ jobs, today, onOpenJob, onNewJob, onShowActions }) {
-  const active = jobs.filter((j) => j.derived?.status !== "Completed");
-  const imports = active.filter((j) => j.type === "Import");
-
-  const exports = active.filter((j) => j.type === "Export");
-
-  /**
-   * Jobs still waiting on something before a controller can take them.
-   *
-   * A missing permit is one of those things rather than a category of its own.
-   * Permit Attention was its own card and its jobs were counted in Requires
-   * Information as well, so one job appeared under two headings and the board
-   * read as more work than there was. Operations asked for it plainly: "so I
-   * do not need that permit attention tab".
-   */
-  const needInfo = active.filter((j) =>
-    !j.infoComplete || (j.permitRequired && !j.permitReceived));
-
-  // His list, capped at six, each job carrying at most five visible issues.
-  // Today and future only; a passed ETA belongs in Attention, not here.
-  const arrivals = [];
-  for (const job of imports) {
-    const eta = dayPart(job.eta);
-    if (!eta || eta < today) continue;
-    const key = `${eta}|${job.vessel || "Unknown Vessel"}`;
-    let group = arrivals.find((g) => g.key === key);
-    if (!group) {
-      group = { key, date: eta, vessel: job.vessel || "Unknown Vessel", jobs: [], containers: 0 };
-      arrivals.push(group);
-    }
-    group.jobs.push(job.id);
-    group.containers += (job.containers ?? []).length;
+/**
+ * Where a job stands before the controller, as the demo's Job Preparation &
+ * Handover panel says it: REQUIRES INFORMATION while a handover check fails,
+ * READY FOR HANDOVER once a box can go, HANDED OVER x/y as boxes go.
+ */
+export function preparation(job) {
+  if (job.type === "Import") {
+    const boxes = job.containers ?? [];
+    const handed = boxes.filter((c) => c.handedOver).length;
+    const waiting = boxes.filter((c) => !c.handedOver);
+    const needs = (job.handoverShipmentGaps ?? []).length > 0
+      || waiting.some((c) => (c.handoverGaps ?? []).length > 0);
+    const state = handed === boxes.length && boxes.length ? "HANDED OVER"
+      : needs && !waiting.some((c) => c.readyForHandover) ? "REQUIRES INFORMATION"
+        : waiting.some((c) => c.readyForHandover) ? "READY FOR HANDOVER"
+          : handed ? "HANDED OVER" : "REQUIRES INFORMATION";
+    return { state, handed, total: boxes.length, needs };
   }
-  arrivals.sort((a, b) => a.date.localeCompare(b.date));
+  const handed = Boolean(job.handedOverAt);
+  const needs = (job.exportHandoverGaps ?? []).length > 0;
+  return {
+    state: handed ? "HANDED OVER" : needs ? "REQUIRES INFORMATION" : "READY FOR HANDOVER",
+    handed: handed ? 1 : 0, total: 1, needs,
+  };
+}
 
-  // Next three days of incoming work, counted by vessel ETA.
-  // §34.5. Inside two days of the last free day, or past it.
+const TABS = [
+  ["all", "All"], ["import", "Import"], ["export", "Export"],
+  ["needs", "Requires Information"], ["ready", "Ready for Controller"],
+];
+
+export default function ZhtDashboard({ jobs, today, onOpenJob, onNewJob, onViewJobs }) {
+  const [tab, setTab] = useState("all");
+  const active = jobs.filter((j) => j.derived?.status !== "Completed");
+  const prep = new Map(active.map((j) => [j.id, preparation(j)]));
+  const inTab = {
+    all: active,
+    import: active.filter((j) => j.type === "Import"),
+    export: active.filter((j) => j.type === "Export"),
+    needs: active.filter((j) => prep.get(j.id).state === "REQUIRES INFORMATION"),
+    ready: active.filter((j) => prep.get(j.id).state === "READY FOR HANDOVER"),
+  };
+  const rows = inTab[tab] ?? active;
+
+  // The cards and the tabs are one control: pressing a card shows its jobs
+  // here, as the demo does, instead of going to another screen.
+  const card = (id, label, hint, tone) => (
+    <button type="button" className={`clean-metric${tone ? ` ${tone}` : ""}`} aria-pressed={tab === id}
+      onClick={() => setTab(id)}>
+      <span>{label}</span><strong>{inTab[id].length}</strong>
+      <small>{hint}</small>
+    </button>
+  );
+
   return (
     <div className="zht">
       <div className="content">
         <section className="view active">
-          {/* One heading.
-              
-              There were three stacked, and they all said the same thing:
-              "Control Tower / Operational overview", then a capitalised
-              "DAILY OPERATIONS CONTROL TOWER / Daily operational view", then
-              "Focus: Job preparation → Missing information → Validation →
-              Controller handover".
-
-              None of that tells somebody opening this at seven in the morning
-              anything they do not know. The process line in particular is a
-              description of the app, read once and never again, taking the
-              room that should have been white.
-
-              What is left is what changes: which day it is, and the way in. */}
           <div className="dashboard-role-head clean-dashboard-head">
             <div>
               <h2 style={{ margin: 0 }}>Control Tower</h2>
@@ -136,22 +141,11 @@ export default function ZhtDashboard({ jobs, today, onOpenJob, onNewJob, onShowA
           </div>
 
           <div className="clean-metrics control-tower-metrics">
-            <button type="button" className="clean-metric" onClick={() => onShowActions("active")}>
-              <span>Active Jobs</span><strong>{active.length}</strong>
-              <small>Jobs being prepared / monitored</small>
-            </button>
-            <button type="button" className="clean-metric" onClick={() => onShowActions("import")}>
-              <span>Import Jobs</span><strong>{imports.length}</strong>
-              <small>Arriving: terminal to customer, then the empty back</small>
-            </button>
-            <button type="button" className="clean-metric" onClick={() => onShowActions("export")}>
-              <span>Export Jobs</span><strong>{exports.length}</strong>
-              <small>Leaving: empties out, stuffed, back to the port</small>
-            </button>
-            <button type="button" className="clean-metric attention-soft" onClick={() => onShowActions("blocked")}>
-              <span>Required Information</span><strong>{needInfo.length}</strong>
-              <small>Import and export jobs still missing something, permits included</small>
-            </button>
+            {card("all", "Active Jobs", "Jobs being prepared / monitored")}
+            {card("import", "Import Jobs", "Arriving: terminal to customer, then the empty back")}
+            {card("export", "Export Jobs", "Leaving: empties out, stuffed, back to the port")}
+            {card("needs", "Requires Information", "Still missing what handover needs", "attention-soft")}
+            {card("ready", "Ready for Controller", "Can be handed over now")}
           </div>
 
           <div className="card clean-main-card control-tower-main">
@@ -162,43 +156,55 @@ export default function ZhtDashboard({ jobs, today, onOpenJob, onNewJob, onShowA
                   Active jobs showing whether required information is complete for Controller handover.
                 </div>
               </div>
-              <button className="btn secondary" type="button" onClick={() => onShowActions("active")}>
+              <button className="btn secondary" type="button" onClick={onViewJobs}>
                 View all jobs
               </button>
+            </div>
+            <div className="queue-tabs" role="tablist">
+              {TABS.map(([id, label]) => (
+                <button key={id} type="button" role="tab" className="queue-tab"
+                  aria-selected={tab === id} onClick={() => setTab(id)}>
+                  {label}<span className="n">{inTab[id].length}</span>
+                </button>
+              ))}
             </div>
             <div className="table-scroll">
               <table className="clean-table today-operations-table">
                 <thead>
                   <tr>
-                    <th>Job / Container</th><th>Customer</th><th>Vessel / ETA</th>
-                    <th>Delivery</th><th>Portnet</th><th>LFD</th><th>Status</th>
+                    <th>Type / Job</th><th>Customer</th><th>Vessel / Reference</th>
+                    <th>Operational requirement</th><th>Preparation</th><th>Handover</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {active.length ? active.slice(0, 12).map((job) => (
-                    <tr
-                      key={job.id}
-                      className="row-opens"
-                      onClick={() => onOpenJob(job)}
-                    >
-                      <td>
-                        <button
-                          type="button" className="job-link"
-                          onClick={(event) => { event.stopPropagation(); onOpenJob(job); }}
-                        >
-                          {job.id}
-                        </button>
-                        {job.container ? <small style={{ display: "block" }}>{job.container}</small> : null}
-                      </td>
-                      <td>{job.customer || "Customer TBA"}</td>
-                      <td>{job.vessel || "—"}<small style={{ display: "block" }}>{formatDay(job.eta)}</small></td>
-                      <td>{job.deliveryAddress || "TBA"}</td>
-                      <td>{job.type === "Import" ? (job.portnetReleased ? "Released" : "Pending") : "—"}</td>
-                      <td>{formatDay(job.demurrageLastFreeDay)}</td>
-                      <td>{job.derived?.status ?? "—"}</td>
-                    </tr>
-                  )) : (
-                    <tr><td colSpan={7}><div className="clean-empty">No active jobs.</div></td></tr>
+                  {rows.length ? rows.map((job) => {
+                    const p = prep.get(job.id);
+                    return (
+                      <tr key={job.id} className="row-opens" onClick={() => onOpenJob(job)}>
+                        <td>
+                          <span className="tag">{job.type === "Import" ? "IMPORT" : "EXPORT"}</span>{" "}
+                          <button type="button" className="job-link"
+                            onClick={(event) => { event.stopPropagation(); onOpenJob(job); }}>
+                            {job.id}
+                          </button>
+                        </td>
+                        <td>{job.customer || "Customer TBA"}</td>
+                        <td>
+                          {job.vessel || "—"}
+                          <small style={{ display: "block" }}>
+                            {job.type === "Import" ? `ETA ${formatDay(job.eta)}` : `BOOKING: ${job.booking || "—"}`}
+                          </small>
+                        </td>
+                        <td>{job.type === "Import"
+                          ? ((job.containers ?? []).length && (job.containers ?? []).every((c) => c.portnetReleasedAt)
+                            ? "PORTNET RELEASED" : "PORTNET PENDING")
+                          : (job.cmsCompleted ? "CMS DONE" : "CMS PENDING")}</td>
+                        <td><span className="tag">{p.state}</span></td>
+                        <td>{p.handed}/{p.total}</td>
+                      </tr>
+                    );
+                  }) : (
+                    <tr><td colSpan={6}><div className="clean-empty">No jobs here.</div></td></tr>
                   )}
                 </tbody>
               </table>

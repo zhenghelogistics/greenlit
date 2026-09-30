@@ -360,33 +360,19 @@ test("creating a job closes the wizard before it navigates", async () => {
     "the wizard must be closed before the job is opened");
 });
 
-test("every filter a dashboard card asks for is a filter that exists", async () => {
-  // The dashboard's cards are shortcuts into Action Required, and the shortcut
-  // is a string. `showActions` keeps a list of the ones it recognises and
-  // silently falls back to "all" for anything else — so a card asking for a
-  // filter that is not on that list shows every job instead, which looks like
-  // the card working and is the opposite of what it says.
-  //
-  // It happened: Import Jobs and Export Jobs were added as cards before
-  // `showActions` knew those words.
-  const shell = await readFile("GreenlitControlTower.jsx", "utf8");
+test("every dashboard card shows one of the panel's own tabs", async () => {
+  // The demo's cards filter the Job Preparation & Handover panel in place.
+  // A card naming a tab the panel does not have would show nothing and look
+  // like an empty day.
   const dashboard = await readFile("components/ZhtDashboard.jsx", "utf8");
+  const tabs = new Set([...(/const TABS = \[([\s\S]*?)\];/.exec(dashboard)?.[1] ?? "")
+    .matchAll(/\["(\w+)", "/g)].map((m) => m[1]));
+  assert.ok(tabs.size >= 5, "expected the panel's tabs");
 
-  const accepted = new Set([
-    ...[.../const standard = \[([^\]]*)\]/.exec(shell)?.[1].matchAll(/"(\w+)"/g) ?? []]
-      .map((m) => m[1]),
-    ...[.../setDashboardFilter\(\[([^\]]*)\]/.exec(shell)?.[1].matchAll(/"(\w+)"/g) ?? []]
-      .map((m) => m[1]),
-    "all",
-  ]);
-  assert.ok(accepted.size > 3, "expected to find the filters showActions accepts");
-
-  const asked = [...dashboard.matchAll(/onShowActions\("(\w+)"\)/g)].map((m) => m[1]);
-  assert.ok(asked.length > 0, "expected the dashboard to link into Action Required");
-
-  const unknown = [...new Set(asked)].filter((f) => !accepted.has(f));
-  assert.deepEqual(unknown, [],
-    "these cards ask for a filter showActions does not know, so they show every job");
+  const cards = [...dashboard.matchAll(/card\("(\w+)"/g)].map((m) => m[1]);
+  assert.ok(cards.length >= 5, "expected the dashboard's cards");
+  assert.deepEqual(cards.filter((c) => !tabs.has(c)), [],
+    "these cards name a tab the panel does not have");
 });
 
 test("every screen handed onOpenJob gives it an id, not a job", async () => {
